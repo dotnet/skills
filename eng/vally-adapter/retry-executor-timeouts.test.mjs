@@ -406,3 +406,242 @@ writeFileSync(output, records.map(JSON.stringify).join("\\n") + "\\n");
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("CLI retries only the still-timed-out slot on one bounded second pass", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-retry-second-pass-"));
+  try {
+    const runDir = join(root, "run");
+    const retryRoot = join(root, "retry");
+    const summaryPath = join(root, "executor-retry-summary.json");
+    const counterPath = join(root, "attempt-count.txt");
+    const resultsFile = join(runDir, "baseline", "results.jsonl");
+    const firstSuccess = record({
+      shardKey: "success",
+      variant: "baseline",
+      stimulus: "Keep me",
+    });
+    const timeout = record({
+      status: "error",
+      error: "Timeout after 300000ms waiting for session.idle",
+      shardKey: "timeout",
+      variant: "baseline",
+      stimulus: "Retry me",
+    });
+    writeJsonl(resultsFile, [firstSuccess, timeout]);
+
+    const fakeVally = join(root, "fake-vally.mjs");
+    writeFileSync(
+      fakeVally,
+      `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+const args = process.argv.slice(2);
+const value = (name) => args[args.indexOf(name) + 1];
+const count = existsSync(${JSON.stringify(counterPath)})
+  ? Number(readFileSync(${JSON.stringify(counterPath)}, "utf8")) + 1
+  : 1;
+writeFileSync(${JSON.stringify(counterPath)}, String(count));
+const variant = value("--variant");
+const output = join(value("--output-dir"), "retry-run", variant, "results.jsonl");
+mkdirSync(join(value("--output-dir"), "retry-run", variant), { recursive: true });
+const evalFile = value("--eval-filter");
+const retryRecord = ${JSON.stringify(timeout)};
+retryRecord.status = count === 1 ? "error" : "success";
+retryRecord.error = count === 1
+  ? "Timeout after 300000ms waiting for session.idle"
+  : undefined;
+retryRecord.experiment = { evalFile, runId: "retry-run-" + count };
+writeFileSync(output, JSON.stringify(retryRecord) + "\\n");
+process.exit(count === 1 ? 1 : 0);
+`,
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        retryScript,
+        "--experiment-file",
+        join(root, "experiment.yaml"),
+        "--experiment-dir",
+        runDir,
+        "--retry-output-dir",
+        retryRoot,
+        "--summary",
+        summaryPath,
+        "--vally",
+        `"${process.execPath}" "${fakeVally}"`,
+        "--max-attempts-per-group",
+        "2",
+      ],
+      { encoding: "utf8" },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(readFileSync(counterPath, "utf8"), "2");
+    const merged = readFileSync(resultsFile, "utf8")
+      .trim()
+      .split("\n")
+      .map(JSON.parse);
+    assert.equal(merged[0].stimulus, "Keep me");
+    assert.equal(merged[1].status, "success");
+    assert.equal(merged[1].executorRetry.attempt, 3);
+    assert.equal(merged[1].executorRetry.retryRunId, "retry-run-2");
+
+    const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
+    assert.equal(summary.maxAttemptsPerGroup, 2);
+    assert.equal(summary.attemptedGroupCount, 1);
+    assert.equal(summary.attemptedRetryCount, 2);
+    assert.equal(summary.recoveredSlotCount, 1);
+    assert.equal(summary.unresolvedSlotCount, 0);
+    assert.equal(summary.attempts.length, 2);
+    assert.deepEqual(summary.attempts[0].unresolvedSlots, ["timeout"]);
+    assert.deepEqual(summary.attempts[1].recoveredSlots, ["timeout"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI stops after the bounded second pass when the timeout persists", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-retry-persistent-"));
+  try {
+    const runDir = join(root, "run");
+    const retryRoot = join(root, "retry");
+    const summaryPath = join(root, "executor-retry-summary.json");
+    const counterPath = join(root, "attempt-count.txt");
+    const resultsFile = join(runDir, "skilled", "results.jsonl");
+    const timeout = record({
+      status: "error",
+      error: "Timeout after 300000ms waiting for session.idle",
+      shardKey: "persistent-timeout",
+      stimulus: "Still stuck",
+    });
+    writeJsonl(resultsFile, [timeout]);
+
+    const fakeVally = join(root, "fake-vally.mjs");
+    writeFileSync(
+      fakeVally,
+      `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+const args = process.argv.slice(2);
+const value = (name) => args[args.indexOf(name) + 1];
+const count = existsSync(${JSON.stringify(counterPath)})
+  ? Number(readFileSync(${JSON.stringify(counterPath)}, "utf8")) + 1
+  : 1;
+writeFileSync(${JSON.stringify(counterPath)}, String(count));
+const variant = value("--variant");
+const output = join(value("--output-dir"), "retry-run", variant, "results.jsonl");
+mkdirSync(join(value("--output-dir"), "retry-run", variant), { recursive: true });
+const retryRecord = ${JSON.stringify(timeout)};
+retryRecord.experiment = { evalFile: value("--eval-filter"), runId: "retry-run-" + count };
+writeFileSync(output, JSON.stringify(retryRecord) + "\\n");
+process.exit(1);
+`,
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        retryScript,
+        "--experiment-file",
+        join(root, "experiment.yaml"),
+        "--experiment-dir",
+        runDir,
+        "--retry-output-dir",
+        retryRoot,
+        "--summary",
+        summaryPath,
+        "--vally",
+        `"${process.execPath}" "${fakeVally}"`,
+        "--max-attempts-per-group",
+        "2",
+      ],
+      { encoding: "utf8" },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(readFileSync(counterPath, "utf8"), "2");
+    const merged = readFileSync(resultsFile, "utf8").trim().split("\n").map(JSON.parse);
+    assert.equal(merged[0].status, "error");
+    assert.equal(merged[0].executorRetry, undefined);
+
+    const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
+    assert.equal(summary.attemptedRetryCount, 2);
+    assert.equal(summary.recoveredSlotCount, 0);
+    assert.equal(summary.unresolvedSlotCount, 1);
+    assert.equal(summary.attempts.length, 2);
+    assert.ok(summary.attempts.every((attempt) =>
+      attempt.unresolvedSlots.includes("persistent-timeout")));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI never reuses stale retry output when the current invocation produces nothing", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-retry-stale-output-"));
+  try {
+    const runDir = join(root, "run");
+    const retryRoot = join(root, "retry");
+    const summaryPath = join(root, "executor-retry-summary.json");
+    const resultsFile = join(runDir, "baseline", "results.jsonl");
+    const timeout = record({
+      status: "error",
+      error: "Timeout after 300000ms waiting for session.idle",
+      shardKey: "timeout",
+      variant: "baseline",
+      stimulus: "Retry me",
+    });
+    writeJsonl(resultsFile, [timeout]);
+
+    const staleResults = join(
+      retryRoot,
+      "1-baseline-eval",
+      "attempt-2",
+      "stale-run",
+      "baseline",
+      "results.jsonl",
+    );
+    writeJsonl(staleResults, [
+      record({
+        shardKey: "timeout",
+        variant: "baseline",
+        stimulus: "Retry me",
+        runId: "stale-run",
+      }),
+    ]);
+
+    const fakeVally = join(root, "fake-vally.mjs");
+    writeFileSync(fakeVally, "process.exit(1);\n");
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        retryScript,
+        "--experiment-file",
+        join(root, "experiment.yaml"),
+        "--experiment-dir",
+        runDir,
+        "--retry-output-dir",
+        retryRoot,
+        "--summary",
+        summaryPath,
+        "--vally",
+        `"${process.execPath}" "${fakeVally}"`,
+        "--max-attempts-per-group",
+        "1",
+      ],
+      { encoding: "utf8" },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    const merged = readFileSync(resultsFile, "utf8").trim().split("\n").map(JSON.parse);
+    assert.equal(merged[0].status, "error");
+    assert.equal(merged[0].executorRetry, undefined);
+
+    const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
+    assert.equal(summary.recoveredSlotCount, 0);
+    assert.equal(summary.unresolvedSlotCount, 1);
+    assert.deepEqual(summary.attempts[0].recoveredSlots, []);
+    assert.deepEqual(summary.attempts[0].unresolvedSlots, ["timeout"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

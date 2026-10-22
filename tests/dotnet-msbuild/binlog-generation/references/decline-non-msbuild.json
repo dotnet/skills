@@ -1,0 +1,21 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "binlog-generation-decline-non-msbuild",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "This project uses Maven, so the change belongs in pom.xml rather than any MSBuild binary-log workflow. Update the Maven compiler configuration from Java 17 to Java 21."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Set maven.compiler.release to 21 when the compiler plugin supports it, or update both maven.compiler.source and maven.compiler.target to 21. Do not use /bl or any MSBuild binlog option for this Maven configuration task."
+    }
+  ]
+}

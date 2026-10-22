@@ -1,0 +1,45 @@
+{
+  "schema_version": "1",
+  "source_roots": [
+    "test",
+    "tests",
+    "samples"
+  ],
+  "excluded_globs": [
+    "**/bin/**",
+    "**/obj/**",
+    "**/fixtures/**"
+  ],
+  "generated_globs": [
+    "**/Generated/**",
+    "**/generated/**",
+    "**/*.Designer.cs",
+    "**/*.g.cs",
+    "**/*.generated.cs"
+  ],
+  "ignore_attribute_names": [
+    "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute"
+  ],
+  "test_attribute_names": [
+    "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+    "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute"
+  ],
+  "attribute_aliases": {
+    "Ignore": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+    "IgnoreAttribute": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+    "TestMethod": "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+    "TestMethodAttribute": "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+    "DataTestMethod": "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
+    "DataTestMethodAttribute": "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute"
+  },
+  "verification": {
+    "command": [
+      "pwsh",
+      "-NoLogo",
+      "-NoProfile",
+      "-File",
+      ".github/workflows/unskip-closed-tests-verify.ps1"
+    ],
+    "timeout_seconds": 1800
+  }
+}

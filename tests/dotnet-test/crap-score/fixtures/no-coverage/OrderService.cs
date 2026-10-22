@@ -9,7 +9,6 @@ public class OrderService
         _repository = repository;
     }
 
-    // Complexity: 7 (if, if, ||, foreach, if, if)
     public OrderResult ProcessOrder(Order order)
     {
         if (order == null)
@@ -36,7 +35,6 @@ public class OrderService
         return new OrderResult { Success = true, OrderId = order.Id, Total = total };
     }
 
-    // Complexity: 2
     public void CancelOrder(int orderId)
     {
         var order = _repository.GetById(orderId);

@@ -1,0 +1,17 @@
+Observations captured while investigating why every build in the Catalog repo
+pauses before compilation starts, even a no-op rebuild where nothing changed:
+
+- Running `dotnet build Catalog.csproj -m` prints "Determining projects to
+  restore..." and shows no other output for 6-8 seconds before the first
+  "CoreCompile" line appears, even when NuGet has nothing to restore.
+- Directory.Build.props is about 340 lines long and contains several nested
+  <Choose>/<When>/<Otherwise> blocks plus item groups such as:
+    <Compile Remove="$(SolutionDir)**\obj\**" />
+    <Compile Remove="$(SolutionDir)**\bin\**" />
+  repeated with slightly different globs in four separate PropertyGroup/
+  ItemGroup blocks that each project re-evaluates on every invocation.
+- A custom NuGet-based SDK resolver package is referenced from
+  global.json-adjacent tooling to resolve an internal build SDK.
+- No CoreCompile, Csc, or Copy task in the performance summary accounts for
+  more than a few hundred milliseconds; the multi-second delay happens before
+  any target in the Target Performance Summary even starts.

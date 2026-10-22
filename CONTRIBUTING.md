@@ -5,7 +5,7 @@ Thanks for your interest in contributing. We expect to accept external contribut
 This repository contains shared building blocks for coding agents:
 
 - Skills: reusable, task focused instruction packs
-- Agents: role based configurations that bundle tool expectations and skill selection
+- Agents: GitHub Copilot custom-agent configurations that bundle tool expectations and skill selection
 
 Because these artifacts can affect many users and workflows, we prioritize correctness, clarity, and long term maintainability over speed.
 
@@ -52,16 +52,26 @@ If your skill does not fit any existing plugin, consider creating a new one.
 
 To create a new plugin:
 
-1. Add `plugins/<plugin-name>/plugin.json`, identical copies at
-   `plugins/<plugin-name>/.claude-plugin/plugin.json` and
+1. Add `plugins/<plugin-name>/plugin.json`, a Claude compatibility manifest at
+   `plugins/<plugin-name>/.claude-plugin/plugin.json`, a Codex-specific compatibility manifest at
    `plugins/<plugin-name>/.codex-plugin/plugin.json`, and a `skills/` directory beneath them.
-2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep plugin entries consistent across all marketplace manifests (including `plugins[].source` format) to reduce drift and make future updates safer.
+   Start the Claude manifest as a copy of the root manifest, then preserve any host-specific field
+   values that Claude requires. The Codex manifest must contain only components its runtime loads;
+   do not copy `agents` or `lspServers` into it.
+2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep names and `plugins[].source` values consistent across all marketplace manifests. Descriptions may be host-specific when a capability is unavailable there; for example, the Codex marketplace must not advertise `.agent.md` agents or LSP integration.
    Also add a `plugins/<plugin-name>/version.json` (copy an existing one) so the plugin participates in automated versioning. Start its `plugin.json` version at `0.1.0`.
 3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
 4. Add the plugin to the **What's Included** table in the root `README.md`.
 5. Create a `tests/<plugin-name>/` directory for skill tests.
 
 See existing plugins for the expected format.
+
+This legacy multi-host layout and its Codex parity validation are a compatibility bridge, not the
+intended permanent Agent Plugins package format. A future Agent Plugins 1.0 migration would use a
+schema-qualified root `plugin.json`, fixed `skills/` and `mcp.json` locations, and namespaced client
+extensions instead of top-level host fields. That migration should remove the duplicated
+host-specific manifests and most custom parity and shape validation while retaining a smaller Codex
+integration smoke test for installation and discovery.
 
 ### The `dotnet-experimental` plugin
 
@@ -79,9 +89,10 @@ Place experimental skills under `plugins/dotnet-experimental/skills/` with match
 
 Each plugin is versioned independently. Every plugin carries the manifests its consumers read:
 `plugins/<plugin>/plugin.json`, `plugins/<plugin>/.codex-plugin/plugin.json`, and
-`plugins/<plugin>/.claude-plugin/plugin.json`. The Claude manifest is an exact generated copy of
-the root manifest. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from
-this repository.
+`plugins/<plugin>/.claude-plugin/plugin.json`. The Claude and Codex manifests share the stamped
+version with the root manifest, but both can preserve host-specific fields or omit unsupported
+fields. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from this
+repository.
 
 Each `plugins/<plugin>/version.json` declares the plugin's major/minor release base and the files
 that count as effective plugin content. A calculated manifest version transition is a release
@@ -117,10 +128,12 @@ do not trigger skill evaluations.
 
 ## Bundled MCP servers
 
-A plugin that bundles an MCP server must declare it in **every** manifest it ships. Each host reads a
-different one — Copilot reads `plugin.json`, Codex reads `.codex-plugin/plugin.json`, and Claude reads
-`.claude-plugin/plugin.json` — so a server declared in only one of them is silently unavailable in the
-others.
+Under the repository's current legacy layout, a plugin that bundles an MCP server must declare it
+in **every** manifest it ships. Each host reads a different one — Copilot reads `plugin.json`, Codex
+reads `.codex-plugin/plugin.json`, and Claude reads `.claude-plugin/plugin.json` — so a server
+declared in only one of them is silently unavailable in the others. Keep the same server names and
+transport settings, but preserve host-specific schema differences instead of copying optional
+fields blindly.
 
 Declare the servers inline as an object. The alternative form, a relative path to a companion
 `.mcp.json`, is resolved by hosts against the **plugin root** and not against the directory holding the
@@ -128,7 +141,29 @@ manifest, so `"mcpServers": "./.mcp.json"` inside `.codex-plugin/plugin.json` po
 `plugins/<plugin>/.mcp.json`, never `plugins/<plugin>/.codex-plugin/.mcp.json`.
 
 `skill-validator check` enforces both rules: it fails when a referenced `.mcp.json` does not resolve
-from the plugin root, and when the manifests do not declare the same set of servers.
+from the plugin root, when the manifests do not declare the same set of servers, or when the Codex
+manifest uses a server shape that Codex rejects. In particular, Codex interprets `tools` as a map of
+per-tool settings, not an allow-list array. Omit `tools` to enable all tools.
+
+The `codex-plugin-smoke` workflow pins a supported Codex CLI release and, without API credentials,
+verifies marketplace installation, skill discovery, MCP discovery, and direct MCP transport through
+a real `binlog_overview` call against a generated binary log. It does not cover authentication,
+model inference, prompt-based skill selection, or model-driven tool selection.
+
+## Host-specific agents
+
+[Agent Plugins 1.0](https://agent-plugins.org/specification) standardizes skills and MCP
+servers, not custom agents or LSP servers. Files under `plugins/<plugin>/agents/*.agent.md` use
+[GitHub Copilot custom-agent](https://docs.github.com/copilot/reference/custom-agents-configuration)
+frontmatter such as `tools`, `agents`, and `handoffs`.
+
+Do not list `.agent.md` files in `.codex-plugin/plugin.json`: Codex ignores that field and does not
+install those files as native agents. Codex discovers native agents from `.codex/agents/*.toml` in a
+trusted project or `~/.codex/agents/*.toml` in a user profile. Plugin installation does not populate
+those locations, so do not generate or claim native Codex agents until the repository defines and
+tests a documented installation mechanism. Copilot handoffs also have no static Codex equivalent;
+Codex delegation is model-driven. OpenAI Agents SDK handoffs are an application-level orchestration
+API between SDK-defined agents, not a plugin packaging or discovery mechanism.
 
 ## Before you start
 
@@ -227,7 +262,7 @@ Also:
 - Avoid duplicating text across multiple skills. Prefer referencing shared patterns.
 - Do not include content copied from other repositories. If you are inspired by existing work, rewrite in your own words and adapt it to our conventions.
 
-## Proposing a new agent
+## Proposing a new GitHub Copilot agent
 
 An agent definition should be opinionated but bounded:
 
@@ -235,7 +270,7 @@ An agent definition should be opinionated but bounded:
 - Define boundaries (what the agent should not do).
 - List the skills it expects to use and how it chooses among them.
 
-Add an agent file under a plugin's `agents/` directory:
+Add a GitHub Copilot custom-agent file under a plugin's `agents/` directory:
 
 ```text
 plugins/<plugin>/agents/<agent-name>.agent.md
@@ -271,6 +306,49 @@ The exception is a helper or reference skill that sets `disable-model-invocation
 cannot self-activate it, so an activation-graded eval would compare two identical arms. Cover those
 through the evals of the skills that load them and through the plugin arm instead.
 
+#### Evaluation design quality bar
+
+An eval must prove useful behavior, not only produce a valid YAML file. Authors and reviewers should
+apply this order:
+
+1. **Prove necessity and skill fit.** A preference scenario is necessary when the target should
+   improve the answer or action. A dormancy contract or no-op guard is necessary when it protects a
+   meaningful routing or preservation invariant, even if correct behavior is baseline-equivalent.
+   Do not eval generic model knowledge, path recall, or a `disable-model-invocation: true` reference
+   in isolation.
+2. **Tag every capability stimulus; add distinct value to voting cases.** Every stimulus in a
+   `type: capability` eval must have stable lowercase kebab-case `capability`, `risk`, and `journey`
+   tags, including dormancy cases. Each preference-eligible stimulus must cover a different value;
+   renamed or reworded duplicates do not add evidence.
+3. **Use a natural, non-cued request.** Write the prompt as a developer would ask it. Do not name
+   the target, quote its vocabulary, reveal the fix, or tell the agent which workflow to follow.
+4. **Make the outcome deterministic.** State what must be true in the response and workspace.
+   Include the complete in-scope file set, and use executable, file, or output graders for facts
+   that do not need an LLM judge.
+5. **Prove golden acceptance.** The golden trajectory and patch, when present, must pass every
+   deterministic grader.
+6. **Prove mutation rejection.** A realistic broken mutation must fail the grader that is meant to
+   detect it; otherwise the grader does not protect the behavior.
+7. **Cover restraint.** Migration and rewrite evals need an already-correct no-op case. Routing
+   boundaries need `tags.expect_activation: "false"` dormancy cases that test recognition,
+   restraint, and redirection without a disallowed `skill-invocation` grader.
+8. **Size for the expected tie rate.** Five preference-eligible stimuli is only the eligibility
+   floor. Add independent stimuli until the expected win, tie, and loss record can reach the sign
+   test with useful power.
+9. **Use the production path.** Run skill evals through Vally and custom-agent evals through the
+   native SDK lane. Use the normal worker concurrency and declared suite time budget. A serial-only
+   pass or an unbounded timeout hides reliability defects.
+10. **Check model-family sensitivity.** For broad routing or behavior changes, collect evidence from
+   more than one executor family. Keep each family result separate; model combinations are
+   sensitivity evidence, not extra stimulus votes.
+11. **Classify failures before editing.** Separate fixture, spec-load, reliability, power, eval
+    design, content, routing, and cost failures. Do not rewrite skill content until the evidence
+    identifies a content defect.
+
+The deterministic gate catches structural corruption. It cannot decide whether a scenario is
+necessary, whether a prompt sounds natural, or whether the tested behavior has product value. Those
+remain required author and reviewer checks.
+
 The skeleton below shows the shape only — it declares a single trial and would therefore be rejected
 by the quality gate. See [Size the eval so it can return a verdict](#size-the-eval-so-it-can-return-a-verdict) for the real bar.
 
@@ -285,6 +363,10 @@ stimuli:
   - name: "Describe what the agent should do"
     prompt: |
       The prompt sent to the agent.
+    tags:
+      capability: distinct-capability
+      risk: failure-being-prevented
+      journey: customer-task
     graders:
       # Deterministic graders check the produced output/artifacts.
       - type: exit-success
@@ -299,12 +381,17 @@ stimuli:
 ```
 
 > [!IMPORTANT]
-> `defaults:` and `config:` are the same block — `config` is a deprecated alias — and vally
-> **rejects** a spec declaring both. Some existing evals still open with `config:`; replace it with
-> one `defaults:` block when settings change. The failure is silent: the job exits 0 with
-> no verdicts and the PR comment blames "transient infrastructure".
+> `config:` is no longer supported. Use one `defaults:` block and preserve its settings.
 
-Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. Dormancy is an isolated-skill activation contract: unexpected activation blocks a pass, while the stimulus's retained comparison does not vote in preference. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
+Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add the quoted string tag `expect_activation: "false"` under that stimulus's `tags:` mapping. Dormancy is an isolated-skill activation contract: unexpected activation blocks a pass, while the stimulus's retained comparison does not vote in preference. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
+
+Custom-agent evals live at `tests/<plugin>/agent.<name>/eval.yaml` and use the
+same baseline / isolated / plugin roles and verdict policy. Vally does not
+register custom agents, so CI executes those specs through the native Copilot
+SDK runner: isolated runs register the target agent plus declared dependencies,
+and plugin runs register the complete production plugin skill/agent surface.
+Agent results carry `skillKind: agent` and retain target activation, nested
+delegation, invoked skills, tools, completion, token, and wall-time evidence.
 
 #### Size the eval so it can return a verdict
 
@@ -312,7 +399,7 @@ The pass gate gives each distinct stimulus one vote. Repeated runs collapse to o
 majority-direction vote and remain available as reliability evidence.
 
 1. **Preference-eligible distinct stimuli ≥ 5**, else the verdict is reported `underpowered` —
-   never a pass, never a regression. `expect_activation: false` dormancy contracts do not count
+   never a pass, never a regression. `tags.expect_activation: "false"` dormancy contracts do not count
    toward this preference floor.
 2. **p ≤ 0.05 on an exact one-sided sign test over *discordant* (non-tie) stimulus votes.** Ties are not
    discarded; they hold the discordant count down.
@@ -328,7 +415,7 @@ tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not. Fiv
 floor*, not adequate
 power. Add **discriminating stimuli** for task breadth. Use `runs` only to measure pass rate,
 pass@k, pass^k, and flakiness for the same tasks. See
-[`eng/eval-quality/README.md`](eng/eval-quality/README.md) for the full derivation and for the eleven
+[`eng/eval-quality/README.md`](eng/eval-quality/README.md) for the full derivation and for the 22
 structural defects the CI quality gate blocks.
 
 Run the gate locally before pushing:
@@ -352,6 +439,16 @@ Prerequisites: Node.js 20+ and the [GitHub CLI](https://cli.github.com) signed i
 # Run tests for a whole plugin
 ./eng/run-skill-evals.sh dotnet-msbuild
 
+# Exercise one custom-agent eval through the native SDK lane
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
+  plugins/dotnet-msbuild/agents/msbuild.agent.md \
+  --tests-dir tests/dotnet-msbuild --runs 1 --verdict-warn-only
+
+# Exercise one redistributable workflow package against offline fixtures
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
+  agentic-workflows/msbuild-quality-review/aw.yml \
+  --tests-dir tests/agentic-workflows --runs 1 --verdict-warn-only
+
 # Run every skill's tests
 ./eng/run-skill-evals.sh
 ```
@@ -367,6 +464,13 @@ Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`
 ### CI evaluation
 
 Tests do **not** run automatically on pull requests. When a PR changes skills, the `pr-status` job posts a pending commit status and a maintainer must trigger the evaluation, binding it to a specific reviewed commit — either by submitting a PR review ("Files changed" → "Review changes") whose body contains `/evaluate` (recommended, no SHA to copy), or by commenting `/evaluate <sha>`. A bare `/evaluate` comment only posts guidance. Results are posted as a PR comment and uploaded as build artifacts.
+
+The same discovery/reporting pipeline covers workflow packages and their specs
+under `tests/agentic-workflows/<package>/eval.yaml`. Manual dispatch with
+`plugin: agentic-workflows` selects that collection. These results measure
+offline workflow decisions/proposals using the real imported prompts and
+installed resources; they do not claim live Actions or publication validation.
+Keep package compilation and trusted-helper regression tests as separate gates.
 
 The [Skill Value dashboard](https://dotnet.github.io/skills/) provides historical
 results for each skill by executor and judge model.

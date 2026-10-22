@@ -1,0 +1,31 @@
+diff --git a/Directory.Build.targets b/Directory.Build.targets
+--- a/Directory.Build.targets
++++ b/Directory.Build.targets
+@@ -2,6 +2,10 @@
+   <!-- Import shared analyzer configuration -->
+-  <Import Project="$(RepoRoot)eng\custom-analyzers.props" />
++  <Import Project="$(RepoRoot)eng\custom-analyzers.props"
++      Condition="'$(RepoRoot)' != '' and Exists('$(RepoRoot)eng\custom-analyzers.props')" />
+   <!-- Configure pre-build hook -->
++  <Import Project="$(MSBuildThisFileDirectory)MyHook.targets"
++      Condition="Exists('$(MSBuildThisFileDirectory)MyHook.targets')" />
++
+   <PropertyGroup>
+-    <CustomBeforeMicrosoftCommonTargets>$(MSBuildThisFileDirectory)MyHook.targets</CustomBeforeMicrosoftCommonTargets>
++    <CodeGenerationDependsOn>BeforeCodeGeneration;CoreCodeGeneration;AfterCodeGeneration</CodeGenerationDependsOn>
+   </PropertyGroup>
+@@ -8,7 +12,13 @@
+   <!-- Run code generation before compilation -->
+-  <Target Name="RunCodeGen" BeforeTargets="CoreCompile">
++  <Target Name="RunCodeGen" BeforeTargets="CoreCompile" DependsOnTargets="$(CodeGenerationDependsOn)" />
++
++  <Target Name="BeforeCodeGeneration" />
++
++  <Target Name="CoreCodeGeneration">
+     <WriteLinesToFile File="$(IntermediateOutputPath)generated.cs"
+                       Lines="// generated"
+                       Overwrite="true" />
+   </Target>
++
++  <Target Name="AfterCodeGeneration" />
+ </Project>

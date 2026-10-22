@@ -4,6 +4,7 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class PairwiseToQualityScoreTests
 {
     private static PairwiseJudgeResult MakePairwiseResult(
@@ -17,7 +18,7 @@ public class PairwiseToQualityScoreTests
         return new PairwiseJudgeResult(rubricResults, overallWinner, overallMagnitude, overallReasoning, positionSwapConsistent);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsPositiveScoresWhenSkillWins()
     {
         var result = MakePairwiseResult(
@@ -25,11 +26,11 @@ public class PairwiseToQualityScoreTests
             overallMagnitude: PairwiseMagnitude.MuchBetter,
             rubricResults: [new PairwiseRubricResult("Q", "skill", PairwiseMagnitude.MuchBetter, "")]);
         var scores = PairwiseJudge.PairwiseToQualityScore(result);
-        Assert.Equal(1.0, scores.OverallImprovement);
-        Assert.Equal(1.0, scores.QualityImprovement);
+        Assert.AreEqual(1.0, scores.OverallImprovement);
+        Assert.AreEqual(1.0, scores.QualityImprovement);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsNegativeScoresWhenBaselineWins()
     {
         var result = MakePairwiseResult(
@@ -37,11 +38,11 @@ public class PairwiseToQualityScoreTests
             overallMagnitude: PairwiseMagnitude.SlightlyBetter,
             rubricResults: [new PairwiseRubricResult("Q", "baseline", PairwiseMagnitude.SlightlyBetter, "")]);
         var scores = PairwiseJudge.PairwiseToQualityScore(result);
-        Assert.Equal(-0.4, scores.OverallImprovement);
-        Assert.Equal(-0.4, scores.QualityImprovement);
+        Assert.AreEqual(-0.4, scores.OverallImprovement);
+        Assert.AreEqual(-0.4, scores.QualityImprovement);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReturnsZeroForTie()
     {
         var result = MakePairwiseResult(
@@ -49,11 +50,11 @@ public class PairwiseToQualityScoreTests
             overallMagnitude: PairwiseMagnitude.Equal,
             rubricResults: [new PairwiseRubricResult("Q", "tie", PairwiseMagnitude.Equal, "")]);
         var scores = PairwiseJudge.PairwiseToQualityScore(result);
-        Assert.Equal(0, scores.OverallImprovement);
-        Assert.Equal(0, scores.QualityImprovement);
+        Assert.AreEqual(0, scores.OverallImprovement);
+        Assert.AreEqual(0, scores.QualityImprovement);
     }
 
-    [Fact]
+    [TestMethod]
     public void AveragesRubricScoresCorrectly()
     {
         var result = MakePairwiseResult(
@@ -67,18 +68,18 @@ public class PairwiseToQualityScoreTests
             ]);
         var scores = PairwiseJudge.PairwiseToQualityScore(result);
         // (1.0 + 0 + -0.4) / 3 = 0.2
-        Assert.Equal(0.2, scores.QualityImprovement, 5);
+        Assert.AreEqual(0.2, Math.Round(scores.QualityImprovement, 5));
     }
 
-    [Fact]
+    [TestMethod]
     public void HandlesEmptyRubricResults()
     {
         var result = MakePairwiseResult(rubricResults: []);
         var scores = PairwiseJudge.PairwiseToQualityScore(result);
-        Assert.Equal(0, scores.QualityImprovement);
+        Assert.AreEqual(0, scores.QualityImprovement);
     }
 
-    [Fact]
+    [TestMethod]
     public void MapsAllMagnitudesCorrectlyForSkillWinner()
     {
         var magnitudes = new[]
@@ -98,34 +99,36 @@ public class PairwiseToQualityScoreTests
                 overallMagnitude: magnitudes[i]);
             var scores = PairwiseJudge.PairwiseToQualityScore(result);
             // When winner is "skill", score = Math.Abs(magnitude_score)
-            Assert.Equal(expected[i], scores.OverallImprovement);
+            Assert.AreEqual(expected[i], scores.OverallImprovement);
         }
     }
 }
 
+[TestClass]
 public class PairwisePositionSwapConsistencyTests
 {
-    [Fact]
+    [TestMethod]
     public void ConsistentResultPreservesWinner()
     {
         var result = new PairwiseJudgeResult(
             [new PairwiseRubricResult("Quality", "skill", PairwiseMagnitude.SlightlyBetter, "Better quality")],
             "skill", PairwiseMagnitude.SlightlyBetter, "Skill is slightly better overall", true);
-        Assert.True(result.PositionSwapConsistent);
-        Assert.Equal("skill", result.OverallWinner);
+        Assert.IsTrue(result.PositionSwapConsistent);
+        Assert.AreEqual("skill", result.OverallWinner);
     }
 
-    [Fact]
+    [TestMethod]
     public void InconsistentResultCanBeDetected()
     {
         var result = new PairwiseJudgeResult(
             [new PairwiseRubricResult("Quality", "skill", PairwiseMagnitude.SlightlyBetter, "Better quality")],
             "tie", PairwiseMagnitude.Equal, "Position-swap inconsistent", false);
-        Assert.False(result.PositionSwapConsistent);
-        Assert.Equal("tie", result.OverallWinner);
+        Assert.IsFalse(result.PositionSwapConsistent);
+        Assert.AreEqual("tie", result.OverallWinner);
     }
 }
 
+[TestClass]
 public class ParsePairwiseResponseTests
 {
     private static readonly string ValidJson = JsonSerializer.Serialize(new
@@ -139,25 +142,25 @@ public class ParsePairwiseResponseTests
         overall_reasoning = "A is better",
     });
 
-    [Fact]
+    [TestMethod]
     public void ParsesValidJsonInCodeBlock()
     {
         var content = "```json\n" + ValidJson + "\n```";
         var result = PairwiseJudge.ParsePairwiseResponse(content, ["Quality"], "forward");
         // In forward: A=baseline, B=skill. A winning means baseline wins.
-        Assert.Equal("baseline", result.OverallWinner);
-        Assert.Single(result.RubricResults);
+        Assert.AreEqual("baseline", result.OverallWinner);
+        Assert.ContainsSingle(result.RubricResults);
     }
 
-    [Fact]
+    [TestMethod]
     public void ParsesValidJsonWithoutCodeBlock()
     {
         var content = "Here is my evaluation:\n" + ValidJson;
         var result = PairwiseJudge.ParsePairwiseResponse(content, ["Quality"], "forward");
-        Assert.Equal("baseline", result.OverallWinner);
+        Assert.AreEqual("baseline", result.OverallWinner);
     }
 
-    [Fact]
+    [TestMethod]
     public void HandlesInvalidEscapeSequences()
     {
         var raw = """
@@ -170,46 +173,46 @@ public class ParsePairwiseResponseTests
               "overall_reasoning": "Response B\'s approach is cleaner"
             }
             """;
-        Assert.ThrowsAny<JsonException>(() => JsonDocument.Parse(raw));
+        Assert.Throws<JsonException>(() => JsonDocument.Parse(raw));
 
         var result = PairwiseJudge.ParsePairwiseResponse(raw, ["Quality"], "forward");
         // In forward: B=skill
-        Assert.Equal("skill", result.OverallWinner);
+        Assert.AreEqual("skill", result.OverallWinner);
         Assert.Contains("much better", result.RubricResults[0].Reasoning);
     }
 
-    [Fact]
+    [TestMethod]
     public void ThrowsWhenContentHasOnlyMalformedJson()
     {
         var malformed = "{\"overall_winner\": \"A\", broken}";
-        var ex = Assert.Throws<InvalidOperationException>(
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
             () => PairwiseJudge.ParsePairwiseResponse(malformed, [], "forward"));
         Assert.Contains("contained no JSON", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void ThrowsWhenContentHasMalformedJsonWithInvalidEscapes()
     {
         var malformed = "{\"overall_winner\": \"A\\x\", broken}";
-        var ex = Assert.Throws<InvalidOperationException>(
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
             () => PairwiseJudge.ParsePairwiseResponse(malformed, [], "forward"));
         Assert.Contains("contained no JSON", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void ThrowsWhenContentHasNoJson()
     {
-        var ex = Assert.Throws<InvalidOperationException>(
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(
             () => PairwiseJudge.ParsePairwiseResponse("no json here", [], "forward"));
         Assert.Contains("contained no JSON", ex.Message);
     }
 
-    [Fact]
+    [TestMethod]
     public void ReversesWinnersInReverseDirection()
     {
         var result = PairwiseJudge.ParsePairwiseResponse(ValidJson, ["Quality"], "reverse");
         // In reverse: A=skill, B=baseline. A winning means skill wins.
-        Assert.Equal("skill", result.OverallWinner);
-        Assert.Equal("skill", result.RubricResults[0].Winner);
+        Assert.AreEqual("skill", result.OverallWinner);
+        Assert.AreEqual("skill", result.RubricResults[0].Winner);
     }
 }

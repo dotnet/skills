@@ -1,0 +1,29 @@
+diff --git a/src/Billing/OrderProcessor.cs b/src/Billing/OrderProcessor.cs
+index 449ef77..6614ade 100644
+--- a/src/Billing/OrderProcessor.cs
++++ b/src/Billing/OrderProcessor.cs
+@@ -10,19 +10,19 @@ internal sealed class OrderProcessor
+ {
+     public Invoice DoStuff(IReadOnlyList<OrderLine> lines, string tier)
+     {
+-        decimal subtotal = 0m;
++        decimal runningTotal = 0m;
+         foreach (var line in lines)
+         {
+-            subtotal += line.UnitPrice * line.Quantity;
++            runningTotal += line.UnitPrice * line.Quantity;
+         }
+ 
+-        decimal shipping = subtotal >= 100m ? 0m : 9.99m;
++        decimal shipping = runningTotal >= 100m ? 0m : 9.99m;
+ 
+         decimal rateA = tier == "gold" ? 0.10m : tier == "silver" ? 0.05m : 0.00m;
+-        decimal discountedA = subtotal - (subtotal * rateA);
++        decimal discountedA = runningTotal - (runningTotal * rateA);
+         decimal totalWithTax = discountedA + (discountedA * 0.08m);
+ 
+-        decimal quoteBase = subtotal + shipping;
++        decimal quoteBase = runningTotal + shipping;
+ 
+         decimal rateB = tier == "gold" ? 0.10m : tier == "silver" ? 0.05m : 0.00m;
+         decimal discountedB = quoteBase - (quoteBase * rateB);

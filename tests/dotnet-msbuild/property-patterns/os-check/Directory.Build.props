@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+    <NativeHelper>win-x64\helper.exe</NativeHelper>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+    <NativeHelper>linux-x64/helper</NativeHelper>
+  </PropertyGroup>
+</Project>

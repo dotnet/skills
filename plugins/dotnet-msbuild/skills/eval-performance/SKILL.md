@@ -58,7 +58,7 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 
 ### Using binlog
 
-1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log`
+1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log"`
 2. Search for evaluation events: `grep -i 'Evaluation started\|Evaluation finished' full.log`
 3. Multiple evaluations for the same project = overbuilding
 4. Look for "Project evaluation started/finished" messages and their timestamps

@@ -1,0 +1,12 @@
+<Project>
+  <ItemGroup>
+    <ProjectsToBuild Include="LibA\LibA.csproj" />
+    <ProjectsToBuild Include="LibB\LibB.csproj" />
+    <ProjectsToBuild Include="LibC\LibC.csproj" />
+  </ItemGroup>
+
+  <Target Name="BuildAll">
+    <MSBuild Projects="@(ProjectsToBuild)"
+             Targets="Restore;Build" />
+  </Target>
+</Project>

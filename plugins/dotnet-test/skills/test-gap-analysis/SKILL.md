@@ -1,17 +1,14 @@
 ---
 name: test-gap-analysis
 description: >-
-  Pseudo-mutation analysis ONLY: answer whether tests would catch a bug if
-  production code changed, which meaningful changes would still pass, or which
-  caller-visible mutations existing assertions would miss; verify candidates
-  when requested, then optionally close verified gaps. Activate for behavioral
-  blind spots or missing edge cases tied to production behavior. Polyglot. DO
-  NOT USE FOR: suite organization, taxonomy,
-  metadata, or distribution reports (test-tagging); .NET line-vs-branch or
-  Cobertura interpretation, arithmetic, plateaus, project-wide coverage gaps,
-  or coverage-backed test/CRAP priorities (coverage-analysis; use native
-  coverage tooling outside .NET); named-target CRAP (crap-score); new suites
-  (code-testing-agent); assertion/smell audits; or mutation tools.
+  Find caller-visible production changes existing tests would miss through
+  pseudo-mutation analysis; verify candidates or close gaps only when requested.
+  Includes read-only per-test composition for grading. Polyglot.
+  USE FOR: would tests catch a bug, behavioral blind spots, surviving mutations.
+  DO NOT USE FOR: concrete fix/feature revision proof (test-value-evidence);
+  suite taxonomy (test-tagging); .NET coverage, Cobertura, plateaus or
+  coverage-backed priorities (coverage-analysis); named CRAP (crap-score);
+  new suites (code-testing); assertion/smell audits; mutation tools.
 license: MIT
 ---
 
@@ -20,6 +17,22 @@ license: MIT
 Answer one question: **which caller-visible production behaviors could change
 without an existing test failing?** Mutation reasoning is a probe, not the goal.
 Inventory public outcomes first, then verify only credible gaps.
+
+## Composition dispatch
+
+Before entering the decision flow, check the caller's mode. An explicit
+`per-test-read-only` request (including composition from `grade-tests`) uses
+only [references/per-test-read-only.md](references/per-test-read-only.md).
+This mode is assessment context conveyed through the host's supported caller
+instructions, not a new skill-loader parameter or a mode-specific skill name.
+Read that reference and return its per-test assessment inline; **do not enter
+the standalone workflow below**. Loading this mode does not authorize a
+baseline run, mutation execution, file edits, suite discovery, or delegation.
+If the bundled reference is unavailable, allow at most one listing of the known
+`references/` directory, then return **N/A / unverified** with the reason.
+
+Requests without this mode retain the standalone analysis, verification, and
+test-addition paths below.
 
 ## Decision flow
 
@@ -35,7 +48,7 @@ search misses, inspect the current directory broadly before asking for paths.
 | Explicit survivor verification | Inventory all requested outcomes; execute one representative observable candidate for each distinct high-risk outcome under verification, then classify it as **Survived** or **Killed** |
 | Explicit exhaustive audit | Read [references/mutation-catalog.md](references/mutation-catalog.md) and classify all meaningful candidates |
 | Add tests to an existing suite | Analyze first; add tests only for verified survivors or demonstrated no-coverage outcomes |
-| Create a new suite | Stop and use `code-testing-agent` |
+| Create a new suite | Stop and use `code-testing` |
 
 When the request names a risk, turn it into a one-line public-outcome allowlist
 before reading code. An outcome is not in scope merely because the same method writes it.
@@ -45,13 +58,18 @@ state predicates (including derived booleans), identity, and formatting. Private
 code is in scope only to trace an allowed outcome.
 
 Do not expand a focused request into a repository audit, plan artifact, or
-dashboard. Use source and tests directly for familiar frameworks. Invoke
-`test-analysis-extensions` only when discovery or assertion semantics are
-unclear.
+dashboard. Use source and tests directly for familiar frameworks. When discovery
+or assertion semantics are unclear, read the matching language file relative
+to the caller-provided or runtime-listed `test-analysis-extensions` catalog;
+do not invoke the reference-only helper or search installation directories.
+If absent, state the limitation and use the pinned APIs and rules here.
 
 ### 2. Establish one baseline
 
-Run the narrowest existing test command once. Choose it from the project
+For a source-only advisory review, skip execution and label empirical survival
+unverified. A baseline is required when the user requests execution or survivor
+verification, or when closing gaps with tests. Run the narrowest existing test
+command once. Choose it from the project
 manifest; Microsoft.Testing.Platform executables may require `dotnet run`.
 Confirm tests executed: exit 0 with build-only output is not green. If that one
 attempt cannot run the suite, do not troubleshoot the runner or try alternate
@@ -204,6 +222,7 @@ calculate a score.
 |---|---|
 | **Likely killed** | An existing assertion observes the changed outcome |
 | **Candidate survivor (unverified)** | Observable change appears unasserted; not executed |
+| **Killed** | Exact observable mutation executed and a relevant assertion failed |
 | **Survived** | Exact observable mutation executed and tests stayed green |
 | **No coverage** | No test reaches the public outcome; report the missing branch without inventing a survivor |
 | **Equivalent** | No public observation changes; omit from findings |
@@ -222,8 +241,10 @@ requested test addition.
 
 1. Apply one candidate and confirm the diff changes exactly one intended
    expression.
-2. Run the narrowest covering test: green means **Survived**, red means
-   **Killed**, for that edit only.
+2. Run the narrowest covering test and confirm tests executed: green means
+   **Survived**; a failure at a relevant assertion means **Killed**, for that
+   edit only. Build, discovery, infrastructure, or unrelated failures leave
+   the candidate **unverified**, not Killed.
 3. Revert immediately and confirm the clean source/test baseline.
 4. After a green run, re-check the public counterfactual. Execution proves the
    suite missed the edit, not that the edit changes behavior; drop inert or
@@ -291,9 +312,10 @@ For focused or small analysis, return:
 Do not repeat the table in prose or report discarded mutants, tool chronology,
 or in-flight reasoning.
 
-For an exhaustive audit, add counts for Killed / Survived / No coverage /
-Equivalent and group findings by risk. Count only executed or definitively
-classified candidates.
+For an exhaustive audit, separate executed **Killed / Survived** counts from
+static **Likely killed / Candidate survivor (unverified)** classifications and
+**No coverage / Equivalent** inventory counts. Never include static reasoning
+in an empirical killed/total ratio. Group findings by risk.
 
 For test additions, name the tests added, the verified mutations they kill, and
 the successful final command.

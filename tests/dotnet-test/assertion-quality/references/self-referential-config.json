@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "assertion-quality-self-referential-config",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Read-only analysis of ConfigTests.cs — 8 test methods, no files changed. The suite has useful storage checks, but several method names promise behavior that their assertions never reach and several round-trip assertions need an independent oracle.\n\n**Meaningful behavior with overstated names (2 of 8):**\n- `GetTimeout_Default_ReturnsDefault` — sets \"Timeout\"=\"30\" and verifies that `Get` retrieves the stored value. This can catch a broken `Set`, key lookup, or `Get`, so it is not tautological. However, the name claims default/fallback coverage that the test never exercises. Keep this as a set/get test with an accurate name, and add a separate test that leaves \"Timeout\" unset and asserts the specified default.\n- `GetRetries_Default_ReturnsDefault` — likewise verifies real set/get storage behavior but never tests an unset retry default. Rename it and add a missing-key/default test.\n\n**Self-referential or incomplete verification:**\n- `ValidateKey_Valid_ReturnsSameKey` covers the valid-input pass-through path, but it does not exercise the validation branches. Add assertions that empty/whitespace keys and keys containing spaces throw `ArgumentException`.\n- `FormatConnectionString_RoundTrip` checks that this formatter and parser agree with each other, so matching bugs in both can escape. Add an independent assertion that the formatted string literally equals `Host=localhost;Port=5432;Database=mydb`.\n- `SetAndGet_CustomValue_RoundTrips` is another valid storage test, but its ordinary input adds little beyond the first two. Use a value with characters likely to expose storage or serialization defects.\n- `Serialize_Deserialize_ProducesOriginal` is useful round-trip coverage, but ordinary values do not probe escaping or missing-value behavior. Add special characters, empty strings, unicode, and the contractually supported null cases.\n- `Clone_MatchesOriginal` verifies copied values but not clone independence; mutate one instance after cloning and assert the other is unchanged.\n- `ToDisplayString_ReturnsString` only checks non-nullness; assert the exact display content or required key/value fragments.\n\nSummary: the two misleadingly named default tests are valid set/get checks, not tautologies. The main gaps are the untested default and invalid-key branches, coupled formatter/parser verification without an external oracle, shallow inputs, clone independence, and display content."
+    }
+  ]
+}

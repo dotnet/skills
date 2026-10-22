@@ -9,6 +9,7 @@ namespace SkillValidator.Tests;
 /// plugin.json; hosts resolve a string 'mcpServers' value against the plugin root, so a companion
 /// .mcp.json parked next to a nested manifest is never found.
 /// </summary>
+[TestClass]
 public class PluginMcpManifestTests
 {
     private const string BinlogServers = """
@@ -16,8 +17,7 @@ public class PluginMcpManifestTests
           "binlog": {
             "type": "stdio",
             "command": "dotnet",
-            "args": ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
-            "tools": ["*"]
+            "args": ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]
           }
         }
         """;
@@ -51,7 +51,19 @@ public class PluginMcpManifestTests
         return PluginProfiler.ValidatePlugin(plugin);
     }
 
-    [Fact]
+    private static string BinlogServersWithTools(string toolsJson) =>
+        $$"""
+          {
+            "binlog": {
+              "type": "stdio",
+              "command": "dotnet",
+              "args": ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
+              "tools": {{toolsJson}}
+            }
+          }
+          """;
+
+    [TestMethod]
     public void CodexManifestPointingAtNestedMcpJsonErrors()
     {
         var pluginDir = CreatePluginDir();
@@ -64,7 +76,7 @@ public class PluginMcpManifestTests
                 $$"""{"mcpServers": {{BinlogServers}}}""");
 
             var result = Validate(pluginDir);
-            Assert.Contains(result.Errors, e => e.Contains(".codex-plugin/plugin.json") && e.Contains("no such file"));
+            Assert.IsTrue((result.Errors).Any(e => e.Contains(".codex-plugin/plugin.json") && e.Contains("no such file")));
         }
         finally
         {
@@ -72,7 +84,7 @@ public class PluginMcpManifestTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void CodexManifestPointingAtPluginRootMcpJsonSucceeds()
     {
         var pluginDir = CreatePluginDir();
@@ -84,7 +96,7 @@ public class PluginMcpManifestTests
                 Path.Combine(pluginDir, ".mcp.json"),
                 $$"""{"mcpServers": {{BinlogServers}}}""");
 
-            Assert.Empty(Validate(pluginDir).Errors);
+            Assert.IsEmpty(Validate(pluginDir).Errors);
         }
         finally
         {
@@ -92,7 +104,7 @@ public class PluginMcpManifestTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void CodexManifestWithInlineServersSucceeds()
     {
         var pluginDir = CreatePluginDir();
@@ -101,7 +113,7 @@ public class PluginMcpManifestTests
             WriteManifest(pluginDir, "plugin.json", BinlogServers);
             WriteManifest(pluginDir, ".codex-plugin/plugin.json", BinlogServers);
 
-            Assert.Empty(Validate(pluginDir).Errors);
+            Assert.IsEmpty(Validate(pluginDir).Errors);
         }
         finally
         {
@@ -109,7 +121,112 @@ public class PluginMcpManifestTests
         }
     }
 
-    [Fact]
+    [TestMethod]
+    public void CodexManifestWithToolsArrayErrors()
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            var servers = BinlogServersWithTools("""["*"]""");
+            WriteManifest(pluginDir, "plugin.json", servers);
+            WriteManifest(pluginDir, ".codex-plugin/plugin.json", servers);
+
+            var result = Validate(pluginDir);
+            Assert.IsTrue(result.Errors.Any(
+                e => e.Contains(".codex-plugin/plugin.json") &&
+                     e.Contains("binlog") &&
+                     e.Contains("map of per-tool settings")));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("[]", "settings must be an object")]
+    [DataRow("true", "settings must be an object")]
+    [DataRow("null", "settings must be an object")]
+    [DataRow("""{"approval_mode":true}""", "invalid 'approval_mode'")]
+    [DataRow("""{"approval_mode":"always"}""", "invalid 'approval_mode'")]
+    [DataRow("""{"output_token_limit":-1}""", "invalid 'output_token_limit'")]
+    [DataRow("""{"output_token_limit":0}""", "invalid 'output_token_limit'")]
+    [DataRow("""{"output_token_limit":1.5}""", "invalid 'output_token_limit'")]
+    [DataRow("""{"output_token_limit":"1"}""", "invalid 'output_token_limit'")]
+    [DataRow("""{"output_token_limit":18446744073709551616}""", "invalid 'output_token_limit'")]
+    [DataRow("""{"enabled":true}""", "unsupported setting 'enabled'")]
+    public void CodexManifestWithInvalidPerToolSettingsErrors(string toolSettingsJson, string expectedError)
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            var servers = BinlogServersWithTools($$"""{"*":{{toolSettingsJson}}}""");
+            WriteManifest(pluginDir, "plugin.json", servers);
+            WriteManifest(pluginDir, ".codex-plugin/plugin.json", servers);
+
+            var result = Validate(pluginDir);
+            Assert.IsTrue(result.Errors.Any(
+                e => e.Contains(".codex-plugin/plugin.json") &&
+                     e.Contains("binlog") &&
+                     e.Contains("'*'") &&
+                     e.Contains(expectedError)));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [TestMethod]
+    public void CodexManifestWithValidPerToolSettingsSucceeds()
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            var servers = BinlogServersWithTools(
+                """{"search":{"approval_mode":"prompt","output_token_limit":30000},"max":{"output_token_limit":18446744073709551615},"defaults":{"approval_mode":null,"output_token_limit":null},"list":{}}""");
+            WriteManifest(pluginDir, "plugin.json", servers);
+            WriteManifest(pluginDir, ".codex-plugin/plugin.json", servers);
+
+            Assert.IsEmpty(Validate(pluginDir).Errors);
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("\"apps\":\"apps.json\"", "field 'apps' path 'apps.json' must start with './'")]
+    [DataRow("\"hooks\":[\"../outside-hooks.json\"]", "field 'hooks' path '../outside-hooks.json' must start with './'")]
+    public void CodexManifestWithInvalidComponentPathErrors(string componentJson, string expectedError)
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WriteManifest(pluginDir, "plugin.json", BinlogServers);
+            var manifestPath = Path.Combine(pluginDir, ".codex-plugin", "plugin.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+            File.WriteAllText(manifestPath, $$"""
+                {
+                  "name": "{{Path.GetFileName(pluginDir)}}",
+                  "version": "0.1.0",
+                  "description": "A test plugin.",
+                  "skills": ["./skills/"],
+                  "mcpServers": {{BinlogServers}},
+                  {{componentJson}}
+                }
+                """);
+
+            Assert.IsTrue((Validate(pluginDir).Errors).Any(error => error.Contains(expectedError)));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [TestMethod]
     public void CompanionManifestMissingServerErrors()
     {
         var pluginDir = CreatePluginDir();
@@ -119,7 +236,7 @@ public class PluginMcpManifestTests
             WriteManifest(pluginDir, ".claude-plugin/plugin.json", "{}");
 
             var result = Validate(pluginDir);
-            Assert.Contains(result.Errors, e => e.Contains(".claude-plugin/plugin.json") && e.Contains("binlog"));
+            Assert.IsTrue((result.Errors).Any(e => e.Contains(".claude-plugin/plugin.json") && e.Contains("binlog")));
         }
         finally
         {
@@ -127,7 +244,7 @@ public class PluginMcpManifestTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void CompanionManifestWithExtraServerErrors()
     {
         var pluginDir = CreatePluginDir();
@@ -137,7 +254,7 @@ public class PluginMcpManifestTests
             WriteManifest(pluginDir, ".codex-plugin/plugin.json", BinlogServers);
 
             var result = Validate(pluginDir);
-            Assert.Contains(result.Errors, e => e.Contains(".codex-plugin/plugin.json") && e.Contains("plugin.json does not"));
+            Assert.IsTrue((result.Errors).Any(e => e.Contains(".codex-plugin/plugin.json") && e.Contains("plugin.json does not")));
         }
         finally
         {
@@ -145,7 +262,7 @@ public class PluginMcpManifestTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void PluginWithoutMcpServersProducesNoErrors()
     {
         var pluginDir = CreatePluginDir();
@@ -159,7 +276,7 @@ public class PluginMcpManifestTests
                 {"name":"{{Path.GetFileName(pluginDir)}}","version":"0.1.0","description":"A test plugin.","skills":["./skills/"]}
                 """);
 
-            Assert.Empty(Validate(pluginDir).Errors);
+            Assert.IsEmpty(Validate(pluginDir).Errors);
         }
         finally
         {
@@ -167,7 +284,7 @@ public class PluginMcpManifestTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void McpServersPathEscapingPluginRootErrors()
     {
         var pluginDir = CreatePluginDir();
@@ -176,7 +293,7 @@ public class PluginMcpManifestTests
             WriteManifest(pluginDir, "plugin.json", "\"../.mcp.json\"");
 
             var result = Validate(pluginDir);
-            Assert.Contains(result.Errors, e => e.Contains("plugin.json") && e.Contains("outside"));
+            Assert.IsTrue((result.Errors).Any(e => e.Contains("plugin.json") && e.Contains("outside")));
         }
         finally
         {
@@ -184,10 +301,10 @@ public class PluginMcpManifestTests
         }
     }
 
-    [Theory]
-    [InlineData("[]", "array")]
-    [InlineData("null", "null")]
-    [InlineData("\"nope\"", "string")]
+    [TestMethod]
+    [DataRow("[]", "array")]
+    [DataRow("null", "null")]
+    [DataRow("\"nope\"", "string")]
     public void CompanionManifestWithNonObjectRootErrors(string manifestJson, string expectedKind)
     {
         var pluginDir = CreatePluginDir();
@@ -198,7 +315,7 @@ public class PluginMcpManifestTests
             File.WriteAllText(Path.Combine(pluginDir, ".codex-plugin", "plugin.json"), manifestJson);
 
             var result = Validate(pluginDir);
-            Assert.Contains(result.Errors, e => e.Contains(".codex-plugin/plugin.json") && e.Contains($"root value is {expectedKind}"));
+            Assert.IsTrue((result.Errors).Any(e => e.Contains(".codex-plugin/plugin.json") && e.Contains($"root value is {expectedKind}")));
         }
         finally
         {
@@ -206,7 +323,7 @@ public class PluginMcpManifestTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ReferencedMcpJsonWithNonObjectRootErrors()
     {
         var pluginDir = CreatePluginDir();
@@ -216,7 +333,7 @@ public class PluginMcpManifestTests
             File.WriteAllText(Path.Combine(pluginDir, ".mcp.json"), "[]");
 
             var result = Validate(pluginDir);
-            Assert.Contains(result.Errors, e => e.Contains("./.mcp.json") && e.Contains("root value is array"));
+            Assert.IsTrue((result.Errors).Any(e => e.Contains("./.mcp.json") && e.Contains("root value is array")));
         }
         finally
         {
@@ -224,7 +341,7 @@ public class PluginMcpManifestTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void ManifestWithMalformedJsonErrors()
     {
         var pluginDir = CreatePluginDir();
@@ -235,7 +352,7 @@ public class PluginMcpManifestTests
             File.WriteAllText(Path.Combine(pluginDir, ".codex-plugin", "plugin.json"), "{ not valid json!!!");
 
             var result = Validate(pluginDir);
-            Assert.Contains(result.Errors, e => e.Contains(".codex-plugin/plugin.json") && e.Contains("could not be parsed as a JSON object"));
+            Assert.IsTrue((result.Errors).Any(e => e.Contains(".codex-plugin/plugin.json") && e.Contains("could not be parsed as a JSON object")));
         }
         finally
         {
@@ -247,22 +364,43 @@ public class PluginMcpManifestTests
     /// Loads the shipped dotnet-msbuild manifests from the packaged plugin root and asserts the
     /// bundled binlog MCP server is discoverable from every host manifest.
     /// </summary>
-    [Fact]
+    [TestMethod]
     public void DotnetMsbuildPluginExposesBinlogFromEveryManifest()
     {
         var pluginRoot = Path.Combine(FindRepositoryRoot(), "plugins", "dotnet-msbuild");
-        Assert.True(Directory.Exists(pluginRoot), $"Plugin root not found at '{pluginRoot}'.");
+        Assert.IsTrue(Directory.Exists(pluginRoot), $"Plugin root not found at '{pluginRoot}'.");
 
         string[] manifests = ["plugin.json", .. PluginDiscovery.CompanionManifestRelativePaths];
         foreach (var relativePath in manifests)
         {
             var manifestPath = Path.Combine(pluginRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
-            Assert.True(File.Exists(manifestPath), $"Expected manifest '{relativePath}' in the dotnet-msbuild plugin.");
+            Assert.IsTrue(File.Exists(manifestPath), $"Expected manifest '{relativePath}' in the dotnet-msbuild plugin.");
 
-            Assert.True(
+            Assert.IsTrue(
                 PluginDiscovery.TryGetManifestMcpServerNames(pluginRoot, manifestPath, out var servers, out var error),
                 $"{relativePath}: {error}");
             Assert.Contains("binlog", servers);
+        }
+    }
+
+    [TestMethod]
+    public void RepositoryCodexManifestsUseSupportedFieldsAndMcpShapes()
+    {
+        var pluginsRoot = Path.Combine(FindRepositoryRoot(), "plugins");
+
+        foreach (var pluginDirectory in Directory.GetDirectories(pluginsRoot))
+        {
+            var rootManifest = Path.Combine(pluginDirectory, "plugin.json");
+            var codexManifest = Path.Combine(pluginDirectory, ".codex-plugin", "plugin.json");
+            if (!File.Exists(rootManifest) || !File.Exists(codexManifest))
+                continue;
+
+            var plugin = PluginDiscovery.ParsePluginJson(rootManifest);
+            Assert.IsNotNull(plugin);
+
+            var result = PluginProfiler.ValidatePlugin(plugin);
+            Assert.IsFalse(result.Errors.Any(
+                error => error.Contains(".codex-plugin/plugin.json", StringComparison.Ordinal)));
         }
     }
 

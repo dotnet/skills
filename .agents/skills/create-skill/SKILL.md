@@ -63,8 +63,13 @@ description: <what it does>. USE FOR: <symptoms, error codes, artifact names, qu
 - Check every `DO NOT USE FOR` clause against the scenarios the skill exists to serve — an
   exclusion like "already on v3" can lock out the post-upgrade fixes that are the skill's purpose.
 - Budget: 1,024 characters per description, and the whole plugin's rendered skill menu is also
-  budgeted. A helper skill users should never invoke directly can set
-  `disable-model-invocation: true` to free menu space while staying invocable by name.
+  budgeted. A helper/reference catalog can set `disable-model-invocation: true` to free menu space.
+  It remains a readable resource, not a skill the model can invoke by name. Consumers read the
+  catalog or its bundled files directly using the supplied catalog path (the staged path in native
+  evaluation). Resolve bundled-file paths relative to the catalog, not the project workspace.
+- No XML tags. Claude (claude.ai and Claude Code marketplace sync) rejects descriptions containing
+  tag-like text such as `Vector<T>` or `<Import>`. Spell it out in words ("generic Vector type",
+  "Import element"); `skill-validator check` fails on it.
 
 ### Step 3: Write for delta over the baseline model
 
@@ -151,9 +156,9 @@ A skill without an `eval.yaml` has no evidence that it improves on the baseline.
 `create-skill-test` to add one in the same pull request, and size it for statistical power — an eval
 below five distinct stimuli can never return a passing verdict.
 
-The exception is a helper skill with `disable-model-invocation: true`: the model cannot
-self-activate it, so an activation-graded eval compares two identical arms. Cover it through the
-evals of the skills that load it instead.
+The exception is a helper/reference catalog with `disable-model-invocation: true`: the model cannot
+invoke it, so a direct eval compares two identical arms. Cover it through the outcome evals of the
+consumer skills that read its resources instead.
 
 ## SKILL.md Template
 
@@ -214,6 +219,7 @@ After creating a skill, verify:
 - [ ] Skill name matches directory name exactly
 - [ ] Skill name is lowercase with hyphens only
 - [ ] Description is non-empty and under 1024 characters
+- [ ] Description contains no XML-like tags (for example `Vector<T>`)
 - [ ] SKILL.md body is under 500 lines
 - [ ] Instructions are specific and actionable
 - [ ] Bundled-file paths are relative to the directory that contains `SKILL.md`

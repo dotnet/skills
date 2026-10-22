@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "assertion-quality-jest-shallow-order",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I read order.test.ts against src/order.ts. The file looks busy with 10 tests, but most assertions are shallow and several cannot detect a regression.\n\n**Shallow existence/type checks (verify almost nothing):**\n- `creates an order` -> `expect(order).toBeDefined()`, `creates returns truthy` -> `toBeTruthy()`, and `creates returns not null` -> `.not.toBeNull()` only confirm an object came back. None pins the returned order's `customer`, `itemCount`, `totalCents`, `status`, or `id`, so `create` could store wrong values and all three stay green.\n- `list returns array` only asserts `Array.isArray(...) === true`; it never checks the list length or that the created order is present.\n\n**Assertions that cannot detect the intended bug:**\n- `always true` -> `expect(true).toBe(true)` is independent of the code.\n- `round trip identity` -> `expect(o.id).toBe(o.id)` compares a value to itself.\n- `does not equal something irrelevant` -> `expect(o.id).not.toBe('totally unrelated string')` passes for almost any id.\n\n**Misused async matcher:**\n- `confirms order resolves` wraps the synchronous `svc.confirm(o.id)` result in `Promise.resolve(...)` and creates a `.resolves` matcher without awaiting or returning it. A synchronous exception from `confirm` would still fail before `Promise.resolve`, but the matcher itself does not reliably verify the returned order. Assert the synchronous contract directly: `expect(svc.confirm(o.id)).toMatchObject({ id: o.id, status: 'confirmed' })`.\n\n**Genuinely meaningful tests - keep these:**\n- `legitimate equality on returned customer` pins `o.customer` to `alice`.\n- `legitimate exception assertion` verifies that an empty customer throws `customer is required`.\n\n**Concrete replacements:** assert the fixture's real fields, for example `expect(order).toMatchObject({ customer: 'alice', itemCount: 2, totalCents: 2000, status: 'pending' })`, assert the generated id separately, and use `expect(svc.list()).toEqual([order])`. Delete `always true`, replace the self-comparison and irrelevant-string check with the expected id, and make the confirm test a direct status assertion."
+    }
+  ]
+}

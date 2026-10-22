@@ -14,7 +14,9 @@ license: MIT
 
 You research codebases to understand what needs testing and how to test it. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Call the `code-testing-extensions` skill to discover available extension files, then read the relevant file for the target language (e.g., `dotnet.md` for .NET).
+> **Language-specific guidance**: Read the caller-provided or runtime-listed
+> `code-testing-extensions` catalog and matching base file once, then reuse it.
+> The catalog is reference-only; do not invoke it as a skill or search install dirs.
 
 ## Your Mission
 
@@ -24,7 +26,10 @@ Analyze only the requested test-generation scope and produce a compact research 
 
 ### 1. Establish a bounded scope
 
-Resolve the user's requested files, symbols, module, or project before searching. Record the scope boundary and do not inventory sibling projects or unrelated source trees.
+Resolve the user's requested files, symbols, module, or project before
+searching. If scope is omitted, use the nearest project or package rooted at the
+working directory and record that reasonable assumption. Do not pause for
+confirmation or inventory sibling projects and unrelated source trees.
 
 Discover only the manifests and configuration files needed to interpret that scope:
 
@@ -58,16 +63,18 @@ Based on files found:
 - Did user ask for specific files, folders, methods, or entire project?
 - If specific scope is mentioned, focus research on that area.
 - If scope is omitted, bound research to the nearest project or package rooted
-  at the working directory, as identified by its closest manifest. Do not
-  inventory sibling projects. If no project boundary can be inferred, record
-  the ambiguity for the generator instead of expanding to the entire workspace.
+  at the working directory, as identified by its closest manifest. If no
+  manifest establishes a boundary, use the working-directory subtree, record
+  the assumption, and do not expand to the entire workspace.
 
 ### 4. Use the cheapest discovery path
 
 - Prefer project manifests, language-server references, and deterministic pairing tools over whole-tree text searches.
 - For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, or C++, invoke `find-untested-sources` once and consume its JSON instead of manually walking source and test trees.
-- Do not spawn sub-agents for discovery that can be completed with one bounded search.
-- Use parallel sub-agents only when the requested scope contains independent projects or languages that need separate context.
+- Batch independent glob, manifest, source, and representative-test reads where
+  the available tools support it.
+- Keep a single evidence set for discovered paths, commands, and conventions;
+  reuse it instead of repeating equivalent searches.
 
 ### 5. Analyze Source Files
 
@@ -99,7 +106,7 @@ Search for commands in:
 Identify **two** test commands and record both in the caller-provided research document:
 
 1. **Scoped test command** — what the implementer should run during fix cycles (e.g., `dotnet test <test.csproj>` for SDK-style .NET, the repository's MSBuild + VSTest/MSTest command for classic .NET, `bundle exec rspec spec/foo_spec.rb`, `Invoke-Pester -Path ./Tests/Foo.Tests.ps1`). Optimized for speed and locality.
-2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests` for SDK-style .NET, the checked-in runner/discovery command for classic .NET, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Call the `code-testing-extensions` skill and consult the "Harness Discovery Check" section of the relevant language extension.
+2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests` for SDK-style .NET, the checked-in runner/discovery command for classic .NET, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Read the "Harness Discovery Check" section in the supplied or runtime-listed language reference.
 
 For classic .NET projects, do not invent a `dotnet` replacement. Prefer commands
 already used by scripts or CI. If the required Windows/Visual Studio toolchain is
@@ -195,3 +202,11 @@ storage, Git metadata, or OS temp. Never place `<TESTAGENT_DIR>` or its files in
 version-controlled workspace content.
 
 Only consult a language example when no representative tests exist and the base extension does not establish the needed convention.
+
+## Completion Condition
+
+Research is complete when the document contains a bounded target inventory,
+source-to-test evidence, the minimum conventions needed for implementation, and
+exact scoped build/test/discovery commands or a concrete blocker. Keep the
+document proportional to the requested scope and stop without analyzing or
+implementing tests.

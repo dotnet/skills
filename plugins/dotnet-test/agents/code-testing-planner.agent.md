@@ -17,6 +17,7 @@ You create detailed test implementation plans based on research findings. You ar
 ## Your Mission
 
 Read the research document and create a phased implementation plan that will guide test generation.
+Do not search the repository or implement tests.
 
 ## Planning Process
 
@@ -40,9 +41,12 @@ Check the coverage classification in the research:
 **Broad strategy** (most files are untested or estimated coverage is unknown):
 
 - Generate tests for all files in the bounded target inventory
-- Organize into phases by priority and complexity (2-5 phases)
-- Every public class and method must have at least one test
-- If >15 source files, use more phases (up to 8-10)
+- Organize into the fewest independently verifiable phases justified by
+  priority and complexity
+- Assign every requested behavior and target API in the bounded inventory to a
+  concrete test group; do not add shallow tests solely to touch every member
+- Use one phase for a focused target, 2-4 for a moderate scope, and add more
+  only when dependency ordering or a genuinely large inventory requires it
 - Assign each target file to exactly one phase
 
 **Targeted strategy** (most targets have substantial existing tests):
@@ -143,6 +147,8 @@ Only consult a language example when research found no existing tests and the ba
 3. **Be incremental** — each phase should be independently valuable
 4. **Avoid templates** — reference the concise conventions captured in research instead of embedding example code
 5. **Match existing style** — follow patterns from existing tests if any
+6. **Scale to scope** — keep focused plans short; do not manufacture phases,
+   ceremonies, or speculative future work
 
 ## Output
 
@@ -150,3 +156,10 @@ Write the plan document to the absolute `<TESTAGENT_DIR>/plan.md` path provided
 by the caller. `<TESTAGENT_DIR>` must be non-stageable host scratch storage,
 Git metadata, or OS temp. Never place it or its files in version-controlled
 workspace content.
+
+## Completion Condition
+
+Stop when every bounded target and explicit requirement from research is
+assigned to one implementable phase with commands and success criteria. Report
+only the plan path and a concise phase summary; do not continue into
+implementation.

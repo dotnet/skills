@@ -8,7 +8,7 @@ description: >
   by test type, or tag then verify the project builds. Read bodies when names
   mislead. Apply canonical attributes; otherwise report only. DO NOT USE FOR:
   requests owned by test-anti-patterns, coverage-analysis, crap-score,
-  test-gap-analysis, code-testing-agent, or migration skills.
+  test-gap-analysis, code-testing, or migration skills.
 license: MIT
 ---
 
@@ -16,9 +16,10 @@ license: MIT
 
 Analyze an existing test suite in any supported language and apply a standardized set of trait tags to each test method, giving teams visibility into their test distribution (positive vs. negative, critical-path coverage, smoke tests, etc.).
 
-> **Language-specific guidance**: Try `test-analysis-extensions` once. If it is
-> unavailable, continue immediately with the built-in framework table below;
-> never block tagging on the helper.
+> **Language-specific guidance**: Read the caller-provided or runtime-listed
+> `test-analysis-extensions` catalog and its matching language file.
+> The helper is reference-only, not an invocable skill. If absent,
+> continue with the built-in framework table below and report the limitation.
 
 ## When to Use
 
@@ -29,7 +30,7 @@ Analyze an existing test suite in any supported language and apply a standardize
 
 ## When Not to Use
 
-- Writing new tests from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest)
+- Writing new tests from scratch (use `code-testing` for any language, or `writing-mstest-tests` for MSTest)
 - Running or filtering tests (use `run-tests` for .NET; equivalent native runners elsewhere)
 - Migrating between test frameworks
 - General quality, smell, flakiness, or assertion audits (use `test-anti-patterns` or the matching analysis skill)
@@ -42,7 +43,7 @@ Analyze an existing test suite in any supported language and apply a standardize
 | Input | Required | Description |
 |-------|----------|-------------|
 | Test project or files | No | Path to the test project, folder, or specific test files. Discover from the current workspace when omitted. |
-| Scope | No | `tag` (apply canonical attributes, or a confirmed project convention), `audit` (report only), or `both` (default: `both`). Frameworks declared `report-only` always emit a report; `convention-based` frameworks edit only after the user confirms the convention. |
+| Scope | No | Infer from the verb: `tag`/`apply` edits, `audit`/`classify`/`report` is report-only, and `both` applies only when both are requested. If ambiguous, default to `audit` to avoid unrequested edits. Frameworks declared `report-only` always emit a report; `convention-based` frameworks edit only after the user confirms the convention. |
 | Framework | No | Auto-detected. Override when detection fails. |
 
 ## Trait Taxonomy
@@ -99,8 +100,9 @@ match count are unchanged. Then re-open the complete file, inspect the diff,
 and run Step 6 validation. Do not report proposed attributes as completion when
 the user asked to apply them.
 
-Identify the language and framework. Try the matching
-`test-analysis-extensions` guidance once. If unavailable, classify capability
+Identify the language and framework. Read the matching bundled reference when
+needed; use the supplied catalog for the filename,
+checking only that known directory. If absent, classify capability
 from the built-in rules below:
 
 - **`auto-edit`** — framework has canonical tag syntax this skill can safely insert (.NET `[TestCategory]` / `[Trait]` / `[Category]` / `[Property]`, pytest `@pytest.mark.<name>`, JUnit 5 `@Tag("...")`, TestNG `groups = {"..."}`, RSpec metadata `it "..." , :tag => true`, Pester `-Tag '...'`, Kotest `@Tags(...)`, Swift Testing `@Tag(.tagName)`, Catch2 `[tag]`, doctest `* doctest::test_suite("tag")` decorator).
@@ -108,6 +110,10 @@ from the built-in rules below:
 - **`convention-based`** — framework uses naming or file conventions for tagging (Go `//go:build integration` build tags, file-name suffixes like `*_integration_test.go`, GoogleTest `INTEGRATION_*` filter prefix). Only emit canonical edits when the user has confirmed the project convention; otherwise treat as `report-only`.
 
 Capture the capability before Step 4.
+
+Also lock the requested mode before classification. Do not turn an audit into
+source edits because canonical attributes are available; edit only for an
+explicit tagging/apply request.
 
 ### Step 2: Scan existing traits
 
@@ -171,9 +177,17 @@ expand into the behavioral-gap audit owned by `test-gap-analysis`.
 
 ### Step 4: Apply trait attributes (or report only)
 
-**If the resolved capability is `auto-edit`**, add the appropriate attribute to
-each test method. Place trait attributes adjacent to the existing test
-attribute. Examples:
+Resolve the mode before applying the capability:
+
+- **Audit mode** (`audit`, `classify`, `report`, or ambiguous intent): emit the
+  per-test mapping and summary without modifying source, regardless of
+  capability.
+- **Edit mode** (`tag`, `apply`, or explicitly requested `both`): continue with
+  the capability branch below.
+
+**In edit mode, if the resolved capability is `auto-edit`**, add the appropriate
+attribute to each test method. Place trait attributes adjacent to the existing
+test attribute. Examples:
 
 Apply traits at the individual test-method/case level. Do not substitute one
 class-level category for method-level classification: different methods usually
@@ -259,14 +273,14 @@ func parseNullInputThrows() throws { ... }
 TEST_CASE("Parse null input throws", "[negative][boundary]") { ... }
 ```
 
-**If the resolved capability is `report-only`** (Go standard `testing`, plain
-Jest/Vitest without convention, Rust without project-specific cfg, plain
-XCTest, plain GoogleTest, plain Mocha), do NOT modify source files. Instead emit
-a concise mapping from each test to its suggested tags. Recommend a project-wide
-convention only when the user asks how to persist or filter those tags; an
-analysis-only request should report and stop.
+**In any mode, if the resolved capability is `report-only`** (Go standard
+`testing`, plain Jest/Vitest without convention, Rust without project-specific
+cfg, plain XCTest, plain GoogleTest, plain Mocha), do NOT modify source files.
+Instead emit a concise mapping from each test to its suggested tags. Recommend a
+project-wide convention only when the user asks how to persist or filter those
+tags; an analysis-only request should report and stop.
 
-**If the resolved capability is `convention-based`** (e.g., Go
+**In edit mode, if the resolved capability is `convention-based`** (e.g., Go
 `//go:build integration`, `*_integration_test.go`, GoogleTest `INTEGRATION_*`
 prefix), only emit canonical edits when the user has confirmed the project's
 convention. Otherwise treat as `report-only`.

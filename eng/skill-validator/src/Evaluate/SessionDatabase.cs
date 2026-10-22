@@ -15,9 +15,11 @@ public sealed class SessionDatabase : IDisposable
     /// <summary>
     /// Current schema version stamped into <c>schema_info</c>. Bump whenever the persisted
     /// shape changes (e.g. a new column) so external tools can detect the change. History:
-    /// 2 = added <c>sessions.rubric</c>; 3 = added <c>sessions.baseline_key</c>.
+    /// 2 = added <c>sessions.rubric</c>; 3 = added <c>sessions.baseline_key</c>;
+    /// 4 = added <c>sessions.expect_activation</c>; 5 = made it nullable so databases
+    /// created before version 4 retain an unknown expectation during migration.
     /// </summary>
-    private const string SchemaVersion = "3";
+    private const string SchemaVersion = "5";
 
     private readonly SqliteConnection _connection;
     private readonly Lock _lock = new();
@@ -60,7 +62,8 @@ public sealed class SessionDatabase : IDisposable
                 started_at TEXT NOT NULL,
                 completed_at TEXT,
                 rubric TEXT,
-                baseline_key TEXT
+                baseline_key TEXT,
+                expect_activation INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS run_results (
@@ -73,6 +76,7 @@ public sealed class SessionDatabase : IDisposable
         cmd.ExecuteNonQuery();
         EnsureSessionsRubricColumn();
         EnsureSessionsBaselineKeyColumn();
+        EnsureSessionsExpectActivationColumn();
         // Stamp the version after migrations so the recorded value always reflects the
         // columns that are actually present (single source of truth: SchemaVersion).
         SetSchemaInfo("version", SchemaVersion);
@@ -96,6 +100,93 @@ public sealed class SessionDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "ALTER TABLE sessions ADD COLUMN baseline_key TEXT";
         cmd.ExecuteNonQuery();
+    }
+
+    private void EnsureSessionsExpectActivationColumn()
+    {
+        if (!HasColumn("sessions", "expect_activation"))
+        {
+            using var addColumn = _connection.CreateCommand();
+            addColumn.CommandText = "ALTER TABLE sessions ADD COLUMN expect_activation INTEGER";
+            addColumn.ExecuteNonQuery();
+            return;
+        }
+
+        using var columnInfo = _connection.CreateCommand();
+        columnInfo.CommandText = "PRAGMA table_info(sessions)";
+        using var reader = columnInfo.ExecuteReader();
+        var requiresNullableMigration = false;
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), "expect_activation", StringComparison.OrdinalIgnoreCase))
+            {
+                requiresNullableMigration = reader.GetInt32(3) != 0;
+                break;
+            }
+        }
+        reader.Close();
+
+        if (!requiresNullableMigration)
+            return;
+
+        using (var foreignKeysOff = _connection.CreateCommand())
+        {
+            foreignKeysOff.CommandText = "PRAGMA foreign_keys=OFF";
+            foreignKeysOff.ExecuteNonQuery();
+        }
+
+        try
+        {
+            using var transaction = _connection.BeginTransaction();
+            using var migrate = _connection.CreateCommand();
+            migrate.Transaction = transaction;
+            migrate.CommandText = """
+                CREATE TABLE sessions_v5 (
+                    id TEXT PRIMARY KEY,
+                    skill_name TEXT NOT NULL,
+                    skill_path TEXT NOT NULL,
+                    scenario_name TEXT NOT NULL,
+                    run_index INTEGER NOT NULL,
+                    role TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    config_dir TEXT,
+                    work_dir TEXT,
+                    prompt TEXT,
+                    skill_sha TEXT,
+                    status TEXT NOT NULL DEFAULT 'running',
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    rubric TEXT,
+                    baseline_key TEXT,
+                    expect_activation INTEGER
+                );
+                INSERT INTO sessions_v5 (
+                    id, skill_name, skill_path, scenario_name, run_index, role, model,
+                    config_dir, work_dir, prompt, skill_sha, status, started_at, completed_at,
+                    rubric, baseline_key, expect_activation)
+                SELECT
+                    id, skill_name, skill_path, scenario_name, run_index, role, model,
+                    config_dir, work_dir, prompt, skill_sha, status, started_at, completed_at,
+                    rubric, baseline_key, expect_activation
+                FROM sessions;
+                DROP TABLE sessions;
+                ALTER TABLE sessions_v5 RENAME TO sessions;
+                """;
+            migrate.ExecuteNonQuery();
+            transaction.Commit();
+        }
+        finally
+        {
+            using var foreignKeysOn = _connection.CreateCommand();
+            foreignKeysOn.CommandText = "PRAGMA foreign_keys=ON";
+            foreignKeysOn.ExecuteNonQuery();
+        }
+
+        using var foreignKeyCheck = _connection.CreateCommand();
+        foreignKeyCheck.CommandText = "PRAGMA foreign_key_check";
+        using var violations = foreignKeyCheck.ExecuteReader();
+        if (violations.Read())
+            throw new InvalidOperationException("sessions schema migration produced a foreign-key violation.");
     }
 
     private bool HasColumn(string tableName, string columnName)
@@ -156,14 +247,14 @@ public sealed class SessionDatabase : IDisposable
     public void RegisterSession(string sessionId, string skillName, string skillPath,
         string scenarioName, int runIndex, string role, string model,
         string? configDir, string? workDir, string? prompt = null, string? skillSha = null,
-        string? rubric = null, string? baselineKey = null)
+        string? rubric = null, string? baselineKey = null, bool expectActivation = true)
     {
         lock (_lock)
         {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
-                INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, config_dir, work_dir, prompt, skill_sha, rubric, baseline_key, status, started_at)
-                VALUES ($id, $skill_name, $skill_path, $scenario_name, $run_index, $role, $model, $config_dir, $work_dir, $prompt, $skill_sha, $rubric, $baseline_key, 'running', $started_at)
+                INSERT INTO sessions (id, skill_name, skill_path, scenario_name, run_index, role, model, config_dir, work_dir, prompt, skill_sha, rubric, baseline_key, expect_activation, status, started_at)
+                VALUES ($id, $skill_name, $skill_path, $scenario_name, $run_index, $role, $model, $config_dir, $work_dir, $prompt, $skill_sha, $rubric, $baseline_key, $expect_activation, 'running', $started_at)
                 """;
             cmd.Parameters.AddWithValue("$id", sessionId);
             cmd.Parameters.AddWithValue("$skill_name", skillName);
@@ -178,6 +269,7 @@ public sealed class SessionDatabase : IDisposable
             cmd.Parameters.AddWithValue("$skill_sha", (object?)skillSha ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$rubric", (object?)rubric ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$baseline_key", (object?)baselineKey ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$expect_activation", expectActivation ? 1 : 0);
             cmd.Parameters.AddWithValue("$started_at", DateTimeOffset.UtcNow.ToString("o"));
             cmd.ExecuteNonQuery();
         }
@@ -211,6 +303,55 @@ public sealed class SessionDatabase : IDisposable
                 cmd.ExecuteNonQuery();
             }
 
+            transaction.Commit();
+        }
+    }
+
+    public void FailRunningSessions(
+        string skillName,
+        string scenarioName,
+        string metricsJson,
+        int? runIndex = null)
+    {
+        lock (_lock)
+        {
+            using var transaction = _connection.BeginTransaction();
+            using (var result = _connection.CreateCommand())
+            {
+                result.Transaction = transaction;
+                result.CommandText = """
+                    INSERT OR REPLACE INTO run_results (session_id, metrics_json)
+                    SELECT id, $metrics_json
+                    FROM sessions
+                    WHERE skill_name = $skill_name
+                      AND scenario_name = $scenario_name
+                      AND ($run_index IS NULL OR run_index = $run_index)
+                      AND status = 'running'
+                    """;
+                result.Parameters.AddWithValue("$skill_name", skillName);
+                result.Parameters.AddWithValue("$scenario_name", scenarioName);
+                result.Parameters.AddWithValue("$metrics_json", metricsJson);
+                result.Parameters.AddWithValue("$run_index", (object?)runIndex ?? DBNull.Value);
+                result.ExecuteNonQuery();
+            }
+
+            using (var sessions = _connection.CreateCommand())
+            {
+                sessions.Transaction = transaction;
+                sessions.CommandText = """
+                    UPDATE sessions
+                    SET status = 'failed', completed_at = $completed_at
+                    WHERE skill_name = $skill_name
+                      AND scenario_name = $scenario_name
+                      AND ($run_index IS NULL OR run_index = $run_index)
+                      AND status = 'running'
+                    """;
+                sessions.Parameters.AddWithValue("$skill_name", skillName);
+                sessions.Parameters.AddWithValue("$scenario_name", scenarioName);
+                sessions.Parameters.AddWithValue("$completed_at", DateTimeOffset.UtcNow.ToString("o"));
+                sessions.Parameters.AddWithValue("$run_index", (object?)runIndex ?? DBNull.Value);
+                sessions.ExecuteNonQuery();
+            }
             transaction.Commit();
         }
     }
@@ -252,13 +393,33 @@ public sealed class SessionDatabase : IDisposable
     }
 
     /// <summary>
-    /// Returns all completed sessions as a flat list ordered by skill, scenario, run index, and role.
+    /// Returns all completed, timed-out, or reused sessions as a flat list
+    /// ordered by skill, scenario, run index, and role.
     /// </summary>
     public List<SessionRecord> GetCompletedSessions()
     {
         lock (_lock)
         {
-            return GetSessions("WHERE s.status IN ('completed', 'timed_out')");
+            return GetSessions("WHERE s.status IN ('completed', 'timed_out', 'reused')");
+        }
+    }
+
+    public List<SessionRecord> GetFailedSessions()
+    {
+        lock (_lock)
+        {
+            return GetSessions("WHERE s.status = 'failed'");
+        }
+    }
+
+    /// <summary>
+    /// Returns sessions that have not reached a recognized terminal status.
+    /// </summary>
+    public List<SessionRecord> GetNonterminalSessions()
+    {
+        lock (_lock)
+        {
+            return GetSessions("WHERE s.status NOT IN ('completed', 'timed_out', 'reused', 'failed')");
         }
     }
 
@@ -286,7 +447,7 @@ public sealed class SessionDatabase : IDisposable
         cmd.CommandText = $"""
             SELECT s.id, s.skill_name, s.skill_path, s.scenario_name, s.run_index, s.role, s.model,
                    s.config_dir, s.work_dir, s.prompt, s.skill_sha, s.rubric, s.status,
-                   r.metrics_json, r.judge_json, r.pairwise_json, s.baseline_key
+                   r.metrics_json, r.judge_json, r.pairwise_json, s.baseline_key, s.expect_activation
             FROM sessions s
             LEFT JOIN run_results r ON s.id = r.session_id
             {whereClause}
@@ -312,7 +473,8 @@ public sealed class SessionDatabase : IDisposable
                 MetricsJson: reader.IsDBNull(13) ? null : reader.GetString(13),
                 JudgeJson: reader.IsDBNull(14) ? null : reader.GetString(14),
                 PairwiseJson: reader.IsDBNull(15) ? null : reader.GetString(15),
-                BaselineKey: reader.IsDBNull(16) ? null : reader.GetString(16)));
+                BaselineKey: reader.IsDBNull(16) ? null : reader.GetString(16),
+                ExpectActivation: reader.IsDBNull(17) ? null : reader.GetInt32(17) != 0));
         }
         return results;
     }
@@ -358,4 +520,5 @@ public sealed record SessionRecord(
     string? MetricsJson,
     string? JudgeJson,
     string? PairwiseJson,
-    string? BaselineKey = null);
+    string? BaselineKey = null,
+    bool? ExpectActivation = null);

@@ -1,0 +1,38 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "binlog-generation-powershell-escaping",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Since I'm running this from PowerShell, I will quote the complete binary-log switch so the literal braces reach MSBuild: dotnet build SimpleApp.csproj \"-bl:{}\". Doubling the braces would be incorrect because MSBuild would retain them in the generated filename.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "powershell",
+          "arguments": {
+            "command": "dotnet build SimpleApp.csproj \"-bl:{}\""
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "Ran (PowerShell): dotnet build SimpleApp.csproj \"-bl:{}\" -> Build succeeded. A new *.binlog file was written to the working directory with an auto-generated unique name."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Build succeeded and produced a binlog. Quoting the complete \"-bl:{}\" switch protected the single {} placeholder from PowerShell parsing so the literal braces reached MSBuild. I did not double the braces or fall back to bare -bl, which would overwrite msbuild.binlog on every run."
+    }
+  ]
+}

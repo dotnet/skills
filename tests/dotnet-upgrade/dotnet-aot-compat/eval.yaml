@@ -1,7 +1,7 @@
 name: dotnet-aot-compat
 description: Evaluates the dotnet-upgrade/dotnet-aot-compat skill
 type: capability
-config:
+defaults:
   timeout: 1050s
 stimuli:
   - name: Make Azure.ResourceManager AOT-compatible
@@ -11,6 +11,11 @@ stimuli:
         - src: .
           dest: .
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - bash
+            - dotnet
       - type: file-contains
         config:
           path: before/Azure.ResourceManager.csproj
@@ -27,7 +32,3 @@ stimuli:
       - Used source-generated System.Text.Json instead of reflection-based JSON serialization
       - "Final build produces 0 IL warnings. Warnings suppressed via #pragma or [UnconditionalSuppressMessage] still
         count as unresolved."
-    constraints:
-      expect_tools:
-        - bash
-        - dotnet
