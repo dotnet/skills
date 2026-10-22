@@ -194,15 +194,17 @@ Consumers that need the old all-stimulus view must read
 `excludedScenarioEvidence` alongside `scenarioEvidence`, or use
 `scenarios[]`/`comparisonTrialEvidence`.
 
-For stock Vally 0.18, carry dormancy in native string-valued stimulus metadata:
-`tags: {expect_activation: "false"}`. The adapter and quality reader still accept
-historical top-level Boolean `expect_activation: false` inputs; either form
-produces identical activation-contract-only evidence. This metadata relocation
-does not change result schemas or historical results. The
+No eval syntax migration is required: existing `tags.expect_activation: "false"`
+annotations automatically become activation-contract-only evidence. The
 authoring floor is intentionally stricter because dormancy no longer counts
 toward five preference cases; `check_eval_quality.py` reports the eligible and
 dormancy counts separately. Historical schema-version-3 results remain
 readable and retain their original all-stimulus semantics.
+
+Stock Vally 0.18 accepts that native string-valued tag mapping. The adapter and
+quality reader also retain historical top-level Boolean `expect_activation: false`
+inputs with identical activation-contract-only evidence. This does not change
+result schemas or historical results.
 
 Dormancy excludes a stimulus only from preference inference and expected
 activation. It does not suppress objective task-completion evidence: if a
@@ -213,8 +215,10 @@ adapter retains `native_completion_regression` even for
 The adapter's zero-dependency YAML scanner follows PyYAML's historical Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
 `off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items and tags.
-Native tag values must be the quoted strings `"false"` or `"true"`. Malformed
-tags, unsupported aliases/escaped keys/YAML merges, and conflicting legacy/tagged values
+Canonical `"false"` and `"true"` are recommended string tags. Main's
+case-insensitive `false`/`no`/`off` strings declare dormancy; other strings are
+not false guards. Non-string tags, unsupported aliases/escaped keys/YAML merges,
+and contradictory actual legacy/tagged values
 fail explicitly; the skill adapter uses its existing `eval_spec_unreadable`
 invalid-verdict path. They cannot silently restore a dormancy stimulus to preference voting.
 An annotation that matches no observed stimulus is retained under

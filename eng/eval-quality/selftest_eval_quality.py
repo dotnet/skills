@@ -1569,6 +1569,16 @@ def conflicting_dormancy_metadata(d):
             '      expect_activation: "false"\n    expect_activation: true\n'))
 
 
+def ordinary_activation_string(d):
+    tagged_guard_ok(d)
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    with open(path, "w") as f:
+        f.write(raw.replace('expect_activation: "false"',
+                            'expect_activation: "off-target"'))
+
+
 # --- reference skills -------------------------------------------------------
 # `disable-model-invocation: true` hides a skill from the model-facing menu, so
 # the skilled arm cannot reach it either and the eval scores baseline against
@@ -1959,12 +1969,15 @@ results = [
                         tagged_named_reject, "also sets reject_skills"),
     case("tagged dormancy cannot satisfy preference floor",
          tagged_dormancy_floor, expect_fail=True),
-    failing_output_case("dormancy tag must be a canonical string",
+    failing_output_case("dormancy tag must be a string",
                         malformed_dormancy_tag,
-                        'tags.expect_activation must be the string "false" or "true"'),
+                        "use the quoted string"),
     failing_output_case("conflicting dormancy declarations fail closed",
                         conflicting_dormancy_metadata,
                         "conflicting expect_activation metadata"),
+    output_case("ordinary string metadata is not a false guard",
+                ordinary_activation_string,
+                "6 preference stimulus/stimuli + 0 dormancy contract(s)"),
     output_case("reference skill carrying a direct-activation eval",
                 reference_skill_with_a_direct_eval,
                 "1 reference skill(s) carry a direct-activation eval"),

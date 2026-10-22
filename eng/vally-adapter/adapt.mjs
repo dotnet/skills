@@ -234,13 +234,13 @@ function evalIdentity(evalFile) {
   return { skill, plugin, skillPath: `plugins/${plugin}/skills/${skill}` };
 }
 
-// Read native string-valued tags.expect_activation and historical top-level
-// Boolean annotations. Dormancy is adapter metadata, not an executor setting.
-// This is a deliberately small, block-scalar-aware YAML
-// scan rather than a full parser so the adapter keeps its zero-dependency
-// contract (no `yaml` module is guaranteed on CI runners). Reading the spec is
-// required because silently defaulting to expect-activation can remove an
-// explicit dormancy contract from the pass gate.
+// Read the set of stimulus names whose `tags.expect_activation` value is
+// "false". Repository metadata lives in tags so Vally validates and preserves
+// it without requiring a custom schema extension. This is a deliberately small,
+// block-scalar-aware YAML scan rather than a full parser so the adapter keeps
+// its zero-dependency contract (no `yaml` module is guaranteed on CI runners).
+// Reading the spec is required because silently defaulting to expected
+// activation can remove an explicit dormancy contract from the pass gate.
 function readNonActivationStimuli(evalFile, repoRoot) {
   const path = resolve(repoRoot ?? ".", evalFile);
   let text;
@@ -265,6 +265,26 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     /^(?:false|False|FALSE|no|No|NO|off|Off|OFF)(?:\s+#.*)?$/.test(v.trim());
   const isTruthy = (v) =>
     /^(?:true|True|TRUE|yes|Yes|YES|on|On|ON)(?:\s+#.*)?$/.test(v.trim());
+  const stripYamlComment = (value) => {
+    let quote = null;
+    let escaped = false;
+    for (let index = 0; index < value.length; index++) {
+      const char = value[index];
+      if (quote === '"') {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === quote) quote = null;
+      } else if (quote === "'") {
+        if (char === "'" && value[index + 1] === "'") index++;
+        else if (char === quote) quote = null;
+      } else if (char === '"' || char === "'") {
+        quote = char;
+      } else if (char === "#" && (index === 0 || /\s/.test(value[index - 1]))) {
+        return value.slice(0, index).trimEnd();
+      }
+    }
+    return value;
+  };
   const result = new Set();
 
   const flowMappingEntries = (value) => {
@@ -343,21 +363,49 @@ function readNonActivationStimuli(evalFile, repoRoot) {
       throw new Error(`unsupported tags key for ${curName} in ${evalFile}; use literal keys without merges`);
     }
     if (!kv || unquote(key) !== "expect_activation") return;
-    const value = /^(["'])(false|true)\1(?:\s+#.*)?$/.exec(kv[2].trim());
-    if (!value) {
-      throw new Error(`tags.expect_activation must be the string "false" or "true" for ${curName} in ${evalFile}`);
+    const raw = stripYamlComment(kv[2]).trim();
+    let value;
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      value = JSON.parse(raw);
+    } else if (raw.startsWith("'") && raw.endsWith("'")) {
+      value = raw.slice(1, -1).replaceAll("''", "'");
+    } else if (/^(?:false|False|FALSE|no|No|NO|off|Off|OFF|true|True|TRUE|yes|Yes|YES|on|On|ON|null|Null|NULL|~)$/.test(raw) ||
+        /^(?:[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?|[-+]?\.inf|\.nan)$/i.test(raw) ||
+        /^[!&*{[|>]/.test(raw) || raw === "") {
+      throw new Error(`tags.expect_activation must be a string for ${curName} in ${evalFile}`);
+    } else {
+      value = raw;
     }
-    curTaggedActivation = value[2] === "true";
+    const word = value.toLowerCase();
+    curTaggedActivation = /^(?:false|no|off)$/.test(word) ? false : word === "true" ? true : null;
+  };
+  const applyTags = (value) => {
+    const entries = flowMappingEntries(value);
+    if (!entries) return false;
+    for (const entry of entries) applyTagEntry(entry);
+    return true;
+  };
+  const applyTagsValue = (value) => {
+    if (!value.trimStart().startsWith("{")) return applyTags(value);
+
+    let completeValue = stripYamlComment(value);
+    while (!applyTags(completeValue)) {
+      const nextLine = lines[i + 1];
+      if (nextLine === undefined || indentOf(nextLine) <= keyIndent) {
+        throw new Error(`cannot parse tags flow mapping in eval spec ${evalFile}`);
+      }
+      i++;
+      completeValue += ` ${stripYamlComment(nextLine.trim())}`;
+    }
+    return true;
   };
   const applyKey = (key, val) => {
     if (key === "name" && curName === null) curName = unquote(val);
     else if (key === "expect_activation") {
       curLegacyActivation = isFalsey(val) ? false : isTruthy(val) ? true : null;
     } else if (key === "tags") {
-      const entries = flowMappingEntries(val);
-      if (entries) {
-        for (const entry of entries) applyTagEntry(entry);
-      } else if (val.trim() === "" || val.trim().startsWith("#")) {
+      if (applyTagsValue(val)) return;
+      if (val.trim() === "" || val.trim().startsWith("#")) {
         inTags = true;
       } else {
         throw new Error(`unsupported tags mapping for ${curName} in ${evalFile}; use a block or flow mapping`);

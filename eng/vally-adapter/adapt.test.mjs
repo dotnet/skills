@@ -906,8 +906,20 @@ test("dormancy tags support block and flow mappings without reading nested text"
       '      expect_activation : "false"',
       "  - name: SpacedQuoted",
       '    tags: {"expect_activation" : "false"}',
+      "  - tags: {capability: routing-boundary, # metadata comment",
+      '      note: "keep # inside quotes",',
+      '      expect_activation: "fAlSe"}',
+      "    name: WrappedTagsFirst",
       "  - name: Active",
       '    tags: {expect_activation: "true"}',
+      "  - name: StringWithHash",
+      '    tags: {expect_activation: "false#not-a-comment"}',
+      "  - name: OtherString",
+      '    tags: {expect_activation: "off-target"}',
+      "  - name: OtherPlainString",
+      "    tags: {expect_activation: off-target}",
+      "  - name: CompatibleFalseString",
+      '    tags: {expect_activation: "off"}',
       "  - name: PromptOnly",
       "    prompt: |",
       "      tags:",
@@ -921,7 +933,8 @@ test("dormancy tags support block and flow mappings without reading nested text"
       "",
     ].join("\n"));
     assert.deepEqual([...readNonActivationStimuli("eval.yaml", root)],
-      ["Block", "FlowTags", "FlowStimulus", "Both", "SpacedPlain", "SpacedQuoted"]);
+      ["Block", "FlowTags", "FlowStimulus", "Both", "SpacedPlain", "SpacedQuoted",
+        "WrappedTagsFirst", "CompatibleFalseString"]);
     writeFileSync(join(root, "eval.yaml"), [
       "stimuli:",
       "- name: ZeroIndent",
@@ -941,8 +954,10 @@ test("malformed and conflicting dormancy tags fail rather than erase contracts",
   const root = mkdtempSync(join(tmpdir(), "vally-dormancy-invalid-tags-"));
   try {
     for (const [metadata, expected] of [
-      ["    tags: {expect_activation: false}", /must be the string/],
-      ['    tags: {expect_activation: "off"}', /must be the string/],
+      ["    tags: {expect_activation: false}", /must be a string/],
+      ["    tags: {expect_activation: 123}", /must be a string/],
+      ["    tags: {expect_activation: null}", /must be a string/],
+      ["    tags: {expect_activation: [false]}", /must be a string/],
       ['    expect_activation: true\n    tags: {expect_activation: "false"}', /conflicting/],
       ['    tags: {expect_activation: "true"}\n    expect_activation: false', /conflicting/],
       ["    tags: *unresolved", /unsupported tags mapping/],
@@ -952,6 +967,7 @@ test("malformed and conflicting dormancy tags fail rather than erase contracts",
       ['    tags:\n      <<:\n        expect_activation: "false"', /unsupported tags key/],
       ['    tags: {!!str expect_activation: "false"}', /unsupported tags key/],
       ['    tags:\n      &key expect_activation: "false"', /unsupported tags key/],
+      ['    tags: {expect_activation: "false"', /cannot parse tags flow mapping/],
     ]) {
       writeFileSync(join(root, "eval.yaml"), `stimuli:\n  - name: Guard\n${metadata}\n`);
       assert.throws(() => readNonActivationStimuli("eval.yaml", root), expected);
