@@ -49,7 +49,27 @@ stimuli:
     golden_patch:
       path: golden-patches/share-parsing.patch
     prompt: "This Billing library ships as a NuGet package. `AppSettingsHelper` and `ConfigReader` repeat the same int and bool parsing. Use one shared implementation without breaking existing callers or changing results. The solution is at Fixture.sln."
+    # Grader-only downstream consumer: staged after the agent finishes, so migrating or
+    # deleting in-repo callers and tests cannot hide a removed or re-signatured shipped member.
+    grading_environment:
+      files:
+        - src: fixtures/grading/ShippedParsingConsumerChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs
     graders:
+      - &grader-checks
+        type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore --filter FullyQualifiedName~Billing.GraderChecks
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      # Billing.csproj does not enforce the shipped baseline by itself, so require it byte-for-byte.
+      - &shipped-baseline-unchanged
+        type: run-command
+        config:
+          command: node -e "const s=require('fs').readFileSync('src/Billing/PublicAPI.Shipped.txt','utf8').replace(/\r\n/g,'\n'); const h=require('crypto').createHash('sha256').update(s).digest('hex'); if (h!=='fda63613e1820e7362d2298da18b47f77bb48b3c237085aee33d533696089a6a') { console.error('PublicAPI.Shipped.txt changed'); process.exit(1) }"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Shipped.txt
@@ -74,10 +94,8 @@ stimuli:
         config:
           command: node -e "const s=require('fs').readFileSync('src/Billing/AppSettingsHelper.cs','utf8'); const count=x=>s.split(x).length-1; if (count('int.TryParse')>1 || count('bool.TryParse')>1) process.exit(1)"
           expected_exit_code: 0
-      # Public-surface preservation gate: the shipped members are exercised by the
-      # tests (AppSettingsHelper + ConfigReader). A "safe" consolidation keeps them
-      # working; silently removing/renaming a shipped public member breaks the test
-      # compile and fails here.
+      # Behavior gate for the agent's own refactor; the grader-only consumer above is what
+      # enforces the shipped surface.
       - type: run-command
         config:
           command: dotnet test Fixture.sln -v:q --no-restore
@@ -90,6 +108,62 @@ stimuli:
       - "Consolidated the implementation without removing or changing either existing public contract"
       - "Preserved parsing behavior"
 
+  - name: Leave already-shared parsing alone when asked to consolidate it
+    tags:
+      capability: already-compatible-no-op
+      risk: unnecessary-rewrite
+      journey: modify-code
+    # Already-correct input: ConfigReader already delegates to AppSettingsHelper, so the right
+    # outcome is to notice that and change nothing, not to churn shipped surface or baselines.
+    prompt: "`AppSettingsHelper` and `ConfigReader` duplicate the int and bool parsing logic. Consolidate them into one shared implementation without changing results. The solution is at Fixture.sln."
+    environment:
+      files:
+        - src: fixtures/already-shared/AppSettingsHelper.cs
+          dest: fixtures/already-shared/AppSettingsHelper.cs
+      commands:
+        - node -e "const fs=require('fs');fs.copyFileSync('fixtures/already-shared/AppSettingsHelper.cs','src/Billing/AppSettingsHelper.cs');fs.rmSync('fixtures',{recursive:true})"
+    grading_environment:
+      files:
+        - src: fixtures/grading/ShippedParsingConsumerChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs
+    graders:
+      # Every in-scope source, test, project, and API baseline file must be byte-identical
+      # (line endings normalized), and no new files may appear outside bin/obj.
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),c=require('crypto');
+            const h=p=>c.createHash('sha256').update(fs.readFileSync(p,'utf8').replace(/\r\n/g,'\n')).digest('hex');
+            const e={'global.json':'b48d6da8fa62c0da7cc8a2da4ea036ac55836660a448ba533135abb5b8451b73',
+            'Fixture.sln':'09e9ebf11726ff997e52f5fbbc6e064c8d7909611a111f5369f03b4aab563947',
+            'src/Billing/AppSettingsHelper.cs':'6a624aecb2873c867e0f59bc25b7c2aefb752b1fc9ecf6141b4a479f6752c7d8',
+            'src/Billing/AssemblyInfo.cs':'7a41d9af0b0b5913225cd2909f01d98e4745764cdd411cc4c962c6a249d2b5ed',
+            'src/Billing/Billing.csproj':'a41c09c5c44fea146452bce5e1ef4717c23e357904df9c048affda23f16df947',
+            'src/Billing/Coupons.cs':'df9f0d9c95168edd5843956fc9cec130625bd525564fb399b4389b9f06355f24',
+            'src/Billing/Coupons.g.cs.template':'595d6ba830e64b9f850158a256712f4d88a7ed1d38e1664edf83f3a9d416f903',
+            'src/Billing/OrderProcessor.cs':'2e4441a322bedf3213e476ae07bc93a8a46e65b5763f8f727792b19b4054f799',
+            'src/Billing/PlatformInfo.cs':'d1bbc452c49a663fd11f74a8f4bad324ba6c6509f3c7d4f24980905f12738407',
+            'src/Billing/Pricing.cs':'a036bf3a02ec1460589cc8796c8e3b5995f9e22ea9e278301d19d12d83323747',
+            'src/Billing/PublicAPI.Shipped.txt':'fda63613e1820e7362d2298da18b47f77bb48b3c237085aee33d533696089a6a',
+            'src/Billing/PublicAPI.Unshipped.txt':'3c3b422dddb1efeb0fc5b228608fd8682452b2a9507d4031894bce3c4dedadbd',
+            'tests/Billing.Tests/Billing.Tests.csproj':'8c14e7224d3e20dbc97c7f038b2f24698e51593f9976f9a7470616d3c8f7662b',
+            'tests/Billing.Tests/BillingTests.cs':'7e46cfade596b1a41e9cd6e6ee1a2912c2a11dc530c1724cd555ea7f8a9e8307'};
+            const bad=Object.keys(e).filter(p=>!fs.existsSync(p)||h(p)!==e[p]);
+            const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(x=>x.isDirectory()?(['bin','obj','GraderChecks'].includes(x.name)?[]:walk(d+'/'+x.name)):[d+'/'+x.name]);
+            const extra=['src','tests'].flatMap(walk).filter(p=>!(p in e));
+            console.error('changed or missing:',bad,'unexpected:',extra);
+            process.exit(bad.length||extra.length?1:0)"
+          expected_exit_code: 0
+          timeout: 1m
+      - *grader-checks
+      - type: prompt
+        config:
+          prompt: "Reference outcome: notice that ConfigReader already delegates to AppSettingsHelper, report that there is no remaining duplication, and change no files."
+    rubric:
+      - "Recognized that the parsing is already shared through one implementation"
+      - "Made no code, test, or API baseline changes"
+      - "Told the user plainly that no consolidation was needed"
+
   - name: Add behavior to a shipped public member without breaking the contract
     tags:
       capability: public-behavior-extension
@@ -98,7 +172,13 @@ stimuli:
     golden_patch:
       path: golden-patches/add-hex-parsing.patch
     prompt: "The Billing library ships as a package. Add hex support to `AppSettingsHelper.ParseIntSetting` so callers can parse values like `0x1F` in addition to plain decimals, and cover it with a test, without disrupting existing consumers. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/HexParsingChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/HexParsingChecks.cs
     graders:
+      # Executes the requested feature through the shipped signature, independent of agent tests.
+      - *grader-checks
       # RS0017 is an error here, so an intact shipped line plus a green build proves the
       # original two-parameter method still exists for already-compiled consumers. Adding
       # an optional parameter in place forces this line to be rewritten.
@@ -134,7 +214,14 @@ stimuli:
     # Deliberately states the request the way users do ("rename it"), without naming the
     # compatibility constraint; noticing that Current() is shipped surface is the skill's job.
     prompt: "The `PlatformInfo.Current()` name is vague. Rename it to `GetCurrent()` and update this repository's callers. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/PlatformRenameChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/PlatformRenameChecks.cs
     graders:
+      # Runs on net8.0 and net10.0: both names keep the framework-specific label, and Current()
+      # still binds like an existing consumer call even if the agent rewrote its own tests.
+      - *grader-checks
       - type: file-contains
         config:
           path: src/Billing/PlatformInfo.cs
@@ -230,7 +317,14 @@ stimuli:
     golden_patch:
       path: golden-patches/add-platform-tag.patch
     prompt: "This library ships as a package. Add a public `PlatformInfo.Tag()` method that returns only the short platform tag, such as `net10` or `net8`, without changing `Current()`, and cover it with tests. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/PlatformTagChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/PlatformTagChecks.cs
     graders:
+      # Executes Tag() and Current() on each target framework; the agent-test regexes below
+      # only prove tests were written, not that each branch returns the right value.
+      - *grader-checks
       - type: file-contains
         config:
           path: src/Billing/PlatformInfo.cs
@@ -341,7 +435,13 @@ stimuli:
           dest: fixtures/missing-api-baseline/PlatformInfo.cs
       commands:
         - node -e "require('fs').copyFileSync('fixtures/missing-api-baseline/PlatformInfo.cs', 'src/Billing/PlatformInfo.cs')"
+    grading_environment:
+      files:
+        - src: fixtures/grading/PlatformTagChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/PlatformTagChecks.cs
     graders:
+      # "Keep the new method without changing its behavior", checked on both target frameworks.
+      - *grader-checks
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
@@ -379,7 +479,14 @@ stimuli:
       path: golden-patches/add-format-provider-overload.patch
     # Phrased as users phrase it; the binary-compatibility constraint is left for the agent to notice.
     prompt: "Some callers need culture-specific number parsing. Add an optional `IFormatProvider` parameter to `AppSettingsHelper.ParseIntSetting` so they can pass one. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/ShippedParsingConsumerChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs
     graders:
+      # Binds ParseIntSetting to Func<string?, int, int>; an in-place optional parameter fails
+      # this consumer compile regardless of how the API baseline files were edited.
+      - *grader-checks
       # Adding `IFormatProvider? provider = null` in place compiles every caller and passes
       # every test once the shipped baseline line is rewritten, but removes the two-parameter
       # method that already-compiled consumers bind to (MissingMethodException at run time).
@@ -522,12 +629,13 @@ stimuli:
       - "Did not flag the internal OrderProcessor local rename as a compatibility concern"
       - "Left the repository unchanged"
 
-  - name: Do not raise breaking-change concerns for a purely internal local rename
+  # On-target repository, trivial change: activation is acceptable here, but the work must stay
+  # proportionate. The genuine routing boundary is the private-app case below.
+  - name: Keep a local-variable rename proportionate inside a shipped library
     tags:
-      capability: dormancy
+      capability: proportionate-local-change
       risk: over-application
       journey: modify-code
-      expect_activation: "false"
     prompt: "Inside `OrderProcessor.DoStuff`, the local variable `subtotal` is a bit terse. Rename that local to `runningTotal` for readability. Keep behavior identical. The solution is at Fixture.sln."
     graders:
       - type: file-contains
@@ -548,3 +656,60 @@ stimuli:
       - "Completed the local rename without unrelated compatibility work"
       - "Did not apply public API, generated-code, or cross-target changes; compatibility review was not needed here"
       - "Preserved behavior"
+
+  - name: Rename a public method in a private single-target app without compatibility ceremony
+    tags:
+      capability: off-target-private-app
+      risk: over-application
+      journey: modify-code
+      expect_activation: "false"
+    # Genuinely excluded surface: one non-packable net10.0 executable with no PublicAPI files,
+    # InternalsVisibleTo, or other assemblies. `public` here has no external consumers, so the
+    # right answer is a direct rename. The Billing library is removed so nothing on-target remains.
+    prompt: "In the Reports console app, `ReportBuilder.Build` is a vague name. Rename it to `BuildMonthlySummary` and update its callers. The project is Reports/Reports.csproj."
+    environment:
+      files:
+        - src: fixtures/private-app/Reports.csproj
+          dest: Reports/Reports.csproj
+        - src: fixtures/private-app/Program.cs
+          dest: Reports/Program.cs
+        - src: fixtures/private-app/ReportBuilder.cs
+          dest: Reports/ReportBuilder.cs
+      commands:
+        - node -e "const fs=require('fs');for (const p of ['src','tests','Fixture.sln']) fs.rmSync(p,{recursive:true,force:true})"
+        - dotnet restore Reports/Reports.csproj --nologo
+    graders:
+      - type: file-contains
+        config:
+          path: Reports/ReportBuilder.cs
+          value: BuildMonthlySummary(
+      - type: file-not-contains
+        config:
+          path: Reports/ReportBuilder.cs
+          value: Build(
+      - type: file-not-contains
+        config:
+          path: Reports/ReportBuilder.cs
+          value: Obsolete
+      - type: file-contains
+        config:
+          path: Reports/Program.cs
+          value: ReportBuilder.BuildMonthlySummary(
+      - type: run-command
+        config:
+          command: node -e "const fs=require('fs');const extra=fs.readdirSync('Reports').filter(f=>/^PublicAPI|\.props$|\.targets$/i.test(f));if(extra.length){console.error('unexpected compatibility files:',extra);process.exit(1)}"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet run --project Reports/Reports.csproj --no-restore
+          expected_exit_code: 0
+          stdout_contains: "October: 3 sales, total 242.75"
+          timeout: 5m
+      - type: prompt
+        config:
+          prompt: "Reference outcome: rename the method and its caller directly, with no [Obsolete] forwarder, API baseline, or consumer-compatibility caveats, because a private single-target app has no external callers."
+    rubric:
+      - "Completed the rename and updated the caller so the app builds and prints the same summary"
+      - "Did not add an [Obsolete] forwarder, API baseline files, or other compatibility machinery to a private app"
+      - "Did not warn about breaking external consumers that this app does not have; compatibility review was not needed here"
