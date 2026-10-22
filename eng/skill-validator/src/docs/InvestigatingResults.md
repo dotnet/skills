@@ -299,10 +299,64 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > replaced after validation cannot redirect the operation through a symbolic
 > link or reparse point.
 > Permission requests fail closed: read/write paths use the same containment
-> checks, URL access is denied, shell requests without path or URL metadata
-> are limited to a small exact local-command allowlist, and MCP access is
+> checks, URL access is denied, shell commands must match an exact local-command
+> allowlist, a scoped `dotnet build/test/run` form, a simple local read/list command
+> (`cat`, `type`, `Get-Content`, `ls`, `dir`, `Get-ChildItem` with path operands only),
+> or an explicitly configured trusted helper, and MCP access is
 > limited to registered, sanitized servers and their explicitly declared
 > tools; an omitted tool list permits none, while an explicit `*` permits all.
+> Normal shell pre-tool hooks defer to the SDK's typed shell permission request,
+> where path and URL metadata is available for those checks. Generic hook
+> permission requests remain unsupported and are rejected.
+> When the SDK cannot classify a required, repository-owned acceptance helper,
+> a scenario may declare `allow_shell_commands`; entries are trusted evaluator
+> configuration and authorize only the exact command text (apart from surrounding
+> spaces/tabs). Whitespace inside quoted arguments is significant. CR/LF, other
+> control/line separators, command chaining, redirection, expansion, and other
+> shell metacharacters are rejected before any allowlist or path check. An allowed
+> `possiblePaths` output is never sufficient to approve an unclassified command
+> such as a scheme-less download with missing URL metadata.
+> Recovered read/list and .NET path operands use a conservative literal-path
+> grammar: letters/digits, spaces, directory separators, dots, underscores and
+> hyphens, plus a fully qualified Windows drive prefix. This applies even when
+> SDK path metadata is absent or contains only a safe operand. Comma arrays,
+> expression syntax, PowerShell provider/alternate-stream paths, drive-relative
+> paths, parent-traversal (`..`) segments, and UNC/network roots are rejected
+> rather than checked as one filename. Parent segments are rejected before
+> normalization: collapsing `link/../file` could otherwise erase a link that the
+> native filesystem follows before traversing to its parent.
+> Ordinary relative/absolute workspace paths, quoted spaces and separate literal
+> path arguments remain supported.
+>
+> Every helper command also requires `trusted_shell_files` entries with
+> workspace-relative paths and SHA-256 digests. Commands must use `node`, `python`,
+> `python3`, `bash`, or `sh`, immediately followed by a quoted absolute helper path
+> (no interpreter options or inline code). Use the literal `{work_dir}` placeholder
+> in `allow_shell_commands`, for example
+> `node "{work_dir}/_acceptance/audit.mjs" MyApp --json`; the evaluator expands it
+> to the scenario's absolute workspace and exposes the expanded command in session
+> context. Relative helper invocations are denied, even if their text is configured,
+> so a shell working-directory change cannot select another helper.
+> The invoked helper must be one of the declared, verified files; declaring an
+> unrelated file does not authorize a command. Every declared digest is checked
+> immediately before approval. Missing, linked (including directory ancestors),
+> rooted declarations, traversal segments, and modified files are rejected.
+> Include every repository-owned script or module the helper loads.
+>
+> This is an approval-time content check, not an OS execution sandbox or an atomic
+> guarantee against changes after approval. It does not authenticate host
+> interpreters, dynamically loaded dependencies, or everything a helper can do.
+> Only configure reviewed, deterministic helpers that do not use the network;
+> allowlisted local .NET builds/tests can execute project code as well.
+> URL and filesystem-link denials still take precedence, and `deny_shell` and
+> offline-workflow restrictions override the allowlist. The execution-contract
+> version is part of baseline identity, so older permission-policy results cannot
+> be silently reused.
+> The authenticated SDK routing regression test is opt-in because it invokes
+> a real model. Run it with
+> `SKILL_VALIDATOR_PERMISSION_E2E_MODEL=<model> dotnet test eng/skill-validator/tests/SkillValidator.Tests.csproj --filter "FullyQualifiedName~ShellPermissionRuntimeIntegrationTests"`.
+> It gates the real permission callback before approving an allowed shell call
+> and verifies that an outside-workspace request is rejected without execution.
 > The native evaluator currently accepts only the repository's shipped
 > `dotnet dnx Microsoft.AITools.BinlogMcp --yes --prerelease` stdio launch
 > shape as input, then rewrites it to package version 3.0.2 with a
