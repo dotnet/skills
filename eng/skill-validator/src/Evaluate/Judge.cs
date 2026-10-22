@@ -94,7 +94,7 @@ public static class Judge
         Be thorough and critical. A score of 3 is average/acceptable. Only give 5 for truly excellent work.
         """;
 
-    private static string BuildJudgeUserPrompt(
+    internal static string BuildJudgeUserPrompt(
         EvalScenario scenario,
         RunMetrics metrics,
         IReadOnlyList<string> rubric)
@@ -118,6 +118,25 @@ public static class Judge
             """,
             $"## Session Timeline\n{FormatSessionTimeline(metrics.Events)}",
         };
+
+        if (metrics.AssertionResults.Count > 0)
+        {
+            sections.Add("## Evaluator-Owned Deterministic Checks\n"
+                + string.Join("\n", metrics.AssertionResults.Select(result =>
+                    $"- {result.Assertion.Type}: {(result.Passed ? "passed" : "failed")} - {result.Message}"))
+                + "\nThese validate artifacts and recorded constraints, not agent-executed test evidence.");
+        }
+
+        if (scenario.DenyShell)
+        {
+            sections.Add("""
+                ## Expected Execution Restriction
+                Host-denied shell execution is expected in this scenario and must not itself reduce the score.
+                Assess generated artifact quality, truthful PARTIAL reporting, and adaptation to the restriction.
+                Evaluator-owned post-run artifact validation is not evidence that the agent executed the tests.
+                Do not excuse missing artifacts, false success claims, or failed deterministic assertions.
+                """);
+        }
 
         if (rubric.Count > 0)
         {

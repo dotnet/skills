@@ -1,0 +1,27 @@
+{
+  "pr": {
+    "number": 17,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "current_pr": {
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "trusted_playbook_available": true,
+  "changed_files": {
+    "repo/Extension.targets": {
+      "lines": [
+        3
+      ],
+      "patch": "@@ -3 +3 @@\n-    <BuildDependsOn>$(BuildDependsOn);WriteCatalog</BuildDependsOn>\n+    <BuildDependsOn>WriteCatalog</BuildDependsOn>"
+    }
+  },
+  "related_files": [
+    "repo/Build.proj"
+  ],
+  "excluded_paths": "",
+  "environment": {
+    "MSBUILD_QUALITY_REVIEW_EXCLUDED_PATHS": ""
+  }
+}

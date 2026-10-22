@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
@@ -224,6 +225,37 @@ public class BuildSessionConfigTests
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         Assert.AreEqual("C:\\tmp\\work", config.WorkingDirectory);
+        Assert.AreEqual(SystemMessageMode.Append, config.SystemMessage!.Mode);
+        Assert.Contains(Path.GetFullPath("C:\\tmp\\work"), config.SystemMessage.Content!);
+        Assert.Contains("not the project", config.SystemMessage.Content!);
+    }
+
+    [TestMethod]
+    public async Task ExposesOnlyStagedReferenceCatalogsAsFilesInWorkspaceContext()
+    {
+        var source = Path.Combine(Path.GetTempPath(), $"sv-reference-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(source);
+        var markdown = "---\nname: reference-data\ndisable-model-invocation: true\n---\n# Catalog";
+        var sourceFile = Path.Combine(source, "SKILL.md");
+        await File.WriteAllTextAsync(sourceFile, markdown);
+        var reference = new SkillInfo("reference-data", "Reference data", source, sourceFile, markdown,
+            DisableModelInvocation: true);
+        try
+        {
+            var config = await AgentRunner.BuildSessionConfig(
+                null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+                additionalSkills: [reference]);
+            var staged = Path.Combine(Assert.ContainsSingle(config.SkillDirectories!), Path.GetFileName(source), "SKILL.md");
+            Assert.Contains(staged, config.SystemMessage!.Content!);
+            Assert.Contains("files, not callable skills", config.SystemMessage.Content!);
+            Assert.DoesNotContain(sourceFile, config.SystemMessage.Content!);
+            Assert.IsTrue(File.Exists(staged));
+        }
+        finally
+        {
+            Directory.Delete(source, recursive: true);
+            await AgentRunner.CleanupWorkDirs();
+        }
     }
 
     [TestMethod]
@@ -401,16 +433,278 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
-    public async Task ShellToolDefersToPermissionRequestPathInspection()
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public async Task OfflineWorkflowDeniesShellAcrossAllArmsAndNestedSessions(
+        bool includePrimaryAgent, bool includePackagedAgent)
+    {
+        var workDir = AgentRunner.CreatePrivateWorkDir("offline-policy");
+        var source = Path.Combine(workDir, "inputs", "untrusted.py");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        File.WriteAllText(source, "print('fixture source')\n");
+        var primary = new AgentInfo(
+            "workflow.demo", "Workflow fixture", source, "Inspect fixture evidence.", "workflow.demo.agent.md");
+        var packaged = new AgentInfo(
+            "demo", "Packaged fixture", source, "Inspect fixture evidence.", "demo.agent.md");
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", workDir,
+            agent: includePrimaryAgent ? primary : null,
+            additionalAgents: includePackagedAgent ? [packaged] : null,
+            denyShell: false, offlineWorkflow: true);
+
+        foreach (var toolName in new[] { "bash", "powershell", "local_shell", "shell", "run_shell_command", "execute", "EXECUTE" })
+        {
+            var denied = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+            {
+                ToolName = toolName,
+                ToolArgs = JsonDocument.Parse("""{"command":"python inputs/untrusted.py"}""").RootElement,
+                SessionId = "nested-session",
+            }, new HookInvocation { SessionId = "root-session" });
+            Assert.AreEqual("deny", denied!.PermissionDecision);
+        }
+        var permission = await config.OnPermissionRequest!(new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "python inputs/untrusted.py",
+            HasWriteFileRedirection = false,
+            Intention = "Run submitted source",
+            PossiblePaths = [source],
+            PossibleUrls = [],
+        }, new PermissionInvocation { SessionId = "nested-session" });
+        Assert.AreEqual("reject", permission.Kind);
+
+        var read = await config.OnPermissionRequest!(new PermissionRequestRead
+        {
+            Kind = "read", Path = source, Intention = "Read evidence", ToolCallId = "read",
+        }, null!);
+        var proposal = await config.OnPermissionRequest!(new PermissionRequestWrite
+        {
+            Kind = "write", FileName = Path.Combine(workDir, "result.json"),
+            Intention = "Write proposal", ToolCallId = "write",
+            CanOfferSessionApproval = false, Diff = "", NewFileContents = "{}",
+        }, null!);
+        Assert.AreEqual("approve-once", read.Kind);
+        Assert.AreEqual("approve-once", proposal.Kind);
+
+        foreach (var relative in new[]
+        {
+            ".github/workflows/demo.md", ".github/agents/demo.agent.md",
+            ".github/graders/check.sh", "inputs/context.json", "package-resource.json",
+        })
+        {
+            var path = Path.Combine(workDir, relative.Replace('/', Path.DirectorySeparatorChar));
+            var write = await config.OnPermissionRequest!(new PermissionRequestWrite
+            {
+                Kind = "write", FileName = path, Intention = "Alter staged resource", ToolCallId = "resource",
+                CanOfferSessionApproval = false, Diff = "", NewFileContents = "changed",
+            }, new PermissionInvocation { SessionId = "nested-session" });
+            Assert.AreEqual("reject", write.Kind);
+            foreach (var toolName in new[] { "edit", "create", "delete", "remove", "rename", "move", "write_file", "append_file" })
+            {
+                var mutation = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+                {
+                    ToolName = toolName,
+                    ToolArgs = JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        path,
+                        source = path,
+                        destination = Path.Combine(workDir, "result.json"),
+                    })).RootElement,
+                    SessionId = "nested-session",
+                }, new HookInvocation { SessionId = "root-session" });
+                Assert.AreEqual("deny", mutation!.PermissionDecision);
+            }
+        }
+    }
+
+    [TestMethod]
+    public async Task OfflineMutationsWithoutHookPathsRemainBoundByResolvedWritePermissions()
+    {
+        var workDir = AgentRunner.CreatePrivateWorkDir("offline-unresolved-write");
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", workDir, offlineWorkflow: true);
+        foreach (var args in new JsonElement?[]
+        {
+            null,
+            JsonDocument.Parse("null").RootElement,
+            JsonSerializer.SerializeToElement("""{"path":"result.json"}"""),
+        })
+        {
+            var deferred = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+            {
+                ToolName = "create", ToolArgs = args, SessionId = "nested-session",
+            }, new HookInvocation { SessionId = "root-session" });
+            Assert.AreEqual("allow", deferred!.PermissionDecision);
+        }
+        foreach (var relative in new[] { "result.json", ".github/workflows/demo.md" })
+        {
+            var decision = await config.OnPermissionRequest!(new PermissionRequestWrite
+            {
+                Kind = "write", FileName = Path.Combine(workDir, relative.Replace('/', Path.DirectorySeparatorChar)),
+                Intention = "Resolved write", ToolCallId = "write",
+                CanOfferSessionApproval = false, Diff = "", NewFileContents = "{}",
+            }, new PermissionInvocation { SessionId = "nested-session" });
+            Assert.AreEqual(relative == "result.json" ? "approve-once" : "reject", decision.Kind);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("bash")]
+    [DataRow("powershell")]
+    [DataRow("local_shell")]
+    [DataRow("shell")]
+    [DataRow("run_shell_command")]
+    [DataRow("execute")]
+    [DataRow("EXECUTE")]
+    public async Task ShellToolDefersToPermissionRequestPathInspection(string toolName)
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
         var args = JsonDocument.Parse("""{"fullCommandText": "cat /etc/passwd"}""").RootElement;
 
         var result = await config.Hooks!.OnPreToolUse!(
-            new PreToolUseHookInput { ToolName = "bash", ToolArgs = args },
+            new PreToolUseHookInput { ToolName = toolName, ToolArgs = args },
             null!);
 
-        Assert.AreEqual("ask", result!.PermissionDecision);
+        Assert.IsNull(result);
+    }
+
+    [TestMethod]
+    [DataRow("bash")]
+    [DataRow("powershell")]
+    [DataRow("local_shell")]
+    [DataRow("shell")]
+    [DataRow("run_shell_command")]
+    [DataRow("execute")]
+    [DataRow("EXECUTE")]
+    public async Task OptInShellDenialRejectsToolCallsFromNestedSessions(string toolName)
+    {
+        var deniedSessions = new List<string?>();
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+            denyShell: true, onShellDenied: deniedSessions.Add);
+        var args = JsonDocument.Parse("""{"command":"git status"}""").RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = toolName, ToolArgs = args, SessionId = "nested-session" },
+            new HookInvocation { SessionId = "root-session" });
+
+        Assert.AreEqual("deny", result!.PermissionDecision);
+        Assert.Contains("All shell execution", result.PermissionDecisionReason!);
+        Assert.AreSequenceEqual(["nested-session"], deniedSessions);
+    }
+
+    [TestMethod]
+    public async Task OptInShellDenialRejectsOtherwiseAllowedPermissionRequests()
+    {
+        var deniedSessions = new List<string?>();
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+            denyShell: true, onShellDenied: deniedSessions.Add);
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestShell
+            {
+                CanOfferSessionApproval = false,
+                Commands = [],
+                FullCommandText = "git status",
+                HasWriteFileRedirection = false,
+                Intention = "Inspect the worktree",
+                PossiblePaths = [],
+                PossibleUrls = [],
+            },
+            new PermissionInvocation { SessionId = "nested-session" });
+
+        Assert.AreEqual("reject", decision.Kind);
+        Assert.AreSequenceEqual(["nested-session"], deniedSessions);
+    }
+
+    [TestMethod]
+    [DataRow(true, false, "owner", "deny")]
+    [DataRow(true, false, "demo:owner", "deny")]
+    [DataRow(true, false, "worker", "allow")]
+    [DataRow(false, false, "owner", "allow")]
+    [DataRow(true, true, "owner", "allow")]
+    public async Task PrimaryAgentHonorsItsDeclaredSelfDelegationBoundary(
+        bool primarySelected, bool permitsSelf, string requestedAgent, string expectedDecision)
+    {
+        var agent = new AgentInfo(
+            "owner", "Test owner", "/owner.agent.md",
+            "---\nname: owner\n---\nComplete the assigned work.", "owner.agent.md",
+            Agents: permitsSelf ? ["owner", "worker"] : ["worker"]);
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+            agent: agent, selectAgentAsPrimary: primarySelected);
+        var result = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+        {
+            ToolName = "task",
+            ToolArgs = JsonDocument.Parse(
+                JsonSerializer.Serialize(new { agent_type = requestedAgent })).RootElement,
+        }, null!);
+
+        Assert.AreEqual(expectedDecision, result!.PermissionDecision);
+        Assert.Contains("Active custom-agent identity: `owner`",
+            Assert.ContainsSingle(config.CustomAgents!).Prompt);
+    }
+
+    [TestMethod]
+    public async Task PrimaryAgentWildcardDelegationRemainsAllowed()
+    {
+        var agent = new AgentInfo("owner", "Test owner", "/owner.agent.md",
+            "---\nname: owner\n---\nComplete the work.", "owner.agent.md", Agents: ["*"]);
+        var config = await AgentRunner.BuildSessionConfig(
+            null, null, "gpt-4.1", AgentRunner.GetEvaluationRoot(),
+            agent: agent, selectAgentAsPrimary: true);
+        var result = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+        {
+            ToolName = "task",
+            ToolArgs = JsonDocument.Parse("""{"agent_type":"owner"}""").RootElement,
+        }, null!);
+
+        Assert.AreEqual("allow", result!.PermissionDecision);
+    }
+
+    [TestMethod]
+    public async Task OptInShellDenialKeepsIndependentFilePermissionsAndSandbox()
+    {
+        var workDir = Path.Combine(AgentRunner.GetEvaluationRoot(), "shell-denied-files");
+        var testPath = Path.Combine(workDir, "tests", "test_sample.py");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir, denyShell: true);
+        foreach (var toolName in new[] { "view", "create", "edit" })
+        {
+            var result = await config.Hooks!.OnPreToolUse!(
+                new PreToolUseHookInput
+                {
+                    ToolName = toolName,
+                    ToolArgs = JsonDocument.Parse(JsonSerializer.Serialize(new { path = testPath })).RootElement,
+                }, null!);
+            Assert.AreEqual("allow", result!.PermissionDecision);
+        }
+
+        var read = await config.OnPermissionRequest!(new PermissionRequestRead
+        {
+            Kind = "read", Path = testPath, Intention = "Read tests", ToolCallId = "read",
+        }, null!);
+        var write = await config.OnPermissionRequest!(new PermissionRequestWrite
+        {
+            Kind = "write", FileName = testPath, Intention = "Write tests", ToolCallId = "write",
+            CanOfferSessionApproval = false, Diff = "", NewFileContents = "def test_sample(): assert 1 == 1",
+        }, null!);
+        var outside = await config.OnPermissionRequest!(new PermissionRequestRead
+        {
+            Kind = "read", Path = Path.Combine(workDir, "..", "secret.txt"),
+            Intention = "Read outside the workspace", ToolCallId = "outside",
+        }, null!);
+        var reserved = await config.Hooks!.OnPreToolUse!(new PreToolUseHookInput
+        {
+            ToolName = "edit",
+            ToolArgs = JsonDocument.Parse("""{"path":"session-state/events.jsonl"}""").RootElement,
+        }, null!);
+
+        Assert.AreEqual("approve-once", read.Kind);
+        Assert.AreEqual("approve-once", write.Kind);
+        Assert.AreEqual("reject", outside.Kind);
+        Assert.AreEqual("deny", reserved!.PermissionDecision);
     }
 
     [TestMethod]
@@ -611,9 +905,68 @@ public class BuildSessionConfigTests
     [DataRow("  DOTNET   TEST  ")]
     [DataRow("git status --short")]
     [DataRow("pwd")]
+    [DataRow("Get-Location")]
     public void AllowsOnlyKnownPathlessShellCommands(string command)
     {
         Assert.IsTrue(AgentRunner.IsAllowedPathlessShellCommand(command));
+    }
+
+    [TestMethod]
+    [DataRow("dotnet build FullPipeline --nologo --verbosity quiet", "FullPipeline")]
+    [DataRow("dotnet build FullPipeline --no-restore --verbosity:minimal", "FullPipeline")]
+    [DataRow("dotnet run --project \".eval/TimeContract/TimeContract.csproj\" --no-restore", ".eval/TimeContract/TimeContract.csproj")]
+    [DataRow("dotnet test --project Tests.csproj --report-trx", "Tests.csproj")]
+    [DataRow("dotnet test Tests.csproj --filter FullyQualifiedName~ClockTests", "Tests.csproj")]
+    public void RecoversScopedDotnetPathsWhenPowerShellMetadataOmitsThem(string command, string expected)
+    {
+        Assert.Contains(expected, AgentRunner.GetScopedDotnetCommandPaths(command)!);
+    }
+
+    [TestMethod]
+    [DataRow("dotnet build a.csproj; Remove-Item outside")]
+    [DataRow("dotnet test $(Get-Content path.txt)")]
+    [DataRow("dotnet build a.csproj -p:CustomBeforeMicrosoftCommonTargets=outside.targets")]
+    [DataRow("dotnet run --project a.csproj -- --outside")]
+    [DataRow("dotnet build \"unterminated")]
+    [DataRow("python -c 'print(1)'")]
+    [DataRow("dotnet build a.csproj --configuration ../outside")]
+    [DataRow("dotnet build ~/outside.csproj")]
+    [DataRow("dotnet build '~user/outside.csproj'")]
+    [DataRow("dotnet build --project ~/outside.csproj")]
+    [DataRow("dotnet build --solution ~/outside.sln")]
+    [DataRow("dotnet build a.csproj --output ~/outside")]
+    [DataRow("dotnet test a.csproj --results-directory ~/results")]
+    [DataRow("dotnet test a.csproj --report-trx-filename ~/results.trx")]
+    [DataRow("dotnet build @options.rsp")]
+    [DataRow("dotnet build \"@options.rsp\"")]
+    [DataRow("dotnet build a.csproj @options.rsp")]
+    [DataRow("dotnet build --project @options.rsp")]
+    [DataRow("dotnet build a.csproj --output @options.rsp")]
+    public void ScopedDotnetFallbackRejectsUnknownOrComputedShellForms(string command)
+    {
+        Assert.IsNull(AgentRunner.GetScopedDotnetCommandPaths(command));
+    }
+
+    [TestMethod]
+    public async Task ScopedDotnetFallbackStillRejectsOutsideProjects()
+    {
+        var workDir = AgentRunner.GetEvaluationRoot();
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false, Commands = [], PossiblePaths = [], PossibleUrls = [],
+            HasWriteFileRedirection = false, Intention = "Build scoped project",
+            FullCommandText = "dotnet build local.csproj --nologo",
+        };
+        Assert.AreEqual("approve-once", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet build ../outside.csproj --nologo";
+        Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet build ~/outside.csproj";
+        Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet build @options.rsp";
+        Assert.AreEqual("reject", (await config.OnPermissionRequest!(request, null!)).Kind);
+        request.FullCommandText = "dotnet test local.csproj --filter FullyQualifiedName~ClockTests";
+        Assert.AreEqual("approve-once", (await config.OnPermissionRequest!(request, null!)).Kind);
     }
 
     [TestMethod]
@@ -1655,6 +2008,61 @@ public class ExtractPathsFromToolArgsTests
 public class LocalSessionFsHandlerTests
 {
     public TestContext TestContext { get; set; } = null!;
+
+    private static TCallback ProviderCallback<TCallback>(LocalSessionFsHandler handler, string name)
+        where TCallback : Delegate
+    {
+        var method = typeof(LocalSessionFsHandler).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(method);
+        return method.CreateDelegate<TCallback>(handler);
+    }
+
+    [TestMethod]
+    public async Task OfflineProviderPreservesResourcesThroughEveryMutationCallback()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"offline-fs-{Guid.NewGuid():N}");
+        var stateRoot = Path.Combine(root, "state");
+        var workDir = Path.Combine(root, "work");
+        var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir], offlineWorkflow: true);
+        var token = TestContext.CancellationToken;
+        var write = ProviderCallback<Func<string, string, int?, CancellationToken, Task>>(handler, "WriteFileAsync");
+        var append = ProviderCallback<Func<string, string, int?, CancellationToken, Task>>(handler, "AppendFileAsync");
+        var remove = ProviderCallback<Func<string, bool, bool, CancellationToken, Task>>(handler, "RemoveAsync");
+        var rename = ProviderCallback<Func<string, string, CancellationToken, Task>>(handler, "RenameAsync");
+        var mkdir = ProviderCallback<Func<string, bool, int?, CancellationToken, Task>>(handler, "MakeDirectoryAsync");
+        var read = ProviderCallback<Func<string, CancellationToken, Task<string>>>(handler, "ReadFileAsync");
+        try
+        {
+            foreach (var relative in new[]
+            {
+                ".github/workflows/demo.md", ".github/agents/demo.agent.md",
+                ".github/graders/check.sh", "inputs/context.json", "package-resource.json",
+            })
+            {
+                var path = Path.Combine(workDir, relative.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, "original");
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => write(relative, "changed", null, token));
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => append(relative, "changed", null, token));
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => remove(relative, false, false, token));
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => rename(relative, "result.json", token));
+                await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => rename("result.json", relative, token));
+                Assert.AreEqual("original", await read(relative, token));
+            }
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => remove(".github", true, false, token));
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() => mkdir(".github/injected", true, null, token));
+            await mkdir(".", true, null, token);
+            await write("result.json", "{}", null, token);
+            await append("result.json", "\n", null, token);
+            Assert.AreEqual("{}\n", await read("result.json", token));
+            await write("session-state/events.jsonl", "state", null, token);
+            Assert.AreEqual("state", await read("session-state/events.jsonl", token));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
 
     [TestMethod]
     public void ResolvesStateWorkspaceAndStagedPathsSeparately()

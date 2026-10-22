@@ -87,7 +87,7 @@ evidence or one with missing completion/pairwise evidence,
 is left exactly as it was measured.
 
 Options:
-  --agent <path>          Custom-agent path to re-evaluate (repeatable)
+  --agent <path>          Agent file or workflow aw.yml to re-evaluate (repeatable)
   --model <model>         Executor model for the retry
   --judge-model <model>   Judge model for the retry
   --max-scenarios <n>     Maximum scenarios to retry (default: 2)
@@ -218,7 +218,9 @@ function targetAgentActivated(activation, agentName) {
 
 function recomputeNativeAggregate(verdict) {
   const scenarios = verdict?.scenarios ?? [];
-  const agentName = String(verdict?.skillName ?? "").replace(/^agent\./, "");
+  const agentName = verdict?.skillKind === "workflow"
+    ? `workflow.${verdict.skillName}`
+    : String(verdict?.skillName ?? "").replace(/^agent\./, "");
   const hasExecutionFailure = scenarios.some(
     (scenario) =>
       requiredArmTimedOut(scenario)
@@ -774,7 +776,8 @@ function retryAgentTimeouts(config) {
         results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex];
       const ineligibleReason = timeoutIneligibilityReason(
         scenario,
-        target.skillName,
+        results.verdicts[target.verdictIndex]?.skillKind === "workflow"
+          ? `workflow.${target.skillName}` : target.skillName,
       );
       if (ineligibleReason !== null) summary.ineligibleScenarioCount++;
       return {
@@ -825,7 +828,8 @@ function retryAgentTimeouts(config) {
       results.verdicts[target.verdictIndex].scenarios[target.scenarioIndex];
     const ineligibleReason = timeoutIneligibilityReason(
       scenario,
-      target.skillName,
+      results.verdicts[target.verdictIndex]?.skillKind === "workflow"
+        ? `workflow.${target.skillName}` : target.skillName,
     );
     if (ineligibleReason !== null) {
       summary.unresolvedScenarioCount++;

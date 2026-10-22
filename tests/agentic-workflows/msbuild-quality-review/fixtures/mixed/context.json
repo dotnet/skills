@@ -1,0 +1,33 @@
+{
+  "pr": {
+    "number": 17,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "current_pr": {
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "trusted_playbook_available": true,
+  "changed_files": {
+    "repo/Policy.targets": {
+      "lines": [
+        3
+      ],
+      "patch": "@@ -3 +3 @@\n-    <NoWarn>$(NoWarn);CA1000</NoWarn>\n+    <NoWarn>CA1000</NoWarn>"
+    },
+    "repo/Program.cs": {
+      "lines": [
+        1
+      ],
+      "patch": "@@ -0,0 +1 @@\n+public static class Program { public static void Run() { } }"
+    }
+  },
+  "related_files": [
+    "repo/Build.proj"
+  ],
+  "excluded_paths": "",
+  "environment": {
+    "MSBUILD_QUALITY_REVIEW_EXCLUDED_PATHS": ""
+  }
+}

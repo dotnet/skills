@@ -670,6 +670,7 @@ stimuli:
 
   - name: Stay dormant for a WPF command binding request
     tags:
+      expect_activation: "false"
       capability: routing-boundary
       risk: low
       journey: dormancy
@@ -677,7 +678,6 @@ stimuli:
       In my WPF MainWindow.xaml, bind Ctrl+S to the existing SaveCommand through
       the window's input bindings. Keep the current DataContext and button command,
       and show the updated XAML.
-    expect_activation: false
     graders:
       - type: output-matches
         config:

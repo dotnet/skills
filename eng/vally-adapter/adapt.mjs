@@ -1777,7 +1777,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
         treatmentPassed: t.treatmentPassed ?? null,
         errored: t.errored ?? false,
       })),
-      // Absolute dashboard fields. `expect_activation: false` in the eval spec
+      // Absolute dashboard fields. `tags.expect_activation: "false"` in the eval spec
       // marks a scenario where the skill should stay dormant. It remains visible
       // as comparison and completion evidence, but it does not vote in the
       // preference gate.
@@ -1868,7 +1868,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     }
   }
 
-  // `expect_activation: false` is an explicit contract on the isolated target
+  // `tags.expect_activation: "false"` is an explicit contract on the isolated target
   // skill. Plugin activity cannot prove a violation because the plugin arm does
   // not identify which sibling skill emitted the activity event.
   const activationContractScenarios = scenarios

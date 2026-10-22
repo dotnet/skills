@@ -1,0 +1,109 @@
+{
+  "schema_version": "1",
+  "repository": "fixture/repo",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "git_object_format": "sha1",
+  "config_digest": "49ea7b693a67dd367e3d4fbdcae49587e4b5859e35276047b5ce6538df59497d",
+  "candidate_count": 2,
+  "candidates": [
+    {
+      "candidate_id": "861515c99585bed298fe134b344ad1640e508093b8bfdbecd75fa998cf2a6b71",
+      "stable_owner_id": "840af3b24f10544293bb4151a5b467f7deac074c21b806d2a5f707a1fb30a4be",
+      "path": "repo/Core/Tests.cs",
+      "blob_oid": "a48c6ed42becc1e1ac4a53cdd5f08fd865a76fb2",
+      "source_sha256": "dc64151e64db1126654999667e6405ff5a6332359ff0c8ed9c255963e8345301",
+      "attribute_span": {
+        "start": 42,
+        "length": 52,
+        "start_line": 4,
+        "start_column": 6,
+        "end_line": 4,
+        "end_column": 58
+      },
+      "attribute_text_sha256": "b9be0bfd9bcb0dd3ea55c4d7c18a26feddb8308803eb090ed16ec999ffc77cd0",
+      "attribute_type": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+      "owner": {
+        "kind": "method",
+        "namespace": "Core",
+        "containing_types": [
+          "Tests"
+        ],
+        "type_fqn": "Core.Tests",
+        "declaration_id": "M:Core.Tests.Count()",
+        "method_name": "Count",
+        "method_signature": "Count()",
+        "test_fqns": [
+          "Core.Tests.Count"
+        ]
+      },
+      "canonical_issue_references": [
+        {
+          "kind": "issue",
+          "owner": "fixture",
+          "repo": "repo",
+          "number": 110,
+          "canonical": "fixture/repo#110",
+          "url": "https://github.com/fixture/repo/issues/110",
+          "eligibility": true,
+          "state": "closed",
+          "state_reason": "completed",
+          "merged_at": null
+        }
+      ],
+      "decision": {
+        "eligible": true,
+        "deferrals": []
+      }
+    },
+    {
+      "candidate_id": "1f96fcae9fb63d8b0e12300a858196075850477bf2d3d7cea2bdaf874effdbb5",
+      "stable_owner_id": "9cef95bb77665e2037df7497fafce8e5643622a75cac35d37efa439279679aaf",
+      "path": "repo/Adapter/Tests.cs",
+      "blob_oid": "8c95db8b89b0c47262f5b5156ff122225f6715af",
+      "source_sha256": "e8039a422cf1e1b878892e69049eb458324e617fad30bef8dd2ce8fc3cc4255b",
+      "attribute_span": {
+        "start": 45,
+        "length": 52,
+        "start_line": 4,
+        "start_column": 6,
+        "end_line": 4,
+        "end_column": 58
+      },
+      "attribute_text_sha256": "b9be0bfd9bcb0dd3ea55c4d7c18a26feddb8308803eb090ed16ec999ffc77cd0",
+      "attribute_type": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+      "owner": {
+        "kind": "method",
+        "namespace": "Adapter",
+        "containing_types": [
+          "Tests"
+        ],
+        "type_fqn": "Adapter.Tests",
+        "declaration_id": "M:Adapter.Tests.Count()",
+        "method_name": "Count",
+        "method_signature": "Count()",
+        "test_fqns": [
+          "Adapter.Tests.Count"
+        ]
+      },
+      "canonical_issue_references": [
+        {
+          "kind": "issue",
+          "owner": "fixture",
+          "repo": "repo",
+          "number": 110,
+          "canonical": "fixture/repo#110",
+          "url": "https://github.com/fixture/repo/issues/110",
+          "eligibility": true,
+          "state": "closed",
+          "state_reason": "completed",
+          "merged_at": null
+        }
+      ],
+      "decision": {
+        "eligible": true,
+        "deferrals": []
+      }
+    }
+  ],
+  "manifest_digest": "62c83d9348f59f45dbaa5f16b9570f4f5a2816e32e43e9c1199aecad40194ba5"
+}

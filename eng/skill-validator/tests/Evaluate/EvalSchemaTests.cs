@@ -253,7 +253,8 @@ public class ParseEvalConfigTests
             stimuli:
               - name: Migrate the project
                 prompt: Apply the requested migration.
-                expect_activation: false
+                tags:
+                  expect_activation: "false"
                 environment:
                   files:
                     - src: fixtures/project
@@ -265,11 +266,15 @@ public class ParseEvalConfigTests
                   agents:
                     - helper-agent
                 constraints:
-                  expect_tools: [bash]
-                  reject_tools: [web]
                   max_turns: 12
                   max_tokens: 4000
                 graders:
+                  - type: tool-calls
+                    config:
+                      required: [bash]
+                  - type: tool-calls
+                    config:
+                      disallowed: [web]
                   - type: file-contains
                     config:
                       path: "**/*.csproj"
@@ -292,6 +297,7 @@ public class ParseEvalConfigTests
         var scenario = Assert.ContainsSingle(config!.Scenarios);
         Assert.AreEqual(1200, scenario.Timeout);
         Assert.IsFalse(scenario.ExpectActivation);
+        Assert.IsFalse(scenario.DenyShell);
         Assert.AreSequenceEqual(["bash"], scenario.ExpectTools);
         Assert.AreSequenceEqual(["web"], scenario.RejectTools);
         Assert.AreEqual(12, scenario.MaxTurns);
@@ -320,6 +326,41 @@ public class ParseEvalConfigTests
             Assert.AreSequenceEqual(["-c", "dotnet test Project"], command.ArgumentList!);
             Assert.IsNull(command.CommandArguments);
         }
+    }
+
+    [TestMethod]
+    public void ParsesVallyOptInShellDenialTag()
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible("""
+            stimuli:
+              - name: Generate tests
+                prompt: Add and run the tests.
+                tags:
+                  deny_shell: "true"
+              - name: Normal execution
+                prompt: Run the tests.
+            """);
+
+        Assert.IsNotNull(config);
+        Assert.IsTrue(config.Scenarios[0].DenyShell);
+        Assert.IsFalse(config.Scenarios[1].DenyShell);
+    }
+
+    [TestMethod]
+    public void ParsesLegacyOptInShellDenial()
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible("""
+            scenarios:
+              - name: Generate tests
+                prompt: Add and run the tests.
+                deny_shell: true
+              - name: Normal execution
+                prompt: Run the tests.
+            """);
+
+        Assert.IsNotNull(config);
+        Assert.IsTrue(config.Scenarios[0].DenyShell);
+        Assert.IsFalse(config.Scenarios[1].DenyShell);
     }
 
     [TestMethod]

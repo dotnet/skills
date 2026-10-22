@@ -103,6 +103,24 @@ The implementation is split across these main components:
 | [`consolidate.mjs`](./consolidate.mjs) | Combines model/shard result sets and produces the decision-first PR comment |
 | [`check_eval_quality.py`](../eval-quality/check_eval_quality.py) | Blocks structurally invalid or newly underpowered eval instruments before they run |
 
+### Redistributable workflow packages
+
+The native SDK lane also accepts individual `agentic-workflows/<package>/aw.yml`
+manifests. Discovery includes package source/resource changes, shared grader
+changes, and `tests/agentic-workflows/` scenarios on PRs; schedules include the
+collection. Dispatch `plugin: agentic-workflows` to evaluate only that collection.
+The reusable `evaluation-run.yml` dispatch additionally accepts a package name
+as its `skill` input. Missing package evals fail discovery explicitly.
+
+Workflow evidence uses `skillKind: workflow` and
+`evaluationLane: workflow-prompt-sdk`, retaining the same accounting,
+distinct-stimulus policy, activation, completion, and retry semantics.
+It evaluates real imported prompts and installed resources against offline
+collector/service fixtures and proposed `result.json` actions. It does not run
+Actions bootstrap jobs or publish safe outputs. Runtime gh-aw trace graders,
+package compilation, helper regression tests, and consumer integration runs
+are complementary evidence, not substitutes for these scenario evals.
+
 ## Trust boundaries
 
 Evaluation can execute content from the commit being tested. The workflow must
@@ -167,7 +185,7 @@ exactly and no measurement-invalid result remains. Missing execution arms,
 unreadable eval specs, unresolved judge or pairing errors, malformed reports,
 and unknown invalid states fail the matrix leg after diagnostic artifacts are
 written. An unreadable spec is invalid because the adapter cannot safely infer
-whether `expect_activation: false` dormancy contracts apply. The explicit
+whether `tags.expect_activation: "false"` dormancy contracts apply. The explicit
 `underpowered` eval-design state remains visible as instrument debt but does not
 become an infrastructure failure. This proof applies inside each matrix leg.
 Discovery omits entries with no eval specs. The PR collector separately requires
@@ -190,7 +208,7 @@ variant. The plugin variant contributes absolute activation and quality
 telemetry. It can expose routing conflicts and sibling-skill interference, but
 it does not receive a separate sign-test or practical-effect verdict.
 
-Vally 0.14 exposes `environment.skills` but no custom-agent registration field,
+Vally exposes `environment.skills` but no custom-agent registration field,
 and its Copilot executor only sets `skillDirectories`. Agent evals therefore use
 the existing .NET SDK runner, which passes `CustomAgents` directly and leaves
 the default parent agent selected so routing and delegation are measured rather
@@ -502,7 +520,7 @@ Historical authoring defects included:
   equivalent to baseline;
 - duplicate stimulus names, which made comparison identity ambiguous.
 
-**Fix:** run the authoring gate before dispatch. It blocks eleven structural
+**Fix:** run the authoring gate before dispatch. It blocks 22 structural
 defect classes and checks the underpowered-eval debt ledger. See
 [Eval authoring quality](../eval-quality/README.md) for each pattern and repair.
 

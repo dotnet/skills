@@ -1,0 +1,64 @@
+{
+  "schema_version": "1",
+  "repository": "fixture/repo",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "git_object_format": "sha1",
+  "config_digest": "49ea7b693a67dd367e3d4fbdcae49587e4b5859e35276047b5ce6538df59497d",
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "b56e901d8ad3e90cb7fa8468771c71e6257b7d110f5a1b61c2cb206f52b00185",
+      "stable_owner_id": "0ce9a4ce1dc953e970d256b927121461d18a8fb3f7d761d1e16181ffa434c41c",
+      "path": "repo/Tests.cs",
+      "blob_oid": "05bde5218a60b25fc618494e91c1da0dc3cddedc",
+      "source_sha256": "bff649f329cf658749965773b32a17531bc66789d8f612b39b21a1c76661e914",
+      "attribute_span": {
+        "start": 17,
+        "length": 52,
+        "start_line": 2,
+        "start_column": 2,
+        "end_line": 2,
+        "end_column": 54
+      },
+      "attribute_text_sha256": "14f7e68dfdea399e4712402ee0de0195bbee69296003e94d72bcf7db67f75bd2",
+      "attribute_type": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+      "owner": {
+        "kind": "class",
+        "namespace": "Demo",
+        "containing_types": [
+          "Tests"
+        ],
+        "type_fqn": "Demo.Tests",
+        "declaration_id": "T:Demo.Tests",
+        "method_name": "",
+        "method_signature": "",
+        "test_fqns": [
+          "Demo.Tests.First"
+        ]
+      },
+      "canonical_issue_references": [
+        {
+          "kind": "issue",
+          "owner": "fixture",
+          "repo": "repo",
+          "number": 107,
+          "canonical": "fixture/repo#107",
+          "url": "https://github.com/fixture/repo/issues/107",
+          "eligibility": false,
+          "state": "closed",
+          "state_reason": "completed",
+          "merged_at": null
+        }
+      ],
+      "decision": {
+        "eligible": false,
+        "deferrals": [
+          "partial-class",
+          "nested-class",
+          "incomplete-test-enumeration"
+        ]
+      }
+    }
+  ],
+  "manifest_digest": "55ff826938cb37843f03cf45aa4ebf1be7285c9d3806fda0985540997ddf591f"
+}

@@ -353,7 +353,7 @@
     }
     if (dormant) parts.push(`${dormant} dormant as expected`);
     if (active) parts.push(`${active} activated`);
-    const prefix = verdict.skillKind === 'agent' ? 'Agent' : 'Skill';
+    const prefix = verdict.skillKind === 'workflow' ? 'Workflow' : verdict.skillKind === 'agent' ? 'Agent' : 'Skill';
     return parts.length ? `${prefix}: ${parts.join(' · ')}` : `${prefix} activation evidence unavailable`;
   }
 
@@ -519,6 +519,7 @@
             ${escapeHtml(verdict.skillName)}
             ${verdict.skillKind === 'reference' ? '<span class="evidence-tag">reference</span>' : ''}
             ${verdict.skillKind === 'agent' ? '<span class="evidence-tag">agent</span>' : ''}
+            ${verdict.skillKind === 'workflow' ? '<span class="evidence-tag">workflow prompt</span>' : ''}
           </th>
           <td>
             <span class="verdict-badge ${display.cls}">${escapeHtml(display.label)}</span>
