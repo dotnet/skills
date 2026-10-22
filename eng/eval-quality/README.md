@@ -408,7 +408,10 @@ A patch can remain present and tracked after its fixture changes, but its
 preimage no longer exists. The gate materializes the suite-level
 `environment.files` mappings, then each stimulus's own mappings, in a scratch
 workspace (the same merge Vally performs) and runs `git apply --check`. A stale
-patch therefore fails before Vally tries to use a broken oracle. Stimuli whose
+patch therefore fails before Vally tries to use a broken oracle. A stimulus
+whose files all come from the suite-level environment is checked the same way,
+and the same rule decides whether a state-changing stimulus needs a golden
+patch. Stimuli whose
 workspace is created only by commands are not checked because their preimage
 cannot be reconstructed statically. A stimulus must not redeclare a suite-level
 destination: Vally rejects the duplicate entry and loads none of the eval's

@@ -806,7 +806,8 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
                 "but no golden_trajectory to provide the reference response")
         if (stim.get("golden_trajectory")
                 and not stim.get("golden_patch")
-                and (stim.get("environment") or {}).get("files")
+                and (environment_file_entries(suite_environment)
+                     or environment_file_entries(stim.get("environment")))
                 and stimulus_requires_patch(spec, stim, suite_environment)):
             missing_workspace_change_references.append(
                 f"{spec}: {stim.get('name')!r}")

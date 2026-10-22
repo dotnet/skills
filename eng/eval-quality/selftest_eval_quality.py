@@ -1061,6 +1061,32 @@ def stimulus_redeclares_suite_file(d):
     add_suite_environment(d, "fixtures/sample", "sample")
 
 
+def move_fixture_to_suite_environment(d):
+    """Declare the sample fixture only at suite level, as many real evals do."""
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    stimulus_environment = (
+        "    environment:\n"
+        "      files:\n"
+        "        - src: fixtures/sample\n"
+        "          dest: sample\n")
+    assert stimulus_environment in raw
+    with open(path, "w") as f:
+        f.write(raw.replace(stimulus_environment, "", 1))
+    add_suite_environment(d, "fixtures/sample", "sample")
+
+
+def stale_golden_patch_on_suite_only_fixture(d):
+    stale_golden_patch(d)
+    move_fixture_to_suite_environment(d)
+
+
+def suite_only_state_grader_without_reference(d):
+    state_grader_without_materialized_reference(d)
+    move_fixture_to_suite_environment(d)
+
+
 def patch_with_output_grader_without_trajectory(d):
     applicable_golden_patch(d)
     path = EV(d)
@@ -2111,6 +2137,11 @@ results = [
          expect_fail=False),
     case("stimulus redeclares a suite environment file", stimulus_redeclares_suite_file,
          expect_fail=True),
+    case("stale golden patch on suite-only fixture", stale_golden_patch_on_suite_only_fixture,
+         expect_fail=True),
+    output_case("suite-only state grader without reference",
+                suite_only_state_grader_without_reference,
+                "workspace state that differs from the starting fixture"),
     case("patch with output grader requires response trajectory",
          patch_with_output_grader_without_trajectory, expect_fail=True),
     case("patch and response trajectory cover output grader",

@@ -1,0 +1,24 @@
+// Staged only for grading. Usage: node assert-unchanged.js <manifest.json>
+// Fails when any manifest file differs from its starting content (line endings normalized),
+// is missing, or when a file not in the manifest appears under the manifest's roots.
+const fs = require('fs');
+const crypto = require('crypto');
+
+const manifest = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const hash = p => crypto.createHash('sha256')
+  .update(fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n'))
+  .digest('hex');
+const skip = new Set(['bin', 'obj', 'TestResults', 'GraderChecks']);
+const walk = d => !fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: true })
+  .flatMap(e => e.isDirectory()
+    ? (skip.has(e.name) ? [] : walk(`${d}/${e.name}`))
+    : [`${d}/${e.name}`]);
+
+const changed = Object.keys(manifest.files)
+  .filter(p => !fs.existsSync(p) || hash(p) !== manifest.files[p]);
+const unexpected = manifest.roots.flatMap(walk).filter(p => !(p in manifest.files));
+if (changed.length || unexpected.length) {
+  console.error('changed or missing:', changed, 'unexpected:', unexpected);
+  process.exit(1);
+}
+console.log('workspace unchanged');

@@ -126,33 +126,17 @@ stimuli:
       files:
         - src: fixtures/grading/ShippedParsingConsumerChecks.cs
           dest: tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-already-shared.json
+          dest: .grading/unchanged.json
     graders:
-      # Every in-scope source, test, project, and API baseline file must be byte-identical
-      # (line endings normalized), and no new files may appear outside bin/obj.
-      - type: run-command
+      # Every in-scope source, test, project, and API baseline file must match its starting
+      # content (line endings normalized), and no new files may appear outside bin/obj.
+      - &workspace-unchanged
+        type: run-command
         config:
-          command: >-
-            node -e "const fs=require('fs'),c=require('crypto');
-            const h=p=>c.createHash('sha256').update(fs.readFileSync(p,'utf8').replace(/\r\n/g,'\n')).digest('hex');
-            const e={'global.json':'b48d6da8fa62c0da7cc8a2da4ea036ac55836660a448ba533135abb5b8451b73',
-            'Fixture.sln':'09e9ebf11726ff997e52f5fbbc6e064c8d7909611a111f5369f03b4aab563947',
-            'src/Billing/AppSettingsHelper.cs':'6a624aecb2873c867e0f59bc25b7c2aefb752b1fc9ecf6141b4a479f6752c7d8',
-            'src/Billing/AssemblyInfo.cs':'7a41d9af0b0b5913225cd2909f01d98e4745764cdd411cc4c962c6a249d2b5ed',
-            'src/Billing/Billing.csproj':'a41c09c5c44fea146452bce5e1ef4717c23e357904df9c048affda23f16df947',
-            'src/Billing/Coupons.cs':'df9f0d9c95168edd5843956fc9cec130625bd525564fb399b4389b9f06355f24',
-            'src/Billing/Coupons.g.cs.template':'595d6ba830e64b9f850158a256712f4d88a7ed1d38e1664edf83f3a9d416f903',
-            'src/Billing/OrderProcessor.cs':'2e4441a322bedf3213e476ae07bc93a8a46e65b5763f8f727792b19b4054f799',
-            'src/Billing/PlatformInfo.cs':'d1bbc452c49a663fd11f74a8f4bad324ba6c6509f3c7d4f24980905f12738407',
-            'src/Billing/Pricing.cs':'a036bf3a02ec1460589cc8796c8e3b5995f9e22ea9e278301d19d12d83323747',
-            'src/Billing/PublicAPI.Shipped.txt':'fda63613e1820e7362d2298da18b47f77bb48b3c237085aee33d533696089a6a',
-            'src/Billing/PublicAPI.Unshipped.txt':'3c3b422dddb1efeb0fc5b228608fd8682452b2a9507d4031894bce3c4dedadbd',
-            'tests/Billing.Tests/Billing.Tests.csproj':'8c14e7224d3e20dbc97c7f038b2f24698e51593f9976f9a7470616d3c8f7662b',
-            'tests/Billing.Tests/BillingTests.cs':'7e46cfade596b1a41e9cd6e6ee1a2912c2a11dc530c1724cd555ea7f8a9e8307'};
-            const bad=Object.keys(e).filter(p=>!fs.existsSync(p)||h(p)!==e[p]);
-            const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(x=>x.isDirectory()?(['bin','obj','GraderChecks'].includes(x.name)?[]:walk(d+'/'+x.name)):[d+'/'+x.name]);
-            const extra=['src','tests'].flatMap(walk).filter(p=>!(p in e));
-            console.error('changed or missing:',bad,'unexpected:',extra);
-            process.exit(bad.length||extra.length?1:0)"
+          command: node .grading/assert-unchanged.js .grading/unchanged.json
           expected_exit_code: 0
           timeout: 1m
       - *grader-checks
@@ -269,7 +253,15 @@ stimuli:
     golden_patch:
       path: golden-patches/rename-generated-member.patch
     prompt: "The public `Coupons.Redeem` name in this package is too generic. Add `Apply` as the preferred name and update this repository without breaking existing consumers. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/CouponRenameChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/CouponRenameChecks.cs
     graders:
+      # Binds Redeem to its shipped (string, decimal) -> decimal shape and checks both names'
+      # results; an obsolete Redeem with an extra optional parameter fails to bind here.
+      - *grader-checks
+      - *shipped-baseline-unchanged
       - type: file-contains
         config:
           path: src/Billing/Coupons.cs
@@ -401,7 +393,16 @@ stimuli:
       risk: source-compatibility
       journey: review-change
     prompt: "Change the `raw` parameter of `AppSettingsHelper.ParseIntSetting` from `string?` to `string` while keeping existing callers compiling. If that cannot be done safely, leave it unchanged and explain the problem. Do not make unrelated edits. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-nullability.json
+          dest: .grading/unchanged.json
     graders:
+      # The safe outcome is no change at all: any edit to source, tests, projects, or baselines
+      # (including a body that quietly returns the fallback) fails here.
+      - *workspace-unchanged
       - type: file-contains
         config:
           path: src/Billing/AppSettingsHelper.cs
@@ -483,9 +484,12 @@ stimuli:
       files:
         - src: fixtures/grading/ShippedParsingConsumerChecks.cs
           dest: tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs
+        - src: fixtures/grading/FormatProviderOverloadChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/FormatProviderOverloadChecks.cs
     graders:
       # Binds ParseIntSetting to Func<string?, int, int>; an in-place optional parameter fails
-      # this consumer compile regardless of how the API baseline files were edited.
+      # this consumer compile regardless of how the API baseline files were edited. The second
+      # check parses "~5" with a custom NegativeSign, so an overload ignoring the provider fails.
       - *grader-checks
       # Adding `IFormatProvider? provider = null` in place compiles every caller and passes
       # every test once the shipped baseline line is rewritten, but removes the two-parameter
@@ -541,7 +545,14 @@ stimuli:
           dest: fixtures/interface-extension/PublicAPI.Shipped.txt
       commands:
         - node -e "const fs=require('fs');fs.copyFileSync('fixtures/interface-extension/PublicAPI.Shipped.txt','src/Billing/PublicAPI.Shipped.txt');fs.rmSync('fixtures',{recursive:true})"
+    grading_environment:
+      files:
+        - src: fixtures/grading/DiscountPolicyContractChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/DiscountPolicyContractChecks.cs
     graders:
+      # Grader-owned implementer of only the shipped RateFor contract, plus Describe label checks
+      # on it and on TierDiscountPolicy; editing the writable canary cannot hide a break here.
+      - *grader-checks
       # ThirdPartyPolicy stands in for a downstream package's implementation. An abstract
       # interface member only compiles if that implementer is edited, which real consumers
       # cannot do; a default interface member keeps it compiling unchanged.
@@ -578,6 +589,12 @@ stimuli:
       files:
         - src: fixtures/review/proposed-change.diff
           dest: review/proposed-change.diff
+    grading_environment:
+      files:
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-review.json
+          dest: .grading/unchanged.json
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
@@ -595,6 +612,8 @@ stimuli:
 
               The discountRate rename in OrderProcessor is an internal local rename and is not a compatibility concern.
     graders:
+      # Read-only review: source, tests, projects, baselines, and the diff itself must be unchanged.
+      - *workspace-unchanged
       - type: output-matches
         config:
           pattern: '(?i)(binary|MissingMethodException|recompil)'
