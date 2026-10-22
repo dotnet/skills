@@ -2326,7 +2326,7 @@ esac
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             install_script,
         )
-        for filename in ("sdk-startup.mjs", "vally.mjs"):
+        for filename in ("sdk-startup.mjs", "workspace-session-fs.mjs", "vally.mjs"):
             self.assertIn(
                 f'"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/{filename}"',
                 install_script,
@@ -2336,6 +2336,56 @@ esac
             install_script.index('echo "$RUNNER_TEMP/evaluation-tools/bin"'),
             install_script.index('echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin"'),
         )
+        self.assertIn("node vally.mjs --version", install_script)
+
+    def test_trusted_tool_staging_copies_local_launcher_dependency_closure(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        install_script = next(
+            step["run"]
+            for step in workflow["jobs"]["vally-evaluate"]["steps"]
+            if step.get("name") == "Install vally and Copilot CLI"
+        )
+        copy_blocks = re.findall(r"(?m)^cp .*?(?<!\\)\n", install_script, re.DOTALL)
+        self.assertEqual(len(copy_blocks), 2)
+        with tempfile.TemporaryDirectory() as temp:
+            runner_temp = Path(temp)
+            source = runner_temp / "trusted-validator-src" / "eng" / "evaluation-tools"
+            source.mkdir(parents=True)
+            tools = REPO_ROOT / "eng" / "evaluation-tools"
+            for file in tools.iterdir():
+                if file.is_file():
+                    shutil.copyfile(file, source / file.name)
+            staged = runner_temp / "evaluation-tools"
+            staged.mkdir()
+            result = subprocess.run(
+                [BASH, "-eu", "-c", "".join(copy_blocks)],
+                env={**os.environ, "RUNNER_TEMP": temp},
+                text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                {file.name for file in staged.iterdir()},
+                {"package.json", "package-lock.json", "vally.mjs",
+                 "sdk-startup.mjs", "workspace-session-fs.mjs"},
+            )
+            pending = [staged / "vally.mjs"]
+            visited = set()
+            while pending:
+                module = pending.pop()
+                if module in visited:
+                    continue
+                visited.add(module)
+                self.assertTrue(module.is_file(), f"Missing staged dependency: {module.name}")
+                self.assertEqual(module.read_bytes(), (tools / module.name).read_bytes())
+                imports = re.findall(
+                    r"(?:import\s+(?:[^;\n]*?\s+from\s+)?|export\s+[^;\n]*?\s+from\s+)"
+                    r"['\"](\./[^'\"]+)['\"]",
+                    module.read_text(encoding="utf-8"),
+                )
+                for dependency in imports:
+                    if not dependency.startswith("./node_modules/"):
+                        pending.append(module.parent / dependency)
+            self.assertIn(staged / "workspace-session-fs.mjs", visited)
 
     def test_evaluation_tool_manifest_has_secretless_smoke_test(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
