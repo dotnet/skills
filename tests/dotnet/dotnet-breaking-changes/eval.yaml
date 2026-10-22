@@ -124,25 +124,32 @@ stimuli:
       - "Kept the shipped ParseIntSetting signature and nullability contract unchanged"
       - "Did not alter the API baseline when the public surface did not change"
 
-  - name: Add a clearer platform entry point without breaking existing callers
+  - name: Rename a vague public method without breaking existing callers
     tags:
       capability: public-member-rename
       risk: source-compatibility
       journey: modify-code
     golden_patch:
       path: golden-patches/rename-conditional-helper.patch
-    prompt: "The shipped `PlatformInfo.Current()` name is vague. Add a clearer `GetCurrent()` entry point and move this repository's calls to it without breaking existing package consumers. The solution is at Fixture.sln."
+    # Deliberately states the request the way users do ("rename it"), without naming the
+    # compatibility constraint; noticing that Current() is shipped surface is the skill's job.
+    prompt: "The `PlatformInfo.Current()` name is vague. Rename it to `GetCurrent()` and update this repository's callers. The solution is at Fixture.sln."
     graders:
       - type: file-contains
         config:
           path: src/Billing/PlatformInfo.cs
           value: GetCurrent()
       # The retained shipped entry plus a green RS0017 build proves Current() still exists,
-      # whether it forwards to GetCurrent() or the reverse.
+      # whether it forwards to GetCurrent() or the reverse. A `*REMOVED*` line would let the
+      # build pass while deleting Current() for already-shipped consumers.
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Shipped.txt
           value: static Billing.PlatformInfo.Current() -> string!
+      - type: file-not-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: "*REMOVED*"
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
@@ -163,7 +170,7 @@ stimuli:
           timeout: 5m
       - type: prompt
     rubric:
-      - "Added GetCurrent and moved repository callers while retaining Current for existing consumers"
+      - "Added GetCurrent and moved repository callers while keeping Current callable for already-shipped consumers, and explained why a hard rename would break them"
       - "Recorded only the new public member in the unshipped API baseline"
       - "Preserved the expected platform result on net8.0 and net10.0"
 
@@ -332,9 +339,6 @@ stimuli:
       files:
         - src: fixtures/missing-api-baseline/PlatformInfo.cs
           dest: fixtures/missing-api-baseline/PlatformInfo.cs
-        # Same bytes as the shared entry; declared here so the golden patch is checkable.
-        - src: src/Billing/PublicAPI.Unshipped.txt
-          dest: src/Billing/PublicAPI.Unshipped.txt
       commands:
         - node -e "require('fs').copyFileSync('fixtures/missing-api-baseline/PlatformInfo.cs', 'src/Billing/PlatformInfo.cs')"
     graders:
@@ -373,7 +377,8 @@ stimuli:
       journey: add-feature
     golden_patch:
       path: golden-patches/add-format-provider-overload.patch
-    prompt: "Some callers of this NuGet package need culture-specific number parsing. Let `AppSettingsHelper.ParseIntSetting` optionally take an `IFormatProvider`, while existing `ParseIntSetting(raw, fallback)` calls keep working exactly as before. The solution is at Fixture.sln."
+    # Phrased as users phrase it; the binary-compatibility constraint is left for the agent to notice.
+    prompt: "Some callers need culture-specific number parsing. Add an optional `IFormatProvider` parameter to `AppSettingsHelper.ParseIntSetting` so they can pass one. The solution is at Fixture.sln."
     graders:
       # Adding `IFormatProvider? provider = null` in place compiles every caller and passes
       # every test once the shipped baseline line is rewritten, but removes the two-parameter
@@ -391,6 +396,12 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
           pattern: 'ParseIntSetting\(string\? raw, int fallback, System\.IFormatProvider'
+      # Moving the old signature to `*REMOVED*` keeps Shipped.txt intact and the build green
+      # while still deleting the method compiled consumers bind to.
+      - type: file-not-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: "*REMOVED*"
       - type: run-command
         config:
           command: dotnet test Fixture.sln -v:q --no-restore
@@ -410,7 +421,7 @@ stimuli:
       journey: add-feature
     golden_patch:
       path: golden-patches/add-interface-member.patch
-    prompt: "Add a `Describe(string tier)` method to the public `IDiscountPolicy` interface that returns a human-readable label for the tier, and make it available on `TierDiscountPolicy`. This library ships as a package. The solution is at Fixture.sln."
+    prompt: "Add a `Describe(string tier)` method to the public `IDiscountPolicy` interface that returns a human-readable label for the tier, and make it available on `TierDiscountPolicy`. The solution is at Fixture.sln."
     environment:
       files:
         - src: fixtures/interface-extension/DiscountPolicy.cs
@@ -419,9 +430,6 @@ stimuli:
           dest: tests/Billing.Tests/ThirdPartyPolicy.cs
         - src: fixtures/interface-extension/DiscountPolicyTests.cs
           dest: tests/Billing.Tests/DiscountPolicyTests.cs
-        # Same bytes as the shared entry; declared here so the golden patch is checkable.
-        - src: src/Billing/PublicAPI.Unshipped.txt
-          dest: src/Billing/PublicAPI.Unshipped.txt
         - src: fixtures/interface-extension/PublicAPI.Shipped.txt
           dest: fixtures/interface-extension/PublicAPI.Shipped.txt
       commands:
@@ -463,15 +471,6 @@ stimuli:
       files:
         - src: fixtures/review/proposed-change.diff
           dest: review/proposed-change.diff
-        # Same bytes as the shared entries; declared here so the no-edit graders are checkable.
-        - src: src/Billing/AppSettingsHelper.cs
-          dest: src/Billing/AppSettingsHelper.cs
-        - src: src/Billing/PublicAPI.Shipped.txt
-          dest: src/Billing/PublicAPI.Shipped.txt
-        - src: src/Billing/Coupons.cs
-          dest: src/Billing/Coupons.cs
-        - src: src/Billing/PlatformInfo.cs
-          dest: src/Billing/PlatformInfo.cs
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"

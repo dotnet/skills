@@ -1,18 +1,18 @@
 ---
 name: dotnet-breaking-changes
 description: >
-  Keep the observable .NET/C# contract intact when editing: additions count too, and the
-  contract is wider than the file. Covers the public API surface and the DIFFERENT gates repos
-  use for it (PublicApiAnalyzers vs ApiCompat/package validation), nullable/trimming/AOT
-  annotations as API, multi-targeting and #if branches, source-generated/partial code, and
-  InternalsVisibleTo.
-  USE FOR: any edit to a shipped library/NuGet package or cross-assembly/multi-targeted code —
-  adding a public member, overload, optional parameter, interface member, or target framework;
-  widening inputs or outputs; renaming, sealing, or removing a member; changing a signature,
-  nullability, const/default value, or attribute; fixing RS0016/RS0017; editing partial or
-  generated types; or reviewing a diff/PR for "is this breaking?". Features, fixes, refactors.
-  DO NOT USE FOR: framework/SDK/NuGet upgrades (use dotnet-upgrade skills), pure formatting, or a
-  single-target private app with no public/cross-assembly surface.
+  Use before changing .NET/C# code whose callers you do not control: the library ships as a NuGet
+  package, or the repo has PublicAPI.Shipped.txt/PublicAPI.Unshipped.txt, ApiCompat or package
+  validation, multiple TargetFrameworks, InternalsVisibleTo, or partial/generated (.g.cs) types. A green
+  build and passing tests do NOT prove compatibility: optional parameters, interface members,
+  sealing, const values, nullability, and #if branches break consumers silently.
+  USE FOR: "without breaking existing callers"; adding an optional parameter, overload, or
+  interface member to a public method/type; renaming a public method or alias; changing a
+  signature, nullability, const/default value, or attribute; adding a target framework; renaming
+  an internal used by a friend assembly; fixing RS0016/RS0017 or ApiCompat errors; reviewing a
+  diff/PR for "is this breaking?".
+  DO NOT USE FOR: framework/SDK/NuGet upgrades (use dotnet-upgrade), formatting, renaming
+  a local or private member, or apps without public/cross-assembly surface.
 license: MIT
 ---
 
