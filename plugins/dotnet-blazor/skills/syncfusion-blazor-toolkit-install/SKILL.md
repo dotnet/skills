@@ -16,7 +16,7 @@ description: >
   component APIs or behavior such as grid columns, data binding, events, or
   styling a specific component (use author-component); the user asks to create
   a Blazor project (use create-blazor-project); the app is .NET MAUI Blazor
-  Hybrid; or the user asks only about commercial Syncfusion components without any Toolkit setup.
+  Hybrid; or asks only about commercial Syncfusion components.
 ---
 
 # Install Syncfusion Blazor Toolkit
