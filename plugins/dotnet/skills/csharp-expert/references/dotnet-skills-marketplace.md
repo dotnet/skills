@@ -143,3 +143,21 @@ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plug
 
 Use the plugin marketplace when available because it preserves the plugin's complete skill surface
 and host integration.
+
+## Documentation MCP Server
+
+When a request requires up-to-date documentation on .NET APIs, BCL types, framework behaviors, or official code samples from Microsoft Learn that are not bundled in repository skills or known offline:
+
+- **Microsoft Learn MCP Server**: Official remote MCP server (`https://learn.microsoft.com/api/mcp`) providing `microsoft_docs_search` and `microsoft_docs_fetch`.
+- **Configuration**: Agents or users can register the server in their host's MCP configuration:
+
+```json
+{
+  "servers": {
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    }
+  }
+}
+```
