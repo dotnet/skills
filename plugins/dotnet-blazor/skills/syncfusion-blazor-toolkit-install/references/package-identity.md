@@ -4,14 +4,14 @@
 
 ### The open-source Toolkit: Syncfusion.Blazor.Toolkit
 
-- **NuGet package name**: `Syncfusion.Blazor.Toolkit` (verified at version 2.0.0)
+- **NuGet package name**: `Syncfusion.Blazor.Toolkit` (verified at version 2.0.1)
 - **License**: MIT
 - **Target frameworks**: `net8.0`, `net9.0`, `net10.0`
 - **Scope**: Open-source Blazor toolkit for the current published component set
 - **Repository**: https://github.com/syncfusion/blazor-toolkit
 - **Components included**: Refer to the official Syncfusion Blazor Toolkit documentation for the authoritative and current component list. This skill is not a component reference.
 - **No license key required**: Toolkit is free to use without registration
-- **Breaking changes in 2.0**: Namespace consolidation (single root `Syncfusion.Blazor.Toolkit`), CSS isolation, and `SfThemeRoot` theme delivery. Host links to `fluent.min.css` / `highcontrast.min.css` are **no longer required**. Not source-compatible with 1.0.2.
+- **Breaking changes in 2.0.1**: Namespace consolidation is complete, including Data types in the single root `Syncfusion.Blazor.Toolkit` namespace. CSS isolation and `SfThemeRoot` provide theme delivery, so host links to `fluent.min.css` / `highcontrast.min.css` are **no longer required**. Not source-compatible with 1.0.2. Upgrade 2.0.0 before removing `.Data` imports.
 
 ### Commercial Syncfusion.Blazor* Packages
 

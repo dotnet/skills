@@ -2,20 +2,21 @@
 license: MIT
 name: syncfusion-blazor-toolkit-install
 description: >
-  Install and register the open-source Syncfusion Blazor Toolkit package
-  (v2.0.1+), configure AddSyncfusionBlazorToolkit(), rely on SfThemeRoot and CSS
-  isolation for theming (no host fluent.min.css link), apply the interactive
-  render mode that matches the app topology (legacy Server, standalone WASM,
-  or a Blazor Web App), and account for namespace consolidation.
+  Install, upgrade, or troubleshoot setup of the open-source Syncfusion Blazor
+  Toolkit (v2.0.1+) in a web-hosted Blazor app: package identity, service
+  registration, SfThemeRoot/CSS-isolation theming, host files, namespaces,
+  split Web App registration, and interactive render-mode boundaries.
 
-  USE FOR: Toolkit setup, package verification, theme model (SfThemeRoot /
-  CSS isolation), split-app registration, render-mode troubleshooting,
-  diagnosing an accidental commercial Syncfusion.Blazor install or license-key
-  prompt when the user wanted the open-source Toolkit, and migrating from
-  Toolkit 1.x to 2.0 / 2.0.1 (full namespace unification including Data).
-  DO NOT USE FOR: component API details (use author-component), Blazor project
-  creation (use create-blazor-project), configuring commercial Syncfusion
-  components that the app actually uses, Hybrid/MAUI.
+  USE ONLY WHEN: the user asks to install, migrate, register, configure hosting
+  or theming, or diagnose a setup failure for Syncfusion.Blazor.Toolkit in
+  legacy Blazor Server, standalone WebAssembly, or a Blazor Web App. Also use
+  for accidental commercial Syncfusion.Blazor installs or license prompts when
+  the user intended the open-source Toolkit.
+  DO NOT USE WHEN: the Toolkit is already installed and the question is about
+  component APIs or behavior such as grid columns, data binding, events, or
+  styling a specific component (use author-component); the user asks to create
+  a Blazor project (use create-blazor-project); the app is .NET MAUI Blazor
+  Hybrid; or the app intentionally uses commercial Syncfusion components.
 ---
 
 # Install Syncfusion Blazor Toolkit
@@ -25,7 +26,7 @@ description: >
 ## Core Rules
 
 1. **Verify the target framework first.** `Syncfusion.Blazor.Toolkit` 2.0.1 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first (for example with the `dotnet-upgrade` plugin), then continue with the installation steps. If the `<TargetFramework>` is unknown, read it before doing anything else. Never edit the TFM just to make the package install.
-2. Use the exact package ID `Syncfusion.Blazor.Toolkit`. Prefer the latest 2.x stable release (2.0.1 or newer). Version 2.0.x is **not source-compatible** with 1.0.2. Version 2.0.1 completes namespace unification by also moving Data types into the root namespace.
+2. Use the exact package ID `Syncfusion.Blazor.Toolkit`. Require version 2.0.1 or newer and prefer the latest 2.x stable release. Read the existing `PackageReference` first; upgrade 2.0.0 before removing `.Data` imports because Data types moved into the root namespace only in 2.0.1. Version 2.0.x is **not source-compatible** with 1.0.2.
 3. In every `Program.cs` that calls `AddSyncfusionBlazorToolkit()`, add `using Syncfusion.Blazor.Toolkit;` so the extension method is in scope. Call it before `builder.Build()`.
 4. **Namespace consolidation (2.0 / 2.0.1 breaking change).** All public types—including components (`SfButton`, `SfTextBox`, `SfChart`, calendars, dialogs, spinner) **and** data-binding types (`DataAdaptor<T>`, `DataManager`, `Query`, `SfDataManager`, adaptors, etc.)—live under the single root namespace `Syncfusion.Blazor.Toolkit`. Domain-specific namespaces (`Syncfusion.Blazor.Toolkit.Buttons`, `.Calendars`, `.Charts`, `.Inputs`, `.Popups`, `.Spinner`, **`.Data`**, etc.) were **removed** (components in 2.0.0; Data in 2.0.1). Add only:
    ```razor
@@ -50,7 +51,7 @@ description: >
 - Don't add external script tags or commercial Syncfusion license scripts; Toolkit JS is bundled with the package.
 - Don't leave an interactive Toolkit control outside any interactive boundary (page `@rendermode`, interactive wrapper, or inherited `Routes` mode). A static SSR page is fine if a child wrapper owns the control and its handlers.
 - Don't use this skill as a component API reference; consult the official Syncfusion Blazor Toolkit demos or documentation for API details.
-- Don't use domain-specific `@using` directives from Toolkit 1.x / 2.0.0 (`Syncfusion.Blazor.Toolkit.Buttons`, `.Calendars`, `.Data`, etc.). They no longer exist as of 2.0.1; use only `@using Syncfusion.Blazor.Toolkit`.
+- Don't remove `.Data` imports from an app that is still pinned to 2.0.0. Upgrade to 2.0.1 or newer first, then replace all domain-specific imports with `@using Syncfusion.Blazor.Toolkit`.
 - Don't link `fluent.min.css`, `highcontrast.min.css`, or other `_content/Syncfusion.Blazor.Toolkit/styles/*.css` files in the host; 2.0 theming uses `SfThemeRoot` and CSS isolation.
 - Don't replace or retype `Program.cs`, `App.razor`, `_Host.cshtml`, or `wwwroot/index.html`. Make only the additions shown below and leave every other template line (`UseExceptionHandler`, `UseHsts`, `MapStaticAssets`, `HeadOutlet`, `Routes`, render-mode directives, script tags) untouched.
 
@@ -159,7 +160,7 @@ Ensure the host has an active `<link>` to `{Project}.styles.css` so Toolkit's is
 
 Keep the template-generated host file intact: `HeadOutlet`, `Routes` and its render-mode directive, `app.css` / `{Project}.styles.css`, and the framework script tag. When upgrading from 1.x, **remove** any `<link href="_content/Syncfusion.Blazor.Toolkit/styles/fluent.min.css" ...>` (or `highcontrast.min.css` / per-component `.min.css`) entries. See [Theme and host files](./references/theme-and-host-files.md).
 
-## Migrating from Toolkit 1.x to 2.0 / 2.0.1
+## Migrating from Toolkit 1.x or 2.0.0 to 2.0.1+
 
 1. Update the package to **2.0.1 or newer** (2.0.0 moved component namespaces; 2.0.1 also moved Data).
 2. Replace **all** domain-specific usings — `.Buttons`, `.Calendars`, `.Charts`, `.Inputs`, `.Popups`, `.Spinner`, **`.Data`**, and similar — with the single `@using Syncfusion.Blazor.Toolkit`. Remove any remaining `@using Syncfusion.Blazor.Toolkit.Data`.
@@ -190,8 +191,8 @@ This skill does not cover .NET MAUI Blazor Hybrid. When a user asks, explain the
 | `Program.cs` retyped from a trimmed sample | `CS0246` on `App`, and `UseExceptionHandler`, `UseHsts`, `MapStaticAssets` and `app.Run()` are lost | Restore the template file, then add only the `using` and the registration line |
 | Template's `AddAdditionalAssemblies(typeof(<App>.Client._Imports).Assembly)` deleted from `MapRazorComponents<App>()` | Routable pages in `.Client` return 404 | Restore the call exactly as the template generated it |
 | Commercial package added for a Toolkit-only app | License prompt, missing Toolkit components | Replace that package with `Syncfusion.Blazor.Toolkit`. If other pages still use commercial components, keep those packages and `SyncfusionLicenseProvider.RegisterLicense(...)` |
-| Domain-specific `@using` from 1.x / 2.0.0 still present (including `.Data`) | `CS0234` or unresolved type; components/data types not recognized | Replace with `@using Syncfusion.Blazor.Toolkit` only |
-| Namespace missing (or still using 1.x / 2.0.0 child namespace, including `.Data`) | Razor warning `RZ10012` or `CS0234`; `<SfButton>` / data types unresolved | Add `@using Syncfusion.Blazor.Toolkit` to `_Imports.razor` of the project that renders it |
+| Domain-specific `@using` still present after upgrading to 2.0.1+ (including `.Data`) | `CS0234` or unresolved type; components/data types not recognized | Replace with `@using Syncfusion.Blazor.Toolkit` only |
+| Namespace missing after upgrading to 2.0.1+ | Razor warning `RZ10012` or `CS0234`; `<SfButton>` / data types unresolved | Add `@using Syncfusion.Blazor.Toolkit` to `_Imports.razor` of the project that renders it |
 | Custom CSS from 1.x no longer applies | Styles ignored after upgrade | Account for CSS isolation; use `::deep` for child selectors when needed |
 | Added an external Syncfusion CDN script tag | JavaScript conflicts or duplicate library errors | Remove the CDN script; Toolkit JS ships in the NuGet package |
 | Assumed `-int Server` is global, so an interactive Toolkit component has no interactive boundary | Clicks, bindings, dialogs and calendar navigation do nothing | Check `Routes`. In a per-page app put the template `@rendermode` on the page **or** on a wrapper that hosts the control; in a `-ai` app inherit `Routes` |
@@ -208,7 +209,7 @@ This skill does not cover .NET MAUI Blazor Hybrid. When a user asks, explain the
 - **Clicks or inputs do nothing**: check for an inherited `Routes` mode first; if none, ensure an interactive boundary (page `@rendermode` or interactive wrapper). See [Render modes explained](./references/render-modes.md).
 - **Only one half of a split app works**: register Toolkit on both hosts. See [Split Blazor Web App registration](./references/split-webapp-registration.md).
 - **License prompt after installing `Syncfusion.Blazor`**: that is the commercial package. See [Package identity](./references/package-identity.md) before removing anything the app still uses.
-- **Unresolved types after upgrading from 1.x / 2.0.0**: domain namespaces (including `.Data` as of 2.0.1) were removed; use only `@using Syncfusion.Blazor.Toolkit`.
+- **Unresolved types after upgrading from 1.x or 2.0.0 to 2.0.1+**: domain namespaces (including `.Data` as of 2.0.1) were removed; use only `@using Syncfusion.Blazor.Toolkit`.
 
 ## Next Steps
 

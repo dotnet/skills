@@ -1,6 +1,6 @@
 # Troubleshooting Toolkit Installation
 
-> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.1 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 ## Host files by app type
 
@@ -171,7 +171,7 @@ For split Web Apps, register on **both** Server and Client `Program.cs`. Rebuild
 ## General Checklist
 
 1. ✓ `<TargetFramework>` is `net8.0`, `net9.0`, or `net10.0`. If older, upgrade first.
-2. ✓ Package is `Syncfusion.Blazor.Toolkit` (not commercial `Syncfusion.Blazor.*` unless still required), version 2.0.0 or newer preferred.
+2. ✓ Package is `Syncfusion.Blazor.Toolkit` (not commercial `Syncfusion.Blazor.*` unless still required), version 2.0.1 or newer. Upgrade 2.0.0 before removing `.Data` imports.
 3. ✓ `using Syncfusion.Blazor.Toolkit;` and `AddSyncfusionBlazorToolkit()` are in every host `Program.cs` that renders Toolkit (server and Client in a split Web App).
 4. ✓ `@using Syncfusion.Blazor.Toolkit` is in `_Imports.razor` of projects that render Toolkit. No 1.x domain namespaces.
 5. ✓ Template `AddAdditionalAssemblies(...)` and `AddInteractive*` calls are unchanged.

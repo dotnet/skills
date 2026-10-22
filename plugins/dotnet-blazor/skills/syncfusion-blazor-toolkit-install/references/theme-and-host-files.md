@@ -2,7 +2,7 @@
 
 From Toolkit **2.0**, theming no longer requires linking `fluent.min.css` or `highcontrast.min.css` in the host file. Component styles use Blazor CSS isolation; the shared theme layer is emitted at render time by `SfThemeRoot`.
 
-> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.0 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
+> **Framework support.** `Syncfusion.Blazor.Toolkit` 2.0.1 targets `net8.0`, `net9.0`, and `net10.0`. Always check the project's `<TargetFramework>` before installation. On `net6.0`, `net7.0`, or older frameworks, NuGet restore fails with an incompatibility such as `NU1202` because the package has no compatible assets for those TFMs. Do not expect a later `CS0246` as the primary signal—fix the framework mismatch first. Do not proceed with Toolkit installation on unsupported frameworks. Recommend upgrading the application to .NET 8 or later first, then continue with the installation steps.
 
 > **Do not replace the host file.** Keep `HeadOutlet`, `Routes`, the render-mode directive on `Routes`, the app's own styles link (`app.css` / `{Project}.styles.css`), and the framework script tags exactly as the template generated them.
 
@@ -10,12 +10,12 @@ From Toolkit **2.0**, theming no longer requires linking `fluent.min.css` or `hi
 
 Two tiers — neither requires a Toolkit theme `<link>` in the host:
 
-1. **Shared theme layer (`SfThemeRoot`)**  
-   Writes a single `<style id="sf-theme-root">` element containing `:root` design tokens, base/utility styles, the icon font, keyframes, and dark / high-contrast / forced-colors rules.  
-   Every consumer-facing root Toolkit component renders `<SfThemeRoot />` as the **previous sibling** of its root element. Only one owner per Blazor renderer emits the style; ownership recovers on dispose.  
+1. **Shared theme layer (`SfThemeRoot`)**
+   Writes a single `<style id="sf-theme-root">` element containing `:root` design tokens, base/utility styles, the icon font, keyframes, and dark / high-contrast / forced-colors rules.
+   Every consumer-facing root Toolkit component renders `<SfThemeRoot />` as the **previous sibling** of its root element. Only one owner per Blazor renderer emits the style; ownership recovers on dispose.
    **No consumer configuration** is required when Toolkit components are present. Place an explicit `<SfThemeRoot />` only when theme emission is needed without a Toolkit component in the tree. A JavaScript fallback can inject the theme into `document.head` only when no owner exists for that renderer.
 
-2. **Component styles (CSS isolation)**  
+2. **Component styles (CSS isolation)**
    Migrated to Blazor CSS isolation (`.razor.css` → scoped bundle). Styles ship with the NuGet package and are applied through the isolation / static-web-assets pipeline. Selectors and cascade may differ from the 1.x global stylesheet. App-level overrides that targeted unscoped toolkit class names may need the `::deep` combinator or other isolation-aware adjustments.
 
 ## What the host file should contain

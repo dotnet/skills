@@ -69,9 +69,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)wwwroot[/\\]index\.html|index\.html
-      - type: output-matches
-        config:
-          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?RootComponents\.Add<App>\("#app"\)'
       # Affirmative "add @rendermode" only — "do not add @rendermode" must pass
       - type: output-not-matches
         config:
@@ -387,7 +384,10 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(AddSyncfusionBlazorToolkit|registration|static asset|bundled|_content|interactive)
-
+      # Affirmative recommendation of the commercial CDN script — warnings allowed
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:keep|add|include|retain|use|reference|link|load)\b[^\n]{0,60}(?:cdn\.syncfusion|CDN script|<script[^>]*syncfusion)'
       - type: prompt
     rubric:
       - Looks at registration, interactive boundary, and static web assets — not commercial CDN scripts.
@@ -448,6 +448,65 @@ stimuli:
       - Asks for or reads the TFM before installing; does not assume net8+.
 
   # ---------------------------------------------------------------------------
+  # Activation continuity: terse legitimate install prompts must end with a concrete answer
+  # ---------------------------------------------------------------------------
+  - name: terse-install-request-continues-after-load
+    tags:
+      capability: toolkit-install
+      risk: stops-after-skill-load
+      journey: terse-install-continuity
+    prompt: |
+      I have a .NET 9 Blazor Web App (Interactive Server, per-page). Add the open-source Syncfusion Blazor Toolkit to it.
+    environment:
+      commands:
+        - dotnet new blazor -int Server --framework net9.0 --no-https --force
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.csproj'
+          value: Syncfusion.Blazor.Toolkit
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: AddSyncfusionBlazorToolkit
+      - type: file-contains
+        config:
+          path: '**/_Imports.razor'
+          value: Syncfusion.Blazor.Toolkit
+      - type: prompt
+    rubric:
+      - Completes the installation in the workspace instead of only describing or loading guidance.
+      - Registers the Toolkit once in the app's only Program.cs with the matching using directive.
+      - Does not add a commercial Syncfusion.Blazor package or a Toolkit theme stylesheet link.
+      - Ends with a final message that states what was changed.
+
+  - name: question-only-install-answer-has-concrete-steps
+    tags:
+      capability: toolkit-install
+      risk: stops-after-skill-load
+      journey: question-only-install-continuity
+    prompt: |
+      What exactly do I need to do to start using the open-source Syncfusion Blazor Toolkit in a
+      standalone Blazor WebAssembly app on net8.0? Just tell me, don't change any files.
+    graders:
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-contains
+        config:
+          substring: AddSyncfusionBlazorToolkit
+      - type: output-matches
+        config:
+          pattern: '(?i)@?using\s+Syncfusion\.Blazor\.Toolkit\s*;?'
+      - type: prompt
+    rubric:
+      - Gives concrete package, registration and namespace-import steps in the final answer itself.
+      - Keeps the template's existing RootComponents lines untouched.
+      - Does not instruct linking a Toolkit theme stylesheet.
+
+  #
+
+  # ---------------------------------------------------------------------------
   # Dormancy / out of scope
   # ---------------------------------------------------------------------------
   - name: out-of-scope-component-api
@@ -468,6 +527,7 @@ stimuli:
       - Treats grid column binding and row-selection events as component API usage outside install/registration guidance.
       - Does not install packages, register Toolkit services, or add theme links as the answer.
       - Does not hijack the request with Toolkit install guidance.
+      - "The Toolkit install skill stayed dormant: the answer does not rely on it and treats this request as outside the scope of Toolkit setup."
 
   - name: out-of-scope-project-creation
     tags:
@@ -487,6 +547,7 @@ stimuli:
       - Handles project creation with the standard Blazor template guidance (dotnet new blazor and its options).
       - Does not install Syncfusion packages or register Toolkit services, since none were requested.
       - Does not hijack the request with Toolkit install guidance.
+      - "The Toolkit install skill stayed dormant: the answer does not rely on it and treats this request as outside the scope of Toolkit setup."
 
   - name: out-of-scope-maui-blazor-hybrid
     tags:
@@ -506,3 +567,4 @@ stimuli:
       - Recognizes MAUI Blazor Hybrid is outside this skill's host/render-mode guidance.
       - Does not instruct opening Components/App.razor or _Host.cshtml as the Hybrid setup path.
       - Does not hijack the request with Web App install guidance.
+      - "The Toolkit install skill stayed dormant: the answer does not rely on it and treats this request as outside the scope of Toolkit setup."
