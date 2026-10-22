@@ -1,0 +1,1810 @@
+name: find-repeated-build-work
+tags:
+  executionShard: heavy
+description: Evaluates the dotnet-msbuild/find-repeated-build-work skill
+type: capability
+defaults:
+  timeout: 6m
+stimuli:
+  - name: Compute a per-project git lookup once for the whole build
+    prompt: |
+      git-stamp/perf-summary.txt is the performance summary of the CI build that runs git-stamp/build.sh. Cut the build
+      time that is not spent compiling, without changing the informational version stamped into each assembly. You
+      cannot run the build from here, so work from the repository files. Developers also run dotnet build inside a
+      single project directory.
+    tags:
+      capability: invariant-per-project-exec
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./git-stamp
+          dest: git-stamp
+    golden_patch:
+      path: ./references/compute-once-pass-global-property.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-git-stamp"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The Task Performance Summary shows Exec with 38 calls for a solution of 38 projects, about 1970 ms each, so the git lookup in Directory.Build.targets starts a process in every project and gives the same answer each time. Removing 37 calls could avoid about 72.89 s of aggregate task time; the summary does not show actual overlap, so eight cores alone do not establish a wall-clock saving. I could not run the build here, so this is not validated. The commit id is now computed once in build.sh and passed as -p:GitCommit, which every project inherits as a global property. The Exec in Directory.Build.targets only runs when GitCommit is empty, so a single-project dotnet build still gets a stamp. The version assignment remains unconditional. I did not use a flag property or an Exists check to skip the Exec, because properties are per project instance and the worker nodes are separate processes. The informational version remains 3.2.0 plus the same short commit id.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Git lookup | 38 | 1 | 72890 estimated | Build-invariant command in every project | Compute once and pass GitCommit; keep fallback | unknown |
+
+              Verdict: proposed removal of 37 repeated executions; estimated task-time saving 72.89 s; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - |
+              import os, pathlib, re, shutil, subprocess, tempfile, uuid
+              import xml.etree.ElementTree as ET
+              root = ET.parse('git-stamp/Directory.Build.targets').getroot()
+              informational = [p for p in root.iter() if p.tag.lower() == 'informationalversion']
+              assert informational and all(p.text == '$(Version)+$(GitCommit)' for p in informational), 'the stamped version format changed'
+              props = ET.parse('git-stamp/Directory.Build.props').getroot()
+              versions = [p.text for group in props.findall('PropertyGroup') if not group.get('Condition')
+                          for p in group if p.tag.lower() == 'version' and not p.get('Condition')]
+              assert versions and versions[-1] == '3.2.0', 'preserve the stamped base version'
+              assert all(p.text == '3.2.0' for document in [props, root] for p in document.iter() if p.tag.lower() == 'version'), 'no assignment may change the base version'
+              fallbacks = [
+                  (target, task) for target in root.findall('Target') for task in target.findall('Exec')
+                  if task.get('Command') == 'git rev-parse --short HEAD'
+              ]
+              assert len(fallbacks) == 1, 'single-project builds need a commit lookup fallback'
+              target, task = fallbacks[0]
+              guarded = lambda element: re.fullmatch(r"\s*'\$\(GitCommit\)'\s*==\s*''\s*", element.get('Condition', ''))
+              assert guarded(target) or guarded(task), 'the per-project git lookup must be skipped when GitCommit is supplied'
+              assert any(o.get('TaskParameter') == 'ConsoleOutput' and o.get('PropertyName') == 'GitCommit'
+                         for o in task.findall('Output')), 'the fallback must supply GitCommit'
+              bash = shutil.which('bash')
+              assert bash, 'Bash is required to check build.sh with mocked git and dotnet'
+              dotnet = shutil.which('dotnet')
+              assert dotnet, 'the .NET SDK is required to check the commit before its first consumer'
+              with tempfile.TemporaryDirectory() as tmp:
+                  bin_dir = pathlib.Path(tmp)
+                  mocks = {
+                      'git': '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$MOCK_BIN/git-calls"\nprintf "%s\\n" "$EXPECTED_COMMIT"\n',
+                      'dotnet': '#!/usr/bin/env bash\nrecord="$(mktemp "$MOCK_BIN/dotnet-call.XXXXXX")"\nprintf "%s\\0" "$@" > "$record"\n',
+                  }
+                  for name, text in mocks.items():
+                      path = bin_dir / name
+                      path.write_text(text, encoding='utf-8', newline='\n')
+                      path.chmod(0o755)
+                  if os.name == 'nt':
+                      (bin_dir / 'git.cmd').write_text(
+                          '@echo off\necho %*>>"%MOCK_BIN%\\git-calls"\necho %EXPECTED_COMMIT%\n',
+                          encoding='utf-8', newline='\r\n',
+                      )
+                  probe = ET.Element('Project')
+                  defaults = ET.SubElement(probe, 'PropertyGroup')
+                  ET.SubElement(defaults, 'Configuration', Condition="'$(Configuration)' == ''").text = 'Debug'
+                  for name in ['Directory.Build.props', 'Directory.Build.targets']:
+                      ET.SubElement(probe, 'Import', Project=str(pathlib.Path('git-stamp', name).resolve()))
+                  ET.SubElement(probe, 'Target', Name='Restore')
+                  consumer = ET.SubElement(probe, 'Target', Name='GetAssemblyAttributes')
+                  ET.SubElement(ET.SubElement(consumer, 'PropertyGroup'), 'ObservedInformationalVersion').text = '$(InformationalVersion)'
+                  probe_path = bin_dir / 'stamp.proj'
+                  ET.ElementTree(probe).write(probe_path, encoding='utf-8')
+                  for _ in range(2):
+                      commit = uuid.uuid4().hex[:7]
+                      for path in [bin_dir / 'git-calls', *bin_dir.glob('dotnet-call.*')]:
+                          path.unlink(missing_ok=True)
+                      env = dict(os.environ, MOCK_BIN=tmp, EXPECTED_COMMIT=commit)
+                      subprocess.run(
+                          [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
+                          cwd='git-stamp', env=env, check=True, timeout=20,
+                      )
+                      assert (bin_dir / 'git-calls').read_text().splitlines() == ['rev-parse --short HEAD'], 'compute the current short commit exactly once'
+                      calls = [[arg.decode() for arg in path.read_bytes().split(b'\0')[:-1]]
+                               for path in bin_dir.glob('dotnet-call.*')]
+                      builds = [call for call in calls if call and call[0] in ['build', 'msbuild']]
+                      assert len(builds) == 1 and builds[0][1:2] == ['Contoso.slnx'], 'require exactly one solution build'
+                      args = builds[0]
+                      values = []
+                      for index, arg in enumerate(args):
+                          match = re.fullmatch(r'(?:--property|[-/]p(?:roperty)?)(?::|=)(.+)', arg, re.I)
+                          if match:
+                              values.append(match[1])
+                          elif arg.lower() in ['--property', '-p', '/p', '-property', '/property']:
+                              assert index + 1 < len(args), 'property switches require a value'
+                              values.append(args[index + 1])
+                      assignments = [p for value in values for p in value.split(';')]
+                      commits = [p.partition('=')[2] for p in assignments if p.partition('=')[0].lower() == 'gitcommit']
+                      assert commits and commits[-1] == commit, 'pass the actual git result, not an empty, fixed or undefined value'
+                      assert all(p.partition('=')[2] == '3.2.0' for p in assignments if p.partition('=')[0].lower() == 'version'), 'the build must not override the base version'
+                      assert all(p.partition('=')[2] == '3.2.0+' + commit for p in assignments if p.partition('=')[0].lower() == 'informationalversion'), 'the build must not override the stamped version'
+                      parallel = [match[1] for arg in args
+                                  if (match := re.fullmatch(r'(?:--?|/)(?:m|maxcpucount)(?::(\d+))?', arg, re.I))]
+                      assert parallel and (parallel[-1] is None or int(parallel[-1]) > 1), 'preserve parallel execution, not a missing switch or single worker'
+                      build_in_parallel = [p.partition('=')[2] for p in assignments if p.partition('=')[0].lower() == 'buildinparallel']
+                      assert not build_in_parallel or build_in_parallel[-1].strip().lower() not in ['false', 'off', 'no', '0'], 'do not disable parallel execution through global properties'
+                      configuration = subprocess.run(
+                          [dotnet, args[0], str(probe_path), *args[2:], '-nologo', '-verbosity:quiet',
+                           '-getProperty:Configuration'],
+                          cwd=bin_dir, env=env, capture_output=True, text=True, timeout=30,
+                      )
+                      assert configuration.returncode == 0, configuration.stdout + configuration.stderr
+                      assert configuration.stdout.strip() == 'Release', 'preserve the effective Release configuration'
+                      for supplied in [False, True]:
+                          (bin_dir / 'git-calls').unlink(missing_ok=True)
+                          if supplied:
+                              command = [dotnet, args[0], str(probe_path), *args[2:]]
+                          else:
+                              command = [dotnet, 'msbuild', str(probe_path)]
+                          command.extend(['-nologo', '-verbosity:quiet', '-nodeReuse:false',
+                                          '-target:GetAssemblyAttributes', '-getProperty:ObservedInformationalVersion'])
+                          result = subprocess.run(
+                              command, cwd=bin_dir, env=dict(env, PATH=tmp + os.pathsep + os.environ['PATH']),
+                              capture_output=True, text=True, timeout=30,
+                          )
+                          assert result.returncode == 0, result.stdout + result.stderr
+                          assert result.stdout.strip() == '3.2.0+' + commit, 'the commit and version must be ready before GetAssemblyAttributes consumes them'
+                          log = bin_dir / 'git-calls'
+                          calls = log.read_text().splitlines() if log.exists() else []
+                          assert calls == ([] if supplied else ['rev-parse --short HEAD']), 'the fallback must run once only when GitCommit is absent'
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|\s*Work\s*\|\s*Calls\s*\|\s*Expected\s*\|\s*Avoidable ms\s*\|\s*Cause\s*\|\s*Fix\s*\|\s*On critical path\?\s*\|\r?\n\|(?:\s*:?-+:?\s*\|){7}\r?\n\|(?:[^|\r\n]*\|){7}\s*$'
+      - type: output-matches
+        config:
+          pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
+      - type: prompt
+    rubric:
+      - Identified from the Exec call count (38 calls for 38 projects) that the same git lookup runs in every project
+      - Computed the commit id once, for example in build.sh passed as a global property, and made the per-project Exec
+        run only when the property is empty so single-project builds keep a stamp
+      - Did not rely on a flag property or Exists check to dedupe the work across projects
+      - Kept the informational version in the same format
+      - Did not claim the build was run or the saving measured
+
+  - name: Stop a shared project from being built once per caller
+    prompt: |
+      shared-project-instances/perf-summary.txt is the performance summary of the CI build that runs
+      shared-project-instances/build.sh. Most of the time in it is spent in Core. Reduce the build time without changing
+      what Web, Api and Worker produce: each must still get its own component name in its AssemblyTitle. You cannot run
+      the build from here, so work from the repository files.
+    tags:
+      capability: global-property-instances
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./shared-project-instances
+          dest: shared-project-instances
+    golden_patch:
+      path: ./references/remove-property-from-shared-reference.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-shared-project-instances"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Core.csproj shows 3 calls in the Project Performance Summary, about 21 s each, although it is one project. Build.proj passes Properties="ComponentName=%(Component.Filename)" to each component, and every component then builds its reference to Core with that global property inherited. A different global property makes a different project instance, so Core is built once per component even though it never reads ComponentName. I added GlobalPropertiesToRemove="ComponentName" to the Core ProjectReference in Web, Api and Worker, so Core is built with the same properties every time and only once. The components still receive ComponentName for their AssemblyTitle. Not validated: I could not run the build here. Rebuilding with a binlog should show Core.csproj with 1 call.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Core project | 3 | 1 | 42060 estimated | ComponentName creates distinct global-property instances | Remove ComponentName only on Core references | unknown |
+
+              Verdict: proposed removal of 2 repeated executions; estimated project-time saving 42.06 s; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - |
+              import os, pathlib, shutil, subprocess, tempfile
+              import xml.etree.ElementTree as ET
+              base = pathlib.Path('shared-project-instances')
+              dotnet = shutil.which('dotnet')
+              bash = shutil.which('bash')
+              assert dotnet and bash, 'the .NET SDK and Bash are required to exercise the submitted build'
+              with tempfile.TemporaryDirectory() as tmp:
+                  work = (pathlib.Path(tmp) / 'work').resolve()
+                  shutil.copytree(base, work, ignore=shutil.ignore_patterns('bin', 'obj'))
+                  logs = (pathlib.Path(tmp) / 'logs').resolve()
+                  (logs / 'core').mkdir(parents=True)
+                  core_path = work / 'Core' / 'Core.csproj'
+                  core = ET.parse(core_path)
+                  record = ET.SubElement(core.getroot(), 'Target', Name='_GraderRecordCoreBuild', BeforeTargets='Build')
+                  ET.SubElement(record, 'WriteLinesToFile', Overwrite='true', Encoding='UTF-8',
+                                File=str(logs / 'core' / '$([System.Guid]::NewGuid()).txt'), Lines='$(TargetPath)')
+                  core.write(core_path, encoding='utf-8')
+                  for component in ['Web', 'Api', 'Worker']:
+                      path = work / component / (component + '.csproj')
+                      project = ET.parse(path)
+                      record = ET.SubElement(project.getroot(), 'Target', Name='_GraderRecordComponentBuild', AfterTargets='Build')
+                      ET.SubElement(record, 'WriteLinesToFile', File=str(logs / (component + '.txt')),
+                                    Lines="$(AssemblyTitle);$(TargetPath);@(ReferencePathWithRefAssemblies->'%(FullPath)')",
+                                    Overwrite='true', Encoding='UTF-8')
+                      project.write(path, encoding='utf-8')
+                  result = subprocess.run(
+                      [bash, 'build.sh'], cwd=work, env=dict(os.environ, MSBUILDDISABLENODEREUSE='1'),
+                      capture_output=True, text=True, timeout=120,
+                  )
+                  assert result.returncode == 0, result.stdout + result.stderr
+                  calls = list((logs / 'core').glob('*.txt'))
+                  assert len(calls) == 1, 'the submitted BuildAll path must build Core exactly once'
+                  core_output = pathlib.Path(calls[0].read_text(encoding='utf-8-sig').strip()).resolve()
+                  assert core_output.is_relative_to(work) and core_output.is_file() and core_output.name == 'Core.dll', 'Core must produce its assembly on a clean build'
+                  for component in ['Web', 'Api', 'Worker']:
+                      lines = (logs / (component + '.txt')).read_text(encoding='utf-8-sig').splitlines()
+                      assert lines[0] == 'Contoso ' + component, 'preserve the effective component AssemblyTitle'
+                      output = pathlib.Path(lines[1]).resolve()
+                      assert output.is_relative_to(work) and output.is_file() and output.name == component + '.dll', 'each component must still produce its assembly'
+                      references = [pathlib.Path(p).resolve() for p in lines[2:]]
+                      assert any(p.name == 'Core.dll' and p.is_relative_to(work / 'Core') and p.is_file()
+                                 for p in references), 'Core must remain an actual compilation reference'
+                      assert (output.parent / 'Core.dll').read_bytes() == core_output.read_bytes(), 'each component must retain the built Core copy'
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)(global propert|project instance)
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|\s*Work\s*\|\s*Calls\s*\|\s*Expected\s*\|\s*Avoidable ms\s*\|\s*Cause\s*\|\s*Fix\s*\|\s*On critical path\?\s*\|\r?\n\|(?:\s*:?-+:?\s*\|){7}\r?\n\|(?:[^|\r\n]*\|){7}\s*$'
+      - type: output-matches
+        config:
+          pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
+      - type: prompt
+    rubric:
+      - Identified from Core.csproj having several calls that the same project is built once per distinct set of global
+        properties
+      - Traced the cause to the ComponentName property passed by Build.proj and inherited through the ProjectReference
+      - Kept each component's own AssemblyTitle, for example by removing ComponentName only on the reference to Core with
+        GlobalPropertiesToRemove, instead of deleting the property from the components
+      - Did not claim the build was run or the saving measured
+
+  - name: Generate a shared file before the parallel build starts
+    prompt: |
+      Intermittently the Build step in exists-sentinel-race fails with the error in
+      exists-sentinel-race/failure-log.txt, and a re-run passes. Fix the cause so the failure cannot depend on timing.
+      Everyone builds through exists-sentinel-race/build.sh, and every project must still compile obj/buildinfo.g.cs.
+      An unchanged rerun must not force every project to compile again.
+      You cannot run the build from here, so work from the repository files.
+    tags:
+      capability: racy-run-once-guard
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./exists-sentinel-race
+          dest: exists-sentinel-race
+    golden_patch:
+      path: ./references/generate-before-build.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-exists-sentinel-race"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The target in Directory.Build.targets is meant to generate buildinfo.g.cs once, but its Exists check is evaluated separately in every project, and with -m the projects build in separate worker processes. Several of them see no file at the same moment and each run the generator, which is why Exec shows 9 calls for 24 projects and why one writer sometimes hits Text file busy. A flag property would not help because properties are per project instance. I removed the generation from the per-project target and build.sh now runs tools/make-buildinfo.sh once into a temporary file, before dotnet build. It publishes that file only when its content differs, keeping the compiled file's timestamp on an unchanged rerun and updating it when the daily stamp changes. The Compile item still includes it. Not validated: I could not run the build here.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Shared file generation | 9 | 1 | 3480 estimated | Per-project check-then-write race | Generate once and finish before the parallel build | unknown |
+
+              Verdict: proposed removal of 8 repeated executions; estimated task-time saving 3.48 s; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - |
+              import datetime, os, pathlib, shutil, subprocess, tempfile, uuid
+              import xml.etree.ElementTree as ET
+              base = pathlib.Path('exists-sentinel-race')
+              bash = shutil.which('bash')
+              assert bash, 'Bash is required to exercise build.sh'
+              real_dotnet = shutil.which('dotnet')
+              assert real_dotnet, 'the .NET SDK is required to exercise per-project generation hooks'
+              with tempfile.TemporaryDirectory() as tmp:
+                  work = pathlib.Path(tmp) / 'work'
+                  shutil.copytree(base, work)
+                  bin_dir = pathlib.Path(tmp) / 'bin'
+                  bin_dir.mkdir()
+                  solution = ET.Element('Solution')
+                  observations = []
+                  compile_observations = []
+                  boundaries = []
+                  generated = (work / 'obj/buildinfo.g.cs').resolve()
+                  expected = (bin_dir / 'expected-buildinfo').resolve()
+                  for name in ['Api', 'Worker']:
+                      project_dir = work / 'probes' / name
+                      project_dir.mkdir(parents=True)
+                      probe = ET.Element('Project')
+                      ET.SubElement(probe, 'Import', Project='Sdk.props', Sdk='Microsoft.NET.Sdk')
+                      properties = ET.SubElement(probe, 'PropertyGroup')
+                      for property_name, value in [('Configuration', 'Release'), ('TargetFramework', 'net10.0'),
+                                                   ('IsCrossTargetingBuild', 'false')]:
+                          ET.SubElement(properties, property_name).text = value
+                      ET.SubElement(probe, 'Import', Project='Sdk.targets', Sdk='Microsoft.NET.Sdk')
+                      observation = bin_dir / (name + '.built')
+                      observations.append((name, observation))
+                      observer = ET.SubElement(probe, 'Target', Name='ObserveProbeBuild_' + uuid.uuid4().hex,
+                                               AfterTargets='Build')
+                      ET.SubElement(observer, 'WriteLinesToFile', File=str(observation.resolve()),
+                                    Lines='$(MSBuildProjectName)', Overwrite='true')
+                      compiler = ET.SubElement(probe, 'Target', Name='ObserveCompile_' + uuid.uuid4().hex,
+                                               BeforeTargets='CoreCompile')
+                      for phase, target in [('compile', compiler), ('built', observer)]:
+                          items = bin_dir / (name + '.' + phase + '.compile-items')
+                          compile_observations.append(items)
+                          ET.SubElement(target, 'WriteLinesToFile', File=str(items.resolve()),
+                                        Lines="@(Compile->'%(FullPath)')", Overwrite='true')
+                          hashes = '_GraderGenerated_' + phase
+                          expected_hashes = '_GraderExpected_' + phase
+                          for file, item_name in [(generated, hashes), (expected, expected_hashes)]:
+                              task = ET.SubElement(target, 'GetFileHash', Files=str(file))
+                              ET.SubElement(task, 'Output', TaskParameter='Items', ItemName=item_name)
+                          ET.SubElement(
+                              target, 'Error',
+                              Condition="'@(" + hashes + "->'%(FileHash)')' != '@(" + expected_hashes + "->'%(FileHash)')'",
+                              Text='preserve shared source bytes at the ' + phase + ' boundary',
+                          )
+                          events = bin_dir / (name + '.' + phase + '.events')
+                          mtime = bin_dir / (name + '.' + phase + '.mtime')
+                          boundaries.append((events, mtime))
+                          ET.SubElement(target, 'Copy', SourceFiles=str((bin_dir / 'events').resolve()),
+                                        DestinationFiles=str(events.resolve()))
+                          ET.SubElement(
+                              target, 'WriteLinesToFile', File=str(mtime.resolve()), Overwrite='true',
+                              Lines="@(" + hashes + "->'%(ModifiedTime)')",
+                          )
+                      project_path = project_dir / (name + '.csproj')
+                      ET.ElementTree(probe).write(project_path, encoding='utf-8')
+                      ET.SubElement(solution, 'Project', Path=project_path.relative_to(work).as_posix())
+                  ET.ElementTree(solution).write(work / 'Contoso.slnx', encoding='utf-8')
+                  generator = work / 'tools/make-buildinfo.sh'
+                  generator.rename(generator.with_name('make-buildinfo.submitted.sh'))
+                  generator.write_text(
+                      '#!/usr/bin/env sh\nset -eu\n'
+                      'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"\n'
+                      'printf "generator-start\\n" >> "$MOCK_BIN/events"\n'
+                      'sleep 1\n'
+                      'sh "$(dirname "$0")/make-buildinfo.submitted.sh" "$@"\n'
+                      'printf "generator-done\\n" >> "$MOCK_BIN/events"\n',
+                      encoding='utf-8', newline='\n',
+                  )
+                  real_date = subprocess.run([bash, '-c', 'command -v date'], check=True,
+                                             capture_output=True, text=True).stdout.strip()
+                  assert real_date, 'GNU date is required to vary the submitted generator input'
+                  date = bin_dir / 'date'
+                  date.write_text(
+                      '#!/usr/bin/env sh\nset -eu\n'
+                      '"$REAL_DATE" --date="$EXPECTED_DATE" "$@"\n',
+                      encoding='utf-8', newline='\n',
+                  )
+                  date.chmod(0o755)
+                  dotnet = bin_dir / 'dotnet'
+                  dotnet.write_text(
+                      '#!/usr/bin/env sh\nset -eu\n'
+                      'printf "build\\n" >> "$MOCK_BIN/events"\n'
+                      '"$REAL_DOTNET" "$@" -nologo -verbosity:quiet\n',
+                      encoding='utf-8', newline='\n',
+                  )
+                  dotnet.chmod(0o755)
+                  env = dict(os.environ, MOCK_BIN=str(bin_dir), REAL_DATE=real_date,
+                             REAL_DOTNET=pathlib.Path(real_dotnet).as_posix(),
+                             MSBUILDDISABLENODEREUSE='1')
+                  stamp = datetime.date(2040, 1, 1) + datetime.timedelta(days=uuid.uuid4().int % 20000)
+                  def set_stamp(value):
+                      env['EXPECTED_DATE'] = value.isoformat() + ' 00:00:00 UTC'
+                      expected.write_bytes(
+                          ('internal static class BuildInfo { public const string Stamp = "' +
+                           value.strftime('%Y%m%d') + '"; }\n').encode('utf-8')
+                      )
+                  set_stamp(stamp)
+                  def run_build():
+                      for path in ([path for _, path in observations] + compile_observations +
+                                   [path for pair in boundaries for path in pair]):
+                          path.unlink(missing_ok=True)
+                      subprocess.run(
+                          [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
+                          cwd=work, env=env, check=True, timeout=60,
+                      )
+                      assert all(path.is_file() and path.read_text(encoding='utf-8-sig').strip() == name
+                                 for name, path in observations), 'exercise both project Build paths and their submitted target hooks'
+                      assert all(path.is_file() and generated.resolve() in [
+                          pathlib.Path(line).resolve() for line in path.read_text(encoding='utf-8-sig').splitlines()
+                      ] for path in compile_observations), 'each project must retain buildinfo.g.cs in effective Compile items at the compile and build boundaries'
+                      generation = lambda path: [line for line in path.read_text().splitlines()
+                                                 if line.startswith('generator-')]
+                      assert generation(bin_dir / 'events') == ['generator-start', 'generator-done'], 'generate exactly once per wrapper invocation'
+                      assert generated.read_bytes() == expected.read_bytes(), 'preserve the original daily build-info output bytes'
+                      final_ns = generated.stat().st_mtime_ns
+                      expected_mtime = datetime.datetime.fromtimestamp(final_ns // 1_000_000_000).strftime('%Y-%m-%d %H:%M:%S')
+                      expected_mtime += '.' + format(final_ns % 1_000_000_000 // 100, '07d')
+                      for events, mtime in boundaries:
+                          assert events.is_file() and generation(events) == ['generator-start', 'generator-done'], 'complete one generation before every project consumer'
+                          assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before compilation and preserve it through Build'
+                      (bin_dir / 'events').unlink()
+                      return generated.stat().st_mtime_ns
+                  run_build()
+                  previous = generated.stat()
+                  os.utime(generated, ns=(previous.st_atime_ns, previous.st_mtime_ns - 20_000_000_000))
+                  unchanged_mtime = generated.stat().st_mtime_ns
+                  assert run_build() == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
+                  set_stamp(stamp + datetime.timedelta(days=1))
+                  assert run_build() > previous.st_mtime_ns, 'changed generated content must advance the source timestamp'
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|\s*Work\s*\|\s*Calls\s*\|\s*Expected\s*\|\s*Avoidable ms\s*\|\s*Cause\s*\|\s*Fix\s*\|\s*On critical path\?\s*\|\r?\n\|(?:\s*:?-+:?\s*\|){7}\r?\n\|(?:[^|\r\n]*\|){7}\s*$'
+      - type: output-matches
+        config:
+          pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
+      - type: prompt
+    rubric:
+      - Explained that the Exists check runs separately in every project and, with -m, in separate worker processes, so
+        several projects can run the generator at the same time
+      - Moved the generation so it happens once before the parallel build, for example a step in build.sh before
+        dotnet build, and did not rely on a flag property or another check-then-write guard inside the per-project target
+      - Kept obj/buildinfo.g.cs compiled by every project
+      - Preserved the generated-source timestamp on an identical second build, while still publishing changed generated content
+      - Did not claim the failure was reproduced or the fix verified
+
+  - name: Replace one generator process per file with one process for the list
+    prompt: |
+      per-file-exec/perf-summary.txt shows where the build of Contoso.Schemas spends its time, and
+      per-file-exec/tools/schemagen.md describes the generator it uses. The real schemas directory has about 120 files;
+      three samples are checked in here. Reduce the generation cost. The generated output must stay identical. You cannot
+      run the build from here, so work from the repository files.
+    tags:
+      capability: per-item-exec
+      risk: medium
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./per-file-exec
+          dest: per-file-exec
+    golden_patch:
+      path: ./references/single-exec-input-list.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-per-file-exec"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Exec has 120 calls in one project, about 1400 ms each, so the generator starts once per schema, and its startup cost does not depend on the file. Batching on %(SchemaFile.FullPath) in Schemas.targets causes that. schemagen.md says --input-list takes a list of paths and produces the same output as one run per schema, so the target now writes the list with WriteLinesToFile and runs schemagen once with --input-list and --output-dir. That removes about 119 launches, roughly 2.7 minutes of 3.8 total. I kept Inputs and Outputs on the target, so a build after changing one schema still only regenerates the stale files, because MSBuild passes only the out-of-date items into the target. Not validated: I could not run the build here.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | schemagen startup | 120 | 1 | 166838 estimated | Sequential per-item Exec on one node | Write stale paths to a list and invoke once | yes, before compilation |
+
+              Verdict: proposed removal of 119 repeated executions; estimated task-time saving 166.84 s; wall-clock not validated
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - |
+              import hashlib, json, os, pathlib, re, shlex, shutil, subprocess, sys, tempfile, time, uuid
+              import xml.etree.ElementTree as ET
+              base = pathlib.Path('per-file-exec')
+              expected = {
+                  'perf-summary.txt': 'a7a87a9f72d2a3ea5e94a0b98ce895e08c6b73b7c41ad772da5c67dc96e018ba',
+                  'schemas/Customer.json': '67eb0f87e3e7d30e93c695f6309869ad756ec9d3a794fea1f579b53e76588276',
+                  'schemas/Invoice.json': '84fda3aa966679bf270dcb52a962638ccfb0a98a9f8a98fd8412bfb514a7f73d',
+                  'schemas/Order.json': '62e76a2120a81ebf31bd338c87f570619c3f98ceeee8378c139b678cf274297e',
+                  'tools/schemagen.md': '5f1e323d5f5b121037fc94b50a8a7b318b8c91e133efd2d1fa26eff45097d75b',
+              }
+              actual = {p.relative_to(base).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in base.rglob('*') if p.is_file()
+                        and p.relative_to(base).as_posix() not in ['Schemas.targets', 'Contoso.Schemas.csproj']
+                        and p.relative_to(base).parts[0] not in ['bin', 'obj']}
+              assert actual == expected, 'preserve all schema contents and files outside the project/target edits'
+              project = ET.parse('per-file-exec/Contoso.Schemas.csproj').getroot()
+              root = ET.parse('per-file-exec/Schemas.targets').getroot()
+              properties = {p.tag: p.text or '' for group in project.findall('PropertyGroup') for p in group}
+              def expand(value):
+                  for _ in range(len(properties) + 1):
+                      value = re.sub(r'\$\(([^)]+)\)', lambda m: properties.get(m[1], m[0]), value)
+                  return value.replace('\\', '/').rstrip('/')
+              assert any(str(pathlib.PurePosixPath(expand(i.get('Project', '')))) == 'Schemas.targets'
+                         for i in project.findall('Import')), 'the project must import Schemas.targets'
+              properties.update({p.tag: p.text or '' for group in root.findall('PropertyGroup') for p in group})
+              generators = [(target, task) for target in root.findall('Target') for task in target.findall('Exec')
+                            if 'schemagen' in task.get('Command', '')]
+              assert len(generators) == 1, 'use one generator invocation'
+              target, task = generators[0]
+              targets = {t.get('Name'): t for t in root.findall('Target')}
+              pending = [name for name, t in targets.items()
+                         if {'BeforeCompile', 'CoreCompile'} & {n.strip() for n in t.get('BeforeTargets', '').split(';')}]
+              compile_path = set()
+              while pending:
+                  name = pending.pop()
+                  if name in compile_path:
+                      continue
+                  assert name in targets, 'compile dependencies must reference an existing target'
+                  compile_path.add(name)
+                  pending.extend(n.strip() for n in targets[name].get('DependsOnTargets', '').split(';') if n.strip())
+              assert target.get('Name') in compile_path, 'schema generation must run before compilation'
+              command = expand(task.get('Command'))
+              assert '%(' not in command, 'the generator still starts once per schema'
+              args = shlex.split(command)
+              assert '--input-list' in args and '--output-dir' in args, 'the generator needs both its input list and output directory'
+              input_list = args[args.index('--input-list') + 1]
+              output_dir = args[args.index('--output-dir') + 1]
+              assert target.get('Inputs') == '@(SchemaFile)', 'keep the stale SchemaFile inputs'
+              assert expand(target.get('Outputs', '')) == "@(SchemaFile->'" + output_dir + "/%(Filename).g.cs')", 'outputs must match the generator output directory'
+              preceding = list(target)[:list(target).index(task)]
+              writers = [w for w in preceding if w.tag == 'WriteLinesToFile' and expand(w.get('File', '')) == input_list]
+              assert len(writers) == 1, 'write the consumed input list before running the generator'
+              writer = writers[0]
+              assert writer.get('Lines') in ["@(SchemaFile->'%(FullPath)')", "@(SchemaFile->'%(Identity)')", '@(SchemaFile)'], 'the list must contain all stale schema paths'
+              assert writer.get('Overwrite', '').lower() == 'true', 'overwrite the list so it cannot retain previously stale schemas'
+              dotnet = shutil.which('dotnet')
+              assert dotnet, 'the .NET SDK is required to query evaluated Compile items'
+              with tempfile.TemporaryDirectory() as tmp:
+                  work = (pathlib.Path(tmp) / 'work').resolve()
+                  shutil.copytree('per-file-exec', work, ignore=shutil.ignore_patterns('bin', 'obj', '*.g.cs'))
+                  bin_dir = pathlib.Path(tmp) / 'bin'
+                  bin_dir.mkdir()
+                  compile_items = pathlib.Path(tmp) / 'compile-items.txt'
+                  project_path = work / 'Contoso.Schemas.csproj'
+                  probe_project = ET.parse(project_path)
+                  observer = ET.SubElement(
+                      probe_project.getroot(), 'Target', Name='_GraderObserveCompile_' + uuid.uuid4().hex,
+                      BeforeTargets='CoreCompile',
+                  )
+                  ET.SubElement(observer, 'WriteLinesToFile', File=str(compile_items.resolve()),
+                                Lines="@(Compile->'%(FullPath)')", Overwrite='true', Encoding='UTF-8')
+                  probe_project.write(project_path, encoding='utf-8')
+                  log = pathlib.Path(tmp) / 'schemagen-calls.jsonl'
+                  script = bin_dir / 'schemagen.py'
+                  script.write_text(
+                      'import argparse, hashlib, json, os, pathlib\n'
+                      'parser = argparse.ArgumentParser()\n'
+                      'parser.add_argument("--input-list", required=True)\n'
+                      'parser.add_argument("--output-dir", required=True)\n'
+                      'args = parser.parse_args()\n'
+                      'work = pathlib.Path(os.environ["SCHEMA_WORK"]).resolve()\n'
+                      'source_list = pathlib.Path(args.input_list).resolve()\n'
+                      'output_dir = pathlib.Path(args.output_dir).resolve()\n'
+                      'assert source_list.is_relative_to(work) and output_dir.is_relative_to(work)\n'
+                      'assert output_dir.is_dir()\n'
+                      'inputs = [pathlib.Path(line).resolve() for line in source_list.read_text(encoding="utf-8-sig").splitlines() if line.strip()]\n'
+                      'assert inputs and all(p.is_relative_to(work) and p.is_file() for p in inputs)\n'
+                      'outputs = [output_dir / (p.stem + ".g.cs") for p in inputs]\n'
+                      'for source, output in zip(inputs, outputs):\n'
+                      '    digest = hashlib.sha256(source.read_bytes()).hexdigest()\n'
+                      '    relative = source.relative_to(work).as_posix()\n'
+                      '    output.write_bytes(("// generated schema: " + relative + "\\n// sha256: " + digest + "\\n").encode("utf-8"))\n'
+                      'with open(os.environ["SCHEMA_LOG"], "a", encoding="utf-8") as stream:\n'
+                      '    stream.write(json.dumps({"inputs": [str(p) for p in inputs], "outputs": [str(p) for p in outputs]}) + "\\n")\n',
+                      encoding='utf-8', newline='\n',
+                  )
+                  if os.name == 'nt':
+                      (bin_dir / 'schemagen.cmd').write_text(
+                          '@echo off\n"' + sys.executable + '" "' + str(script) + '" %*\n',
+                          encoding='utf-8', newline='\r\n',
+                      )
+                  else:
+                      launcher = bin_dir / 'schemagen'
+                      launcher.write_text(
+                          '#!/bin/sh\nexec ' + shlex.quote(sys.executable) + ' ' + shlex.quote(str(script)) + ' "$@"\n',
+                          encoding='utf-8', newline='\n',
+                      )
+                      launcher.chmod(0o755)
+                  env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'],
+                             SCHEMA_WORK=str(work), SCHEMA_LOG=str(log))
+                  sources = set(work.joinpath('schemas').rglob('*.json'))
+                  required = {work / 'schemas' / (name + '.json') for name in ['Customer', 'Invoice', 'Order']}
+                  assert required <= sources, 'preserve all fixture schema inputs'
+                  source_bytes = {source: source.read_bytes() for source in sources}
+                  # Separate past input/output mtimes without sleeps or future-dated outputs.
+                  clock = time.time_ns() - 120_000_000_000
+                  for source in sources:
+                      os.utime(source, ns=(clock, clock))
+                  def probe(phase, stale, previous_calls):
+                      expected_content = {
+                          source: (
+                              '// generated schema: ' + source.relative_to(work).as_posix() +
+                              '\n// sha256: ' + hashlib.sha256(content).hexdigest() + '\n'
+                          ).encode('utf-8')
+                          for source, content in source_bytes.items()
+                      }
+                      compile_items.unlink(missing_ok=True)
+                      result = subprocess.run(
+                          [dotnet, 'msbuild', 'Contoso.Schemas.csproj', '-nologo', '-verbosity:quiet',
+                           '-nodeReuse:false', '-restore', '-target:Build', '-getItem:Compile',
+                           '-getProperty:IntermediateOutputPath'],
+                          cwd=work, env=env, capture_output=True, text=True, timeout=60,
+                      )
+                      assert result.returncode == 0, phase + ': ' + result.stdout + result.stderr
+                      calls = [json.loads(line) for line in log.read_text().splitlines()] if log.is_file() else []
+                      assert calls[:len(previous_calls)] == previous_calls, phase + ': preserve generator observations'
+                      new_calls = calls[len(previous_calls):]
+                      assert len(new_calls) == (1 if stale else 0), phase + ': schema generation must execute exactly once for stale inputs and never for current inputs'
+                      assert set(work.joinpath('schemas').rglob('*.json')) == sources and all(
+                          source.is_file() and source.read_bytes() == content for source, content in source_bytes.items()
+                      ), phase + ': generation must not modify, add or delete schema inputs'
+                      evaluated = json.loads(result.stdout)
+                      compiled = {pathlib.Path(item['FullPath']).resolve() for item in evaluated['Items']['Compile']}
+                      properties.update(evaluated['Properties'])
+                      evaluated_args = shlex.split(expand(task.get('Command')))
+                      evaluated_output_dir = evaluated_args[evaluated_args.index('--output-dir') + 1]
+                      expected_outputs = {
+                          (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve(): expected_content[source]
+                          for source in sources
+                      }
+                      assert compile_items.is_file(), phase + ': exercise the actual compilation boundary'
+                      consumed = {
+                          pathlib.Path(line).resolve()
+                          for line in compile_items.read_text(encoding='utf-8-sig').splitlines()
+                      }
+                      if stale:
+                          assert len(new_calls[0]['inputs']) == len(stale) and {
+                              pathlib.Path(p) for p in new_calls[0]['inputs']
+                          } == stale, phase + ': generate only the stale schemas, exactly once each'
+                          assert {pathlib.Path(p) for p in new_calls[0]['outputs']} == {
+                              (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve() for source in stale
+                          }, phase + ': preserve the per-schema output mapping'
+                      assert expected_outputs.keys() <= compiled, phase + ': every generated output must remain a Compile input'
+                      assert expected_outputs.keys() <= consumed, phase + ': every generated output must be a Compile input at compilation'
+                      assert all(p.is_file() for p in compiled if p.name.endswith('.g.cs')), phase + ': generated Compile inputs must exist'
+                      assert all(path.is_file() and path.read_bytes() == content for path, content in expected_outputs.items()), phase + ': preserve every distinct content-dependent schema output byte-for-byte'
+                      return expected_outputs, calls
+                  outputs, calls = probe('clean', sources, [])
+                  for output in outputs:
+                      stamp = clock + 40_000_000_000
+                      os.utime(output, ns=(stamp, stamp))
+                  timestamps = {output: output.stat().st_mtime_ns for output in outputs}
+                  unchanged, calls = probe('unchanged', set(), calls)
+                  assert unchanged == outputs, 'unchanged: preserve every output mapping and byte'
+                  assert all(output.stat().st_mtime_ns == stamp for output, stamp in timestamps.items()), 'unchanged: preserve every generated output timestamp'
+                  changed_source = work / 'schemas' / 'Order.json'
+                  source_bytes[changed_source] += b'\n'
+                  changed_source.write_bytes(source_bytes[changed_source])
+                  dirty_stamp = clock + 80_000_000_000
+                  os.utime(changed_source, ns=(dirty_stamp, dirty_stamp))
+                  partial, calls = probe('single-stale', {changed_source}, calls)
+                  assert partial.keys() == outputs.keys(), 'single-stale: preserve the full output mapping'
+                  changed_output = next(output for output in partial if output.name == 'Order.g.cs')
+                  assert changed_output.stat().st_mtime_ns >= changed_source.stat().st_mtime_ns, 'single-stale: refreshed output must be current'
+                  assert partial[changed_output] != outputs[changed_output], 'single-stale: changed input must refresh its output bytes'
+                  assert all(
+                      output.stat().st_mtime_ns == stamp
+                      for output, stamp in timestamps.items() if output != changed_output
+                  ), 'single-stale: preserve current outputs and their timestamps'
+                  timestamps = {output: output.stat().st_mtime_ns for output in partial}
+                  final, calls = probe('final-unchanged', set(), calls)
+                  assert final == partial, 'final-unchanged: preserve every output mapping and byte'
+                  assert all(output.stat().st_mtime_ns == stamp for output, stamp in timestamps.items()), 'final-unchanged: preserve every generated output timestamp'
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|\s*Work\s*\|\s*Calls\s*\|\s*Expected\s*\|\s*Avoidable ms\s*\|\s*Cause\s*\|\s*Fix\s*\|\s*On critical path\?\s*\|\r?\n\|(?:\s*:?-+:?\s*\|){7}\r?\n\|(?:[^|\r\n]*\|){7}\s*$'
+      - type: output-matches
+        config:
+          pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
+      - type: prompt
+    rubric:
+      - Identified from Exec having 120 calls in one project that the generator is started once per schema file and that
+        startup dominates
+      - Replaced the per-item Exec with one invocation that uses the list option documented in schemagen.md
+      - Kept Inputs and Outputs on the target so unchanged schemas are not regenerated
+      - Preserved every generated output byte-for-byte
+      - Did not claim the build was run or the saving measured
+
+  - name: Preserve a build that already shares incremental generation
+    prompt: |
+      already-shared-work/perf-summary.txt is the performance summary from
+      dotnet msbuild already-shared-work/Build.proj -restore -m. Reduce unnecessary build work without changing what Api
+      and Worker compile. Apply a fix if one is needed. You cannot run the build from here, so work from the repository
+      files. Do not execute dotnet/MSBuild commands or collect another log; use the supplied summary and repository files.
+    tags:
+      capability: already-shared-incremental-work
+      risk: unnecessary-rewrite
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./already-shared-work
+          dest: already-shared-work
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-already-shared-work"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              No fix is needed, and I left all files unchanged. GenerateSharedBuildInfo runs once in Build.proj before either project starts, and its Inputs and Outputs skip generation when the template has not changed. Both projects receive the same BuildInfoPath and compile the shared file. Copy has one call, while Csc has two calls for two projects, which is expected. Moving the generation into Directory.Build.targets would duplicate it; another run-once guard adds no benefit. I could not run the build here, so I have not measured any saving.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Shared generation | 1 | 1 | 0 | Already shared and incremental | Leave unchanged | yes, before both projects |
+              | Csc | 2 | 2 | 0 | One compilation per project | Leave unchanged | unknown |
+
+              Verdict: no repeated work worth changing
+    graders:
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - |
+              import hashlib, pathlib
+              base = pathlib.Path('already-shared-work')
+              expected = {
+                  'Api/Api.csproj': 'e2c08643e21eba9123e4b319840fec508efc44b473a7cab491d6188e5f6905ca',
+                  'Worker/Worker.csproj': 'e2c08643e21eba9123e4b319840fec508efc44b473a7cab491d6188e5f6905ca',
+                  'Build.proj': 'd3f26267e84dde321e3c4dd735f265ca477f236723b998342ba7f6f236451781',
+                  'Directory.Build.targets': '8b97e565f7189b13ac0f83a0a1278bd5e8c65eb66c371e423274bee3c33047c7',
+                  'buildinfo.cs.in': '556a905eec7a796982c0720755536df1798787bb7e05866bc1bd4fd9a722193d',
+                  'perf-summary.txt': '1d6e09453c0776384f64e432938ca515476e14b63af02f328d38dedd8a39107f',
+              }
+              actual = {p.relative_to(base).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in base.rglob('*') if p.is_file()}
+              assert actual == expected, 'preserve every fixture file without edits, additions or deletions'
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|\s*Work\s*\|\s*Calls\s*\|\s*Expected\s*\|\s*Avoidable ms\s*\|\s*Cause\s*\|\s*Fix\s*\|\s*On critical path\?\s*\|\r?\n\|(?:\s*:?-+:?\s*\|){7}\r?\n\|(?:[^|\r\n]*\|){7}\s*$'
+      - type: output-matches
+        config:
+          pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
+      - type: prompt
+    rubric:
+      - Recognized that shared generation already runs once before either project builds and is skipped when its input
+        has not changed
+      - Concluded that two compiler calls for two projects are legitimate and no repeated work needs a fix
+      - Left every file unchanged rather than adding guards or moving generation into each project
+      - Did not claim the build was run or a saving measured
+
+  - name: Recognize multi-targeting call counts as expected work
+    prompt: |
+      legit-per-project-calls/perf-summary.txt is the performance summary of the CI build. Tell me whether any task runs
+      more often than it should and is worth changing. Do not modify any file.
+    tags:
+      capability: legitimate-per-project-work
+      risk: medium
+      journey: audit
+    environment:
+      files:
+        - src: ./legit-per-project-calls
+          dest: legit-per-project-calls
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-legit-per-project-calls"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Nothing runs more often than expected. The solution has 12 projects and Directory.Build.props sets three target frameworks, so Csc, ResolveAssemblyReferences, GenerateDepsFile and ResolvePackageAssets each run 12 x 3 = 36 times, once per target framework of each project. Each project shows 4 calls, which is one outer build plus three inner builds. Copy is higher at 211 calls, which is normal because it runs per project for several targets. These counts are legitimate per-project work, so I would not change anything.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Per-TFM tasks | 36 | 36 | 0 | 12 projects times 3 TFMs | Leave unchanged | unknown |
+              | Calls per project | 4 | 4 | 0 | One outer plus three inner builds | Leave unchanged | unknown |
+
+              Verdict: no repeated work worth changing
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - |
+              import hashlib, pathlib
+              base = pathlib.Path('legit-per-project-calls')
+              expected = {
+                  'Directory.Build.props': '25501be4407cbdb202defb3848da024dc276d2b67d5eea0636dbb1322ab1d634',
+                  'perf-summary.txt': 'a1bc920051a847021358ad164239be568240e1ea120c67f967da039949c6953a',
+              }
+              actual = {p.relative_to(base).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in base.rglob('*') if p.is_file()}
+              assert actual == expected, 'preserve every fixture file without edits, additions or deletions'
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?i)(12\s*[x×*]\s*3|36\s*=\s*12|three target frameworks|3 target frameworks|per target framework|nothing runs more often|no repeated|not repeated|legitimate)
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|\s*Work\s*\|\s*Calls\s*\|\s*Expected\s*\|\s*Avoidable ms\s*\|\s*Cause\s*\|\s*Fix\s*\|\s*On critical path\?\s*\|\r?\n\|(?:\s*:?-+:?\s*\|){7}\r?\n\|(?:[^|\r\n]*\|){7}\s*$'
+      - type: output-matches
+        config:
+          pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
+      - type: prompt
+    rubric:
+      - Compared the 36 calls of Csc and the other tasks with the 12 projects and three target frameworks and concluded the
+        counts are expected
+      - Concluded that no task is repeated unnecessarily
+      - Did not invent a speedup or suggest removing multi-targeting
+
+  - name: Leave a repeated task alone when it costs almost nothing
+    prompt: |
+      negligible-repeat/perf-summary.txt is the performance summary of the nightly build, and
+      negligible-repeat/Directory.Build.targets is the repository's shared build logic. Tell me whether any work in this
+      build is done more often than necessary and whether it is worth changing. Do not modify any file.
+    tags:
+      capability: negligible-win-stop-condition
+      risk: medium
+      journey: audit
+    environment:
+      files:
+        - src: ./negligible-repeat
+          dest: negligible-repeat
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-negligible-repeat"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The only repeat is the Exec in Directory.Build.targets, which runs 4 times because four deployment-test projects stamp the tool version. It costs 6.1 s in total. Making it run once could avoid about 4.59 s of task time. Even if all of that reduced wall-clock time, it is at most 0.43% of an 18 minute build; the 16-node count alone does not establish actual overlap. Csc and the other tasks run 212 times for 212 projects. I would not change anything: the added complexity is not worth the gain.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Tool-version probe | 4 | 1 | 4590 estimated | Invariant per-project probe | Leave unchanged: upper bound below 1% | unknown |
+
+              Verdict: no repeated work worth changing
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - |
+              import hashlib, pathlib
+              base = pathlib.Path('negligible-repeat')
+              expected = {
+                  'Directory.Build.targets': '04ec3ab2ea98c4814dcf0646404177408b7940c635dde20d97ce35cd245c7c50',
+                  'perf-summary.txt': 'c9f2e67662ba7a144ab8aad46affbc247ad9d9acdc727b2e72ae94d8ad1f04f0',
+              }
+              actual = {p.relative_to(base).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in base.rglob('*') if p.is_file()}
+              assert actual == expected, 'preserve every fixture file without edits, additions or deletions'
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (?im)^Verdict:[ \t]*no repeated work worth changing[.!]?[ \t]*$
+      - type: output-matches
+        config:
+          pattern: '(?m)^\|\s*Work\s*\|\s*Calls\s*\|\s*Expected\s*\|\s*Avoidable ms\s*\|\s*Cause\s*\|\s*Fix\s*\|\s*On critical path\?\s*\|\r?\n\|(?:\s*:?-+:?\s*\|){7}\r?\n\|(?:[^|\r\n]*\|){7}\s*$'
+      - type: output-matches
+        config:
+          pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
+      - type: prompt
+    rubric:
+      - Found that the Exec runs 4 times for about 6 s in total
+      - Compared the aggregate saving upper bound with the 18 minute wall-clock and concluded it is not worth changing
+        without assuming every busy node divides that saving
+      - Did not recommend a change to the Exec or invent other repeated work
+
+  - name: Keep revisions separate across repository roots
+    prompt: |
+      Review audit/evidence.txt from our product build. Can we reduce the Git process launches without changing the
+      revision stamped into any project? Explain the safe scope and likely benefit. Do not edit files or run a build.
+    tags: { capability: repository-working-directory-partition, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/repository-cwd.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-repository-cwd
+        agent: &audit-agent { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The command text matches, but its working directories belong to two different Git repositories. Compute one full revision per repository and pass the matching value to that repository's 12 projects, retaining the direct-build fallback and write-if-different behavior. A single product-wide revision would incorrectly stamp Engine with Main's commit. Two calls rather than 24 could avoid 44,000 ms of aggregate task time; overlap and wall-clock gain are unknown. This is a proposal, not a measured result.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Git revision | 24 | 2 | 44000 estimated | Two repository roots | Compute once per repository | unknown |
+
+              Verdict: proposed removal of 22 executions; wall-clock not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -c
+            - &preserve-audit |
+              import hashlib, pathlib, sys
+              base = pathlib.Path('audit')
+              actual = {p.relative_to(base).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in base.rglob('*') if p.is_file()}
+              assert actual == {'evidence.txt': sys.argv[1]}, 'preserve the complete supplied evidence without edits, additions or deletions'
+            - 76dadff9d21382a7ec513453c2cca7120dc0b62ccc3cb55ad616f4125339dc61
+          expected_exit_code: 0
+      - &audit-table
+        type: output-matches
+        config:
+          pattern: '(?m)^\|\s*Work\s*\|\s*Calls\s*\|\s*Expected\s*\|\s*Avoidable ms\s*\|\s*Cause\s*\|\s*Fix\s*\|\s*On critical path\?\s*\|\r?\n\|(?:\s*:?-+:?\s*\|){7}\r?\n\|(?:[^|\r\n]*\|){7}\s*$'
+      - &audit-verdict
+        type: output-matches
+        config:
+          pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
+      - type: prompt
+    rubric:
+      - Distinguished the two repository roots despite identical command text and retained each repository's original full revision
+      - Proposed two computations distributed to the matching projects, not one product-wide value
+      - Estimated 22 avoided calls and 44000 ms of aggregate task time without asserting unobserved wall-clock savings
+      - Respected the read-only request and did not claim to execute or validate a build
+
+  - name: Remove only the unused dimension of a shared project
+    prompt: |
+      audit/evidence.txt lists the Shared builds in one invocation. Which of those builds can be avoided while still
+      shipping both framework assemblies and preserving component branding? Recommend a change, without editing or building.
+    tags: { capability: required-property-partition, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/required-property-partitions.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-required-property-partition
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Shared needs net9.0 and net10.0, but Brand creates three instances inside each framework partition without affecting Shared's behavior. Remove Brand only at the component-to-Shared reference, for example with GlobalPropertiesToRemove metadata. Keep TargetFramework on Shared and Brand on the components. This leaves two Shared compilations, not one, and preserves both framework outputs and component AssemblyTitle values.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Shared build | 6 | 2 | 8040 estimated | Unused Brand within each required TFM | Remove Brand only on Shared references | unknown |
+
+              Verdict: proposed removal of 4 executions; estimated project-time saving 8.04 s; wall-clock not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 458e872dca2f02cd8ad673b41574e2c1b92f457a64741196ab747eaeb1344d67]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Kept two Shared compilations because both TargetFramework variants are required
+      - Removed only Brand at the Shared reference while preserving component branding and required framework properties
+      - Estimated four avoided executions and 8040 ms aggregate project time without inventing a wall-clock result
+      - Did not turn an advisory question into file changes or a build
+
+  - name: Trim inherited properties on an orchestrator task edge
+    prompt: |
+      The Shared builds in audit/evidence.txt look identical. How should we avoid unnecessary work without losing
+      the slice diagnostics or the Release framework settings? Do not change files or execute the build.
+    tags: { capability: msbuild-task-property-removal, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/orchestrator-removal.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-task-property-removal
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              TraceBucket is inherited by Shared as a global property, producing three executed instances although Shared does not read it. On PrepareSlice's MSBuild task, use RemoveProperties="TraceBucket". There is no ProjectReference to annotate here. Keep TraceBucket in PrepareSlice for its message, and retain Configuration=Release and TargetFramework=net10.0 on the child task. Shared can then use one common instance. Only the aggregate project-time estimate is supported.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Shared build | 3 | 1 | 12000 estimated | Inherited TraceBucket | RemoveProperties on the MSBuild task | unknown |
+
+              Verdict: proposed removal of 2 executions; wall-clock not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 157f6aad821a3bec251718e92d989235c9ce4baef28c9f069513fc40d875c79a]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Located the task edge where TraceBucket reaches Shared and proposed a valid task-level removal rather than nonexistent ProjectReference metadata
+      - Preserved parent diagnostics and the required Configuration and TargetFramework globals
+      - Reduced the expected Shared executions to one with 12000 ms estimated aggregate savings and no measured wall-clock claim
+      - Did not edit files or run a build
+
+  - name: Respect a generator that cannot accept multiple inputs
+    prompt: |
+      Can we replace the sixty generator launches described in audit/evidence.txt with one process in this release?
+      Review the available interface and advise; do not modify files or run commands against the build.
+    tags: { capability: unsupported-generator-batching, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/single-input-contract.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-single-input-contract
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Not with this installed tool contract. Sixty distinct inputs need sixty distinct outputs, and contractc accepts only one pair per process. Inventing --input-list, passing a glob, or concatenating commands inside one Exec does not create a one-process generator. Retain the existing input/output transform and compilation items. A supported multi-input tool interface would be a prerequisite to this optimization, but replacing the tool is outside this release.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | contractc | 60 | 60 | 0 with current interface | Single-input tool contract | Leave unchanged | unknown |
+
+              Verdict: no supported reduction in generator processes under the supplied constraints
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 5286fae0faefa563fac100327b951c27e1cfa125a61016ea67fc04cf24c627d3]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Concluded that the supplied tool contract cannot perform all sixty inputs in one process
+      - Did not invent list or response-file support, substitute a tool, or misrepresent one shell Exec containing sixty processes as one generator process
+      - Preserved every required output and the incremental input/output pairing without claiming a speedup
+      - Kept the response advisory without edits or build execution
+
+  - name: Preserve metadata partitions when batching a generator
+    prompt: |
+      Suggest a lower-startup-cost version of the generation step in audit/evidence.txt without changing generated APIs.
+      Work only from the supplied evidence; do not edit files or execute a build.
+    tags: { capability: generator-metadata-partition, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/metadata-batches.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-metadata-partition
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Batch stale inputs by Namespace and invoke modelgen once for each of the two namespaces with a separate overwritten UTF-8 input list. One combined list with one --namespace would change half the generated APIs. Keep each item's output mapping and the Inputs/Outputs relationship so unchanged files remain current. Processing all 120 schemas still costs 12,000 ms; only 118 process startups disappear, an estimated 59,000 ms rather than the whole original 72,000 ms.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | modelgen | 120 | 2 | 59000 estimated | Per-input process startup | One input list per namespace | unknown |
+
+              Verdict: proposed removal of 118 startups; wall-clock not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, ba9899833681fff82485e72628764d8fb1c361123c431ef951d59f8e7d8b895c]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Kept Public and Internal namespaces separate using two valid list invocations rather than flattening metadata
+      - Preserved all per-input outputs, compilation inclusion and stale-item input/output behavior
+      - Estimated 59000 ms from 118 avoided 500 ms startups while retaining unavoidable per-input processing
+      - Did not claim to modify or measure the build
+
+  - name: Batch only the stale subset of an incremental target
+    prompt: |
+      How can the generation in audit/evidence.txt start fewer processes on this invocation without touching the files
+      that are already current? Recommend the change without editing files or running the build.
+    tags: { capability: partial-incremental-batching, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/stale-items.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-stale-item-batching
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep the one-to-one target Inputs/Outputs transform. MSBuild supplies the stale subset to that target, so write an overwritten input list inside it from the current Model items, then run modelgen once on A, B and C. Do not build the list at evaluation time from all 120 inputs: that would rewrite the other 117 outputs. Keep CollectModels outside the incremental generation body so all required generated files are compiled even when generation is skipped. The new invocation still processes three schemas.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | modelgen for stale inputs | 3 | 1 | 1000 estimated | Three 500 ms startups | List only the stale items inside the target | unknown |
+
+              Verdict: proposed removal of 2 startups; 117 current outputs unchanged; wall-clock not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 93e66a4eb778b04742539d1516a4f9fd3b36c2fcf90d20ebc5652956a99e89c3]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Limited the list to the three stale inputs using the preserved one-to-one incremental target mapping
+      - Did not regenerate the 117 current outputs or populate the list too early from the full item set
+      - Kept all 120 generated files in compilation even on a skipped or partially incremental generation target
+      - Estimated two avoided startups and 1000 ms rather than eliminating required processing or claiming a measured build
+
+  - name: Pass an orchestrator result into child project instances
+    prompt: |
+      Our new pre-build probe did not reduce child process launches. Diagnose audit/evidence.txt and suggest a fix
+      that also works when a developer builds a single project. Do not edit files or run the build.
+    tags: { capability: orchestrator-local-property-propagation, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/local-property-propagation.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-local-property-propagation
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              BuildAll sets a local ToolVersion property, which the MSBuild task does not automatically turn into a child global property. The children therefore still see an empty value. Pass Properties="ToolVersion=$(ToolVersion)" on that task after the successful probe, preserving parallelism and the existing empty-value fallback for direct and IDE builds. Keep the probe implementation and value unchanged; do not simply delete the fallback.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | sdkprobe | 21 | 1 | 8000 estimated | Local property is not distributed to children | Pass the result as a child global property | unknown |
+
+              Verdict: proposed removal of 20 executions; wall-clock not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 1ceeeba7517d0bb70429320597aa1531d4996a01668e95bd0f61dfce2b5495fa]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Explained why a property computed locally in the orchestrator does not automatically reach the child instances
+      - Passed the computed version before child builds as a global property while retaining the direct-project fallback
+      - Preserved the probe implementation, value and parallel build behavior
+      - Estimated 20 avoided calls and 8000 ms without claiming an unperformed build or known critical path
+
+  - name: Explain why a project flag is not a worker cache
+    prompt: |
+      The team expected the flag in audit/evidence.txt to cache the catalog version for the whole invocation. Explain
+      why the counts disagree and how to reduce them safely. This is a read-only review; do not build or edit.
+    tags: { capability: project-instance-flag-scope, risk: medium, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/project-local-flag.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-project-local-flag
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              CatalogWasRead is state on each project instance, not an invocation-wide or worker-wide cache. Reusing a worker does not make another project's properties visible. Compute the immutable catalog version once before dispatch and pass the value globally to all 32 projects. Retain an empty-value fallback for direct project builds and make the version available before its consumer; merely distributing a true flag would omit the value. Do not replace this with a shared file Exists race.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Catalog version | 32 | 1 | 15500 estimated | Per-instance flag state | Distribute one computed version | unknown |
+
+              Verdict: proposed removal of 31 executions; wall-clock not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, b2cbb89d86eae4d8314ca652991be5a56f0cc448d6793cec1df1c5b4aa875493]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Located the flag state on individual project instances rather than assuming shared state on one worker or all workers
+      - Proposed distributing the actual version from one pre-dispatch computation with a working direct-project fallback
+      - Did not substitute a shared Exists guard or pass only a flag without the required value
+      - Estimated 31 avoided executions and 15500 ms aggregate task time without fabricating overlap or measurements
+
+  - name: Share generated settings only inside equivalent configurations
+    prompt: |
+      Can the settings generator in audit/evidence.txt do less work while retaining both build configurations?
+      Explain the necessary ordering and output handling. Do not edit files or run a build.
+    tags: { capability: generated-input-identity-partition, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/variant-generator-inputs.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-generator-input-partition
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The effective config input changes with Configuration, so one output for the entire graph would be wrong. Generate Debug once and Release once before dispatching their consumers, retaining separate output paths and both Compile includes. Keep direct-build support with safe ordering and synchronization rather than concurrent Exists checks. Generate to a temporary file and replace on content change, or use equivalent write-if-different behavior, so sharing does not force an unchanged rerun to recompile.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | settingsgen | 12 | 2 | 20000 estimated | Six repeats per effective config input | Pre-generate each required configuration | unknown |
+
+              Verdict: proposed removal of 10 executions while preserving both variants; wall-clock not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, a4fba76b775ec0540b5f3b1b5b4c65f8b637ab1cf1c8f2cdd485127aced7c0ac]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Used the effective configuration file identity to require two generations rather than trusting identical command text
+      - Preserved both configuration outputs and compilation inputs, with generation completed before the relevant parallel consumers
+      - Addressed unchanged-content timestamps and safe direct-project behavior without an unsynchronized shared guard
+      - Estimated 10 avoided executions and 20000 ms aggregate savings without claiming validation
+
+  - name: Estimate serial startup savings without dividing by all workers
+    prompt: |
+      Use audit/evidence.txt to estimate the benefit of the tool's list mode. How much time is actually removable,
+      and does the worker count change that estimate? No edits or new build runs, please.
+    tags: { capability: sequential-startup-cost-accounting, risk: medium, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/sequential-startup.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-sequential-startup
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Current duration is 200 x (400 + 50) = 90,000 ms. List mode still processes every input: 400 + 200 x 50 = 10,400 ms. The modeled saving is 79,600 ms from 199 avoided startups. Do not divide by 16: these particular calls are consecutive on one node and precede the critical-path package consumer. With the supplied unchanged-scheduling assumptions the wall-clock reduction could be about 79.6 s, not a measured result. Keep the target's incremental input/output pairing and all outputs.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | assetpack startups | 200 | 1 | 79600 estimated | Serial startup overhead | Use supported list mode | yes, supplied timeline |
+
+              Verdict: proposed removal of 199 startups; modeled wall-clock saving about 79.6 s, not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 10a45a3e8e4870d88aab9489468ba7d0375acdd00f999584fc2d78c03d9086d4]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Retained 10000 ms required processing plus one 400 ms startup, giving 79600 ms estimated removable time
+      - Did not divide serial savings by the 16 available workers or count the entire old Exec duration as removable
+      - Connected the estimate to the supplied critical path without representing it as a measured post-change result
+      - Preserved all input/output pairs and respected the read-only request
+
+  - name: Convert overlapping probe time into a stage estimate
+    prompt: |
+      The total probe time in audit/evidence.txt is large. Estimate what computing the value in the wrapper would save,
+      using the supplied timeline rather than just the task total. Do not edit or run the build.
+    tags: { capability: observed-overlap-stage-accounting, risk: medium, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/overlapped-stage.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-overlapped-stage
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Aggregate probe time falls from 21,600 to 300 ms, saving 21,300 ms of task time. The observed stage is only 3,600 ms because six calls overlap in each wave. Replacing it with a 300 ms wrapper probe therefore models a 3,300 ms wall-clock reduction, about 8.25% of the 40 s build, under the stated no-overhead assumptions. Pass the unchanged value globally and retain direct-build fallback support. This estimate is not post-change measurement.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | repoprobe | 72 | 1 | 21300 aggregate, 3300 wall-clock estimated | Six concurrent calls per wave | One 300 ms wrapper probe | yes, phase barrier |
+
+              Verdict: proposed removal of 71 executions; modeled wall-clock saving 3.3 s, not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, f7d3a768b3017db0089efd0ad1d55d591ed9feb0b2f794c9efb841e1423ce9fc]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Separated 21300 ms aggregate savings from the 3300 ms stage reduction supported by the six-way overlapping timeline
+      - Included the remaining 300 ms wrapper call rather than treating all 3600 ms as removable
+      - Preserved the version value and direct-build fallback while distinguishing modeled savings from measured results
+      - Did not execute or modify the build
+
+  - name: Avoid moving noncritical work onto the critical path
+    prompt: |
+      Would moving the inventory probe to the wrapper make the build in audit/evidence.txt faster? Compare it with
+      computing the value inside Inventory. Explain your recommendation without editing or running anything.
+    tags: { capability: noncritical-work-hoisting-regression, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/off-critical-path.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-off-critical-path
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Inventory is not on the critical path and has no contention with Compiler. Removing nine probes could save 18,000 ms of aggregate task time, but computing once within Inventory still leaves the 120 s Compiler branch as the final join. It provides no modeled wall-clock saving here. A 2 s wrapper probe delays the start of Compiler and instead models a 122 s build. Do not make that move as a build-speed optimization; branch-local sharing is only a resource-cost improvement and must preserve the version for all consumers.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Inventory probe | 10 | 1 | 18000 aggregate, 0 wall-clock estimated | Repeats on a noncritical branch | Leave off the global preflight; optionally share inside Inventory | no |
+
+              Verdict: wrapper hoisting risks a 2 s regression; branch-local deduplication has no modeled wall-clock benefit
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 520fde95f44a400204b6bbf069dc232a0a5697ff4ab2a184debe971e82ce1413]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Recognized that removing Inventory work cannot shorten the independent 120 s Compiler critical path under the supplied assumptions
+      - Identified the 2 s regression from running a wrapper probe before Compiler starts
+      - Distinguished 18000 ms aggregate resource savings from zero modeled wall-clock improvement for branch-local sharing
+      - Preserved all consumers and made no edits, executions or measured-result claims
+
+  - name: Stop a failed shared preflight before child fallbacks repeat it
+    prompt: |
+      Why does the failing invocation in audit/evidence.txt run the tool so many times after the preflight? Recommend
+      safe failure behavior while keeping direct project builds supported. Do not modify files or invoke the build.
+    tags: { capability: failed-preflight-error-propagation, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/failed-preflight.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-failed-preflight
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The wrapper's || true hides exit 17 and passes an empty version, so every child's fallback runs the same failing command. Remove the suppression or explicitly propagate the probe's exit status and diagnostics before starting MSBuild. There is no valid default version. Preserve "$@" forwarding and the fallback for direct project builds; on successful wrapper runs pass the real value globally. On this failing invocation, one failed preflight should stop all child dispatch, not produce a successful-looking build.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Failing version probe | 17 | 1 | 16000 aggregate estimated | Suppressed failure yields empty global value | Fail before dispatch with exit 17 | unknown |
+
+              Verdict: proposed removal of 16 redundant failed attempts; preserve the original failure, not a success fallback
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 424b1e79205d8ba7ead84a60b343e078516fd74bf1bd7a0a9209c71e957dcd8e]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Traced the repeated child attempts to the swallowed preflight failure and empty passed value
+      - Stopped before child dispatch with the original error status and diagnostics rather than inventing a default or silently succeeding
+      - Retained caller arguments, successful global value propagation and direct-project fallback support
+      - Distinguished an estimated reduction in failing attempts from validated build performance and did not execute or edit
+
+  - name: Preserve distinct identities despite matching command lines
+    prompt: |
+      Review the twenty-four process launches in audit/evidence.txt. Are any removable under the release contract,
+      and what would be unsafe to share? Do not change files or execute the build.
+    tags: { capability: intentionally-nondeterministic-project-work, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/per-project-identity.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-per-project-identity
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              These calls are intentionally not equivalent: identitygen creates a fresh per-project signing identity on every invocation. One product-wide cached result would give projects the same identity and violate the release contract. All 24 outputs remain necessary, and this tool cannot generate several identities in one process. Leave the step unchanged under the supplied constraints rather than infer invariance from command text or promise a 34.5 s saving.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Signing identity creation | 24 | 24 | 0 | Required distinct random identities | Leave unchanged | unknown |
+
+              Verdict: no safely removable identity-generation work with the current tool contract
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 09dfde3c236d57cf5513e05899353e7337e38687d26aa9ebeb9ffb594bb0d4fa]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Recognized nondeterministic per-project identity creation as required distinct work despite identical command text
+      - Preserved 24 distinct identities and rejected product-wide value caching or unsupported multi-identity tool modes
+      - Did not claim any removable work or performance gain under the given contract
+      - Kept the review read-only without builds or edits
+
+  - name: Fix a correctness race even when timing savings are negligible
+    prompt: |
+      The source corruption in audit/evidence.txt is rare and the task time is tiny. Should we change this step?
+      Recommend safe ordering and rerun behavior without modifying files or running a build.
+    tags: { capability: correctness-race-overrides-timing-threshold, risk: high, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/cheap-race.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-cheap-correctness-race
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Change it for correctness, not speed. Exists is a check-then-write race: parallel projects can all enter and truncate the shared file. Generate once successfully in build.sh before starting the parallel build, retain the shared Compile include, and propagate generator errors. Generate to a temporary file and replace only on byte changes so an unchanged rerun preserves the timestamp. Avoiding seven 10 ms calls saves at most 70 ms, about 0.012% of this build, but that tiny timing gain does not justify leaving source corruption unfixed.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | stampgen | 8 | 1 | 70 aggregate estimated | Concurrent Exists-guarded writers | Generate before dispatch, replace only on change | unknown |
+
+              Verdict: proposed correctness fix removing 7 concurrent writers; negligible timing benefit, not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, ae891f69fb623f1c6cc90051801c84aa6fa8460ab2a358d3011f439141ed9c01]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Recommended fixing the demonstrated source-corruption race despite the negligible timing upper bound
+      - Ensured one successful generation finishes before parallel readers and retained the shared compilation input and failure propagation
+      - Preserved unchanged-content timestamps rather than unconditionally rewriting the generated source on every wrapper invocation
+      - Distinguished the 70 ms estimated aggregate saving from the correctness benefit without claiming a measured build
+
+  - name: Share a value between different targets in one project instance
+    prompt: |
+      Both consumers in audit/evidence.txt need the revision. Explain why it is computed twice and recommend how
+      to compute it once without breaking Build-only or Pack-only use. Do not modify files or execute the build.
+    tags: { capability: same-instance-cross-target-sharing, risk: medium, journey: audit }
+    environment:
+      files:
+        - { src: ./audit-scenarios/two-targets-one-instance.txt, dest: audit/evidence.txt }
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: repeated-work-cross-target-sharing
+        agent: *audit-agent
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The two Exec tasks live in different targets; target-once-per-instance semantics do not merge their bodies. Extract one revision-producing target and make both StampAssembly and StampPackage depend on it. In this single project instance, the shared dependency executes once before either consumer and exposes the same full revision to both. Keep both consumer hooks so either entry path obtains the value, rather than depending on Build to run before Pack. No cross-project global-state mechanism is required.
+
+              | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
+              |---|---|---|---|---|---|---|
+              | Git revision | 2 | 1 | 1500 estimated | Separate target bodies repeat one lookup | Shared dependency target for both consumers | unknown |
+
+              Verdict: proposed removal of 1 execution; both standalone entry paths retained; wall-clock not validated
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
+      - type: run-command
+        config:
+          command: python
+          args: [-c, *preserve-audit, 710ea3d8de55e5b2305ba8e2dac4d45956616681c55b76fb95059e530046ef62]
+          expected_exit_code: 0
+      - *audit-table
+      - *audit-verdict
+      - type: prompt
+    rubric:
+      - Explained that identical tasks in different targets can execute twice in one project instance
+      - Proposed one shared computation ordered before both consumers, valid for either standalone entry path
+      - Preserved both full-revision consumers without assuming cross-project property sharing or requiring Build before Pack
+      - Estimated one avoided call and 1500 ms without editing, executing or claiming measured performance
+
+  - name: Decline evaluation-only global-property instances
+    prompt: |
+      A binlog shows Shared.csproj evaluated five times under different global properties. Evaluation accounts for
+      almost all the delay, but its targets and tasks execute only once. How should I investigate that cost?
+    tags:
+      expect_activation: "false"
+      capability: dormancy-property-variant-evaluation
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-property-evaluation-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The measured cost is project evaluation, not repeated target execution. Compare the evaluated global-property sets, then inspect evaluation timings, import chains, globs and file-I/O property functions. Use preprocessed output to locate expensive imports and preserve property variants that are actually required. Target run-once guards cannot remove this pre-target work.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(evaluat|preprocess|import|glob)
+      - type: prompt
+    rubric:
+      - Identified evaluation as the measured bottleneck rather than duplicate target or task execution
+      - Investigated evaluation work and distinct global-property sets without proposing a per-target run-once guard
+      - Preserved required property variants
+
+  - name: Decline collisions between required project variants
+    prompt: |
+      Build.proj builds Shared.csproj concurrently with PublishReadyToRun=true and PublishReadyToRun=false.
+      We need both variants, but they use the same bin and obj directories and overwrite each other's files.
+      How should I stop the failures without dropping either variant?
+    tags:
+      expect_activation: "false"
+      capability: dormancy-property-variant-output-collision
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-property-collision-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              These are intentionally different variants, not redundant builds. Give each variant separate output and intermediate paths, setting the intermediate base before SDK imports so restore assets are isolated too. Verify that both configurations still produce their intended assemblies. Do not remove PublishReadyToRun or collapse the builds merely because they share a project path.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(OutputPath|IntermediateOutputPath|separate|isolat|distinct.*director)
+      - type: prompt
+    rubric:
+      - Identified shared output and intermediate paths as the cause of the collision
+      - Isolated both required variants' outputs and restore intermediates
+      - Did not remove a required global property or collapse the variants into one build
+
+  - name: Decline an unranked slow-build investigation
+    prompt: |
+      Our .NET solution builds slowly in CI, but we do not have timings or logs that show where the time goes.
+      What should we collect first before deciding what to change?
+    tags:
+      expect_activation: "false"
+      capability: dormancy-unranked-build-slowness
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-unranked-slowness-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Establish a baseline before choosing a fix. Record the SDK, original build command, configuration, machine and restore state. Measure comparable cold, warm and unchanged builds at least three times each, resetting the intended state before every sample and reporting medians and ranges. Capture a separate binary log for each sample without changing the original invocation's restore or parallelism behavior. Use those timings and logs to locate the dominant phase; do not assume compilation, restore or duplicate work is the bottleneck.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(measur|baseline|timing|profil|binlog|binary log)
+      - type: prompt
+    rubric:
+      - Recommended collecting repeatable build timings and diagnostic logs before choosing an optimization
+      - Kept the original invocation and build environment comparable across measurements
+      - Did not assume a specific bottleneck or propose deduplication without evidence
+
+  - name: Decline second-build rerun questions
+    prompt: |
+      On a second dotnet build of an unchanged checkout, CoreCompile still runs for every project instead of being skipped.
+      Why does MSBuild not treat the projects as up to date?
+    tags:
+      expect_activation: "false"
+      capability: dormancy-no-op-rebuild
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-no-op-rebuild-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              CoreCompile is skipped only when every input is older than the outputs it declares. A second build that still compiles means an input is newer than an output or a declared output is missing. Typical causes are a generator that rewrites a source file on every build, a Compile glob that picks up files in obj or bin, a timestamp written to an input, or an Inputs and Outputs list that does not match what the target really reads and writes. Build with a detailed log and look for the message that names the input or output that made the target run again.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(incremental|up-to-date|up to date|timestamp|inputs|outputs|FileWrites)
+      - type: prompt
+    rubric:
+      - Recognized that the question is about a target rerunning on a second unchanged build, not duplicate executions
+        within one build
+      - Explained the incremental build mechanism, such as inputs and outputs, timestamps, or files that change on every build
+      - Did not apply within-build deduplication fixes, such as computing a value outside the projects or removing global
+        properties, to an incremental-build question
+
+  - name: Decline repeated restore questions across CI commands
+    prompt: |
+      Our CI runs dotnet restore, dotnet build and dotnet test for the same solution. The logs show NuGet restore three
+      times. How can we avoid the unnecessary restore work without skipping required package downloads?
+    tags:
+      expect_activation: "false"
+      capability: dormancy-repeated-restores
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-restore-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is NuGet restore repeated across separate CI commands, not duplicate task execution inside one build. Restore once for the required project graph, frameworks, runtimes and configuration, then use dotnet build --no-restore and dotnet test --no-restore with matching inputs. Keep restore when package or project inputs change or assets are missing. The restore guidance belongs to eliminate-redundant-restores; changing per-project targets or removing global properties is not needed here.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(--no-restore|separate.*restore|restore once)
+      - type: prompt
+    rubric:
+      - Recognized implicit NuGet restores across separate commands rather than repeated custom work inside one build
+      - Recommended reusing a valid restore with matching project, framework, runtime and configuration inputs
+      - Redirected restore analysis to the restore-performance guidance
+      - Did not apply per-project deduplication fixes or remove global properties
+
+  - name: Decline slow evaluation before target execution
+    prompt: |
+      dotnet build spends about 35 seconds before the first target starts, then compilation finishes in two seconds.
+      Directory.Build.props has recursive globs and the repository imports many props and targets files. How should I
+      investigate that startup delay?
+    tags:
+      expect_activation: "false"
+      capability: dormancy-slow-evaluation
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-evaluation-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Time before targets start points to project evaluation, not repeated target or task execution. Capture a binlog of the original build and inspect evaluation durations and import/glob costs with the binlog MCP evaluation and imports tools; use eval-performance for that investigation. Preprocessing can show the expanded import structure, but measure first before rewriting globs or imports. Per-project task deduplication and run-once guards are not needed here.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(evaluation|imports|globs)
+      - type: prompt
+    rubric:
+      - Distinguished evaluation before target execution from time spent compiling or running targets
+      - Recommended measuring evaluation and inspecting expensive imports or glob traversal before editing build files
+      - Redirected the startup-delay investigation to evaluation-performance analysis
+      - Did not apply task deduplication or run-once guards to an evaluation problem
+
+  - name: Decline idle-node questions on a serial project chain
+    prompt: |
+      Our CI runs dotnet msbuild Build.proj -m:16. Its MSBuild task schedules a Projects list of 12 distinct project
+      files with BuildInParallel enabled. The binlog shows each project compiling once, but most worker nodes are idle
+      while Core, Api and Web build one after another along their ProjectReference chain. Raising -m does not reduce
+      elapsed time. How should I investigate and improve this?
+    tags:
+      expect_activation: "false"
+      capability: dormancy-serial-project-chain
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-repeated-build-work-parallelism-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The idle nodes and Core -> Api -> Web dependency chain point to scheduling and a serial critical path, not repeated work: every project compiles once. Use build-parallelism to inspect the binlog node timeline and project timings, identify the longest dependency chain, and confirm which references are genuinely needed. More -m workers cannot run a dependent project before its prerequisite finishes. Keep legitimate work and required references; remove only proven unnecessary dependencies or reorganize independent work so it can run concurrently. Per-project run-once guards, merging Exec calls, or removing global properties do not address this evidence.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(critical path|serial.*chain|dependency.*chain)
+      - type: output-matches
+        config:
+          pattern: (?i)(build-parallelism|parallelism analysis|scheduling analysis)
+      - type: prompt
+    rubric:
+      - Recognized idle workers and the serial ProjectReference chain as scheduling or critical-path evidence rather
+        than unnecessary repeated execution
+      - Explained why raising the worker count cannot parallelize required dependencies and recommended inspecting
+        the node timeline and project timings
+      - Did not apply repeated-work fixes such as run-once guards, merging Exec calls or removing global properties
+        to legitimate compilation, and did not remove required references
+      - Redirected the investigation to build-parallelism

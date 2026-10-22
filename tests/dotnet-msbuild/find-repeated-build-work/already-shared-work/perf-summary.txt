@@ -1,0 +1,15 @@
+Performance summary from dotnet msbuild Build.proj -restore -m
+(Api and Worker each compile the same generated buildinfo.g.cs; Time Elapsed 00:00:05.20)
+
+Target Performance Summary:
+        12 ms  GenerateSharedBuildInfo                     1 calls
+      4310 ms  CoreCompile                                 2 calls
+
+Task Performance Summary:
+         8 ms  Copy                                        1 calls
+      4290 ms  Csc                                         2 calls
+
+Project Performance Summary:
+      5200 ms  Build.proj                                  1 calls
+      2140 ms  Api/Api.csproj                              1 calls
+      2210 ms  Worker/Worker.csproj                        1 calls

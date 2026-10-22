@@ -1,0 +1,22 @@
+Invocation: dotnet msbuild Build.proj -m
+The graph builds Web, Api and Worker for net9.0 and net10.0.
+Each component's Brand is distinct and appears in its own AssemblyTitle.
+All components reference Shared.csproj, which never reads Brand.
+
+Project Performance Summary, Shared.csproj:
+net9.0, Brand=Web:    2010 ms, 1 call
+net9.0, Brand=Api:    2010 ms, 1 call
+net9.0, Brand=Worker: 2010 ms, 1 call
+net10.0, Brand=Web:    2010 ms, 1 call
+net10.0, Brand=Api:    2010 ms, 1 call
+net10.0, Brand=Worker: 2010 ms, 1 call
+All six calls execute Build and compile Shared, rather than just evaluate it.
+Each framework already has separate output and intermediate directories.
+
+Component project excerpt:
+<PropertyGroup><AssemblyTitle>Contoso $(Brand)</AssemblyTitle></PropertyGroup>
+<ItemGroup><ProjectReference Include="../Shared/Shared.csproj" /></ItemGroup>
+
+Shared.csproj consumes TargetFramework for references, compilation and output
+layout. Both framework assemblies are distributed. Its source imports and
+targets do not read Brand. No overlap/timeline evidence was retained.

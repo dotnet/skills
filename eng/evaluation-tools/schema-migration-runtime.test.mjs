@@ -87,6 +87,40 @@ test("tool-calls required and disallowed lists affect trajectory results", async
   assert.equal((await grade(disallowed, completedToolCall("bash"))).passed, false);
 });
 
+test("repeated-build-work audits reject edits and creates but allow reads", async () => {
+  const spec = await loadEvalSpec(
+    join("tests", "dotnet-msbuild", "find-repeated-build-work", "eval.yaml"),
+  );
+  const audits = spec.stimuli.filter((item) => item.tags?.journey === "audit");
+  assert.ok(audits.length > 0);
+
+  for (const item of audits) {
+    const grader = item.graders.find((entry) => entry.type === "tool-calls");
+    assert.ok(grader, `${item.name} has no tool-calls grader`);
+    assert.equal((await grade(grader, completedToolCall("view"))).passed, true, item.name);
+    for (const tool of ["edit", "create"]) {
+      assert.equal(
+        (await grade(grader, completedToolCall(tool))).passed,
+        false,
+        `${item.name} allowed ${tool}`,
+      );
+    }
+  }
+});
+
+test("repeated-build-work dormancy contracts survive the Vally runtime loader", async () => {
+  const spec = await loadEvalSpec(
+    join("tests", "dotnet-msbuild", "find-repeated-build-work", "eval.yaml"),
+  );
+  const guards = spec.stimuli.filter(
+    (item) => item.tags?.capability?.startsWith("dormancy-"),
+  );
+  assert.ok(guards.length > 0);
+  for (const item of guards) {
+    assert.equal(item.tags.expect_activation, "false", item.name);
+  }
+});
+
 test("skill-invocation required list affects trajectory results", async () => {
   const required = {
     type: "skill-invocation",
