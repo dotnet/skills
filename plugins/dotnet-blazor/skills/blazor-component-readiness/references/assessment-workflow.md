@@ -46,8 +46,19 @@ Never treat feedback as evidence or unapproved operational extensions as baselin
 Attempt each authorized, accessible family in scope before final status assignment, subject to
 stage 1's execution prerequisite: exact package/artifact, source, documentation and applicable
 consumer/runtime or trim/toolchain checks. Missing supplied probe results do not themselves
-establish a blocker. Stop at the approved timebox; applicable unperformed probes remain
-`not tested` with their actual blocker and smallest next probe.
+establish a blocker. Runtime exclusions do not block retained-source/artifact inventories:
+
+| Static question | Finish the pertinent check within the selected component branch |
+|---|---|
+| Style isolation/global surface | Inventory reached shipped styles/themes, match encapsulation and global selectors/variables to their documentation and prefixes; do not charge unrelated branches. |
+| Public API documentation | Map qualified declarations and signatures, including overloads, to source comments/inheritdoc and applicable shipped XML. Include event/value types and library bases; exclude framework APIs and internal types. |
+| Parameter/render computation | Follow reached render/serialization helpers through actual work and cache hit/miss/invalidation paths. Establish light work or the required offloading/memoization, not merely a cache marker; do not infer measured latency. |
+
+Use acquisition's next-callee/artifact working list rather than leaving these checks as generic
+future follow-ups. A direct conflict with a required conjunct decides the row without further unrelated
+probing; a positive result needs every applicable conjunct. If still unresolved, preserve
+`not tested` or `owner evidence required` under the unchanged status boundaries, naming the missing
+fact and genuine blocker. Stop at the approved timebox; do not execute excluded probes to close it.
 
 Use confirmed catalogs and preparation indexes to locate row-relevant supplied material, then
 inspect its contents: source, documentation, owner inputs, and historical execution/scan records.

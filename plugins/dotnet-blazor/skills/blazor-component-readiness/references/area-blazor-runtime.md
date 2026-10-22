@@ -96,6 +96,14 @@ above remain mandatory and unchanged.
 The [synthetic worked example](#synthetic-source-finding-example) below materializes both protocols
 and follows the existing input/identity/evidence producers without executing the source.
 
+For `BEQ-20`, associate relevant declarations with their selectors in the reached exact shipped
+CSS, including custom properties on document-root selectors. Distinguish document-root from
+component/helper scope; neither a name list nor prefixed helper selectors alone establishes
+global prefix coverage. Direct evidence of an applicable global surface missing a required
+prefix establishes a bounded static `gap`, even when documentation correspondence is unresolved.
+Record that uncertainty separately, without claiming documentation is absent. Remediation must
+satisfy both documentation and prefixing; do not infer an unobserved runtime CSS collision.
+
 For documentation requirements, direct absence from the confirmed complete public corpus is a
 `gap`. For genuinely disjunctive requirements, do not call a gap until every remaining applicable
 alternative is directly contradicted. Conditional render-mode rows are `not applicable` when that

@@ -76,6 +76,14 @@ advice-only or reader-only rendering or override the selected route's prerequisi
 
 ## Canonical contract
 
+For captured C# implementation, locate the intended declaration/signature before selecting a line
+for the [complete-member reader](references/artifact-acquisition.md#complete-c-member-reads), then
+confirm the returned callable and read its whole text. A valid neighboring member is not the
+requested evidence; a complete body is not semantic closure. Follow the row-relevant next
+callee/artifact until its deciding facts or an exact blocker are established. Finish authorized
+static inventories before deferring to excluded runtime probes. Missing, unsupported or oversized
+extraction is an inspection limitation, not a product gap; keep other source-inspection routes supported.
+
 - [rubric.json](references/rubric.json) owns current IDs, wording, order and the
   60 `repository-wide` / 52 `component-specific` split. `2.1.0` is the sole executable
   assessment contract (112 catalog entries, never one combined assessment); version provenance

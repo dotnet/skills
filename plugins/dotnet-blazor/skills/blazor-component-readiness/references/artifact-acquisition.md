@@ -90,6 +90,51 @@ captured file, pass its `source_path` and `content_path` to
 Do not copy receipt JSON or hashes into candidates; discovery computes the final digests. Retain
 actual retrieval attempts separately; the helper does not perform or attest a download.
 
+## Complete C# member reads
+
+For an existing source-archive capture, read a reached C# method/constructor as a complete member,
+not a fixed line window. Search the captured file for the intended declaration and parameter
+signature, inspect the call site to distinguish overloads, and use an observed physical declaration
+line. Do not guess offsets or batch arbitrary line numbers. Build the separate trusted reader with
+the active .NET 11 SDK's bundled Roslyn DLLs and ordinary external artifacts. Use an existing offline
+NuGet configuration with cleared package sources; no package download, parser installation or
+validator-launcher change is needed:
+
+```powershell
+$Project = Join-Path $SkillDir "scripts\source-reader\BlazorComponentReadiness.SourceReader.csproj"
+$ReaderArtifacts = Join-Path $OutputRoot ".source-reader-build"
+$OfflineConfig = "<existing-offline-NuGet-config>"
+dotnet build $Project --artifacts-path $ReaderArtifacts "-p:RestoreConfigFile=$OfflineConfig" -p:NuGetAudit=false
+if ($LASTEXITCODE -ne 0) { throw "The trusted source reader could not be built." }
+$ReaderDll = Join-Path $ReaderArtifacts "bin\BlazorComponentReadiness.SourceReader\debug\BlazorComponentReadiness.SourceReader.dll"
+dotnet $ReaderDll --root $OutputRoot --receipt "<root-relative-capture.json>" `
+  --expected-sha256 "<SHA-256-of-exact-retained-receipt-bytes>" `
+  --source-path "<captured-repository-relative.cs>" --line <1-based-physical-line> `
+  --output "<new-root-relative-member.json>"
+if ($LASTEXITCODE -ne 0) { throw "Complete-member inspection failed; retain the explicit limitation." }
+```
+
+Read the retained packet's whole `original_text`, not build stdout. Confirm its declaration,
+parameter signature and selected branch match the intended callable; if a valid neighboring
+member was selected, locate the intended declaration and retry into a new output file.
+The packet binds the exact receipt and source bytes, physical line/UTF-16-column and UTF-8 byte ranges,
+member-text digest and original declaration/body. The span starts at the first declaration token
+(including attributes), excludes preceding/trailing trivia, and
+includes the whole block or expression body. Preserve the packet as a new artifact outside the
+captured source tree; its parent directory must already exist.
+
+Only strict UTF-8 `.cs` files (optional BOM), methods and constructors are supported. Parsing is
+syntax-only with the SDK parser and no project preprocessor symbols: no assessed source is built
+or executed, no semantic model, dependency resolution or analyzers are used. Invalid syntax,
+inactive/unsupported/ambiguous selections, changed bindings, unsafe/linked paths and existing
+outputs fail explicitly. Source is capped at 8 MiB; the entire serialized packet, including its
+newline, is capped at 12 KiB. Never substitute a clipped successful packet for an oversized member.
+
+Extraction proves local complete-member byte correspondence, not reachable-helper closure,
+semantic correctness, evidence truth or a `verified` assessment. Use the reached-path procedure below.
+Missing/oversized extraction is an inspection limitation, not a product gap; retain other supported
+source-inspection routes for unsupported files/members.
+
 ## Minimum package inspection
 
 Persist the canonical six-field package identity before inspecting its contents:
@@ -114,11 +159,20 @@ the local capture. Component evidence may select only confirmed source artifacts
 also appear in that component's `allowed_source_paths`; package evidence may use any confirmed
 repository-wide source artifact.
 
-For a source-available component, build an implementation closure rather than selecting only the
-public wrapper. Include the component API/wrapper, inherited base/runtime types, referenced browser
-interop handlers and modules, package-owned style/theme assets, and the component tests and samples.
-Record an exact blocker for any missing category. In a blinded comparison, bind those categories to
-the schema-v2 coverage surfaces before worker launch.
+For a source-available component, start at the selected public entry and active component branch.
+Keep a small working list of the next callable/artifact and the row fact it must establish.
+Follow relevant library bases, callees and overloads using the actual arguments, then the applicable
+writer/encoding, message construction and dispatch endpoints. Inventory independent inputs and
+outbound shapes relevant to the check: one safe writer or value shape does not close other routes.
+Follow queued or stored values through the deciding formatting/send boundary; an encoded outer
+string does not establish safe representation of embedded JSON or markup.
+Include reached browser modules, style/theme assets, and relevant test/sample definitions
+when the row needs them, without treating definitions as executed outcomes.
+Stop this trace when the row's required conjuncts are evidenced, a reached source conflict decides it, or
+a specific access, extraction-size, timebox or execution boundary prevents the next check.
+Do not scan unrelated shared branches or demand exhaustive runtime closure after a deciding conflict.
+Partial clues prove neither satisfaction nor absence; record the exact unresolved fact and boundary.
+In a blinded comparison, bind applicable source categories to schema-v2 coverage surfaces before launch.
 
 Selected evidence is re-bound during every assessment validation:
 

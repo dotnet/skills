@@ -89,6 +89,22 @@ and optional predecessor plus declared changed IDs.
 It is tamper-evident but unsigned. It proves byte correspondence, not authorship, factual accuracy,
 approval, certification, or suitability.
 
+### Helper deployment provenance
+
+The trusted helper supports an installed `skills/blazor-component-readiness` directory and an
+isolated `blazor-component-readiness` directory copied directly into an evaluation workspace.
+The generated `plugin-manifest.json` in the skill is a byte-exact snapshot of the canonical
+`dotnet-blazor/plugin.json`, synchronized by `eng/version/Sync-PluginVersions.ps1`. It is not a
+separate version authority. Installed helpers require both manifests to match; a broken installed
+layout never falls back to isolated metadata. Isolated helpers use the shipped snapshot and require
+the genuine plugin identity and canonical version. Packaging checks establish its correspondence
+to the source manifest; the snapshot is not a signature or proof against arbitrary replacement.
+
+`READINESS_TEMP` must physically resolve outside the installed plugin tree or, in isolated
+deployment, outside the copied skill tree. Workspace `out/.validator-cache` is permitted in the
+isolated layout. Linked paths into the protected tree and linked build-artifact directories remain
+invalid. Both launchers keep restore/build output outside these reviewed directories.
+
 ## Ordinary component binding
 
 A component revision is standalone by default. It needs no full-package assessment

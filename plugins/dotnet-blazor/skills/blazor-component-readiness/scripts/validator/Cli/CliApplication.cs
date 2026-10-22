@@ -72,10 +72,13 @@ public static class CliApplication
           canonical JSON is written once to the new file instead of stdout.
         """;
 
-    public static int Run(IReadOnlyList<string> args, TextWriter output, TextWriter error)
+    public static int Run(IReadOnlyList<string> args, TextWriter output, TextWriter error, bool validateDeployment = false)
     {
         try
         {
+            if (validateDeployment)
+                _ = Validation.ContractVersions.PluginVersion;
+
             if (args.Count == 0)
             {
                 throw new UsageException("A command is required.");

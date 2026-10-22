@@ -43,7 +43,7 @@ jobs:
           dotnet-version: 11.0.x
           dotnet-quality: preview
 
-      - name: Restore and build validator and tests
+      - name: Restore and build validator, source reader and tests
         shell: pwsh
         env:
           READINESS_ARTIFACTS: ${{ runner.temp }}/blazor-readiness-build
@@ -56,6 +56,11 @@ jobs:
             @{
               Path = Join-Path $validatorRoot 'BlazorComponentReadiness.Validator.csproj'
               Artifacts = Join-Path $env:READINESS_ARTIFACTS 'validator'
+            },
+            @{
+              Path = Join-Path $validatorRoot (
+                '../source-reader/BlazorComponentReadiness.SourceReader.csproj')
+              Artifacts = Join-Path $env:READINESS_ARTIFACTS 'source-reader'
             },
             @{
               Path = Join-Path $env:GITHUB_WORKSPACE (
@@ -110,9 +115,13 @@ jobs:
           READINESS_TEST_ROOT: ${{ runner.temp }}/blazor-readiness-tests
           READINESS_TEST_ARTIFACTS: ${{ runner.temp }}/blazor-readiness-artifacts
           READINESS_TEST_DLL: ${{ runner.temp }}/blazor-readiness-build/tests/bin/Release/net11.0/BlazorComponentReadiness.ContractTests.dll
+          READINESS_MEMBER_READER_DLL: ${{ runner.temp }}/blazor-readiness-build/source-reader/bin/Release/net11.0/BlazorComponentReadiness.SourceReader.dll
         run: |
           if (-not (Test-Path -LiteralPath $env:READINESS_TEST_DLL -PathType Leaf)) {
             throw "The external readiness test DLL was not produced."
+          }
+          if (-not (Test-Path -LiteralPath $env:READINESS_MEMBER_READER_DLL -PathType Leaf)) {
+            throw "The external readiness source-reader DLL was not produced."
           }
 
           & dotnet $env:READINESS_TEST_DLL

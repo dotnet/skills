@@ -58,7 +58,20 @@ function Resolve-PhysicalDirectoryPath {
 }
 
 $scriptDir = Resolve-PhysicalDirectoryPath $PSScriptRoot
-$pluginRoot = Resolve-PhysicalDirectoryPath (Join-Path $scriptDir '../../../..')
+$skillRoot = Resolve-PhysicalDirectoryPath (Join-Path $scriptDir '../..')
+$comparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+if (-not [string]::Equals([IO.Path]::GetFileName($skillRoot), 'blazor-component-readiness', $comparison) -or
+    -not [IO.File]::Exists((Join-Path $skillRoot 'SKILL.md')) -or
+    -not [IO.File]::Exists((Join-Path $skillRoot 'plugin-manifest.json'))) {
+    throw 'The readiness skill requires SKILL.md and its bundled plugin-manifest.json.'
+}
+$pluginRoot = $skillRoot
+if ([string]::Equals([IO.Path]::GetFileName([IO.Path]::GetDirectoryName($skillRoot)), 'skills', $comparison)) {
+    $pluginRoot = Resolve-PhysicalDirectoryPath (Join-Path $skillRoot '../..')
+    if (-not [IO.File]::Exists((Join-Path $pluginRoot 'plugin.json'))) {
+        throw 'The installed readiness layout requires its authoritative plugin.json.'
+    }
+}
 $project = Join-Path $scriptDir 'BlazorComponentReadiness.Validator.csproj'
 $restoreConfig = Join-Path $scriptDir 'restore-offline.config'
 
@@ -80,9 +93,9 @@ if ([string]::IsNullOrWhiteSpace($env:READINESS_TEMP)) {
         exit 3
     }
 
-    $readinessTemp = Join-Path $tempParent (
+    $physicalParent = Resolve-PhysicalDirectoryPath $tempParent
+    $readinessTemp = Join-Path $physicalParent (
         'blazor-readiness-validator-' + [Guid]::NewGuid().ToString('N'))
-    [IO.Directory]::CreateDirectory($readinessTemp) | Out-Null
     $cleanup = $true
 }
 else {
@@ -117,6 +130,13 @@ if (($readinessTemp + [IO.Path]::DirectorySeparatorChar).StartsWith(
     exit 3
 }
 
+if ([IO.Directory]::Exists($readinessTemp)) {
+    $physicalTemp = Resolve-PhysicalDirectoryPath $readinessTemp
+    if (($physicalTemp + [IO.Path]::DirectorySeparatorChar).StartsWith($pluginPrefix, $comparison)) {
+        [Console]::Error.WriteLine('error: READINESS_TEMP resolves inside the plugin tree.')
+        exit 3
+    }
+}
 [IO.Directory]::CreateDirectory($readinessTemp) | Out-Null
 $readinessTemp = Resolve-PhysicalDirectoryPath $readinessTemp
 if (($readinessTemp + [IO.Path]::DirectorySeparatorChar).StartsWith(
@@ -174,7 +194,7 @@ try {
     }
 
     $previousSkillRoot = $env:READINESS_SKILL_ROOT
-    $env:READINESS_SKILL_ROOT = [IO.Path]::GetFullPath((Join-Path $scriptDir '../..'))
+    $env:READINESS_SKILL_ROOT = $skillRoot
     try {
         & dotnet $validator @ValidatorArguments
     }

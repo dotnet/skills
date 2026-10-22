@@ -76,6 +76,7 @@ internal static class WorkflowTests
         AssertInstructionLinks(pluginRoot, skillPath, referencesRoot);
         AssertExecutionPrerequisite(pluginRoot, skill, referencesRoot);
         AssertReadingRoutes(skill, referencesRoot);
+        AssertSourceRouteReading(referencesRoot);
 
         AssertContains(skill, "explicit vendor self-assessment", "explicit-intent router");
         AssertContains(skill, "ordinary Blazor authoring/debugging", "ordinary-work dormancy");
@@ -434,6 +435,26 @@ internal static class WorkflowTests
             "## Offline release facts", "old acquisition anchor preserved");
     }
 
+    private static void AssertSourceRouteReading(string referencesRoot)
+    {
+        var routes = Regex.Replace(
+            File.ReadAllText(Path.Combine(referencesRoot, "artifact-acquisition.md")), @"\s+", " ");
+        foreach (var rule in new[]
+        {
+            "inspect the call site to distinguish overloads",
+            "Confirm its declaration, parameter signature and selected branch match the intended callable",
+            "Inventory independent inputs and outbound shapes relevant to the check",
+            "one safe writer or value shape does not close other routes",
+            "Follow queued or stored values through the deciding formatting/send boundary",
+            "an encoded outer string does not establish safe representation of embedded JSON or markup",
+            "Do not scan unrelated shared branches or demand exhaustive runtime closure after a deciding conflict",
+            "Partial clues prove neither satisfaction nor absence"
+        })
+        {
+            AssertContains(routes, rule, "source-route reading and stopping boundary");
+        }
+    }
+
     private static void AssertBefore(string text, string prerequisite, string action, string label)
     {
         var first = text.IndexOf(prerequisite, StringComparison.Ordinal);
@@ -784,8 +805,12 @@ internal static class WorkflowTests
             var installedSkillRoot = Path.Combine(pluginRoot, "skills", "blazor-component-readiness");
             File.Copy(Path.Combine(installedSkillRoot, "SKILL.md"), Path.Combine(fixtureSkillRoot, "SKILL.md"));
             CopyDirectory(Path.Combine(installedSkillRoot, "references"), Path.Combine(fixtureSkillRoot, "references"));
-            File.WriteAllText(Path.Combine(fixturePluginRoot, "plugin.json"),
-                JsonSerializer.Serialize(new { version = fixtureVersion }));
+            var producerManifest = System.Text.Json.Nodes.JsonNode.Parse(
+                File.ReadAllBytes(Path.Combine(pluginRoot, "plugin.json")))!.AsObject();
+            producerManifest["version"] = fixtureVersion;
+            var producerBytes = Encoding.UTF8.GetBytes(producerManifest.ToJsonString());
+            File.WriteAllBytes(Path.Combine(fixturePluginRoot, "plugin.json"), producerBytes);
+            File.WriteAllBytes(Path.Combine(fixtureSkillRoot, "plugin-manifest.json"), producerBytes);
             Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", fixtureSkillRoot);
         }
 
@@ -1399,6 +1424,13 @@ internal static class WorkflowTests
 
         var runtime = File.ReadAllText(Path.Combine(referencesRoot, "area-blazor-runtime.md"));
         AssertContains(runtime, "event handlers, callbacks, conditional branches", "BEQ-09 assignment coverage");
+        AssertContains(runtime, "associate relevant declarations with their selectors", "BEQ-20 selector/declaration evidence");
+        AssertContains(runtime, "custom properties on document-root selectors", "BEQ-20 document-root surface");
+        AssertContains(runtime, "component/helper scope; neither a name list nor prefixed helper selectors alone establishes", "BEQ-20 scope/prefix evidence boundary");
+        AssertContains(runtime, "prefix establishes a bounded static `gap`, even when documentation correspondence is unresolved", "BEQ-20 independent prefix conjunct");
+        AssertContains(runtime, "Record that uncertainty separately, without claiming documentation is absent", "BEQ-20 documentation uncertainty");
+        AssertContains(runtime, "satisfy both documentation and prefixing", "BEQ-20 conjunctive remediation");
+        AssertContains(runtime, "do not infer an unobserved runtime CSS collision", "BEQ-20 static/runtime boundary");
         foreach (var rule in new[]
         {
             "When dynamic-child lifecycle is explicitly `not-applicable`",

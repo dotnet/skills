@@ -129,6 +129,8 @@ using (var codexManifest = JsonDocument.Parse(manifestBytes[2]))
     AssertEqual(manifestVersion,
         BlazorComponentReadiness.Validator.IO.NuGetVersionNormalizer.Normalize(manifestVersion),
         "canonical generated plugin version");
+    Assert(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(references)!, "plugin-manifest.json"))
+        .SequenceEqual(manifestBytes[0]), "generated skill manifest must match the complete canonical source manifest");
     var previousSkillRoot = Environment.GetEnvironmentVariable("READINESS_SKILL_ROOT");
     try
     {
@@ -172,7 +174,8 @@ using (var version = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(plugin, "
 {
     AssertEqual("0.1", version.RootElement.GetProperty("version").GetString(), "version base");
     AssertSequence(
-        [".", ":!plugin.json", ":!.codex-plugin/plugin.json", ":!.claude-plugin/plugin.json", ":!version.json"],
+        [".", ":!plugin.json", ":!.codex-plugin/plugin.json", ":!.claude-plugin/plugin.json", ":!version.json",
+            ":!skills/blazor-component-readiness/plugin-manifest.json"],
         Strings(version.RootElement.GetProperty("pathFilters")),
         "canonical version path filters");
 }
@@ -231,6 +234,8 @@ Assert(
 var testGroups = new Dictionary<string, Action>(StringComparer.Ordinal)
 {
     ["foundation"] = () => FoundationTests.Run(root, plugin),
+    ["deployment"] = () => DeploymentTests.Run(root, plugin),
+    ["deployment-admission"] = () => DeploymentTests.RunAdmission(root, plugin),
     ["preparation"] = () => PreparationTests.Run(root, plugin),
     ["release-facts"] = () => ReleaseFactsTests.Run(root, plugin),
     ["evidence"] = () => EvidenceTests.Run(root, plugin),
@@ -243,6 +248,7 @@ var testGroups = new Dictionary<string, Action>(StringComparer.Ordinal)
     ["library"] = () => LibraryTests.Run(root, plugin),
     ["workflow"] = () => WorkflowTests.Run(plugin),
     ["archive"] = () => ArchiveCaptureTests.Run(root, plugin),
+    ["member-reader"] = () => SourceMemberReadTests.Run(),
     ["enforcement"] = () => EnforcementTests.Run(root, plugin)
 };
 var selectedGroups = args.Length == 0

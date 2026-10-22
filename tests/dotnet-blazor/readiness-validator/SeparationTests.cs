@@ -892,7 +892,7 @@ internal static class SeparationTests
         AssertUnchanged(before);
     }
 
-    private static ReadinessAssessment Complete(ReadinessAssessment assessment)
+    internal static ReadinessAssessment Complete(ReadinessAssessment assessment)
     {
         var evidence = AssessmentTests.BuildEvidence(assessment.Identity);
         var first = assessment.Rows[0].Id;

@@ -9,8 +9,25 @@ environment_failure() {
 if ! script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"; then
   environment_failure 'could not resolve the validator script directory.'
 fi
-if ! plugin_root="$(cd -- "$script_dir/../../../.." && pwd -P)"; then
-  environment_failure 'could not resolve the readiness plugin directory.'
+if ! skill_root="$(cd -- "$script_dir/../.." && pwd -P)"; then
+  environment_failure 'could not resolve the readiness skill directory.'
+fi
+filesystem_name() {
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) printf '%s' "${1,,}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+if [[ "$(filesystem_name "$(basename -- "$skill_root")")" != blazor-component-readiness ||
+      ! -f "$skill_root/SKILL.md" || ! -f "$skill_root/plugin-manifest.json" ]]; then
+  environment_failure 'the readiness skill requires SKILL.md and its bundled plugin-manifest.json.'
+fi
+plugin_root="$skill_root"
+if [[ "$(filesystem_name "$(basename -- "$(dirname -- "$skill_root")")")" == skills ]]; then
+  plugin_root="$(cd -- "$skill_root/../.." && pwd -P)" ||
+    environment_failure 'could not resolve the readiness plugin directory.'
+  [[ -f "$plugin_root/plugin.json" ]] ||
+    environment_failure 'the installed readiness layout requires its authoritative plugin.json.'
 fi
 project="$script_dir/BlazorComponentReadiness.Validator.csproj"
 restore_config="$script_dir/restore-offline.config"
@@ -40,32 +57,47 @@ else
     exit 3
   fi
 
+  temp_parent="$(cd -- "$temp_parent" && pwd -P)" ||
+    environment_failure 'could not resolve the temporary parent directory.'
   readiness_temp="$temp_parent/blazor-readiness-validator-$$-$RANDOM"
-  if ! (umask 077 && mkdir -- "$readiness_temp"); then
-    environment_failure 'could not create the temporary validator directory.'
-  fi
   cleanup=true
 fi
 
-case "$readiness_temp/" in
-  "$plugin_root/"*)
-    printf 'error: READINESS_TEMP must be outside the plugin tree.\n' >&2
-    exit 3
-    ;;
-esac
-
-if ! mkdir -p -- "$readiness_temp"; then
+is_inside_plugin() {
+  local candidate="$1/" boundary="$plugin_root/"
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) candidate="${candidate,,}"; boundary="${boundary,,}" ;;
+  esac
+  [[ "$candidate" == "$boundary"* ]]
+}
+requested_temp="$readiness_temp"
+if [[ -d "$readiness_temp" ]]; then
+  physical_temp="$(cd -- "$readiness_temp" && pwd -P)" ||
+    environment_failure 'could not resolve READINESS_TEMP.'
+  if is_inside_plugin "$physical_temp"; then
+    if is_inside_plugin "$requested_temp"; then
+      environment_failure 'READINESS_TEMP must be outside the plugin tree.'
+    fi
+    environment_failure 'READINESS_TEMP resolves inside the plugin tree.'
+  fi
+  readiness_temp="$physical_temp"
+fi
+if is_inside_plugin "$readiness_temp"; then
+  environment_failure 'READINESS_TEMP must be outside the plugin tree.'
+fi
+if [[ "$cleanup" == true ]]; then
+  (umask 077 && mkdir -- "$readiness_temp") ||
+    environment_failure 'could not create the temporary validator directory.'
+elif ! mkdir -p -- "$readiness_temp"; then
   environment_failure 'could not create READINESS_TEMP.'
 fi
 if ! readiness_temp="$(cd -- "$readiness_temp" && pwd -P)"; then
   environment_failure 'could not resolve READINESS_TEMP.'
 fi
-case "$readiness_temp/" in
-  "$plugin_root/"*)
+if is_inside_plugin "$readiness_temp"; then
     printf 'error: READINESS_TEMP resolves inside the plugin tree.\n' >&2
     exit 3
-    ;;
-esac
+fi
 
 if ! mkdir -p -- "$readiness_temp/packages" "$readiness_temp/bin" "$readiness_temp/obj"; then
   environment_failure 'could not create external artifact directories.'
@@ -108,7 +140,7 @@ if [[ ! -f "$validator" || -L "$validator" ]]; then
   exit 3
 fi
 
-if READINESS_SKILL_ROOT="$script_dir/../.." dotnet "$validator" "$@"; then
+if READINESS_SKILL_ROOT="$skill_root" dotnet "$validator" "$@"; then
   exit 0
 else
   validator_exit=$?
