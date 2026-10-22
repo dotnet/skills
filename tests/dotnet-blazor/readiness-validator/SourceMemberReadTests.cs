@@ -17,7 +17,7 @@ internal static class SourceMemberReadTests
         var scratch = Environment.GetEnvironmentVariable("READINESS_TEST_ROOT")
             ?? throw new InvalidOperationException("Member-reader controls require external READINESS_TEST_ROOT.");
         if (!File.Exists(_reader)) throw new FileNotFoundException("Built member reader is missing.", _reader);
-        var root = Path.Combine(scratch, "member-reader-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetFullPath(scratch), "member-reader-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         const string method = """"
             [System.Obsolete]
