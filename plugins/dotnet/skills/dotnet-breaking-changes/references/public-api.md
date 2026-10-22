@@ -31,6 +31,14 @@ break consumers or the API gate:
 
 - Signature changes: parameter type/order, return type, adding a required parameter, `params`, default
   values, generic arity or **constraints**.
+- **Adding an optional parameter** to an existing public method: source-compatible, but **binary-breaking**.
+  The compiled call site binds to the exact old signature, so it fails with `MissingMethodException`
+  until the consumer recompiles. Add an overload instead.
+- **Adding a member to a public interface** breaks every implementer. A default interface member avoids
+  this only where the runtime supports it (.NET Core 3.0+ and .NET 5+, not `netstandard2.0` or .NET
+  Framework).
+- **`const` values and optional-parameter defaults** are copied into the caller at compile time. Changing
+  them does not reach existing callers until they recompile, so callers silently keep the old value.
 - **Nullability** annotations (`string` → `string?`, `[NotNullWhen]`, `[MaybeNull]`) — these are part of
   the public contract under `#nullable enable`; changing them shifts consumer warnings and the API gate.
 - **Trimming/AOT** attributes (`[DynamicallyAccessedMembers]`, `[RequiresUnreferencedCode]`,
@@ -46,7 +54,9 @@ Preserve these unless the task is explicitly to change them.
    (external contract = HTTP/config/schema, internal surface can move) vs **private/single-target**
    (behavior + tests only).
 2. If a gate exists, build/pack and let it run; update `PublicAPI.Unshipped.txt` or the ApiCompat
-   baseline **intentionally**, never to silence a break you did not mean to make.
+   baseline **intentionally**, never to silence a break you did not mean to make. `PublicAPI.Shipped.txt`
+   moves only at release time. An RS0017 that points at a shipped line means a released member has
+   disappeared; restore the member and do not edit the line.
 3. If no gate exists in a library, diff the public surface manually (compare declarations, or a
    generated ref/`.txt`) and surface the delta to the user.
 

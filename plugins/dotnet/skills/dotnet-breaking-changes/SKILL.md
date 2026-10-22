@@ -2,15 +2,15 @@
 name: dotnet-breaking-changes
 description: >
   Keep the observable .NET/C# contract intact when editing: additions count too, and the
-  contract is wider than the file you are editing. Covers the public API surface and the
-  DIFFERENT gates repos use for it (PublicApiAnalyzers vs ApiCompat/package validation),
-  nullable/trimming/AOT annotations as API, multi-targeting and #if branches (behavior per
-  target framework), source-generated and partial code, and InternalsVisibleTo.
+  contract is wider than the file. Covers the public API surface and the DIFFERENT gates repos
+  use for it (PublicApiAnalyzers vs ApiCompat/package validation), nullable/trimming/AOT
+  annotations as API, multi-targeting and #if branches, source-generated/partial code, and
+  InternalsVisibleTo.
   USE FOR: any edit to a shipped library/NuGet package or cross-assembly/multi-targeted code —
-  adding a public/protected member, overload, or target framework; widening what a public method
-  accepts or returns; renaming, moving, or removing a member; changing a signature, nullability,
-  or attribute; touching a partial or source-generated type; or answering "is this a breaking
-  change?". Applies to features, fixes, and refactors alike.
+  adding a public member, overload, optional parameter, interface member, or target framework;
+  widening inputs or outputs; renaming, sealing, or removing a member; changing a signature,
+  nullability, const/default value, or attribute; fixing RS0016/RS0017; editing partial or
+  generated types; or reviewing a diff/PR for "is this breaking?". Features, fixes, refactors.
   DO NOT USE FOR: framework/SDK/NuGet upgrades (use dotnet-upgrade skills), pure formatting, or a
   single-target private app with no public/cross-assembly surface.
 license: MIT
@@ -73,6 +73,26 @@ Public API (1) is the **default** surface to check on any library edit; the othe
 4. **InternalsVisibleTo.** `internal` is not private across a solution: test and friend assemblies bind to
    internals (and, when strong-named, to a public key). An internal rename/move/removal can break a
    consumer with no reference in the declaring project. See `references/internals-visible-to.md`.
+
+## Decisions a green build will not make for you
+
+Each row below compiles every caller and passes every test, yet breaks a consumer. Do not stop at a
+green build or test run. Use the safe shape instead.
+
+| Tempting change | Why it breaks | Safe shape |
+|-----------------|---------------|------------|
+| Add an optional parameter to a shipped method (`Foo(a)` → `Foo(a, b = null)`) | **Binary break**: the old signature is gone, so already-compiled consumers throw `MissingMethodException` until they recompile | Keep `Foo(a)` unchanged and add a new overload `Foo(a, b)`; record only the new overload |
+| Fix RS0017 by editing or deleting a line in `PublicAPI.Shipped.txt` | Shipped lines are the released contract; rewriting one hides the break the gate exists to report | Leave shipped lines alone. Restore the shipped member and record new surface in `PublicAPI.Unshipped.txt` |
+| Add a member to a shipped public interface | Every existing implementer, including ones in other packages, stops compiling | Add a default interface implementation (requires runtime support: not on `netstandard2.0` or .NET Framework targets), or add a new interface |
+| Rename a shipped member | Source and binary break | Add the new name, keep the old one as an `[Obsolete]` forwarder, and record only the new member |
+| Seal a class, make a member non-virtual, or narrow a parameter's nullability | Derived types, overrides, or nullable callers break | Treat as a breaking change; escalate rather than edit |
+| Change a `const` value or an optional parameter's default | The old value is compiled into callers and persists until they recompile | Use a `static readonly` value or a new overload; flag it |
+| Change a value under `#if` for one target | Only consumers of that target see it; tests edited to match will not catch it | Treat as a behavior change for that target and call it out |
+
+When asked **"is this a breaking change?"** or to review a diff, classify each finding as **binary**
+(already-compiled consumers fail), **source** (consumers fail to recompile), or **behavioral** (same
+signature, different result, possibly on only one target). Name the internal-only edits that are
+safe instead of padding the list. Make no edits unless asked.
 
 ## Stop and escalate (do not silently proceed)
 

@@ -97,16 +97,19 @@ stimuli:
       journey: add-feature
     golden_patch:
       path: golden-patches/add-hex-parsing.patch
-    prompt: "The Billing library ships as a package. Add hex support to `AppSettingsHelper.ParseIntSetting` so callers can parse values like `0x1F` in addition to plain decimals, without disrupting existing consumers. The solution is at Fixture.sln."
+    prompt: "The Billing library ships as a package. Add hex support to `AppSettingsHelper.ParseIntSetting` so callers can parse values like `0x1F` in addition to plain decimals, and cover it with a test, without disrupting existing consumers. The solution is at Fixture.sln."
     graders:
+      # RS0017 is an error here, so an intact shipped line plus a green build proves the
+      # original two-parameter method still exists for already-compiled consumers. Adding
+      # an optional parameter in place forces this line to be rewritten.
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Shipped.txt
-          value: ParseIntSetting
-      - type: file-contains
+          value: static Billing.AppSettingsHelper.ParseIntSetting(string? raw, int fallback) -> int
+      - type: file-matches
         config:
           path: tests/Billing.Tests/BillingTests.cs
-          value: 'Assert.Equal(31, AppSettingsHelper.ParseIntSetting("0x1F", 0));'
+          pattern: 'ParseIntSetting\(\s*"0x1F"'
       # The shipped signature must not break: existing decimal-parsing tests must
       # still pass after hex support is added.
       - type: run-command
@@ -134,10 +137,12 @@ stimuli:
         config:
           path: src/Billing/PlatformInfo.cs
           value: GetCurrent()
-      - type: file-matches
+      # The retained shipped entry plus a green RS0017 build proves Current() still exists,
+      # whether it forwards to GetCurrent() or the reverse.
+      - type: file-contains
         config:
-          path: src/Billing/PlatformInfo.cs
-          pattern: 'public static string Current\(\)\s*=>\s*GetCurrent\(\);'
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.PlatformInfo.Current() -> string!
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
@@ -217,7 +222,7 @@ stimuli:
       journey: add-feature
     golden_patch:
       path: golden-patches/add-platform-tag.patch
-    prompt: "This library ships as a package. Add a public `PlatformInfo.Tag()` method that returns only the short platform tag, such as `net10` or `net8`, without changing `Current()`. The solution is at Fixture.sln."
+    prompt: "This library ships as a package. Add a public `PlatformInfo.Tag()` method that returns only the short platform tag, such as `net10` or `net8`, without changing `Current()`, and cover it with tests. The solution is at Fixture.sln."
     graders:
       - type: file-contains
         config:
@@ -227,14 +232,14 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
           value: static Billing.PlatformInfo.Tag() -> string!
-      - type: file-contains
+      - type: file-matches
         config:
           path: tests/Billing.Tests/BillingTests.cs
-          value: 'Assert.Equal("net8", PlatformInfo.Tag());'
-      - type: file-contains
+          pattern: '"net8"[^;\n]*PlatformInfo\.Tag\(\)|PlatformInfo\.Tag\(\)[^;\n]*"net8"'
+      - type: file-matches
         config:
           path: tests/Billing.Tests/BillingTests.cs
-          value: 'Assert.Equal("net10", PlatformInfo.Tag());'
+          pattern: '"net10"[^;\n]*PlatformInfo\.Tag\(\)|PlatformInfo\.Tag\(\)[^;\n]*"net10"'
       - type: file-contains
         config:
           path: src/Billing/Billing.csproj
@@ -327,6 +332,9 @@ stimuli:
       files:
         - src: fixtures/missing-api-baseline/PlatformInfo.cs
           dest: fixtures/missing-api-baseline/PlatformInfo.cs
+        # Same bytes as the shared entry; declared here so the golden patch is checkable.
+        - src: src/Billing/PublicAPI.Unshipped.txt
+          dest: src/Billing/PublicAPI.Unshipped.txt
       commands:
         - node -e "require('fs').copyFileSync('fixtures/missing-api-baseline/PlatformInfo.cs', 'src/Billing/PlatformInfo.cs')"
     graders:
@@ -358,12 +366,169 @@ stimuli:
       - "Kept Tag and its behavior unchanged"
       - "Did not add package validation, suppress the diagnostic, or rewrite shipped entries"
 
+  - name: Extend a shipped method with an extra parameter without a binary break
+    tags:
+      capability: public-overload-addition
+      risk: binary-break-optional-parameter
+      journey: add-feature
+    golden_patch:
+      path: golden-patches/add-format-provider-overload.patch
+    prompt: "Some callers of this NuGet package need culture-specific number parsing. Let `AppSettingsHelper.ParseIntSetting` optionally take an `IFormatProvider`, while existing `ParseIntSetting(raw, fallback)` calls keep working exactly as before. The solution is at Fixture.sln."
+    graders:
+      # Adding `IFormatProvider? provider = null` in place compiles every caller and passes
+      # every test once the shipped baseline line is rewritten, but removes the two-parameter
+      # method that already-compiled consumers bind to (MissingMethodException at run time).
+      # RS0017 is an error, so this intact line plus a green build proves that method survived.
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.AppSettingsHelper.ParseIntSetting(string? raw, int fallback) -> int
+      - type: file-not-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: IFormatProvider
+      - type: file-matches
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          pattern: 'ParseIntSetting\(string\? raw, int fallback, System\.IFormatProvider'
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Kept the shipped two-parameter ParseIntSetting signature and added the IFormatProvider capability as a new overload rather than an optional parameter on the shipped method"
+      - "Recorded only the new overload in PublicAPI.Unshipped.txt and left the shipped baseline untouched"
+      - "Explained that an in-place optional parameter would break already-compiled consumers even though callers still compile"
+
+  - name: Add a member to a shipped public interface that other packages implement
+    tags:
+      capability: public-interface-extension
+      risk: implementer-break
+      journey: add-feature
+    golden_patch:
+      path: golden-patches/add-interface-member.patch
+    prompt: "Add a `Describe(string tier)` method to the public `IDiscountPolicy` interface that returns a human-readable label for the tier, and make it available on `TierDiscountPolicy`. This library ships as a package. The solution is at Fixture.sln."
+    environment:
+      files:
+        - src: fixtures/interface-extension/DiscountPolicy.cs
+          dest: src/Billing/DiscountPolicy.cs
+        - src: fixtures/interface-extension/ThirdPartyPolicy.cs
+          dest: tests/Billing.Tests/ThirdPartyPolicy.cs
+        - src: fixtures/interface-extension/DiscountPolicyTests.cs
+          dest: tests/Billing.Tests/DiscountPolicyTests.cs
+        # Same bytes as the shared entry; declared here so the golden patch is checkable.
+        - src: src/Billing/PublicAPI.Unshipped.txt
+          dest: src/Billing/PublicAPI.Unshipped.txt
+        - src: fixtures/interface-extension/PublicAPI.Shipped.txt
+          dest: fixtures/interface-extension/PublicAPI.Shipped.txt
+      commands:
+        - node -e "const fs=require('fs');fs.copyFileSync('fixtures/interface-extension/PublicAPI.Shipped.txt','src/Billing/PublicAPI.Shipped.txt');fs.rmSync('fixtures',{recursive:true})"
+    graders:
+      # ThirdPartyPolicy stands in for a downstream package's implementation. An abstract
+      # interface member only compiles if that implementer is edited, which real consumers
+      # cannot do; a default interface member keeps it compiling unchanged.
+      - type: file-not-contains
+        config:
+          path: tests/Billing.Tests/ThirdPartyPolicy.cs
+          value: Describe
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: Billing.IDiscountPolicy.Describe(string! tier) -> string!
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: Billing.IDiscountPolicy.RateFor(string! tier) -> decimal
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q -f net8.0 --no-restore && dotnet test Fixture.sln -v:q -f net10.0 --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Recognized that adding an abstract member to a shipped public interface breaks every existing implementer, including ones in other packages"
+      - "Used a default interface implementation (or an equivalent non-breaking design) so the downstream ThirdPartyPolicy compiles unchanged"
+      - "Recorded the new interface member in the unshipped API baseline and kept the build and tests green on net8.0 and net10.0"
+
+  - name: Review a green pull request for consumer-breaking changes
+    tags:
+      capability: breaking-change-review
+      risk: missed-binary-break
+      journey: review-change
+    environment:
+      files:
+        - src: fixtures/review/proposed-change.diff
+          dest: review/proposed-change.diff
+        # Same bytes as the shared entries; declared here so the no-edit graders are checkable.
+        - src: src/Billing/AppSettingsHelper.cs
+          dest: src/Billing/AppSettingsHelper.cs
+        - src: src/Billing/PublicAPI.Shipped.txt
+          dest: src/Billing/PublicAPI.Shipped.txt
+        - src: src/Billing/Coupons.cs
+          dest: src/Billing/Coupons.cs
+        - src: src/Billing/PlatformInfo.cs
+          dest: src/Billing/PlatformInfo.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-breaking-changes-review-green-pr"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Do not merge as-is: CI is green, but three changes break package consumers.
+
+              1. ParseBoolSetting gains `bool strict = false`. Callers still compile, but this is a binary break: the two-parameter method no longer exists, so any assembly compiled against the previous package throws MissingMethodException until it is recompiled. The diff also rewrites the shipped line in PublicAPI.Shipped.txt, which hides the break from the RS0017 gate. Keep the original method and add a new overload instead. Separately, the non-strict path now trims input, so " true " used to return the fallback and now returns true, which is a behavior change.
+              2. Coupons becomes sealed. Any consumer type that derives from Coupons stops compiling, and a sealed class cannot be unsealed later without another review.
+              3. PlatformInfo's LegacyTag changes from net8 to net8.0. Only the net8.0 build changes, so PlatformInfo.Current() now returns platform:net8.0 for net8 consumers. The test was edited to match rather than catching the change.
+
+              The discountRate rename in OrderProcessor is an internal local rename and is not a compatibility concern.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(binary|MissingMethodException|recompil)'
+      - type: output-matches
+        config:
+          pattern: '(?i)seal'
+      - type: output-matches
+        config:
+          pattern: '(?i)(LegacyTag|PlatformInfo|platform:net8)'
+      - type: file-contains
+        config:
+          path: src/Billing/AppSettingsHelper.cs
+          value: ParseBoolSetting(string? raw, bool fallback)
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.AppSettingsHelper.ParseBoolSetting(string? raw, bool fallback) -> bool
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.cs
+          value: public partial class Coupons
+      - type: file-contains
+        config:
+          path: src/Billing/PlatformInfo.cs
+          value: LegacyTag = "net8";
+      - type: prompt
+    prompt: "Review review/proposed-change.diff before I merge it into this package. CI is green. Is anything in it a breaking change for consumers? Do not apply or edit anything; just give me your verdict. The solution is at Fixture.sln."
+    rubric:
+      - "Identified the in-place optional parameter on ParseBoolSetting as a binary break for already-compiled consumers even though source still compiles, and noted that rewriting the shipped baseline hides it"
+      - "Identified sealing Coupons as a break for consumers that derive from it"
+      - "Identified the net8.0-only PlatformInfo result change and that the test was edited to match it"
+      - "Did not flag the internal OrderProcessor local rename as a compatibility concern"
+      - "Left the repository unchanged"
+
   - name: Do not raise breaking-change concerns for a purely internal local rename
     tags:
       capability: dormancy
       risk: over-application
       journey: modify-code
-    expect_activation: false
+      expect_activation: "false"
     prompt: "Inside `OrderProcessor.DoStuff`, the local variable `subtotal` is a bit terse. Rename that local to `runningTotal` for readability. Keep behavior identical. The solution is at Fixture.sln."
     graders:
       - type: file-contains
@@ -382,5 +547,5 @@ stimuli:
           prompt: "Reference outcome: complete only the local rename, avoid compatibility ceremony, and preserve behavior."
     rubric:
       - "Completed the local rename without unrelated compatibility work"
-      - "Did not apply public API, generated-code, or cross-target changes"
+      - "Did not apply public API, generated-code, or cross-target changes; compatibility review was not needed here"
       - "Preserved behavior"

@@ -1,0 +1,39 @@
+diff --git a/src/Billing/DiscountPolicy.cs b/src/Billing/DiscountPolicy.cs
+index 30cdfb2..7d3fc02 100644
+--- a/src/Billing/DiscountPolicy.cs
++++ b/src/Billing/DiscountPolicy.cs
+@@ -4,6 +4,9 @@ namespace Billing;
+ public interface IDiscountPolicy
+ {
+     decimal RateFor(string tier);
++
++    /// <summary>Returns a display label for <paramref name="tier"/>.</summary>
++    string Describe(string tier) => $"{tier}: {RateFor(tier)}";
+ }
+ 
+ /// <summary>The built-in tier discount policy.</summary>
+diff --git a/src/Billing/PublicAPI.Unshipped.txt b/src/Billing/PublicAPI.Unshipped.txt
+index 7dc5c58..674467c 100644
+--- a/src/Billing/PublicAPI.Unshipped.txt
++++ b/src/Billing/PublicAPI.Unshipped.txt
+@@ -1 +1,2 @@
+ #nullable enable
++Billing.IDiscountPolicy.Describe(string! tier) -> string!
+diff --git a/tests/Billing.Tests/DiscountPolicyTests.cs b/tests/Billing.Tests/DiscountPolicyTests.cs
+index 3ab465b..3eab9f6 100644
+--- a/tests/Billing.Tests/DiscountPolicyTests.cs
++++ b/tests/Billing.Tests/DiscountPolicyTests.cs
+@@ -18,4 +18,13 @@ public class DiscountPolicyTests
+     {
+         Assert.Equal(0.12m, new ThirdPartyPolicy().RateFor("gold"));
+     }
++
++    [Fact]
++    public void Describe_DefaultsForExistingImplementations()
++    {
++        IDiscountPolicy policy = new TierDiscountPolicy();
++        Assert.StartsWith("gold", policy.Describe("gold"));
++        IDiscountPolicy external = new ThirdPartyPolicy();
++        Assert.StartsWith("gold", external.Describe("gold"));
++    }
+ }
