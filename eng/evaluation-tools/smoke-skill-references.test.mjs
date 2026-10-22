@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { verifyReferenceReads } from "./smoke-skill-references.mjs";
 
@@ -67,4 +71,20 @@ test("rejects reads of a different checkout with matching reference text", () =>
   ]);
   assert.equal(result.passed, false);
   assert.equal(result.unexpectedViews.length, 1);
+});
+
+test("reference smoke entrypoint validates arguments through a directory link", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "reference-smoke-entry-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const scripts = join(root, "scripts");
+  mkdirSync(scripts);
+  cpSync(fileURLToPath(new URL("./smoke-skill-references.mjs", import.meta.url)),
+    join(scripts, "smoke-skill-references.mjs"));
+  const linked = join(root, "linked-scripts");
+  symlinkSync(scripts, linked, process.platform === "win32" ? "junction" : "dir");
+  const result = spawnSync(process.execPath, [join(linked, "smoke-skill-references.mjs")],
+    { encoding: "utf8", timeout: 10_000 });
+  if (result.error) throw result.error;
+  assert.notEqual(result.status, 0, "Linked smoke silently skipped its entrypoint");
+  assert.match(result.stderr, /Usage: node smoke-skill-references/);
 });

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { basename, join, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const generated = new Set(["bin", "obj", "feed", "packages", ".eval", ".git"]);
 
@@ -27,16 +27,16 @@ function msbuild(root, project, args = [], success = true) {
   return run(root, ["msbuild", project, "-nologo", "-v:quiet", "-tl:off", ...args], success);
 }
 
-function inputs(root) {
+function fileHashes(root, excluded = new Set()) {
   const files = {};
   function visit(relative) {
-    for (const entry of readdirSync(join(root, "project", relative), { withFileTypes: true })) {
-      if (generated.has(entry.name)) continue;
+    for (const entry of readdirSync(join(root, relative), { withFileTypes: true })) {
+      if (excluded.has(entry.name)) continue;
       const path = join(relative, entry.name);
       if (entry.isDirectory()) visit(path);
       else {
         assert.ok(entry.isFile(), `Unsupported fixture entry: ${path}`);
-        files[path] = digest(join(root, "project", path));
+        files[path.split(sep).join("/")] = digest(join(root, path));
       }
     }
   }
@@ -44,22 +44,18 @@ function inputs(root) {
   return files;
 }
 
-export function snapshot(root) {
-  const policy = join(root, "global.json");
-  assert.ok(existsSync(policy), "Fixture must stage the repository global.json");
-  const evidence = {
-    sdkVersion: run(root, ["--version"]),
-    policySha256: digest(policy),
-    files: inputs(root),
+export function fixtureInputs(project) {
+  const feed = join(project, "feed");
+  return {
+    files: fileHashes(project, generated),
+    feed: existsSync(feed) ? fileHashes(feed) : null,
   };
-  mkdirSync(join(root, ".eval"), { recursive: true });
-  writeFileSync(join(root, ".eval", "inputs.json"), JSON.stringify(evidence));
 }
 
-function isolatedProject(root, action) {
+function isolatedProject(root, sdkPolicy, action) {
   const sandbox = mkdtempSync(join(tmpdir(), "msbuild-contract-"));
   try {
-    cpSync(join(root, "global.json"), join(sandbox, "global.json"));
+    writeFileSync(join(sandbox, "global.json"), sdkPolicy);
     const project = join(sandbox, "project");
     cpSync(join(root, "project"), project, {
       recursive: true, filter: (path) => !generated.has(basename(path)),
@@ -70,30 +66,35 @@ function isolatedProject(root, action) {
   }
 }
 
-function hooks(root) {
+function hooks(root, sdkPolicy) {
   for (const optional of [false, true]) {
     for (const required of [true, false]) {
-      isolatedProject(root, (project) => {
+      isolatedProject(root, sdkPolicy, (project) => {
         const optionalPath = join(project, "optional.targets");
-        if (optional) cpSync(join(project, "optional.targets.example"), optionalPath);
+        const optionalMarker = `optional-${randomUUID()};`;
+        const requiredMarker = `required-${randomUUID()};`;
+        if (optional) writeFileSync(optionalPath,
+          readFileSync(join(project, "optional.targets.example"), "utf8").replace("optional;", optionalMarker));
         else rmSync(optionalPath, { force: true });
-        if (!required) rmSync(join(project, "required.targets"));
-        const output = msbuild(project, "Build.proj", ["-t:Build"], required);
+        const requiredPath = join(project, "required.targets");
+        if (required) writeFileSync(requiredPath,
+          readFileSync(requiredPath, "utf8").replace("required;", requiredMarker));
+        else rmSync(requiredPath);
+        msbuild(project, "Build.proj", ["-t:Build"], required);
         if (required) {
           assert.equal(msbuild(project, "Build.proj", ["-getProperty:HookOrder"]),
-            optional ? "optional;required;" : "required;",
+            optional ? `${optionalMarker}${requiredMarker}` : requiredMarker,
             `Hook order is wrong with optional=${optional}`);
-        } else {
-          assert.ok(output.includes("required.targets"), `Failure did not identify the required import:\n${output}`);
         }
       });
     }
   }
 }
 
-function incremental(root) {
-  isolatedProject(root, (project) => {
+function incremental(root, sdkPolicy) {
+  isolatedProject(root, sdkPolicy, (project) => {
     const specs = join(project, "Specs");
+    const generator = join(project, "Generator.targets");
     const catalog = join(project, "obj", "catalog.txt");
     const runs = join(project, "obj", "generator-runs.txt");
     const old = new Date(Date.now() - 60_000);
@@ -101,10 +102,14 @@ function incremental(root) {
     let executions = 0;
     function build(label, changed) {
       const previousWrite = existsSync(catalog) ? statSync(catalog).mtimeMs : null;
-      msbuild(project, "Build.proj", ["-t:Build"]);
+      const specHashes = fileHashes(specs);
+      const generatorHash = digest(generator);
       const expected = readdirSync(specs).filter((file) => file.endsWith(".json"))
         .flatMap((file) => readFileSync(join(specs, file), "utf8").split(/\r?\n/))
         .filter(Boolean).sort();
+      msbuild(project, "Build.proj", ["-t:Build"]);
+      assert.deepEqual(fileHashes(specs), specHashes, `${label}: spec inputs changed during build`);
+      assert.equal(digest(generator), generatorHash, `${label}: generator changed during build`);
       assert.deepEqual(readFileSync(catalog, "utf8").split(/\r?\n/).filter(Boolean).sort(),
         expected, `${label}: catalog content is stale or incomplete`);
       executions += changed ? 1 : 0;
@@ -140,9 +145,9 @@ function pack(project) {
     "--no-restore", "--output", join(project, "feed"), "-v:quiet"]);
 }
 
-function packedImport(root) {
-  isolatedProject(root, (project) => {
-    pack(project);
+function packedImport(root, sdkPolicy) {
+  isolatedProject(root, sdkPolicy, (project) => {
+    cpSync(join(root, "project", "feed"), join(project, "feed"), { recursive: true });
     const consumer = join("consumer", "Consumer.proj");
     const restore = [
       `-p:RestoreSources=${join(project, "feed")}`,
@@ -161,28 +166,33 @@ function packedImport(root) {
 
 export function verify(root, scenario) {
   assert.ok(["hooks", "incremental", "packed-import"].includes(scenario), `Unknown contract: ${scenario}`);
-  const original = JSON.parse(readFileSync(join(root, ".eval", "inputs.json"), "utf8"));
-  assert.equal(digest(join(root, "global.json")), original.policySha256, "Fixture SDK policy changed");
-  assert.equal(run(root, ["--version"]), original.sdkVersion, "Fixture SDK changed");
-  const current = inputs(root);
+  const baseline = JSON.parse(readFileSync(join(root, ".eval", "inputs.json"), "utf8"));
+  const original = baseline.scenarios[scenario];
+  const policySha256 = createHash("sha256").update(baseline.sdkPolicy).digest("hex");
+  assert.equal(digest(join(root, "global.json")), policySha256, "Fixture SDK policy changed");
+  const sdkVersion = run(root, ["--version"]);
+  assert.equal(run(join(root, "project"), ["--version"]), sdkVersion, "Project SDK changed");
   for (const [path, hash] of Object.entries(original.files)) {
     if (scenario !== "packed-import" && path === "Build.proj") continue;
-    assert.equal(current[path], hash, `Read-only fixture changed: ${path}`);
+    const file = join(root, "project", ...path.split("/"));
+    assert.ok(existsSync(file), `Read-only fixture changed: ${path}`);
+    assert.equal(digest(file), hash, `Read-only fixture changed: ${path}`);
   }
   if (scenario === "packed-import") {
-    assert.deepEqual(current, original.files, "Already-valid package sources must remain unchanged");
+    const feed = join(root, "project", "feed");
+    assert.ok(existsSync(feed), "Supplied package feed changed: directory is missing");
+    assert.deepEqual(fileHashes(feed), original.feed, "Supplied package feed changed");
   }
-  console.log(`Fixture SDK: ${original.sdkVersion}; policy SHA256: ${original.policySha256}`);
-  if (scenario === "hooks") hooks(root);
-  else if (scenario === "incremental") incremental(root);
-  else packedImport(root);
+  console.log(`Fixture SDK: ${sdkVersion}; policy SHA256: ${policySha256}`);
+  if (scenario === "hooks") hooks(root, baseline.sdkPolicy);
+  else if (scenario === "incremental") incremental(root, baseline.sdkPolicy);
+  else packedImport(root, baseline.sdkPolicy);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && existsSync(process.argv[1])
+    && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const root = process.cwd();
-  if (process.argv[2] === "snapshot") snapshot(root);
-  else if (process.argv[2] === "prepare-packed-import") {
-    snapshot(root);
+  if (process.argv[2] === "prepare-packed-import") {
     pack(join(root, "project"));
   }
   else verify(root, process.argv[2]);

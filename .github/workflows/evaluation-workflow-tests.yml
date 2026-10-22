@@ -29,6 +29,8 @@ on:
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
       - "tests/**/eval.yaml"
+      - "tests/dotnet/msbuild/**"
+      - "global.json"
   push:
     branches: [main]
     paths:
@@ -58,6 +60,8 @@ on:
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
       - "tests/**/eval.yaml"
+      - "tests/dotnet/msbuild/**"
+      - "global.json"
   workflow_dispatch:
 
 permissions:
@@ -114,8 +118,13 @@ jobs:
       - name: Validate full eval corpus
         run: node eng/evaluation-tools/lint-corpus.mjs tests
 
-      - name: Test SDK startup ordering without model calls
-        run: node --test eng/evaluation-tools/*.test.mjs
+      - name: Setup .NET SDK for MSBuild contracts
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Test evaluation tooling and MSBuild contracts without model calls
+        run: node --test eng/evaluation-tools/*.test.mjs tests/dotnet/msbuild/graders/check-contracts.test.mjs
 
   token-failover:
     runs-on: ubuntu-latest

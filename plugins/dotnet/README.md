@@ -52,11 +52,14 @@ Point `EXPERIMENT_FILE` at that experiment when running `eng/run-skill-evals.sh 
 Inspect its activation traces for duplicate workflows and out-of-scope activation;
 the isolated arm's dormancy contract alone does not prove cross-plugin routing.
 
-The entry eval executes the optional/required import matrix, packs and builds a
-local-feed consumer of the valid NuGet import, and checks catalog generation
+The entry eval executes the optional/required import matrix, builds a local-feed
+consumer of the supplied fixed NuGet package, and checks catalog generation
 across edits, input additions/removals, missing outputs, and unchanged builds.
 Its golden patches and mutation checks protect behavior rather than particular
 XML spellings.
+The checker and authoritative source hashes/SDK policy are staged only for
+grading, after the agent finishes. The supplied package is checked byte-for-byte
+and consumed as-is; it is not replaced with a fresh pack during grading.
 
 Before comparing model results, run the
 [installed-reference smoke](../../eng/vally-adapter/InvestigatingResults.md#sdk-reference-file-access)

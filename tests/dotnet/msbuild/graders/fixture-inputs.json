@@ -1,0 +1,35 @@
+{
+  "sdkPolicy": "{\n  \"sdk\": {\n    \"version\": \"11.0.100-preview.3.26207.106\",\n    \"rollForward\": \"latestMajor\"\n  },\n  \"test\": {\n    \"runner\": \"Microsoft.Testing.Platform\"\n  },\n  \"msbuild-sdks\": {\n    \"MSTest.Sdk\": \"4.4.1\"\n  }\n}\n",
+  "scenarios": {
+    "hooks": {
+      "files": {
+        "Build.proj": "05a0dfab03b80bd109cf28e5ac35d00ff4a91c41c89aaff4477e8dd502fe6e97",
+        "optional.targets.example": "d6749ca1627428aef4b9dfe5e7acd63db27c2b81664f1de191b7ef01f4c5241c",
+        "required.targets": "efb696f19527592ce19479f8cbea0c06d0a010a704fc1f4616aeeebe10f28553"
+      },
+      "feed": null
+    },
+    "incremental": {
+      "files": {
+        "Build.proj": "fa6a4fb077bba066d6260ca5f3bcb438be496f2e7ef4d0d4a8a94426b45701c0",
+        "Generator.targets": "1c941a396dbfd4835adfa1f75018cdc2982db7f8690311d68289d53212fd8690",
+        "Specs/alpha.json": "2db3d08f1a52eb42f7ac2c48e8e8164708832c70839c0c3679a53ab4024b0994",
+        "Specs/beta.json": "dbc9c1ab8d57e277eefe09f8956187046ac14cded52884ed21bbc5c4f2e1c17e"
+      },
+      "feed": null
+    },
+    "packed-import": {
+      "files": {
+        "consumer/Consumer.proj": "44c2243743edb5ec90938e3d9aba6e44f267ffeb5655ae772eb251dde15a7535",
+        "eng/packaging/Example.nuspec": "28e355c8bb52bccc401db60f77deed26d2996abbf51beb8be5c919f035ab8585",
+        "src/Producer/build/net8.0/Example.props": "33357f3a33913fb28c2eb91326ba7d731b0117a063eefe9e22acf7c395423548",
+        "src/Producer/buildTransitive/common/Example.props": "dbdabb01a0bbee559f07b46c1de92ff55d2a95ac82ad247d12d3fcf16ecaceb7",
+        "src/Producer/Packaging.props": "19ff6baebe55680fa3526509e01558260d0b75203507db24f8a55fdecffc1d4d",
+        "src/Producer/Producer.csproj": "1e684cbd995f849c22376588565d7981c4378ffea5ad0c0c8123612e8bbb3051"
+      },
+      "feed": {
+        "Example.1.0.0.nupkg": "782b6baddf15a0cd251590490fdb6aed034090c58c86e3959ff5854f27d83d53"
+      }
+    }
+  }
+}

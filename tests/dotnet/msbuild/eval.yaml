@@ -192,18 +192,21 @@ stimuli:
       Keep Generator.targets and the spec files unchanged. The output must
       contain every remaining spec's content, including when none remain;
       don't force generation on every build.
-    environment:
+    agent_environment:
       files:
         - src: fixtures/incremental
           dest: project
         - &sdk-policy
           src: ../../../global.json
           dest: global.json
+    grading_environment:
+      files:
         - &contract-checker
           src: graders/check-contracts.mjs
           dest: .eval/check-contracts.mjs
-      commands:
-        - node .eval/check-contracts.mjs snapshot
+        - &contract-inputs
+          src: graders/fixture-inputs.json
+          dest: .eval/inputs.json
     golden_patch:
       path: references/incremental-membership.patch
     golden_trajectory:
@@ -236,16 +239,28 @@ stimuli:
                   content: Build.proj updated; generator and spec files unchanged.
           - step_id: 2
             source: agent
-            message: Check content, membership changes, missing output, and unchanged skips.
+            message: Build twice and verify the initial output and unchanged skip.
             tool_calls:
               - tool_call_id: verify-membership
                 function_name: powershell
                 arguments:
-                  command: node .eval/check-contracts.mjs incremental
+                  command: |
+                    $ErrorActionPreference = 'Stop'
+                    dotnet msbuild project\Build.proj -t:Build -nologo -v:quiet
+                    if ($LASTEXITCODE -ne 0) { throw 'Initial build failed' }
+                    $expected = @(Get-ChildItem project\Specs -Filter *.json | Get-Content | Sort-Object)
+                    $actual = @(Get-Content project\obj\catalog.txt | Sort-Object)
+                    if (Compare-Object $expected $actual) { throw 'Catalog content differs' }
+                    $count = @(Get-Content project\obj\generator-runs.txt).Count
+                    $stamp = (Get-Item project\obj\catalog.txt).LastWriteTimeUtc
+                    dotnet msbuild project\Build.proj -t:Build -nologo -v:quiet
+                    if ($LASTEXITCODE -ne 0) { throw 'Unchanged build failed' }
+                    if (@(Get-Content project\obj\generator-runs.txt).Count -ne $count) { throw 'Generator ran again' }
+                    if ((Get-Item project\obj\catalog.txt).LastWriteTimeUtc -ne $stamp) { throw 'Catalog was rewritten' }
             observation:
               results:
                 - source_call_id: verify-membership
-                  content: "Exit code 0; all incremental contract checks completed."
+                  content: "Exit code 0; catalog content matched and the second build preserved its timestamp and execution count."
           - step_id: 3
             source: agent
             message: |
@@ -257,12 +272,12 @@ stimuli:
               Inputs still catches content edits. WriteOnlyWhenDifferent
               leaves the membership timestamp stable on unchanged builds.
 
-              The contract checker passed all nine build scenarios: initial,
-              unchanged, edited, unchanged-after-edit, removed, older-added,
-              missing-output, empty-input, and unchanged-empty. It checked
-              complete catalog content and generator execution counts, plus
-              stable output timestamps on unchanged builds. No elapsed-time
-              improvement was measured.
+              Built twice: the initial catalog matched the spec contents,
+              and the second unchanged build preserved the execution count
+              and output timestamp. Deletion, older-file addition, missing
+              output, and empty input are additional verification cases,
+              not measurements claimed here. No elapsed-time improvement
+              was measured.
     graders:
       - type: run-command
         config:
@@ -274,7 +289,7 @@ stimuli:
     rubric:
       - Explained why timestamp checks on the current item list do not remember removed inputs or necessarily detect older added inputs.
       - Repaired input membership and content-change invalidation without altering the generator or its inputs.
-      - Produced complete output after deletion, older-file addition, missing output, and an empty input set while preserving unchanged-build skips.
+      - Explained how the repair preserves complete output after deletion, older-file addition, missing output, and an empty input set while retaining unchanged-build skips; the executable grader checks those outcomes.
       - Distinguished checks actually run from proposed verification and did not claim unmeasured elapsed-time savings.
 
   - name: Preserve a new hook when an optional predecessor is absent
@@ -292,14 +307,15 @@ stimuli:
       required file is missing. Leave required.targets and the optional hook
       definition in optional.targets.example unchanged. An aggregation file
       is fine if needed.
-    environment:
+    agent_environment:
       files:
         - src: fixtures/hooks
           dest: project
         - *sdk-policy
+    grading_environment:
+      files:
         - *contract-checker
-      commands:
-        - node .eval/check-contracts.mjs snapshot
+        - *contract-inputs
     golden_patch:
       path: references/hook-composition.patch
     golden_trajectory:
@@ -332,7 +348,27 @@ stimuli:
               - tool_call_id: verify-hooks
                 function_name: powershell
                 arguments:
-                  command: node .eval/check-contracts.mjs hooks
+                  command: |
+                    $ErrorActionPreference = 'Stop'
+                    $matrix = Join-Path ([IO.Path]::GetTempPath()) ('hook-check-' + [guid]::NewGuid())
+                    New-Item -ItemType Directory -Path $matrix | Out-Null
+                    Copy-Item -LiteralPath global.json -Destination (Join-Path $matrix global.json)
+                    try {
+                      foreach ($optional in @($false, $true)) {
+                        foreach ($required in @($true, $false)) {
+                          $copy = Join-Path $matrix "$optional-$required"
+                          Copy-Item -LiteralPath project -Destination $copy -Recurse
+                          if ($optional) { Copy-Item -LiteralPath (Join-Path $copy optional.targets.example) -Destination (Join-Path $copy optional.targets) }
+                          if (-not $required) { Remove-Item -LiteralPath (Join-Path $copy required.targets) }
+                          $order = dotnet msbuild (Join-Path $copy Build.proj) -t:Build -getProperty:HookOrder -nologo -v:quiet
+                          if ($required) {
+                            if ($LASTEXITCODE -ne 0) { throw 'Valid hook configuration failed' }
+                            $expected = if ($optional) { 'optional;required;' } else { 'required;' }
+                            if ($order -ne $expected) { throw 'Wrong hook order' }
+                          } elseif ($LASTEXITCODE -eq 0) { throw 'Missing required hook succeeded' }
+                        }
+                      }
+                    } finally { Remove-Item -LiteralPath $matrix -Recurse -Force }
             observation:
               results:
                 - source_call_id: verify-hooks
@@ -344,7 +380,7 @@ stimuli:
               hook when the optional hook was absent. Each import now has
               its own contract: the optional hook runs first when present,
               and a missing required hook fails rather than silently skips.
-              The checker passed all four combinations: required alone,
+              Builds in temporary copies passed all four combinations: required alone,
               optional then required, and explicit failure with either
               optional state when required.targets is absent. Hook files
               were left unchanged; semicolon-separated imports themselves
@@ -406,14 +442,15 @@ stimuli:
       buildTransitive/net8.0/Example.props, and the produced nupkg contains it.
       The files are under project/ and the package is in project/feed/.
       Is a guard or directory reorganization needed? No changes are requested.
-    environment:
+    agent_environment:
       files:
         - src: fixtures/packed-import
           dest: project
         - *sdk-policy
+    grading_environment:
+      files:
         - *contract-checker
-      commands:
-        - node .eval/check-contracts.mjs prepare-packed-import
+        - *contract-inputs
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
