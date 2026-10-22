@@ -406,7 +406,7 @@ class GraderTests(unittest.TestCase):
         self.assertIn("single-stale: preserve current outputs and their timestamps", result.stderr)
 
     def test_suite_contract_and_inline_graders(self):
-        guards = [s for s in SPEC["stimuli"] if s.get("expect_activation") is False]
+        guards = [s for s in SPEC["stimuli"] if s.get("tags", {}).get("expect_activation") == "false"]
         self.assertEqual(len(guards), 7)
         self.assertEqual(len(SPEC["stimuli"]) - len(guards), 23)
         self.assertEqual(SPEC["defaults"]["timeout"], "6m")
