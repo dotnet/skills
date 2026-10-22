@@ -64,6 +64,35 @@ class GraderTests(unittest.TestCase):
             with self.subTest(capability=capability):
                 self.grade(*self.workspace(capability))
 
+    def test_git_stamp_conditions_are_evaluated_by_msbuild(self):
+        variants = (
+            ("Target", "'$(Version)' == '3.2.0'"),
+            ("Target/PropertyGroup", "'$(GitCommit)' != ''"),
+            ("Target/PropertyGroup/InformationalVersion", "'$(GitCommit)' != ''"),
+        )
+        for selector, enabled in variants:
+            for accepted, condition in ((True, enabled), (False, "'false' == 'true'")):
+                with self.subTest(element=selector, accepted=accepted):
+                    work, script = self.workspace("invariant-per-project-exec")
+                    path = work / "git-stamp" / "Directory.Build.targets"
+                    tree = ET.parse(path)
+                    tree.getroot().find(selector).set("Condition", condition)
+                    tree.write(path, encoding="utf-8")
+                    result = self.grade(work, script, accepted=accepted)
+                    if not accepted:
+                        self.assertIn("the commit and version must be ready", result.stderr)
+
+    def test_late_git_stamp_assignment_is_rejected(self):
+        work, script = self.workspace("invariant-per-project-exec")
+        path = work / "git-stamp" / "Directory.Build.targets"
+        tree = ET.parse(path)
+        target = tree.getroot().find("Target")
+        target.attrib.pop("BeforeTargets")
+        target.set("AfterTargets", "GetAssemblyAttributes")
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("the commit and version must be ready", result.stderr)
+
     def test_conditional_reference_updates_are_evaluated_by_msbuild(self):
         work, script = self.workspace("global-property-instances")
         base = work / "shared-project-instances"

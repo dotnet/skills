@@ -55,12 +55,6 @@ stimuli:
                           for p in group if p.tag.lower() == 'version' and not p.get('Condition')]
               assert versions and versions[-1] == '3.2.0', 'preserve the stamped base version'
               assert all(p.text == '3.2.0' for document in [props, root] for p in document.iter() if p.tag.lower() == 'version'), 'no assignment may change the base version'
-              assignments = [p for t in root.findall('Target') if not t.get('Condition')
-                             and 'GetAssemblyAttributes' in t.get('BeforeTargets', '').split(';')
-                             for group in t.findall('PropertyGroup') if not group.get('Condition')
-                             for p in group if p.tag.lower() == 'informationalversion' and not p.get('Condition')
-                             and p.text == '$(Version)+$(GitCommit)']
-              assert assignments, 'the version assignment must still execute when GitCommit is supplied'
               fallbacks = [
                   (target, task) for target in root.findall('Target') for task in target.findall('Exec')
                   if task.get('Command') == 'git rev-parse --short HEAD'
