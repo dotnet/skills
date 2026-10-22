@@ -17,8 +17,6 @@ stimuli:
       report exists yet. Our public samples already exist. How should we check a few examples for
       accuracy, especially when a Razor attribute can compile without configuring the intended
       component parameter? Explain a bounded approach here, not a new assessment or implementation.
-    constraints:
-      reject_tools: [execute, bash, Bash, run_shell_command, edit, Edit, Write, write_file, web_search, web_fetch]
     graders:
       - type: file-not-exists
         config:
@@ -28,6 +26,9 @@ stimuli:
           path: '**/decision-guidance.md'
       - type: prompt
       - type: exit-success
+      - type: tool-calls
+        config:
+          disallowed: [execute, bash, Bash, run_shell_command, edit, Edit, Write, write_file, web_search, web_fetch]
     rubric:
       - Explains why successful compilation alone may miss an ineffective parameter or promise and suggests checking the specific observable behavior.
       - Uses the exact package and documented context without demanding that every vendor sample be compiled, requiring Copilot use, or inventing a failed readiness criterion.
@@ -44,8 +45,6 @@ stimuli:
       showing that send path but no trace, measured payload size, timing, or evidence of a user
       impact yet. No assessment report exists. What can we conclude now and what would help
       determine whether anything should change?
-    constraints:
-      reject_tools: [execute, bash, Bash, run_shell_command, edit, Edit, Write, write_file, web_search, web_fetch]
     graders:
       - type: file-not-exists
         config:
@@ -55,6 +54,9 @@ stimuli:
           path: '**/decision-guidance.md'
       - type: prompt
       - type: exit-success
+      - type: tool-calls
+        config:
+          disallowed: [execute, bash, Bash, run_shell_command, edit, Edit, Write, write_file, web_search, web_fetch]
     rubric:
       - Treats full-data serialization as a potentially intentional pattern, not proof of a defect, excessive cost, or a missing budget.
       - Identifies concrete evidence such as call frequency, actual payload bytes and the affected interaction while explaining the limits of allocation and copying attribution.
