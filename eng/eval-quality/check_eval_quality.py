@@ -1500,7 +1500,10 @@ def check_patch_applies(
         spec: str, stim: dict, patch: str | None = None,
         *, patch_text: str | None = None, suite_environment=None) -> None:
     """Materialize declared fixture inputs and prove the golden patch applies."""
-    entries = environment_file_entries(stim.get("environment"))
+    entries = (
+        environment_file_entries(suite_environment)
+        + environment_file_entries(stim.get("environment"))
+    )
     if not entries:
         return  # Command-generated workspaces cannot be reconstructed statically.
 
