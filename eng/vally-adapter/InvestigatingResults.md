@@ -1,12 +1,66 @@
 # Investigating Evaluation Results (Vally)
 
-This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill and custom-agent evaluation results. Skills are produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`; custom agents use the native Copilot SDK lane and `eng/vally-adapter/adapt-agent-results.mjs` because Vally 0.14 cannot register custom agents. Both lanes emit the same result schema.
+This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill and custom-agent evaluation results. Skills are produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`; custom agents use the native Copilot SDK lane and `eng/vally-adapter/adapt-agent-results.mjs` because Vally cannot register custom agents. Both lanes emit the same result schema.
 
 For the end-to-end architecture, decision policy, metric definitions, and
 historical examples, start with the
 [Skill evaluation infrastructure overview](./README.md).
 
+Workflow packages under `agentic-workflows/` use the native SDK adapter too.
+Their specs live at `tests/agentic-workflows/<package>/eval.yaml`; result identity
+is the package name with `skillKind: workflow` and
+`evaluationLane: workflow-prompt-sdk`. The baseline omits workflow guidance,
+the isolated arm uses the real imported workflow prompt and installed resources,
+and the package arm adds registered bundled agents. These are offline
+fixture-based decision/proposal evaluations, not live Actions jobs or published
+safe outputs. Compile/helper checks and consumer runtime evidence are separate.
+Missing context/import/resource errors invalidate the measurement; no-op
+scenarios still require primary `workflow.<package>` activation.
+The native runner enforces shell denial for all offline workflow model arms;
+this is not merely an instruction in the prompt. Published dashboard JSON keeps
+`skillKind: workflow`, its offline execution lane, exact persona activation, and
+package-manifest/eval source links.
+
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
+
+The native agent parser stages `stimuli[].environment.files`, not a shared
+suite-level `environment.files` block. Declare required authentication helpers
+and other shared inputs in every stimulus that uses them. A missing
+`.eval/authenticated_artifacts.py` in a command grader is a spec-staging defect,
+not evidence of an agent content or preservation failure.
+
+Native executor sessions now supply the exact project workspace and staged
+reference-only catalog files. Consumers read those resources, not hidden
+skill-tool names, and normal shell hooks defer to typed SDK permissions rather
+than manufacturing an unsupported custom approval prompt. Explicit shell
+denial remains enforced. Baseline identity includes this execution contract:
+do not reuse recordings from the older workspace/permission behavior.
+
+Native agent stimuli may opt in with the quoted string tag
+`tags.deny_shell: "true"`. Unlike the post-run `tool-calls` grader, this rejects
+actual shell execution in all arms
+without changing file-tool permissions or the existing sandbox. Setup and
+post-run command graders still execute under evaluator control. A
+`ShellDenied` assertion requires an evaluator-recorded `evaluator.shell_denied`
+event; an agent's claim of denial is not evidence. Check this assertion alongside
+the generated-file and truthful-partial-output graders. The saved event includes
+the requesting session ID, including nested-agent callbacks. Omitted or false
+policies preserve existing behavior, and a denied-shell run cannot reuse a
+normal-permission baseline. See the shipping validator's
+[permission policy reference](../skill-validator/src/docs/InvestigatingResults.md)
+for the contract. This extension is not supported by the Vally skill lane.
+The trusted validator is built from `github.workflow_sha`, not the PR checkout;
+land the harness support at that trusted ref before enabling the scenario in CI.
+Older validators may ignore the unknown option, so a result missing the
+`ShellDenied` assertion and its trusted rejection event cannot prove denial.
+
+Native generator evals also check `constraints.reject_agents` against actual
+delegate-start events and `constraints.reject_shell_retries` against shell
+requests after trusted denial. Primary selection is not self-delegation.
+Both inline and deferred execution now persist enriched deterministic metrics
+before judging, so saved-run completion and denial evidence survive rejudge.
+An older recording with empty assertion results is not objective completion
+evidence merely because its rejection events survived.
 
 > Note: the linter (`skill-validator check`) is a **separate** workflow (`skill-check.yml`) and is unrelated to these eval results.
 
@@ -27,7 +81,7 @@ workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate
-an SDK startup race, not a skill or judge failure. In SDK 1.0.11 and 1.0.13, concurrent
+an SDK startup race, not a skill or judge failure. In SDK 1.0.11, 1.0.13, and 1.0.14, concurrent
 startup calls can create multiple transports, and session creation can use a
 connection before its filesystem provider is ready. The trusted
 `eng/evaluation-tools/vally.mjs` launcher loads a version-checked startup guard.
@@ -64,7 +118,7 @@ Its compact table has these columns:
 |--------|---------|
 | `Skill` | Skill under test |
 | `Model` | Model used for the baseline and skilled agent runs. This prevents duplicate skill rows from being ambiguous |
-| `Verdict` | ✅ Improved / ➖ Not proven improved / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that future gate is enabled |
+| `Verdict` | ✅ Improved / a cause-specific ➖ no-clear-winner label / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that future gate is enabled |
 | `Gate evidence` | `n` preference-eligible distinct-stimulus votes, stimulus W/T/L, `d` discordant votes, exact one-sided `p`, net win, and the separately retained dormancy count. A pass needs `p ≤ 0.05`, net win ≥20%, and a passing dormancy activation contract |
 | `Overfit` | Overfitting-judge severity — ✅ Low, 🟡 Moderate, 🔴 High, — none — with its score |
 | `Warnings` | Activation gaps, timeouts, recovered judge slots, and unresolved comparison errors |
@@ -89,7 +143,7 @@ Verdict Evidence** table shows the latest retained result per executor model:
 the authoritative preference-eligible distinct-stimulus W/T/L vote, discordant
 count, exact one-sided sign-test p-value, and net win. It shows how many
 dormancy stimuli were retained but excluded from preference inference. The
-table also separates expected dormancy (`expect_activation: false`) and
+table also separates expected dormancy (`tags.expect_activation: "false"`) and
 non-model-invocable reference skills from missing or unexpected activation,
 and exposes compact paired-judge excerpts plus source links when the result
 contains them.
@@ -135,6 +189,7 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `skillName` / `skillPath` | Compatibility field names containing the evaluated target name and source path; `skillKind` disambiguates skills and agents |
 | `state` | One of `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or `INVALID_INCONCLUSIVE` |
 | `stateReason` | Machine-readable `{ code, phase }`. Use this field for automation; do not parse `reason` |
+| `noChangeDiagnosis` | Canonical subtype for a `VALID_NO_CHANGE` preference result: `all_ties`, `mixed`, directional `*_tie_limited` / `*_unproven`, or `*_sparse`; renderers consume this key so PR and dashboard labels stay aligned |
 | `passed` | **The gate.** `true` only when `conclusive`, at least 5 preference-eligible distinct stimuli were counted, `signTest.pValue <= 0.05`, `netWin >= 0.20`, and `activationContract.passed == true` |
 | `netWin` | `(wins − losses) / preference-eligible stimulus votes` — the effect size the gate reads. Magnitude-free, so an identical eligible W/T/L record always yields an identical preference verdict |
 | `practicalSignificance` | `{ netWin, minimum, passed }`. The absolute directional effect must reach 20%; this blocks sparse records such as `5W/95T/0L` |
@@ -193,7 +248,7 @@ Consumers that need the old all-stimulus view must read
 `excludedScenarioEvidence` alongside `scenarioEvidence`, or use
 `scenarios[]`/`comparisonTrialEvidence`.
 
-No eval syntax migration is required: existing `expect_activation: false`
+No eval syntax migration is required: existing `tags.expect_activation: "false"`
 annotations automatically become activation-contract-only evidence. The
 authoring floor is intentionally stricter because dormancy no longer counts
 toward five preference cases; `check_eval_quality.py` reports the eligible and
@@ -204,7 +259,7 @@ Dormancy excludes a stimulus only from preference inference and expected
 activation. It does not suppress objective task-completion evidence: if a
 native-agent baseline completes and the isolated target run does not, the
 adapter retains `native_completion_regression` even for
-`expect_activation: false`.
+`tags.expect_activation: "false"`.
 
 The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
@@ -221,7 +276,7 @@ so a rename, typo, or missing result cannot silently erase contract evidence.
 `measurementInvalidEvals` is the fail-closed subset: missing baseline or skilled
 records, unresolved judge or pairing failures, malformed reports, and other
 adapter failures. This includes an eval spec that the adapter cannot read:
-without that file it cannot enforce `expect_activation: false`, so it writes an
+without that file it cannot enforce `tags.expect_activation: "false"`, so it writes an
 `eval_spec_unreadable` invalid verdict instead of assuming that every stimulus
 should activate. The subset excludes only the explicit `underpowered`
 eval-design state. The workflow requires this list to be empty and also checks
@@ -466,7 +521,7 @@ The agent didn't finish within the eval's `config.timeout`. Either the task is t
 
 ### 3. Activation contract failed (`stateReason.code == "activation_contract_failed"`)
 
-An explicit dormancy scenario (`expect_activation: false`) activated the
+An explicit dormancy scenario (`tags.expect_activation: "false"`) activated the
 isolated target skill. This is deterministic routing evidence, so it blocks a
 pass even though the scenario's judge preference is excluded from the sign
 test. Narrow the skill description or routing boundary. Plugin activation is
@@ -485,6 +540,11 @@ Clearing the floor is necessary, not sufficient. The sign test conditions on **d
 
 ### 6. No credible or practical net win
 The judge didn't consistently prefer the skilled run over baseline.
+- **All ties** are labeled **No preference**. Inspect the tie rationales and both arm outputs. If the behavior is genuinely equivalent, replace inert scenarios rather than increasing repeated runs.
+- **Equal wins and losses** are labeled **Mixed evidence**. Compare the winning and losing scenarios to identify where the target helps versus hurts.
+- **More wins than losses** are labeled **Improvement signal**, with **tie-limited** when fewer than five discordant tasks made a passing sign test impossible and **unproven** otherwise.
+- **More losses than wins** use the corresponding **Baseline signal** labels. These are directional diagnostics, not a credible preference loss unless `preferenceRegressed` is true.
+- **Statistically credible effects below the 20% practical floor** are labeled **Improvement too sparse** or **Baseline signal too sparse** according to direction.
 - **`netWin <= 0`** — at least as many losses as wins. Either the skill isn't helping for these scenarios, or the baseline model is already strong here. If `preferenceRegressed` is `true`, the LLM judge credibly preferred baseline. This is report-only preference evidence, not an objective completion regression.
 - **`netWin > 0` but `signTest.pValue > 0.05`** — a real but inconsistent signal: the skill wins some stimuli and ties or loses others. Ties hold the discordant vote count down. Add broader stimuli and make the skill help consistently.
 - **`signTest.pValue <= 0.05` but `practicalSignificance.passed == false`** — the direction is statistically credible but too sparse to matter across tested tasks. For example, 100 distinct stimuli with `5W/95T/0L` have `p=0.03125` but only a 5% net win. Add discriminating stimuli or improve the skill.

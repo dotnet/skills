@@ -1,0 +1,399 @@
+name: troubleshoot-binlog-mcp
+description: Evaluates workspace-aware binlog MCP startup diagnosis and policy-safe recovery
+type: capability
+defaults:
+  timeout: 3m
+  runs: 1
+stimuli:
+  - name: Diagnose a closed connection by executing the registered launcher
+    prompt: |-
+      The binlog MCP server for affected-workspace reports CONNECTION_CLOSED.
+      I have no startup log. Its host registration is in affected-workspace/host.json.
+      The registered launcher is an offline stand-in for dotnet, including SDK
+      and source queries; use it instead of the machine-wide SDK or live feeds.
+      Investigate from the affected workspace and save the launch stdout, stderr,
+      and numeric exitCode in affected-workspace/launch-result.json. Explain what
+      failed and the smallest policy-safe next step, keeping private source URLs
+      and credentials out of your answer. Do not change any SDK,
+      NuGet, host, or launcher files, install anything, or access the network.
+    tags:
+      capability: executable-workspace-launch-diagnosis
+      risk: diagnosing-without-launch-evidence
+      journey: investigate-closed-connection
+    environment:
+      files:
+        - src: fixtures/launch-failure
+          dest: .
+    golden_trajectory:
+      path: references/executable-launch.json
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const assert = require('node:assert/strict');
+              const fs = require('node:fs');
+              const crypto = require('node:crypto');
+              const content = fs.readFileSync('check-launch.cjs', 'utf8').replace(/\r\n/g, '\n');
+              assert.equal(crypto.createHash('sha256').update(content).digest('hex'),
+                'b058d8c0d423ce33844c264a99c5f5ab9194ed2888a1af9f5950d5a76d9358c6', 'Changed or missing diagnostic input: check-launch.cjs');
+              require('./check-launch.cjs');
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: 'MCP status: failed'
+      - type: output-not-matches
+        config:
+          pattern: 'mirror\.example\.invalid|fixture-only-feed-token'
+      - type: prompt
+    rubric:
+      - Diagnoses the actual package-resolution failure from captured launch stderr rather than guessing from the closed transport
+      - Relates the effective workspace sources to the inherited source being cleared
+      - Recommends approved-feed recovery without changing configuration, installing tools, or claiming a verified repair
+      - Requires host reconnection and discovery of binlog tools before declaring recovery
+
+  - name: Explain a package resolution failure behind a closed connection
+    prompt: |-
+      I installed dotnet-msbuild but its binlog server reports CONNECTION_CLOSED.
+      In the same workspace, dotnet dnx Microsoft.AITools.BinlogMcp --yes --prerelease
+      exits 1: "A version higher than 0.0.0-0 of package microsoft.aitools.binlogmcp
+      is not found in NuGet feeds company-mirror."
+      The workspace nuget.config clears inherited sources and contains only our
+      private mirror. Public feeds require approval here. Explain the cause and
+      safe recovery options from this evidence; don't run commands or change files.
+    tags:
+      capability: inherited-feed-resolution
+      risk: enterprise-policy-bypass
+      journey: connect-new-plugin
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: binlog-mcp-mirror
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The server exits before MCP initialization because dnx cannot resolve
+              Microsoft.AITools.BinlogMcp from the effective company mirror.
+              Clearing inherited sources removes the usual nuget.org fallback.
+              Have the mirror owner provide the package and dependencies, or use
+              an approved tool installation registered as binlog-mcp. Adding
+              nuget.org requires policy approval; do not bypass the mirror.
+              After recovery, reconnect in the host and confirm its binlog tools
+              are discoverable. No repair or connection verification is claimed here.
+              MCP status: failed
+    graders:
+      - type: output-contains
+        config:
+          substring: Microsoft.AITools.BinlogMcp
+      - type: output-matches
+        config:
+          pattern: '([Aa]pprov|[Pp]olicy|[Pp]ermi)'
+      - type: output-matches
+        config:
+          pattern: 'MCP status: failed'
+      - type: prompt
+    rubric:
+      - Identifies workspace package resolution as the demonstrated startup failure, not an MSBuild project error
+      - Explains why clearing inherited sources makes a mirror-only configuration relevant
+      - Gives a recovery through approved feeds or approved tool registration without bypassing enterprise restrictions
+      - Requires host reconnection and tool discovery before claiming recovery
+
+  - name: Recognize partial search errors despite exit zero
+    prompt: |-
+      The dotnet-msbuild binlog connection closes on startup. The package search
+      command exited 0 and returned this JSON. Does it prove the package is missing?
+      {"searchResult":[{"sourceName":"approved-mirror","packages":[],"problems":[{"text":"HTTP 401 Unauthorized"}]}],"problems":[]}
+      Please interpret this captured result only; don't run commands or change settings.
+    tags:
+      capability: structured-source-problems
+      risk: false-package-absence
+      journey: diagnose-feed-access
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: binlog-mcp-source-error
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              No. HTTP 401 in the source problems means authentication failed;
+              exit 0 does not make the empty package array evidence of absence.
+              Repair access to the approved mirror and inspect the launch error.
+              Package availability remains unknown. Reconnect and discover the
+              binlog tools before declaring the reported startup failure repaired.
+              MCP status: failed
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(401|[Uu]nauthori|[Aa]uthenticat)'
+      - type: output-matches
+        config:
+          pattern: 'MCP status: failed'
+      - type: prompt
+    rubric:
+      - Distinguishes an inaccessible feed from a feed known not to contain the package
+      - Does not treat exit zero or empty package arrays as sufficient proof of absence
+      - Prioritizes correcting approved-feed authentication rather than adding a public source
+
+  - name: Follow a launch mapping error after successful search
+    prompt: |-
+      Why is the dotnet-msbuild binlog server still failing? An exact prerelease
+      package search finds Microsoft.AITools.BinlogMcp 3.0.4 in an approved feed.
+      But the unchanged dnx launch in that workspace fails and says package source
+      mapping excluded that feed for this package. Does finding the package mean
+      MCP is healthy? Give advice only; do not edit the mapping or launch anything.
+    tags:
+      capability: search-launch-divergence
+      risk: false-healthy-connection
+      journey: repair-source-mapping
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: binlog-mcp-source-mapping
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Package discovery is not MCP initialization. Search does not apply
+              package source mapping the way dnx does; the launch error identifies
+              the mapping exclusion as the blocker. Ask the feed/configuration
+              owner to approve a mapping for this package to the approved feed,
+              rather than disabling mapping. After an approved correction,
+              reconnect in the host and confirm its binlog tools are listed.
+              MCP status: failed
+    graders:
+      - type: output-matches
+        config:
+          pattern: '[Mm]apping'
+      - type: output-matches
+        config:
+          pattern: 'MCP status: failed'
+      - type: prompt
+    rubric:
+      - Explains that search success does not exercise dnx package source mapping or prove MCP startup
+      - Targets the observed mapping exclusion with a policy-approved correction
+      - Does not recommend disabling mapping or claim that package discovery repairs the host connection
+
+  - name: Diagnose the SDK selected by the workspace instead of the installed SDK
+    prompt: |-
+      Our binlog MCP launch cannot find dotnet dnx. The host workspace's
+      dotnet --version is 8.0.410 because global.json pins that SDK.
+      dotnet --list-sdks also shows 10.0.402 installed. My teammate says to
+      reinstall the plugin or delete global.json. Is either warranted?
+      Explain the next safe step; don't run commands or modify the repository.
+    tags:
+      capability: workspace-sdk-selection
+      risk: destructive-sdk-pin-change
+      journey: launch-with-compatible-sdk
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: binlog-mcp-sdk-selection
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The workspace selects SDK 8.0.410, which does not provide the shipped
+              dotnet dnx command; merely having SDK 10 installed does not select it.
+              Reinstalling the plugin does not address that. Preserve global.json.
+              Arrange an approved compatible SDK/launch environment for the host,
+              or an approved separately installed binlog-mcp registration.
+              Any repository SDK-pin change needs explicit approval. Verify the
+              host's binlog tool listing after reconnecting.
+              MCP status: failed
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(global\.json|SDK.{0,30}8|8\.0\.410)'
+      - type: output-matches
+        config:
+          pattern: 'MCP status: (failed|unverified)'
+      - type: prompt
+    rubric:
+      - Recognizes that the workspace-selected SDK lacks dnx despite a newer SDK also being installed
+      - Does not prescribe deleting global.json, silently upgrading the repository, or reinstalling the plugin as the fix
+      - Suggests a deliberately configured compatible launch and subsequent host connection verification
+
+  - name: Keep a timed-out availability check inconclusive
+    prompt: |-
+      I want to know whether the dotnet-msbuild binlog tools can start, but I have
+      no host startup log or tool listing. The only diagnostic so far is an exact
+      package search that hit its timeout without producing JSON. Can you tell me
+      the package is absent or the connection is good? Explain what evidence to
+      gather next without running anything.
+    tags:
+      capability: inconclusive-probe
+      risk: unsupported-startup-claim
+      journey: diagnose-unresponsive-probe
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: binlog-mcp-timeout
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Neither conclusion follows from a search timeout. Availability and
+              connection health remain unknown. Inspect the host's startup log,
+              or capture stdout, stderr, and the exit code of
+              dotnet dnx Microsoft.AITools.BinlogMcp --yes --prerelease
+              from the same workspace and environment under a bounded timeout
+              with diagnostic-process-tree cleanup. A running stdio server alone
+              is not a handshake; confirm binlog tools in the host after reconnecting.
+              MCP status: unverified
+    graders:
+      - type: output-matches
+        config:
+          pattern: '([Ss]tderr|[Ss]tandard error|[Ss]tartup log)'
+      - type: output-matches
+        config:
+          pattern: 'MCP status: unverified'
+      - type: prompt
+    rubric:
+      - Treats a timeout as inconclusive rather than proof of absence, startup failure, or a healthy connection
+      - Requests launch evidence from the affected workspace, not a source-overridden or unrelated test environment
+      - Distinguishes process liveness from host MCP initialization and tool discovery
+
+  - name: Preserve a connected cached server despite empty search
+    prompt: |-
+      Package search from this workspace returns no listed BinlogMcp package,
+      with no source errors. However the host initialized the dotnet-msbuild
+      binlog MCP server from its cached tool and tools/list includes
+      binlog_overview. Do I need to clear the cache or add another feed?
+      Give advice only; please leave the working configuration alone.
+    tags:
+      capability: working-cached-launch
+      risk: breaking-healthy-setup
+      journey: assess-search-startup-disagreement
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: binlog-mcp-cached-success
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              No repair is needed for the demonstrated connection: the host
+              initialized the server and discovered binlog_overview. An empty
+              listed-package search does not rule out a working cached tool.
+              Do not clear caches or add feeds to fix a connection that works.
+              Future uncached installation availability is a separate question.
+              MCP status: connected
+    graders:
+      - type: output-matches
+        config:
+          pattern: '[Cc]ache'
+      - type: output-matches
+        config:
+          pattern: 'MCP status: connected'
+      - type: prompt
+    rubric:
+      - Gives greater weight to observed host initialization and tool discovery than to an empty package search
+      - Leaves the working cache, source configuration, and registration unchanged
+      - Separates current connectivity from future uncached package availability
+
+  - name: Leave recorded build errors to build diagnosis
+    prompt: |-
+      My .NET build wrote a binlog containing CS0246 for Newtonsoft.Json in
+      Services.csproj. I already confirmed the binlog reader connects and works.
+      What kind of project change would address that compiler error? Advice only.
+    tags:
+      expect_activation: "false"
+      capability: recorded-build-error-boundary
+      risk: hijacking-build-diagnosis
+      journey: fix-project-dependency
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: binlog-mcp-build-boundary
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Check Services.csproj for the required Newtonsoft.Json PackageReference
+              and confirm restore succeeds. CS0246 is a compiler/dependency issue,
+              not evidence that the working binlog reader needs repair.
+    graders:
+      - type: output-contains
+        config:
+          substring: Newtonsoft.Json
+      - type: prompt
+    rubric:
+      - Addresses the compiler dependency problem without initiating MCP startup diagnostics
+      - Does not recommend reinstalling a working reader or changing its feeds
+
+  - name: Leave binlog capture to build logging
+    prompt: |-
+      Show me a PowerShell command that builds a .NET project and captures a
+      uniquely named binary log. I am not asking to install or connect any reader.
+      Do not execute the command.
+    tags:
+      expect_activation: "false"
+      capability: binlog-capture-boundary
+      risk: unnecessary-server-repair
+      journey: capture-build-log
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: binlog-mcp-capture-boundary
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use dotnet build '-bl:{}' in PowerShell. Quoting preserves the
+              literal placeholder, which generates a unique binlog name on
+              MSBuild 17.8+/.NET 8+. Capturing a log needs no MCP connection.
+    graders:
+      - type: output-matches
+        config:
+          # Accept GUID/timestamp expressions, parenthesized bindings, and one interpolated filename binding.
+          pattern: |-
+            (?:\bdotnet\s+build\b[^\r\n]*?[ \t]+(?:(?=(?:[-/]bl:)?([\x27"]))(?:\1[-/]bl:|[-/]bl:\1)[^\x27"{}\r\n]*\{\}[^\x27"{}\r\n]*\1|(?:"[-/]bl:|[-/]bl:")[^"\r\n]*(?<!`)\$\(\s*(?:[Nn]ew-[Gg]uid|\[(?:[Ss]ystem\.)?[Gg]uid\]::NewGuid\(\)(?:\.ToString\((?:\x27[NnDd]\x27|"[NnDd]")?\))?|[Gg]et-[Dd]ate\s+-[Ff]ormat\s+(?:'[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?'|"[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?"|[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?))\s*\)[^"\r\n]*")|\$([A-Za-z_]\w*)\s*=\s*(?:(?:[Nn]ew-[Gg]uid|\[(?:[Ss]ystem\.)?[Gg]uid\]::NewGuid\(\)(?:\.ToString\((?:\x27[NnDd]\x27|"[NnDd]")?\))?|[Gg]et-[Dd]ate\s+-[Ff]ormat\s+(?:'[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?'|"[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?"|[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?))|\(\s*(?:[Nn]ew-[Gg]uid|\[(?:[Ss]ystem\.)?[Gg]uid\]::NewGuid\(\)(?:\.ToString\((?:\x27[NnDd]\x27|"[NnDd]")?\))?|[Gg]et-[Dd]ate\s+-[Ff]ormat\s+(?:'[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?'|"[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?"|[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?))\s*\)|"[^"\r\n]*(?<!`)\$\(\s*(?:[Nn]ew-[Gg]uid|\[(?:[Ss]ystem\.)?[Gg]uid\]::NewGuid\(\)(?:\.ToString\((?:\x27[NnDd]\x27|"[NnDd]")?\))?|[Gg]et-[Dd]ate\s+-[Ff]ormat\s+(?:'[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?'|"[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?"|[yMd_.-]*[Hh]+[_.-]*m+[_.-]*s+(?:[_.-]*[fF]+)?))\s*\)[^"\r\n]*")\s*;?\s*(?:\$([A-Za-z_]\w*)\s*=\s*"[^"\r\n]*(?<!`)\$(?:\{\2\}|\2(?!\w))[^"\r\n]*"\s*;?\s*)?\bdotnet\s+build\b[^\r\n]*?[ \t]+(?:(?:"[-/]bl:|[-/]bl:")[^"\r\n]*(?<!`)\$(?:\{(?=[A-Za-z_])(?:\2|\3)\}|(?=[A-Za-z_])(?:\2|\3)(?!\w))[^"\r\n]*"|[-/]bl:[^\s\x27"]*(?<!`)\$(?:\{(?=[A-Za-z_])(?:\2|\3)\}|(?=[A-Za-z_])(?:\2|\3)(?!\w))[^\s\x27"]*(?=[\s;]|$)))
+      - type: prompt
+    rubric:
+      - Supplies a PowerShell-safe command for unique binlog capture
+      - Does not initiate package lookup, installation, or MCP connection troubleshooting
+
+  - name: Do not apply binlog-specific diagnosis to another server
+    prompt: |-
+      My PostgreSQL MCP server reports CONNECTION_CLOSED. It launches a Node.js
+      database adapter; this workspace does not use .NET. What startup evidence
+      should I collect before diagnosing it? Advice only.
+    tags:
+      expect_activation: "false"
+      capability: unrelated-server-boundary
+      risk: wrong-runtime-diagnosis
+      journey: investigate-database-adapter
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: binlog-mcp-other-server
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Collect the adapter's startup stderr, exit code, effective Node.js
+              command, working directory, and redacted environment configuration
+              from the host. CONNECTION_CLOSED alone does not identify the cause.
+              Diagnose that adapter rather than testing a .NET package.
+    graders:
+      - type: output-not-contains
+        config:
+          substring: Microsoft.AITools.BinlogMcp
+      - type: prompt
+    rubric:
+      - Requests evidence relevant to the Node.js database adapter
+      - Does not run or prescribe dotnet, NuGet, or binlog-specific repair

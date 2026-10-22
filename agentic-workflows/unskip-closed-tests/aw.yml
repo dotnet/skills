@@ -1,0 +1,32 @@
+manifest-version: "1"
+min-version: v0.89.22
+name: Unskip Closed Tests
+description: Safely re-enables .NET tests whose canonical GitHub tracking items are resolved.
+license: MIT
+includes:
+  - workflows/unskip-closed-tests-prepare.md
+  - workflows/unskip-closed-tests-shared.md
+  - workflows/unskip-closed-tests.md
+  - workflows/unskip-closed-tests.config.json
+  - workflows/unskip-closed-tests-verify.ps1
+  - workflows/unskip-closed-tests-tool/ApplyEngine.cs
+  - workflows/unskip-closed-tests-tool/ConfigLoader.cs
+  - workflows/unskip-closed-tests-tool/Directory.Build.props
+  - workflows/unskip-closed-tests-tool/Directory.Build.targets
+  - workflows/unskip-closed-tests-tool/Directory.Packages.props
+  - workflows/unskip-closed-tests-tool/GitRepository.cs
+  - workflows/unskip-closed-tests-tool/InventoryEngine.cs
+  - workflows/unskip-closed-tests-tool/IssueResolver.cs
+  - workflows/unskip-closed-tests-tool/JsonSupport.cs
+  - workflows/unskip-closed-tests-tool/ManifestValidator.cs
+  - workflows/unskip-closed-tests-tool/Models.cs
+  - workflows/unskip-closed-tests-tool/PathRules.cs
+  - workflows/unskip-closed-tests-tool/Program.cs
+  - workflows/unskip-closed-tests-tool/TrxVerifier.cs
+  - workflows/unskip-closed-tests-tool/UnskipClosedTests.Tool.csproj
+  - workflows/unskip-closed-tests-tool/global.json
+  - workflows/unskip-closed-tests-tool/packages.lock.json
+  - agents/unskip-closed-tests.agent.md
+config:
+  - type: copilot-auth
+    strategy: prompt-if-actions-auth-unavailable

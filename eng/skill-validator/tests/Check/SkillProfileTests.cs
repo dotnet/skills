@@ -137,6 +137,36 @@ public class AnalyzeSkillTests
     }
 
     [TestMethod]
+    [DataRow("Review SIMD code, including Vector<T>, for portability.")]
+    [DataRow("Find why <NotAuthorized> content never renders.")]
+    [DataRow("Eliminate explicit <Compile Include=\"a.cs\" /> lists via globbing.")]
+    [DataRow("Strip a closing </div> tag from the generated markup output.")]
+    [DataRow("Rewrite a <_Root /> element that is missing its namespace.")]
+    [DataRow("Keep the <Compile Include> shorthand out of the description.")]
+    [DataRow("Accept Dictionary<TKey, TValue> parameters.")]
+    [DataRow("Remove the <!-- legacy --> comment.")]
+    public void DescriptionWithXmlTagErrors(string desc)
+    {
+        var content = "---\nname: foo\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: desc));
+        Assert.IsTrue(profile.Errors.Any(e => e.Contains("XML-like tag")));
+    }
+
+    [TestMethod]
+    [DataRow("Diagnose slow builds, such as RAR taking >5s or analyzers using >30% of Csc time.")]
+    [DataRow("Flag projects where the count is a < b or the build takes > 50 lines of config.")]
+    [DataRow("Use `Vector` generics and the JsonTypeInfo type without angle brackets.")]
+    [DataRow("Review loop guards such as i<length && count>0 for off-by-one errors.")]
+    [DataRow("Check bounds like x<=y && y>=z and a<b||c>d in tight loops.")]
+    [DataRow("Pick builds under 10s or latency<5ms and throughput>10.")]
+    public void DescriptionWithoutXmlTagProducesNoTagError(string desc)
+    {
+        var content = "---\nname: foo\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);
+        var profile = SkillProfiler.AnalyzeSkill(MakeSkill(content, description: desc));
+        Assert.IsFalse(profile.Errors.Any(e => e.Contains("XML-like tag")));
+    }
+
+    [TestMethod]
     public void EmptyDescriptionWithFrontmatterErrors()
     {
         var content = "---\nname: foo\n---\n# Title\n1. Step\n```bash\necho\n```\n" + new string('x', 4000);

@@ -4,6 +4,10 @@
 result. Most were first found only after an eval mysteriously lost to its own
 baseline or won every trial and still failed.
 
+The checker requires Python 3, PyYAML, and Node.js on `PATH`. Node.js compiles
+and evaluates output regular expressions with the same JavaScript `RegExp`
+semantics that Vally uses.
+
 Run it from the repository root:
 
 ```bash
@@ -13,6 +17,38 @@ python eng/eval-quality/check_eval_quality.py --all    # audit every eval suite
 python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fires
 ```
 
+The gate has **23 failing checks**. It proves deterministic structure and reference integrity. It
+does not decide whether a scenario is necessary, whether it belongs to the target, whether a prompt
+sounds like a real developer request, or whether the scenario portfolio has product value.
+
+## Author and reviewer acceptance model
+
+Apply these checks before treating a passing gate as a good eval:
+
+1. **Necessity and fit:** a preference case should improve the outcome. A dormancy contract or
+   no-op guard may instead protect a meaningful routing or preservation invariant with
+   baseline-equivalent correct behavior. Do not measure generic knowledge, path recall, or an
+   unreachable reference skill.
+2. **Tags and distinct value:** every stimulus in a `type: capability` eval has stable `capability`,
+   `risk`, and `journey` tags, including dormancy cases. Each preference-eligible case adds a
+   different capability, risk, or customer journey.
+3. **Natural prompt:** the request does not name the target, quote its vocabulary, disclose the
+   solution, or prescribe its workflow.
+4. **Deterministic outcome:** graders prove the required response and workspace state over the
+   complete in-scope file set.
+5. **Golden acceptance:** the golden trajectory and patch pass all applicable deterministic
+   graders.
+6. **Mutation rejection:** a realistic broken result fails the grader that protects the behavior.
+7. **Restraint:** rewrite skills include an already-correct no-op case, and routing boundaries use
+   `tags.expect_activation: "false"` without a disallowed `skill-invocation` grader.
+8. **Power:** task breadth is sized for the expected tie rate, not only the five-stimulus floor.
+9. **Production execution:** Vally parses skill evals, the native SDK lane parses agent evals, and
+   each eval completes under normal worker concurrency and its declared time budget.
+10. **Cross-family evidence:** broad routing or behavior changes have separate GPT-family and
+    Claude-family results. These are sensitivity checks, not extra stimulus votes.
+11. **Failure classification:** fixture, spec-load, reliability, power, design, content, routing,
+    and cost failures are separated before skill content changes.
+
 By default, the gate enforces structural checks on eval suites changed since
 the previous commit. Pull-request CI passes `--base-ref` explicitly, so every
 fixture, reference, or spec changed by the PR is checked as one suite. This is
@@ -21,7 +57,11 @@ focused change, but editing that suite requires it to meet the current rules.
 The one non-semantic exception is moving an unchanged `executionShard` value
 from the rejected legacy top-level key into `tags.executionShard`; the gate
 compares normalized base/current content and ignores the suite only when that
-metadata relocation is its sole change.
+metadata relocation is its sole change. The same narrow normalization applies
+when a suite changes only to replace removed Vally aliases: `config` to
+`defaults`, activation and shell-denial metadata to quoted string tags, and
+legacy expected/rejected tool or skill constraints to built-in graders. Any
+other content difference keeps the suite in scope.
 Use `--all` for a repository-wide migration audit.
 
 ## Failing checks
@@ -169,7 +209,7 @@ have hijacked the request. The head-to-head score is then biased or pure judge
 noise. Across four dormancy evals using this pattern the same guard scored −0.4,
 +0.4, +0.4 and 0, and twice cost a skill its pass.
 
-For an off-target request, use `expect_activation: false` **alone** (see
+For an off-target request, use `tags.expect_activation: "false"` **alone** (see
 `agent.test-quality-auditor`, `agent.test-migration`,
 `system-text-json-net11`), so the skill is actually loaded and the guard
 measures the real property. The gate rejects every dormancy guard that also
@@ -194,7 +234,7 @@ The repository gate therefore collapses repeated runs to one majority-direction
 vote per preference-eligible stimulus, then applies an exact one-sided **sign
 test**: more stimulus wins than losses at `p ≤ 0.05`. Five in-scope stimuli run
 three times produce 15 paired runs for reliability analysis, but only five gate
-votes. A sixth `expect_activation: false` stimulus is separate activation
+votes. A sixth `tags.expect_activation: "false"` stimulus is separate activation
 contract evidence and does not increase that count.
 
 The sign test cannot reach 5% on fewer than five discordant (non-tie) votes:
@@ -281,8 +321,10 @@ silent clone of the "production code unavailable" one:
   - name: Grade C# tests with the production code available
     prompt: |            # <- overwritten
       ...
-    constraints:
-      reject_tools: [edit, create]
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
     prompt: |            # <- leftover tail; this is the one that survives
       ...Payments.Tests/PaymentGatewayTests.cs...
 ```
@@ -297,7 +339,15 @@ Fix it by deleting the stray block. Check it really is stray first: compare it
 against the scenario it duplicates before removing it, so a genuinely distinct
 scenario that merely lost its `- name:` line is restored rather than dropped.
 
-### 10. Duplicate stimulus names
+### 10. Deprecated top-level `config:` alias
+
+Current Vally releases reject the removed top-level `config:` alias. The gate
+requires `defaults:` so every eval uses the supported settings schema.
+
+Rename `config:` to `defaults:` and preserve its `timeout`, `runs`, and other
+settings. Do not keep both keys.
+
+### 11. Duplicate stimulus names
 
 Vally pairs baseline and treatment trajectories by `(stimulus name, trial
 index)`. Two stimuli with the same name therefore create ambiguous comparison
@@ -305,7 +355,7 @@ slots even when their prompts differ. The authoring gate requires every
 stimulus name in one eval to be unique; the runtime adapter also rejects missing
 or duplicate comparison slot identities.
 
-### 11. Stimulus-level timeout
+### 12. Stimulus-level timeout
 
 Vally supports `defaults.timeout` for an eval. Its stimulus schema has no
 top-level `timeout`, so this shape parses but the runner silently keeps the
@@ -322,7 +372,7 @@ stimuli:
 This can leave a trial failing at six minutes even though the spec appears to
 give it ten. Set a truthful suite-level budget in `defaults.timeout` instead.
 
-### 12. Unquoted rubric code token treated as a YAML comment
+### 13. Unquoted rubric code token treated as a YAML comment
 
 YAML treats `#` as the start of a comment when whitespace precedes it in a
 plain scalar. A rubric such as this parses successfully but enforces only
@@ -338,13 +388,13 @@ The same defect affects C# preprocessor tokens such as `#if`, `#nullable`, and
 scalars and only these known code-token forms. It does not reject ordinary
 comments. Quote the whole rubric item when it contains such a token.
 
-### 13. Golden trajectory or patch missing on disk
+### 14. Golden trajectory or patch missing on disk
 
 A stimulus points at a `golden_trajectory.path` or `golden_patch.path` that does
 not exist. Vally cannot load the oracle, so the trial cannot prove the reference
 behavior.
 
-### 14. Golden trajectory or patch not tracked by git
+### 15. Golden trajectory or patch not tracked by git
 
 The reference exists in the local working tree but is absent from the git
 index. Local validation can read it, while CI receives an eval that points at a
@@ -352,7 +402,7 @@ file that was never checked out. The gate checks both trajectory JSON and patch
 files with the same index-only rule used for fixtures. If the reference is a
 symlink, both the link and its contained target must be tracked.
 
-### 15. Golden patch does not apply to declared fixture inputs
+### 16. Golden patch does not apply to declared fixture inputs
 
 A patch can remain present and tracked after its fixture changes, but its
 preimage no longer exists. The gate materializes each stimulus's declared
@@ -361,15 +411,16 @@ preimage no longer exists. The gate materializes each stimulus's declared
 broken oracle. Stimuli whose workspace is created only by commands are not
 checked because their preimage cannot be reconstructed statically.
 
-Materialization is fail-closed. Fixture sources, destinations, and reference
-paths must be relative, cannot contain `..`, and must resolve within their
-declared suite or scratch-workspace root. Fixture and reference symlinks are
-checked explicitly, including links nested inside a contained symlinked
-directory; any link that resolves outside its suite is rejected. These rules
-stop an eval from copying or reading unrelated host files while the gate checks
-a patch.
+Materialization is fail-closed. Each mapping-style `environment.files` entry
+must declare a non-empty string `dest`; otherwise Vally rejects the specification
+before execution. Fixture sources, destinations, and reference paths must also
+be relative, cannot contain `..`, and must resolve within their declared suite
+or scratch-workspace root. Fixture and reference symlinks are checked
+explicitly, including links nested inside a contained symlinked directory; any
+link that resolves outside its suite is rejected. These rules stop an eval from
+copying or reading unrelated host files while the gate checks a patch.
 
-### 16. Output grader has a patch but no response trajectory
+### 17. Output grader has a patch but no response trajectory
 
 A golden patch supplies workspace state, not assistant output. If a stimulus
 uses an `output-*` grader with only `golden_patch`, its reference has no response
@@ -461,6 +512,13 @@ claim requires a `run-command` grader so the oracle replays the evidence. Use
 expected-result voice when neither form of evidence exists. These checks inspect
 both string messages and text inside multipart ATIF content. The gate also
 rejects a complete rubric item copied into the response.
+
+### 23. Environment fixture mapping has no destination
+
+Every mapping-style `environment.files` entry must declare a non-empty string
+`dest`, at both suite and stimulus scope. Vally rejects the entire eval before
+loading any stimuli when a destination is missing or empty, even if the source
+exists and is tracked.
 
 ## Why the gate scores direction, not magnitude
 
@@ -565,7 +623,7 @@ such an eval would make the number worse, not better.
 The honest coverage for these is **dependency-level**: they are exercised
 through the evals of the skills that load them (for example `run-tests` and
 `mtp-hot-reload` load `platform-detection` and `filter-syntax`, the polyglot
-analysis skills load `test-analysis-extensions`, and `code-testing-agent` loads
+analysis skills load `test-analysis-extensions`, and `code-testing` loads
 `code-testing-extensions`), and in the plugin arm, where the whole plugin is
 loaded. Closing this properly needs harness support for declaring a dependency
 in the skilled variant, not a per-skill eval file.

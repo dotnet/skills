@@ -6,7 +6,7 @@ description: >
   assertions, swallowed/broad exceptions, flaky/order-dependent tests,
   duplication, or magic values. Polyglot. DO NOT USE for direct edits:
   writing-mstest-tests owns supplied MSTest assertions/attributes/lifecycle;
-  code-testing-agent owns new tests. Exclude running tests, migration, assertion
+  code-testing owns new tests. Exclude running tests, migration, assertion
   metrics (assertion-quality), raw .NET coverage collection (run-tests),
   non-.NET coverage collection/analysis (native tooling), project-wide .NET coverage/CRAP
   (coverage-analysis), named-target .NET CRAP
@@ -20,9 +20,10 @@ license: MIT
 
 Quick, pragmatic analysis of test code in any supported language for anti-patterns and quality issues that undermine test reliability, maintainability, and diagnostic value.
 
-> **Language-specific guidance**: Try `test-analysis-extensions` once. If it is
-> unavailable, continue immediately with this skill's built-in framework rules;
-> never block the audit on the helper.
+> **Language-specific guidance**: Read the caller-provided or runtime-listed
+> `test-analysis-extensions` catalog and its matching language file when needed.
+> Do not invoke the reference-only
+> helper. If its files are absent, use the built-in framework rules below.
 
 ## When to Use
 
@@ -34,7 +35,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 ## When Not to Use
 
-- User wants to write new tests from scratch (use `code-testing-agent`)
+- User wants to write new tests from scratch (use `code-testing`)
 - User wants direct implementation fixes rather than a diagnostic review (use the relevant write/edit skill)
 - User asks to fix swapped `Assert.AreEqual` argument order in MSTest (use `writing-mstest-tests`)
 - User asks to convert MSTest `DynamicData` from `IEnumerable<object[]>` to `ValueTuple` (use `writing-mstest-tests`)
@@ -73,8 +74,10 @@ file that a permitted reader can access; never ask the user to paste it. If
 every permitted reader fails, report the exact blocker without bypassing
 security boundaries.
 
-Identify the language and framework. Try the matching
-`test-analysis-extensions` guidance once; if unavailable, use the catalog below.
+Identify the language and framework. Read the matching bundled reference when
+needed, resolving its filename relative to the supplied catalog.
+Check only that known reference directory, never installation directories.
+If unavailable, use the catalog below and report the reference limitation.
 
 ### Step 2: Gather the test code
 

@@ -55,7 +55,7 @@ function writeAgentEval(root, scenarioCount = 5, nonActivationScenarios = []) {
     const name = `Scenario ${index + 1}`;
     return `
   - name: ${name}
-${nonActivation.has(name) ? "    expect_activation: false\n" : ""}    prompt: Route this request.
+${nonActivation.has(name) ? '    tags:\n      expect_activation: "false"\n' : ""}    prompt: Route this request.
     rubric:
       - Completed the task`;
   });
@@ -111,6 +111,106 @@ function runAdapter(root, verdict) {
   ], { encoding: "utf8" });
   return { output, result };
 }
+
+test("workflow packages retain their own identity, activation and offline lane", () => {
+  const root = mkdtempSync(join(tmpdir(), "workflow-adapter-"));
+  try {
+    const evalFile = "tests/agentic-workflows/demo/eval.yaml";
+    mkdirSync(dirname(join(root, evalFile)), { recursive: true });
+    writeFileSync(join(root, evalFile), `name: demo
+stimuli:
+${Array.from({ length: 5 }, (_, index) => `  - name: Scenario ${index + 1}
+    prompt: Review fixture evidence.
+    rubric: [Identified the supported finding]
+`).join("")}`);
+    writeFileSync(join(root, "expected.txt"), `${evalFile}\n`);
+    const scenarios = Array.from({ length: 5 }, (_, index) => ({
+      ...winningScenario(index + 1),
+      subagentActivationIsolated: { invokedAgents: ["workflow.demo"], subagentEventCount: 1 },
+      subagentActivationPlugin: { invokedAgents: ["workflow.demo", "demo"], subagentEventCount: 2 },
+    }));
+    const { output, result } = runAdapter(root, {
+      skillName: "demo",
+      skillKind: "workflow",
+      skillPath: join(root, "agentic-workflows", "demo", "aw.yml"),
+      scenarios,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const adapted = JSON.parse(readFileSync(join(output, "agentic-workflows", "demo", "results.json")));
+    assert.equal(adapted.evaluationLane, "workflow-prompt-sdk");
+    assert.equal(adapted.verdicts[0].skillKind, "workflow");
+    assert.equal(adapted.verdicts[0].skillName, "demo");
+    assert.equal(adapted.verdicts[0].skillPath, "agentic-workflows/demo/aw.yml");
+    assert.equal(adapted.verdicts[0].scenarios[0].agentActivationIsolated.activated, true);
+    assert.equal(adapted.verdicts[0].passed, true);
+    for (const scenario of adapted.verdicts[0].scenarios) {
+      scenario.skillActivationIsolated = { activated: false, detectedSkills: [] };
+      scenario.skillActivationPlugin = { activated: false, detectedSkills: [] };
+    }
+    const resultsFile = join(output, "agentic-workflows", "demo", "results.json");
+    writeFileSync(resultsFile, JSON.stringify(adapted));
+    const revision = "a".repeat(40);
+    const dashboardOutput = join(root, "dashboard");
+    const dashboardArgs = [
+      "-NoLogo", "-NoProfile", "-NonInteractive", "-File", dashboardScript,
+      "-ResultsFile", resultsFile,
+      "-PluginName", "agentic-workflows",
+      "-OutputDir", dashboardOutput,
+      "-CommitJson", JSON.stringify({ id: revision }),
+      "-SkipTokenUsage",
+    ];
+    const dashboardResult = spawnSync("pwsh", dashboardArgs, { encoding: "utf8" });
+    assert.equal(dashboardResult.status, 0, dashboardResult.stdout + dashboardResult.stderr);
+    const benchmark = JSON.parse(readFileSync(join(dashboardOutput, "agentic-workflows.json"), "utf8"));
+    const evidence = benchmark.entries.Quality[0].verdictEvidence[0];
+    assert.equal(evidence.skillKind, "workflow");
+    assert.equal(evidence.evaluationLane, "workflow-prompt-sdk");
+    assert.ok(evidence.activationScenarios.every((scenario) =>
+      scenario.isolated === "activated" && scenario.plugin === "activated"));
+    assert.deepEqual(evidence.activationScenarios[0].invokedAgents, ["workflow.demo"]);
+    assert.equal(evidence.activationScenarios[0].isolatedCompleted, true);
+    assert.equal(evidence.activationScenarios[0].pluginCompleted, true);
+    assert.deepEqual(evidence.links, [{
+      label: "Workflow source",
+      url: `https://github.com/dotnet/skills/blob/${revision}/agentic-workflows/demo/aw.yml`,
+    }, {
+      label: "Eval source",
+      url: `https://github.com/dotnet/skills/blob/${revision}/${evalFile}`,
+    }]);
+    const value = benchmark.entries.SkillValue[0].skills[0];
+    assert.equal(value.activationExpected, 5);
+    assert.equal(value.activationFired, 5);
+    delete adapted.verdicts[0].scenarios[0].agentActivationIsolated;
+    delete adapted.verdicts[0].scenarios[0].agentActivationPlugin;
+    adapted.verdicts[0].scenarios[0].skillActivationIsolated.activated = true;
+    adapted.verdicts[0].scenarios[0].skillActivationPlugin.activated = true;
+    writeFileSync(resultsFile, JSON.stringify(adapted));
+    const missingActivation = spawnSync("pwsh", dashboardArgs, { encoding: "utf8" });
+    assert.equal(missingActivation.status, 0, missingActivation.stdout + missingActivation.stderr);
+    const missingBenchmark = JSON.parse(readFileSync(join(dashboardOutput, "agentic-workflows.json"), "utf8"));
+    const missingEvidence = missingBenchmark.entries.Quality[0].verdictEvidence[0];
+    assert.equal(missingEvidence.activationScenarios[0].isolated, "unknown");
+    assert.equal(missingEvidence.activationScenarios[0].plugin, null);
+    assert.equal(missingBenchmark.entries.SkillValue[0].skills[0].activationFired, 4);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("workflow result cannot masquerade as a different package", () => {
+  const root = mkdtempSync(join(tmpdir(), "workflow-adapter-invalid-"));
+  try {
+    writeFileSync(join(root, "expected.txt"), "tests/agentic-workflows/demo/eval.yaml\n");
+    const { result } = runAdapter(root, {
+      skillName: "other", skillKind: "workflow",
+      skillPath: "agentic-workflows/demo/aw.yml", scenarios: [],
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /invalid package identity/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("converts native agent results into schema-version-5 agent evidence", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-"));
@@ -431,12 +531,14 @@ test("marks observed agents outside the manifest as unexpected", () => {
   try {
     const evalFile = writeAgentEval(root);
     writeFileSync(join(root, "expected.txt"), "tests/demo/agent.other/eval.yaml\n");
+    const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
+    scenarios.at(-1).pairwiseResult.overallWinner = "baseline";
     const { output, result } = runAdapter(root, {
       skillName: "router",
       skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
       skillKind: "agent",
       passed: true,
-      scenarios: [1, 2, 3, 4, 5].map(winningScenario),
+      scenarios,
     });
 
     assert.equal(result.status, 0, result.stderr);
@@ -445,8 +547,11 @@ test("marks observed agents outside the manifest as unexpected", () => {
     );
     assert.equal(adapted.evalFile, evalFile);
     assert.equal(adapted.expectedEval, false);
+    assert.equal(adapted.verdicts[0].signTest.wins, 4);
+    assert.equal(adapted.verdicts[0].signTest.losses, 1);
     assert.equal(adapted.verdicts[0].state, "INVALID_INCONCLUSIVE");
     assert.equal(adapted.verdicts[0].stateReason.code, "unexpected_eval");
+    assert.equal(adapted.verdicts[0].noChangeDiagnosis, null);
     const summary = JSON.parse(
       readFileSync(join(output, "adapter-summary.json"), "utf8"),
     );
@@ -614,6 +719,42 @@ test("preserves a native target-agent activation failure", () => {
     assert.equal(verdict.stateReason.code, "target_agent_not_activated");
     assert.equal(verdict.passed, false);
     assert.match(verdict.reason, /target agent did not activate/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("activation failure clears a stale positive preference diagnosis", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-activation-diagnosis-"));
+  try {
+    writeAgentEval(root);
+    const scenarios = [1, 2, 3, 4, 5].map((index) => {
+      const scenario = winningScenario(index);
+      scenario.subagentActivationIsolated.invokedAgents = ["helper"];
+      scenario.subagentActivationPlugin.invokedAgents = ["helper"];
+      return scenario;
+    });
+    scenarios.at(-1).pairwiseResult.overallWinner = "baseline";
+
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.signTest.wins, 4);
+    assert.equal(verdict.signTest.losses, 1);
+    assert.equal(verdict.state, "VALID_NO_CHANGE");
+    assert.equal(verdict.stateReason.code, "target_agent_not_activated");
+    assert.equal(verdict.noChangeDiagnosis, null);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

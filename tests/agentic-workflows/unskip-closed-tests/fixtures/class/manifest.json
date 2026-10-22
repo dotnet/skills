@@ -1,0 +1,61 @@
+{
+  "schema_version": "1",
+  "repository": "fixture/repo",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "git_object_format": "sha1",
+  "config_digest": "49ea7b693a67dd367e3d4fbdcae49587e4b5859e35276047b5ce6538df59497d",
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "b3699ac60cd9bb0b7ab6e1fe1e9b0c61f38a74f1f95b4b9c014414b918ca464a",
+      "stable_owner_id": "0ce9a4ce1dc953e970d256b927121461d18a8fb3f7d761d1e16181ffa434c41c",
+      "path": "repo/Tests.cs",
+      "blob_oid": "ee008aba4461830020ba653888d850084703bab1",
+      "source_sha256": "9e331fee879a8439091743bf66ab38cca9e9db18363b5c454ca4cd5ab269f97b",
+      "attribute_span": {
+        "start": 17,
+        "length": 52,
+        "start_line": 2,
+        "start_column": 2,
+        "end_line": 2,
+        "end_column": 54
+      },
+      "attribute_text_sha256": "08da3c98101ce090d46b4f28980172258e2a2088d7eb24dc18ce7b500b09caf3",
+      "attribute_type": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+      "owner": {
+        "kind": "class",
+        "namespace": "Demo",
+        "containing_types": [
+          "Tests"
+        ],
+        "type_fqn": "Demo.Tests",
+        "declaration_id": "T:Demo.Tests",
+        "method_name": "",
+        "method_signature": "",
+        "test_fqns": [
+          "Demo.Tests.First",
+          "Demo.Tests.Second"
+        ]
+      },
+      "canonical_issue_references": [
+        {
+          "kind": "issue",
+          "owner": "fixture",
+          "repo": "repo",
+          "number": 106,
+          "canonical": "fixture/repo#106",
+          "url": "https://github.com/fixture/repo/issues/106",
+          "eligibility": true,
+          "state": "closed",
+          "state_reason": "completed",
+          "merged_at": null
+        }
+      ],
+      "decision": {
+        "eligible": true,
+        "deferrals": []
+      }
+    }
+  ],
+  "manifest_digest": "5973fdcddb461a80792073fd85c38e133c1e4e20c792b77835af84a7b61e354c"
+}

@@ -1,0 +1,8 @@
+{
+  "leg": "Windows Release",
+  "overview": {"exit_code": 1, "failed_targets": ["CoreCompile"], "framework": "net8.0"},
+  "errors": [
+    {"id": "worker-a", "code": "CS1061", "message": "'Buffer' does not contain a definition for 'Flush'", "file": "repo/WorkerA.cs", "line": 4, "project": "WorkerA"},
+    {"id": "worker-b", "code": "CS1061", "message": "'Buffer' does not contain a definition for 'Flush'", "file": "repo/WorkerB.cs", "line": 4, "project": "WorkerB"}
+  ]
+}

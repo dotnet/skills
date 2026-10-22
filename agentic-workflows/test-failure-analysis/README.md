@@ -242,6 +242,35 @@ For external test systems, the collector downloads and normalizes their results,
 then uploads the bounded artifact to this repository's Actions run. The analyst
 never contacts the external system.
 
+## Offline decision evaluation
+
+From a `dotnet/skills` checkout:
+
+```powershell
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate `
+  agentic-workflows/test-failure-analysis/aw.yml `
+  --tests-dir tests/agentic-workflows --runs 1 --verdict-warn-only
+```
+
+The twelve scenarios provide committed normalized collector bundles and
+simulated current PR/comment state. The native prompt lane loads the packaged
+prompt/import bodies and analyst, stages runtime resources at their installed
+`.github` paths, and grades proposed actions in `result.json`. Coverage
+includes terminal failures across modules, retry recovery, hangs, crashes,
+duration policy boundaries, incomplete evidence/history, trusted lifecycle
+ordering, forged markers, empty results, and stale tested revisions.
+
+This is offline prompt/decision evidence, not collector/sanitizer execution,
+artifact download, live GitHub/CI access, test execution, or safe-output
+publication. See
+[`tests/agentic-workflows`](../../tests/agentic-workflows/README.md) for the
+result contract and deterministic grader regression command. Results are
+labelled `skillKind=workflow`, `evaluationLane=workflow-prompt-sdk`.
+The lane is **not gh-aw Actions E2E**. Only main/imported Markdown bodies are
+composed as prompts; frontmatter jobs/steps are not executed. Each case stages
+flat string-valued expression context plus simulated exported runtime
+variables and normalized collector evidence.
+
 ## Provenance
 
 The provider-neutral architecture and analysis lifecycle were generalized from

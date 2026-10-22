@@ -776,7 +776,7 @@ test("plugin activation ignores sibling skills when the target stays dormant", (
   assert.equal(verdict.scenarios[0].skillActivationPlugin.activatedRuns, undefined);
 });
 
-test("dormancy parser matches PyYAML Boolean false spellings exactly", () => {
+test("dormancy parser reads false string tags and rejects similar values", () => {
   const root = mkdtempSync(join(tmpdir(), "vally-dormancy-yaml-"));
   try {
     writeFileSync(
@@ -784,53 +784,26 @@ test("dormancy parser matches PyYAML Boolean false spellings exactly", () => {
       [
         "stimuli:",
         "  - name: LowerFalse",
-        "    expect_activation: false",
-        "  - name: TitleFalse",
-        "    expect_activation: False",
-        "  - name: UpperFalse",
-        "    expect_activation: FALSE",
-        "  - name: LowerNo",
-        "    expect_activation: no",
-        "  - name: TitleNo",
-        "    expect_activation: No",
-        "  - name: UpperNo",
-        "    expect_activation: NO",
-        "  - name: LowerOff",
-        "    expect_activation: off",
-        "  - name: TitleOff",
-        "    expect_activation: Off",
-        "  - name: UpperOff",
-        "    expect_activation: OFF",
-        "  - name: SingleLetter",
-        "    expect_activation: n",
-        "  - name: MixedCase",
-        "    expect_activation: fAlse",
+        '    tags: {expect_activation: "false"}',
         "  - name: Commented",
-        "    expect_activation: false # dormancy contract",
+        "    tags:",
+        '      expect_activation: "false" # dormancy contract',
+        "  - name: MixedCase",
+        "    tags:",
+        '      expect_activation: "fAlSe"',
         "  - name: CommentWithoutSeparator",
-        "    expect_activation: false#not-a-comment",
+        "    tags:",
+        '      expect_activation: "false#not-a-comment"',
         "  - name: Prefix",
-        "    expect_activation: off-target",
-        "  - name: Quoted",
-        '    expect_activation: "false"',
+        "    tags:",
+        '      expect_activation: "off-target"',
         "",
       ].join("\n"),
     );
 
     assert.deepEqual(
       [...readNonActivationStimuli("eval.yaml", root)],
-      [
-        "LowerFalse",
-        "TitleFalse",
-        "UpperFalse",
-        "LowerNo",
-        "TitleNo",
-        "UpperNo",
-        "LowerOff",
-        "TitleOff",
-        "UpperOff",
-        "Commented",
-      ],
+      ["LowerFalse", "Commented", "MixedCase"],
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -845,9 +818,11 @@ test("dormancy parser reads a zero-indent stimuli sequence", () => {
       [
         "stimuli:",
         "- name: Dormant",
-        "  expect_activation: false",
+        "  tags:",
+        '    expect_activation: "false"',
         "- name: Active",
-        "  expect_activation: true",
+        "  tags:",
+        '    expect_activation: "true"',
         "defaults:",
         "  runs: 1",
         "",
@@ -860,6 +835,34 @@ test("dormancy parser reads a zero-indent stimuli sequence", () => {
   }
 });
 
+test("dormancy parser treats equivalent nested tag indentation identically", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-indent-"));
+  try {
+    const evalLines = (expectActivationIndent) => [
+      "stimuli:",
+      "  - name: Dormant",
+      "    tags:",
+      `${" ".repeat(expectActivationIndent)}expect_activation: "false"`,
+      "  - name: Active",
+      "    tags:",
+      `${" ".repeat(expectActivationIndent)}expect_activation: "true"`,
+      "",
+    ].join("\n");
+    writeFileSync(
+      join(root, "two-space.yaml"),
+      evalLines(6),
+    );
+    writeFileSync(join(root, "four-space.yaml"), evalLines(8));
+
+    const conventional = readNonActivationStimuli("two-space.yaml", root);
+    const deeper = readNonActivationStimuli("four-space.yaml", root);
+    assert.deepEqual([...deeper], [...conventional]);
+    assert.deepEqual([...deeper], ["Dormant"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("dormancy parser reads flow-mapping stimuli", () => {
   const root = mkdtempSync(join(tmpdir(), "vally-dormancy-flow-"));
   try {
@@ -867,9 +870,9 @@ test("dormancy parser reads flow-mapping stimuli", () => {
       join(root, "eval.yaml"),
       [
         "stimuli:",
-        "  - {name: Dormant, expect_activation: false}",
-        "  - {expect_activation: false, name: 'Dormant, quoted'}",
-        "  - {name: Active, expect_activation: true}",
+        '  - {name: Dormant, tags: {expect_activation: "false"}}',
+        '  - {tags: {expect_activation: "false"}, name: "Dormant, quoted"}',
+        '  - {name: Active, tags: {expect_activation: "true"}}',
         "",
       ].join("\n"),
     );
@@ -877,6 +880,126 @@ test("dormancy parser reads flow-mapping stimuli", () => {
     assert.deepEqual(
       [...readNonActivationStimuli("eval.yaml", root)],
       ["Dormant", "Dormant, quoted"],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("dormancy parser reads leading tags keys", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-leading-tags-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        "  - tags:",
+        '      expect_activation: "false"',
+        "    name: BlockTagsFirst",
+        '  - tags: {expect_activation: "false"}',
+        "    name: FlowTagsFirst",
+        "",
+      ].join("\n"),
+    );
+
+    assert.deepEqual(
+      [...readNonActivationStimuli("eval.yaml", root)],
+      ["BlockTagsFirst", "FlowTagsFirst"],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("dormancy parser reads wrapped flow-style tags", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-wrapped-tags-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        "  - tags: {capability: routing-boundary,",
+        '      expect_activation: "false"}',
+        "    name: WrappedFlowTags",
+        "",
+      ].join("\n"),
+    );
+
+    assert.deepEqual(
+      [...readNonActivationStimuli("eval.yaml", root)],
+      ["WrappedFlowTags"],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("dormancy parser reads comments in wrapped flow-style tags", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-commented-flow-tags-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        "  - tags: {capability: routing-boundary, # routing metadata",
+        '      note: "keep # inside quotes",',
+        '      expect_activation: "false"}',
+        "    name: CommentedWrappedFlowTags",
+        "",
+      ].join("\n"),
+    );
+
+    assert.deepEqual(
+      [...readNonActivationStimuli("eval.yaml", root)],
+      ["CommentedWrappedFlowTags"],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("dormancy parser rejects an incomplete flow-style tags mapping", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-invalid-flow-tags-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        '  - tags: {expect_activation: "false"',
+        "    name: InvalidFlowTags",
+        "",
+      ].join("\n"),
+    );
+
+    assert.throws(
+      () => readNonActivationStimuli("eval.yaml", root),
+      /cannot parse tags flow mapping/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("dormancy parser ignores name metadata inside leading tags", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-tag-name-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        '  - tags: {name: flow-metadata, expect_activation: "false"}',
+        "    name: FlowTagsFirst",
+        "  - tags:",
+        "      name: block-metadata",
+        '      expect_activation: "false"',
+        "    name: BlockTagsFirst",
+        "",
+      ].join("\n"),
+    );
+
+    assert.deepEqual(
+      [...readNonActivationStimuli("eval.yaml", root)],
+      ["FlowTagsFirst", "BlockTagsFirst"],
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -1338,6 +1461,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   assert.equal(v.signTest.discordant, 1);
   assert.equal(v.passed, false);
   assert.equal(v.regressed, false);
+  assert.equal(v.noChangeDiagnosis, "positive_tie_limited");
   assert.match(v.reason, /4 of 5 preference-eligible stimulus vote\(s\) tied, leaving only 1 discordant preference vote\(s\)/);
   assert.match(v.reason, /no record could have passed here — this is not a measured null/);
   assert.match(v.reason, /inert/);
@@ -1347,6 +1471,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   const four = gate([0.4, 0.4, 0.4, 0.4, 0]);
   assert.equal(four.signTest.discordant, 4);
   assert.equal(four.passed, false);
+  assert.equal(four.noChangeDiagnosis, "positive_tie_limited");
   assert.match(four.reason, /no record could have passed here/);
 
   // Five discordant stimulus votes is where the test becomes winnable, so a record that
@@ -1354,6 +1479,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   const winnable = gate([0.4, 0.4, 0.4, 0.4, -0.4]);
   assert.equal(winnable.signTest.discordant, 5);
   assert.equal(winnable.passed, false);
+  assert.equal(winnable.noChangeDiagnosis, "positive_unproven");
   assert.match(winnable.reason, /not credible \(sign test p=/);
   assert.doesNotMatch(winnable.reason, /no record could have passed/);
 });
@@ -1379,7 +1505,12 @@ test("the gate ignores the statistics vally reports", () => {
 });
 
 test("losses sink a verdict, and a clean sweep of them is a credible regression", () => {
-  assert.equal(gate([0.4, 0.4, 0.4, -0.4, -0.4, -0.4]).passed, false, "even split");
+  const even = gate([0.4, 0.4, 0.4, -0.4, -0.4, -0.4]);
+  assert.equal(even.passed, false, "even split");
+  assert.equal(even.noChangeDiagnosis, "mixed");
+  const baselineLean = gate([0.4, -0.4, -0.4, -0.4, -0.4]);
+  assert.equal(baselineLean.regressed, false);
+  assert.equal(baselineLean.noChangeDiagnosis, "negative_unproven");
   const swept = gate([-0.4, -0.4, -0.4, -0.4, -0.4]);
   assert.equal(swept.passed, false);
   assert.equal(swept.regressed, true);
@@ -1500,6 +1631,11 @@ test("the practical net-win floor rejects sparse wins among many ties", () => {
   assert.equal(sparse.passed, false);
   assert.equal(sparse.state, VERDICT_STATES.VALID_NO_CHANGE);
   assert.equal(sparse.stateReason.code, "practical_effect_below_floor");
+  assert.equal(sparse.noChangeDiagnosis, "positive_sparse");
+
+  const sparseLoss = gate([...Array(95).fill(0), ...Array(5).fill(-0.4)]);
+  assert.equal(sparseLoss.stateReason.code, "practical_effect_below_floor");
+  assert.equal(sparseLoss.noChangeDiagnosis, "negative_sparse");
 
   const boundary = gate([...Array(5).fill(0.4), ...Array(20).fill(0)]);
   assert.equal(boundary.netWin, MIN_PRACTICAL_NET_WIN);

@@ -503,7 +503,9 @@ public static class RejudgeCommand
         bool requireCompletion,
         double confidenceLevel)
     {
-        var target = new SkillInfo(targetName, "", targetPath, targetPath, "");
+        var workflow = isAgent && Path.GetFileName(targetPath).Equals("aw.yml", StringComparison.OrdinalIgnoreCase);
+        var publishedName = workflow ? Path.GetFileName(Path.GetDirectoryName(targetPath)!) : targetName;
+        var target = new SkillInfo(publishedName, "", targetPath, targetPath, "");
         if (!isAgent)
         {
             var skillPreferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
@@ -525,7 +527,7 @@ public static class RejudgeCommand
         var verdict = Comparator.ComputeAgentVerdict(
             target, agentPreferenceComparisons, minImprovement, requireCompletion, confidenceLevel,
             reportedComparisons: comparisons);
-        verdict.SkillKind = "agent";
+        verdict.SkillKind = workflow ? "workflow" : "agent";
         EvaluateCommand.ApplyAgentActivationGate(verdict, comparisons, targetName, _ => { });
         EvaluateCommand.ApplyExecutionErrorGate(verdict, comparisons, _ => { });
         return verdict;
@@ -974,6 +976,7 @@ public static class RejudgeCommand
         var pluginMetrics = pluginSess?.MetricsJson is not null
             ? JsonSerializer.Deserialize(pluginSess.MetricsJson, SkillValidatorJsonContext.Default.RunMetrics)
             : null;
+        scenario = RestoreExecutionContract(scenario, isolatedMetrics);
 
         var judgeWorkRoot = CreateJudgeWorkDir("rejudge");
         try
@@ -1096,6 +1099,21 @@ public static class RejudgeCommand
     {
         return AgentRunner.CreatePrivateWorkDir(prefix);
     }
+
+    internal static EvalScenario RestoreExecutionContract(EvalScenario scenario, RunMetrics metrics) =>
+        scenario with
+        {
+            DenyShell = scenario.DenyShell
+                || metrics.AssertionResults.Any(result => result.Assertion.Type == AssertionType.ShellDenied)
+                || metrics.Events.Any(evt => evt.Type == "evaluator.shell_denied"),
+            RejectAgents = metrics.AssertionResults
+                .Where(result => result.Assertion.Type == AssertionType.RejectAgents)
+                .Select(result => result.Assertion.Value
+                    ?? throw new InvalidOperationException("Saved reject_agents assertion has no agent name."))
+                .ToArray(),
+            RejectShellRetries = metrics.AssertionResults.Any(
+                result => result.Assertion.Type == AssertionType.RejectShellRetries),
+        };
 
     private static string CreateJudgeWorkDir(string root, string name)
     {

@@ -357,6 +357,36 @@ public class EvaluateConstraintsTests
     }
 
     [TestMethod]
+    public void ShellDenialRequiresTrustedRejectionEvidence()
+    {
+        var scenario = MakeScenario() with { DenyShell = true };
+        var metrics = MakeMetrics();
+        metrics.AgentOutput = "Shell was denied. PARTIAL.";
+        metrics.Events.Add(new AgentEvent("assistant.message", 0, []));
+        metrics.Events.Add(new AgentEvent("tool.execution_start", 0,
+            new() { ["toolName"] = JsonValue.Create("bash") }));
+
+        var result = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(scenario, metrics));
+
+        Assert.AreEqual(AssertionType.ShellDenied, result.Assertion.Type);
+        Assert.IsFalse(result.Passed);
+        Assert.Contains("not exercised", result.Message);
+    }
+
+    [TestMethod]
+    public void ShellDenialPassesWithEvaluatorRejectionEvent()
+    {
+        var scenario = MakeScenario() with { DenyShell = true };
+        var metrics = MakeMetrics();
+        metrics.Events.Add(new AgentEvent("evaluator.shell_denied", 0,
+            new() { ["sessionId"] = JsonValue.Create("nested-session") }));
+
+        var result = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(scenario, metrics));
+
+        Assert.IsTrue(result.Passed);
+    }
+
+    [TestMethod]
     public void ExpectToolsPassesWhenToolWasUsed()
     {
         var results = AssertionEvaluator.EvaluateConstraints(

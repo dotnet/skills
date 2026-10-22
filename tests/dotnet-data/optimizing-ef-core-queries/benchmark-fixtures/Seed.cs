@@ -148,7 +148,7 @@ internal static class Seed
 
     // Orders slice shared by the order-list benchmarks (GetOrdersOverTotal,
     // GetPendingOrders). A large table with sequential ids, a spread of totals, unique
-    // timestamps and a minority of "Pending" rows, so a query that pulls the whole table
+    // timestamps independent of insertion IDs and a minority of "Pending" rows, so a query that pulls the whole table
     // to the app tier to filter/sort is clearly slower than one that lets the
     // database filter and order.
     public static void Orders(SqliteConnection connection)
@@ -171,7 +171,7 @@ internal static class Seed
             orders.Add(new Order
             {
                 CustomerId = 1 + (i % 100),
-                CreatedAt = start.AddMinutes(i), // unique per row
+                CreatedAt = start.AddMinutes((i * 7919) % 15000), // unique and independent of insertion ID
                 Total = rng.Next(10, 500),
                 Status = i % 10 == 0 ? "Pending" : "Complete",
             });

@@ -82,6 +82,16 @@ concurrency:
 
 timeout-minutes: 30
 
+graders:
+  operational-value:
+    name: Build Failure Analysis Terminal Outcome Conformance
+    description: >-
+      Whether the run requested exactly one evidence-bearing summary or one
+      justified noop without contradictory terminal outputs
+    unit: ratio
+    direction: higher_is_better
+    run: .github/graders/build-failure-analysis-operational-value.sh
+
 imports:
   - build-failure-analysis-fetch.md
   - build-failure-analysis-shared.md

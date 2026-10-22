@@ -388,7 +388,7 @@ function makeRepository(): InvoiceRepository & { find: ReturnType<typeof vi.fn>;
 
 ## Sample Final Report
 
-What `code-testing-generator` produces at Step 9:
+What `test-engineer` produces at Step 9:
 
 ```markdown
 ## Test Generation Report

@@ -261,6 +261,14 @@ mod tests {
         assert_eq!(Err(InvoiceError::AlreadyPaid), service.mark_as_paid(1));
         assert!(service.repository.updated.is_none());
     }
+
+    #[test]
+    fn mark_as_paid_missing_invoice_returns_not_found_without_update() {
+        let mut service = service_with(FakeRepository::default());
+
+        assert_eq!(Err(InvoiceError::NotFound(999)), service.mark_as_paid(999));
+        assert!(service.repository.updated.is_none());
+    }
 }
 ```
 
@@ -307,18 +315,18 @@ error[E0432]: unresolved import `crate::invoice_service`
 ### Results
 | Metric         | Value |
 |----------------|-------|
-| Tests created  | 7     |
-| Tests passing  | 7     |
+| Tests created  | 8     |
+| Tests passing  | 8     |
 | Tests failing  | 0     |
 | Files created  | 0 (tests appended to source module) |
 
 ### Files Modified
-- `src/invoice_service.rs` (7 unit tests in `#[cfg(test)] mod tests`)
+- `src/invoice_service.rs` (8 unit tests in `#[cfg(test)] mod tests`; 3 calculation rows run within one test)
 
 ### Coverage
 - InvoiceService::calculate_total — 3 happy path, 1 error case
 - InvoiceService::get_by_id — found, missing, repository error
-- InvoiceService::mark_as_paid — success and already-paid branches
+- InvoiceService::mark_as_paid — success, already-paid and missing-invoice branches; error cases do not update the repository
 
 ### Build / Test Validation
 - Check: ✅ `cargo check --all-targets`
