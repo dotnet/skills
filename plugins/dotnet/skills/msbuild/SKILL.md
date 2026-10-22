@@ -7,8 +7,9 @@ license: MIT
 # MSBuild troubleshooting
 
 This is the entry skill. Choose **troubleshooting**, **performance**, or **authoring review**, then
-read only the relevant local references. The references retain the content and identities of
-the original MSBuild skills, with correctness fixes; they are not separate skills to activate.
+read only the reference that resolves the next unknown, not every link in the selected lane.
+The references retain the original MSBuild guidance, with correctness fixes; they are not
+separate skills to activate.
 
 ## Start with the task and evidence
 
@@ -47,6 +48,14 @@ Do not turn a targeted failure investigation into solution-wide authoring cleanu
 **Goal:** measure the reported scenario, identify its bottleneck, change one cause, and compare
 equivalent builds without losing required behavior.
 
+For a self-contained timing question, assess the supplied evidence and give the smallest useful
+answer; do not discover a checkout or load a diagnostic workflow just to assess a claim.
+Compare the **old and new setting values**, holding the command, restore policy, input/output
+starting state, configuration, and instrumentation constant. Do not substitute restore versus
+no-restore for an unspecified setting. Accept adequately controlled measurements within their
+reported scope; identify confounds otherwise. Stop after the assessment/plan when only advice
+was requested.
+
 1. Reuse matching measurements. If they are missing, establish the relevant baseline before
    editing configuration; do not time a failed build as a successful baseline.
 2. Classify evaluation versus target/task execution. Inclusive target totals and dependency waits
@@ -82,6 +91,16 @@ Record the existing contract before editing. Review only relevant catalog entrie
 pattern is not proof of a defect. Leave already-correct patterns unchanged. Validate the original
 configurations, relevant consumers, and affected incremental/pack/publish behavior.
 
+Keep optional and required imports distinct, including inside aggregation files:
+
+```xml
+<Import Project="optional.targets" Condition="Exists('optional.targets')" />
+<Import Project="required.targets" />
+```
+
+The required import must load or fail, not silently skip. Check optional present/absent crossed
+with required present/absent, preserving the intended import order when both exist.
+
 ## Shared evidence and safety
 
 - For capture-only requests, use [binlog-generation](references/binlog-generation.md), report the
@@ -89,8 +108,10 @@ configurations, relevant consumers, and affected incremental/pack/publish behavi
   [MSBuild replay](references/binlog-failure-analysis.md#replay-a-binary-log), never binary-file
   text parsing. Replay success and replay duration are not the recorded build's result or duration.
 - Resolve these files relative to this skill. Do not load the original plugin's skills or search
-  other installations/checkouts. If a bundled reference is missing, allow one listing of
-  `references`, report the gap, and do not pretend its guidance was followed.
+  other installations/checkouts. After a failed reference read, allow one listing of `references`
+  to distinguish a missing bundled file from a present-but-unreadable tool integration failure.
+  Report the error and reduced coverage; do not retry through shell commands or other readers,
+  and do not pretend unread guidance was followed. Never work around a policy denial.
 - Do not clean outputs/caches, stop shared build servers, disable diagnostics, change SDKs, or
   serialize builds as generic fixes. Scope any necessary destructive experiment to approved,
   owned outputs. Keep binary and replayed logs local unless sharing is authorized.

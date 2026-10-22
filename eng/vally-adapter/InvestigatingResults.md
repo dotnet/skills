@@ -91,6 +91,38 @@ Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
 
+### SDK reference file access
+
+A staged reference can exist while `view` reports `Path does not exist`. Older
+logged Vally runs exposed only native session storage through the filesystem
+provider, excluding the trial workspace. These were runner failures, not proof
+that the skill omitted its references. The current Vally 0.18 pin already
+includes the upstream native-filesystem/session-history repair; retain it
+rather than restoring the old log-root provider or disabling session logging.
+
+Run a separate smoke before interpreting preference or efficiency changes:
+
+```powershell
+node eng\evaluation-tools\smoke-skill-references.mjs --skill plugins\dotnet\skills\msbuild --model gpt-5.6-luna --output eval-results\msbuild-reference-smoke-luna
+```
+
+Use a new output directory and repeat for the executor/host being qualified.
+The smoke stages the skill and reads each bundled reference with the real
+`view` tool exactly once, through the normal logged SDK lane. It checks returned
+content and canonical requested paths, rejecting retries, shell recovery,
+alternate-checkout reads, and missing reads.
+
+The output retains raw events, the trajectory, entry/reference hashes,
+configured package versions, explicit runtime overrides, and observed runtime
+versions. The SDK can select a nested CLI rather than the direct CLI package:
+read the observed session-start identity instead of inferring it from a
+package label. Success with logging disabled would not qualify the logged lane.
+
+This smoke is not answer-quality, activation, coexistence, or non-SDK-host
+evidence. Freeze the skill while isolating reader repairs, then use matched
+runs for content changes; do not infer token, latency, or billing savings from
+a successful file read.
+
 ### Investigation steps
 
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`

@@ -52,6 +52,17 @@ Point `EXPERIMENT_FILE` at that experiment when running `eng/run-skill-evals.sh 
 Inspect its activation traces for duplicate workflows and out-of-scope activation;
 the isolated arm's dormancy contract alone does not prove cross-plugin routing.
 
+The entry eval executes the optional/required import matrix, packs and builds a
+local-feed consumer of the valid NuGet import, and checks catalog generation
+across edits, input additions/removals, missing outputs, and unchanged builds.
+Its golden patches and mutation checks protect behavior rather than particular
+XML spellings.
+
+Before comparing model results, run the
+[installed-reference smoke](../../eng/vally-adapter/InvestigatingResults.md#sdk-reference-file-access)
+with the intended executor. It verifies actual `view` results through the logged
+Vally/Copilot SDK lane; file existence alone does not prove reference access.
+
 ### C# expert marketplace routing
 
 `csharp-expert` routes a .NET request to an installed specialist or identifies the smallest

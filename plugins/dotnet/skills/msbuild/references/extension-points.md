@@ -4,6 +4,19 @@ Based on the original `extension-points` skill: import hooks, wildcard extension
 properties, NuGet build assets, import guards, and Directory.Build discovery.
 Use it for a specific import/hook failure or requested authoring modernization.
 
+## Optional versus required imports
+
+Guard **optional** imports; a required import must load or fail explicitly when missing:
+
+```xml
+<Import Project="optional.targets" Condition="Exists('optional.targets')" />
+<Import Project="required.targets" />
+```
+
+Do not let a mixed-list condition or a copied optional-file guard suppress a required import.
+Test all four optional-present/absent and required-present/absent combinations, including
+import order when both exist. An aggregation file must preserve the same distinction.
+
 ## CustomBefore / CustomAfter hooks
 
 Common MSBuild targets expose hooks such as:
@@ -55,9 +68,9 @@ If the prior value is already a list, inspect its contract and give each optiona
 own guard in the aggregation file instead of passing that list to a single `Exists()`.
 Verify both the present and absent optional-hook cases, preserving the intended import order.
 
-Guard **optional** imports; required imports should fail explicitly when missing. Defaults that
-refer to installed MSBuild extensions can include a toolset/version segment for side-by-side
-installations. Do not overwrite a configured hook or disable all imports to hide one bad file.
+Defaults that refer to installed MSBuild extensions can include a toolset/version segment for
+side-by-side installations. Do not overwrite a configured hook or disable all imports to hide
+one bad file.
 
 For target execution rather than file imports, prefer uniquely named targets with
 `BeforeTargets`/`AfterTargets`, or extend a documented `...DependsOn` property while preserving its
