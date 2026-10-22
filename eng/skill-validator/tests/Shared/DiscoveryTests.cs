@@ -2,37 +2,40 @@ using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
+[TestClass]
 public class DiscoverSkillsTests
 {
+    public TestContext TestContext { get; set; } = null!;
+
     private static string FixturesPath => Path.Combine(AppContext.BaseDirectory, "fixtures");
 
-    [Fact]
+    [TestMethod]
     public async Task DiscoversASingleSkillDirectly()
     {
         var skills = await SkillDiscovery.DiscoverSkills(Path.Combine(FixturesPath, "sample-skill"));
-        Assert.Single(skills);
-        Assert.Equal("sample-skill", skills[0].Name);
+        Assert.ContainsSingle(skills);
+        Assert.AreEqual("sample-skill", skills[0].Name);
         Assert.Contains("greeting", skills[0].Description);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DiscoversSkillsInParentDirectory()
     {
         var skills = await SkillDiscovery.DiscoverSkills(FixturesPath);
-        Assert.True(skills.Count >= 2);
+        Assert.IsTrue(skills.Count >= 2);
         var names = skills.Select(s => s.Name).ToList();
         Assert.Contains("sample-skill", names);
         Assert.Contains("no-eval-skill", names);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task HandlesSkillWithNoEvalYaml()
     {
         var skills = await SkillDiscovery.DiscoverSkills(Path.Combine(FixturesPath, "no-eval-skill"));
-        Assert.Single(skills);
+        Assert.ContainsSingle(skills);
     }
 
-    [Fact]
+    [TestMethod]
     public async Task ReturnsEmptyForNonSkillDirectory()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"skill-test-{Guid.NewGuid():N}");
@@ -40,7 +43,7 @@ public class DiscoverSkillsTests
         try
         {
             var skills = await SkillDiscovery.DiscoverSkills(tmpDir);
-            Assert.Empty(skills);
+            Assert.IsEmpty(skills);
         }
         finally
         {
@@ -48,7 +51,7 @@ public class DiscoverSkillsTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DiscoverSkillsRecursiveFindsNestedSkills()
     {
         // Simulates plugins/<plugin>/skills/<skill>/SKILL.md layout
@@ -59,14 +62,14 @@ public class DiscoverSkillsTests
         Directory.CreateDirectory(skill2Dir);
         try
         {
-            await File.WriteAllTextAsync(Path.Combine(skill1Dir, "SKILL.md"), "---\nname: skill-one\ndescription: first\n---\nBody", TestContext.Current.CancellationToken);
-            await File.WriteAllTextAsync(Path.Combine(skill2Dir, "SKILL.md"), "---\nname: skill-two\ndescription: second\n---\nBody", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(skill1Dir, "SKILL.md"), "---\nname: skill-one\ndescription: first\n---\nBody", TestContext.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(skill2Dir, "SKILL.md"), "---\nname: skill-two\ndescription: second\n---\nBody", TestContext.CancellationToken);
 
             var skills = await SkillDiscovery.DiscoverSkillsRecursive(tmpDir);
-            Assert.Equal(2, skills.Count);
+            Assert.AreEqual(2, skills.Count);
             var names = skills.Select(s => s.Name).OrderBy(n => n).ToList();
-            Assert.Equal("skill-one", names[0]);
-            Assert.Equal("skill-two", names[1]);
+            Assert.AreEqual("skill-one", names[0]);
+            Assert.AreEqual("skill-two", names[1]);
         }
         finally
         {
@@ -74,33 +77,34 @@ public class DiscoverSkillsTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DiscoverSkillsRecursiveReturnsEmptyForMissingDir()
     {
         var skills = await SkillDiscovery.DiscoverSkillsRecursive(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
-        Assert.Empty(skills);
+        Assert.IsEmpty(skills);
     }
 }
 
+[TestClass]
 public class ParseFrontmatterTests
 {
-    [Fact]
+    [TestMethod]
     public void DisableModelInvocation_True_WhenTopLevelKeySet()
     {
         var content = "---\nname: my-skill\ndescription: A skill.\ndisable-model-invocation: true\n---\nBody";
         var (metadata, _) = SkillDiscovery.ParseFrontmatter(content);
-        Assert.True(metadata.DisableModelInvocation);
+        Assert.IsTrue(metadata.DisableModelInvocation);
     }
 
-    [Fact]
+    [TestMethod]
     public void DisableModelInvocation_False_WhenKeyAbsent()
     {
         var content = "---\nname: my-skill\ndescription: A skill.\n---\nBody";
         var (metadata, _) = SkillDiscovery.ParseFrontmatter(content);
-        Assert.False(metadata.DisableModelInvocation);
+        Assert.IsFalse(metadata.DisableModelInvocation);
     }
 
-    [Fact]
+    [TestMethod]
     public void DisableModelInvocation_False_WhenKeyAppearsInsideBlockScalarDescription()
     {
         // Regression: a previous regex-based check matched any line in the YAML,
@@ -116,13 +120,14 @@ public class ParseFrontmatterTests
             "---\n" +
             "Body";
         var (metadata, _) = SkillDiscovery.ParseFrontmatter(content);
-        Assert.False(metadata.DisableModelInvocation);
+        Assert.IsFalse(metadata.DisableModelInvocation);
     }
 }
 
+[TestClass]
 public class PluginDiscoveryTests
 {
-    [Fact]
+    [TestMethod]
     public void FindPluginContextReturnsNullWithoutPluginJson()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"ctx-test-{Guid.NewGuid():N}");
@@ -131,7 +136,7 @@ public class PluginDiscoveryTests
         {
             var skill = new SkillInfo("test", "T", tmpDir, Path.Combine(tmpDir, "SKILL.md"), "# T");
             var result = PluginDiscovery.FindPluginContext(skill);
-            Assert.Null(result);
+            Assert.IsNull(result);
         }
         finally
         {
@@ -139,7 +144,7 @@ public class PluginDiscoveryTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public void FindPluginContextReturnsPluginInfo()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"ctx-test-{Guid.NewGuid():N}");
@@ -151,8 +156,8 @@ public class PluginDiscoveryTests
             File.WriteAllText(Path.Combine(pluginDir, "plugin.json"), """{ "name": "my-plugin" }""");
             var skill = new SkillInfo("test-skill", "T", skillDir, Path.Combine(skillDir, "SKILL.md"), "# T");
             var result = PluginDiscovery.FindPluginContext(skill);
-            Assert.NotNull(result);
-            Assert.Equal(pluginDir, result!.Value.PluginRoot);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(pluginDir, result!.Value.PluginRoot);
         }
         finally
         {

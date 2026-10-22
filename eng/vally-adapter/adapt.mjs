@@ -234,15 +234,13 @@ function evalIdentity(evalFile) {
   return { skill, plugin, skillPath: `plugins/${plugin}/skills/${skill}` };
 }
 
-// Read the set of stimulus names annotated `expect_activation: false` from an
-// eval spec. Vally itself ignores this field (its loader validates known keys
-// by type but tolerates extras); the adapter uses it so a scenario where the
-// skill is *expected to stay dormant* isn't flagged on the dashboard as a
-// missing activation. This is a deliberately small, block-scalar-aware YAML
-// scan rather than a full parser so the adapter keeps its zero-dependency
-// contract (no `yaml` module is guaranteed on CI runners). Reading the spec is
-// required because silently defaulting to expect-activation can remove an
-// explicit dormancy contract from the pass gate.
+// Read the set of stimulus names whose `tags.expect_activation` value is
+// "false". Repository metadata lives in tags so Vally validates and preserves
+// it without requiring a custom schema extension. This is a deliberately small,
+// block-scalar-aware YAML scan rather than a full parser so the adapter keeps
+// its zero-dependency contract (no `yaml` module is guaranteed on CI runners).
+// Reading the spec is required because silently defaulting to expected
+// activation can remove an explicit dormancy contract from the pass gate.
 function readNonActivationStimuli(evalFile, repoRoot) {
   const path = resolve(repoRoot ?? ".", evalFile);
   let text;
@@ -263,8 +261,30 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     }
     return t;
   };
-  const isFalsey = (v) =>
-    /^(?:false|False|FALSE|no|No|NO|off|Off|OFF)(?:\s+#.*)?$/.test(v.trim());
+  const isFalsey = (v) => {
+    const withoutComment = v.trim().replace(/\s+#.*$/, "");
+    return /^(?:false|no|off)$/i.test(unquote(withoutComment));
+  };
+  const stripYamlComment = (value) => {
+    let quote = null;
+    let escaped = false;
+    for (let index = 0; index < value.length; index++) {
+      const char = value[index];
+      if (quote === '"') {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === quote) quote = null;
+      } else if (quote === "'") {
+        if (char === "'" && value[index + 1] === "'") index++;
+        else if (char === quote) quote = null;
+      } else if (char === '"' || char === "'") {
+        quote = char;
+      } else if (char === "#" && (index === 0 || /\s/.test(value[index - 1]))) {
+        return value.slice(0, index).trimEnd();
+      }
+    }
+    return value;
+  };
   const result = new Set();
 
   const flowMappingEntries = (value) => {
@@ -316,6 +336,8 @@ function readNonActivationStimuli(evalFile, repoRoot) {
 
   let itemDashIndent = null; // indent of each stimulus item's leading dash
   let keyIndent = null; // column where an item's mapping keys begin
+  let tagsIndent = null;
+  let inTagsBlock = false;
   let curName = null;
   let curNonActivation = false;
   const flush = () => {
@@ -325,7 +347,34 @@ function readNonActivationStimuli(evalFile, repoRoot) {
   };
   const applyKey = (key, val) => {
     if (key === "name" && curName === null) curName = unquote(val);
+    // Legacy direct metadata remains readable for old stored evals.
     else if (key === "expect_activation") curNonActivation = isFalsey(val);
+  };
+  const applyTagKey = (key, val) => {
+    if (key === "expect_activation") curNonActivation = isFalsey(val);
+  };
+  const applyTags = (value) => {
+    const entries = flowMappingEntries(value);
+    if (!entries) return false;
+    for (const entry of entries) {
+      const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
+      if (kv) applyTagKey(kv[1], kv[2]);
+    }
+    return true;
+  };
+  const applyTagsValue = (value) => {
+    if (!value.trimStart().startsWith("{")) return applyTags(value);
+
+    let completeValue = stripYamlComment(value);
+    while (!applyTags(completeValue)) {
+      const nextLine = lines[i + 1];
+      if (nextLine === undefined || indentOf(nextLine) <= keyIndent) {
+        throw new Error(`cannot parse tags flow mapping in eval spec ${evalFile}`);
+      }
+      i++;
+      completeValue += ` ${stripYamlComment(nextLine.trim())}`;
+    }
+    return true;
   };
   // Skip a block scalar's body: every following line that is blank or indented
   // deeper than the owning key, so prompt text can't be misread as keys.
@@ -346,16 +395,23 @@ function readNonActivationStimuli(evalFile, repoRoot) {
       itemDashIndent = ind;
       const rest = dash[2];
       keyIndent = line.length - rest.length;
+      tagsIndent = null;
+      inTagsBlock = false;
       const flowEntries = flowMappingEntries(rest);
       if (flowEntries) {
         for (const entry of flowEntries) {
           const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
-          if (kv) applyKey(kv[1], kv[2]);
+          if (kv?.[1] === "tags") applyTagsValue(kv[2]);
+          else if (kv) applyKey(kv[1], kv[2]);
         }
       } else {
         const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(rest);
         if (kv) {
-          applyKey(kv[1], kv[2]);
+          if (kv[1] === "tags") {
+            inTagsBlock = !applyTagsValue(kv[2]);
+          } else {
+            applyKey(kv[1], kv[2]);
+          }
           skipBlockScalar(kv[2]);
         }
       }
@@ -371,8 +427,16 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     if (keyIndent !== null && ind === keyIndent) {
       const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(line.slice(keyIndent));
       if (kv) {
-        applyKey(kv[1], kv[2]);
+        inTagsBlock = kv[1] === "tags" && !applyTagsValue(kv[2]);
+        tagsIndent = null;
+        if (kv[1] !== "tags") applyKey(kv[1], kv[2]);
         skipBlockScalar(kv[2]);
+      }
+    } else if (inTagsBlock && keyIndent !== null && ind > keyIndent) {
+      tagsIndent ??= ind;
+      if (ind === tagsIndent) {
+        const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(line.slice(tagsIndent));
+        if (kv) applyTagKey(kv[1], kv[2]);
       }
     }
   }
@@ -419,13 +483,120 @@ function mean(nums) {
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 }
 
+function skillNameFromActivationEvent(event) {
+  if (
+    event?.type !== "skill_activation"
+    && event?.type !== "skill.invoked"
+    && event?.type !== "skill.loaded"
+    && event?.type !== "skill.activated"
+  ) {
+    return null;
+  }
+  return event?.data?.name ?? event?.data?.skillName ?? null;
+}
+
+function targetActivationCount(record, targetSkillName = null) {
+  if (!targetSkillName) {
+    return record.trajectory?.metrics?.skillActivationCount ?? 0;
+  }
+
+  const target = targetSkillName.toLowerCase();
+  return (record.trajectory?.events ?? []).filter((event) =>
+    skillNameFromActivationEvent(event)?.toLowerCase() === target
+  ).length;
+}
+
+function continuedAfterSkillActivation(record, targetSkillName = null) {
+  const events = record.trajectory?.events;
+  if (!Array.isArray(events) || events.length === 0) return null;
+
+  let activated = false;
+  for (const event of events) {
+    const activatedSkill = skillNameFromActivationEvent(event);
+    if (
+      activatedSkill
+      && (!targetSkillName || activatedSkill.toLowerCase() === targetSkillName.toLowerCase())
+    ) {
+      activated = true;
+      continue;
+    }
+    if (
+      activated
+      && (event?.type === "tool_call" || event?.type === "tool.execution_start")
+    ) {
+      const toolName = event?.data?.toolName ?? event?.data?.name;
+      if (toolName && toolName !== "skill") return true;
+    }
+  }
+
+  return activated ? false : null;
+}
+
+function postActivationFromRecords(records, targetSkillName = null) {
+  const summary = {
+    activatedRuns: 0,
+    continuedRuns: 0,
+    activationOnlyCompletions: 0,
+    failedActivationOnlyCompletions: 0,
+    unclassifiedRuns: 0,
+  };
+
+  for (const record of records ?? []) {
+    const metrics = record.trajectory?.metrics;
+    const activationCount = targetActivationCount(record, targetSkillName);
+    if (activationCount <= 0) continue;
+
+    summary.activatedRuns += 1;
+    const orderedContinuation = continuedAfterSkillActivation(record, targetSkillName);
+    if (orderedContinuation === true) {
+      summary.continuedRuns += 1;
+      continue;
+    }
+    if (
+      orderedContinuation === false
+      && record.trajectory?.endReason === "completed"
+    ) {
+      summary.activationOnlyCompletions += 1;
+      if (record.gradeResult?.passed === false) {
+        summary.failedActivationOnlyCompletions += 1;
+      }
+      continue;
+    }
+
+    const toolCallCount = metrics?.toolCallCount;
+    const skillToolCallCount =
+      metrics?.toolCallBreakdown?.skill ?? activationCount;
+    if (!Number.isFinite(toolCallCount) || !Number.isFinite(skillToolCallCount)) {
+      summary.unclassifiedRuns += 1;
+      continue;
+    }
+
+    if (
+      orderedContinuation === null
+      && toolCallCount === skillToolCallCount
+      && toolCallCount > 0
+      && record.trajectory?.endReason === "completed"
+    ) {
+      summary.activationOnlyCompletions += 1;
+      if (record.gradeResult?.passed === false) {
+        summary.failedActivationOnlyCompletions += 1;
+      }
+      continue;
+    }
+
+    summary.unclassifiedRuns += 1;
+  }
+
+  return summary.activatedRuns > 0 ? summary : null;
+}
+
 /**
  * Collapse one variant's records for a single stimulus into the absolute-role
  * shape the dashboard consumes: quality (0-5 overallScore), efficiency metrics
  * (wall time + token usage), activation, and timeout. With runs:1 there is one
  * record; multiple runs are averaged (activation/timeout are OR'd).
  */
-function roleFromRecords(records) {
+function roleFromRecords(records, targetSkillName = null) {
   if (!records || records.length === 0) return null;
 
   const overallScore = (() => {
@@ -451,10 +622,18 @@ function roleFromRecords(records) {
     };
   }
 
-  const activated = records.some((r) => (r.trajectory?.metrics?.skillActivationCount ?? 0) > 0);
+  const activated = records.some((record) =>
+    targetActivationCount(record, targetSkillName) > 0
+  );
   const timedOut = records.some((r) => r.trajectory?.endReason === "agent_timeout");
 
-  return { overallScore, activated, timedOut, metrics };
+  return {
+    overallScore,
+    activated,
+    timedOut,
+    metrics,
+    postActivation: postActivationFromRecords(records, targetSkillName),
+  };
 }
 
 // Dashboard role object: { judgeResult: { overallScore }, metrics }.
@@ -572,6 +751,29 @@ function trialDirection(trial) {
   if (winner === "tie") return 0;
   const score = trial.score;
   return typeof score === "number" ? Math.sign(score) : 0;
+}
+
+function classifyNoChangeEvidence({
+  wins,
+  ties,
+  losses,
+  discordant,
+  minCredibleStimuli = MIN_CREDIBLE_STIMULI,
+  reasonCode,
+}) {
+  if (reasonCode === "practical_effect_below_floor") {
+    return wins > losses ? "positive_sparse" : losses > wins ? "negative_sparse" : "mixed";
+  }
+  if (reasonCode !== "no_credible_preference_change") return null;
+  if (wins === 0 && losses === 0 && ties > 0) return "all_ties";
+  if (wins === losses && wins > 0) return "mixed";
+  if (wins > losses) {
+    return discordant < minCredibleStimuli ? "positive_tie_limited" : "positive_unproven";
+  }
+  if (losses > wins) {
+    return discordant < minCredibleStimuli ? "negative_tie_limited" : "negative_unproven";
+  }
+  return null;
 }
 
 function classifyComparisonError(evidence) {
@@ -808,6 +1010,470 @@ function mergeComparisonReports(primaryReport, retryReport) {
 }
 
 /**
+ * A comparison retry judges the whole slice again, so one unlucky judge session
+ * can time out twice in a row and strand an otherwise-complete measurement. The
+ * targeted pass below re-judges only the individual slots that are still errored
+ * for a transient reason, which is both cheaper and far less likely to repeat
+ * the stall. Keep it small: more than a handful of stranded slots is a systemic
+ * judge outage, not bad luck, and must stay measurement-invalid.
+ */
+const MAX_TARGETED_COMPARISON_SLOTS = 3;
+
+/** Trial index encoded in a Vally executor shardKey (`...::trial-<n>`). */
+function recordTrialIndex(record) {
+  const match = /::trial-(\d+)$/.exec(String(record?.shardKey ?? ""));
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * The completed executor trajectories behind one comparison slot.
+ *
+ * Uses the same canonical stimulus accessor as the rest of the adapter, so a
+ * record that carries its stimulus under `gradeResult.stimulusName` or
+ * `stimulusName` is matched exactly as it is everywhere else.
+ */
+function recordsForComparisonSlot(records, stimulusName, trialIndex) {
+  return (records ?? []).filter(
+    (record) =>
+      // `stimulusOf` dereferences the record directly, so guard it here: a
+      // truncated or partly written trajectory file can yield a null entry, and
+      // a throw would take down the whole recovery pass.
+      record != null &&
+      stimulusOf(record) === stimulusName &&
+      recordTrialIndex(record) === trialIndex,
+  );
+}
+
+function isCompleteExecutorRecord(record) {
+  return (
+    record?.type === "trial-result" &&
+    record.status === "success" &&
+    record.trajectory != null
+  );
+}
+
+function trialIndexEvidenceForStimulus(records, stimulusName, expectedVariant) {
+  const indices = new Set();
+  const counts = new Map();
+  let invalidCount = 0;
+  const variantMismatches = [];
+  for (const record of records ?? []) {
+    if (record == null || stimulusOf(record) !== stimulusName) continue;
+    const trialIndex = recordTrialIndex(record);
+    if (record.variant != null && record.variant !== expectedVariant) {
+      variantMismatches.push({
+        trialIndex: Number.isInteger(trialIndex) ? trialIndex : null,
+        variant: record.variant,
+      });
+    }
+    if (!Number.isInteger(trialIndex) || trialIndex < 0) {
+      invalidCount++;
+    } else {
+      indices.add(trialIndex);
+      counts.set(trialIndex, (counts.get(trialIndex) ?? 0) + 1);
+    }
+  }
+  const duplicateIndices = [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([trialIndex]) => trialIndex);
+  return { indices, invalidCount, duplicateIndices, variantMismatches };
+}
+
+function sameIntegerSet(left, right) {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
+function targetedSlotIdentityErrors(
+  report,
+  baselineRecords,
+  skilledRecords,
+  baselineVariant = "baseline",
+  skilledVariant = "skilled",
+) {
+  const errors = new Map();
+  for (const stimulus of report?.stimuli ?? []) {
+    const stimulusName = stimulus?.stimulusName;
+    if (!stimulusName) continue;
+    const comparisonIndices = new Set(
+      (stimulus.trials ?? [])
+        .map((trial) => trial?.trialIndex)
+        .filter((trialIndex) => Number.isInteger(trialIndex) && trialIndex >= 0),
+    );
+    const baselineEvidence = trialIndexEvidenceForStimulus(
+      baselineRecords,
+      stimulusName,
+      baselineVariant,
+    );
+    const skilledEvidence = trialIndexEvidenceForStimulus(
+      skilledRecords,
+      stimulusName,
+      skilledVariant,
+    );
+    const baselineIndices = baselineEvidence.indices;
+    const skilledIndices = skilledEvidence.indices;
+    if (
+      baselineEvidence.variantMismatches.length > 0 ||
+      skilledEvidence.variantMismatches.length > 0
+    ) {
+      const describe = (mismatches) =>
+        mismatches
+          .map(
+            ({ trialIndex, variant }) =>
+              `trial ${trialIndex ?? "<invalid>"}=${JSON.stringify(variant)}`,
+          )
+          .join(", ");
+      errors.set(stimulusName, {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_variant_mismatch",
+        message:
+          `Executor source-file variant mismatch for "${stimulusName}": ` +
+          `baseline expected ${JSON.stringify(baselineVariant)} ` +
+          `[${describe(baselineEvidence.variantMismatches)}], ` +
+          `skilled expected ${JSON.stringify(skilledVariant)} ` +
+          `[${describe(skilledEvidence.variantMismatches)}]`,
+      });
+      continue;
+    }
+    if (
+      baselineEvidence.invalidCount > 0 ||
+      skilledEvidence.invalidCount > 0 ||
+      baselineEvidence.duplicateIndices.length > 0 ||
+      skilledEvidence.duplicateIndices.length > 0 ||
+      !sameIntegerSet(comparisonIndices, baselineIndices) ||
+      !sameIntegerSet(comparisonIndices, skilledIndices)
+    ) {
+      const values = (set) => `[${[...set].sort((a, b) => a - b).join(", ")}]`;
+      errors.set(stimulusName, {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_trial_identity_mismatch",
+        message:
+          `Comparison/executor trial identity mismatch for "${stimulusName}": ` +
+          `comparison=${values(comparisonIndices)}, ` +
+          `baseline=${values(baselineIndices)} (${baselineEvidence.invalidCount} invalid, ` +
+          `${baselineEvidence.duplicateIndices.length} duplicate), ` +
+          `skilled=${values(skilledIndices)} (${skilledEvidence.invalidCount} invalid, ` +
+          `${skilledEvidence.duplicateIndices.length} duplicate)`,
+      });
+    }
+  }
+  return errors;
+}
+
+/**
+ * Slots that are still errored after the slice-level retry and whose latest
+ * failure is a transient judge fault (session.idle timeout, throttling, 5xx).
+ *
+ * Permanent and unclassifiable judge faults are never returned, and a trial that
+ * produced a verdict — including a loss or a dormancy-contract failure — is not
+ * errored at all, so it can never enter this list.
+ */
+function transientComparisonSlots(report) {
+  const keyCounts = comparisonTrialKeyCounts(report);
+  const slots = [];
+  for (const stimulus of report?.stimuli ?? []) {
+    for (const trial of stimulus.trials ?? []) {
+      if (!trial.errored) continue;
+      const key = comparisonTrialKey(stimulus.stimulusName, trial);
+      if (key === null || keyCounts.get(key) !== 1) continue;
+      const originalError = classifyComparisonError(trial.evidence);
+      const finalError = trial.retryError ?? originalError;
+      const coarseRetryCrashed =
+        finalError.code === "comparison_retry_invocation_failed";
+      if (finalError.kind !== "transient" && !(coarseRetryCrashed && originalError.kind === "transient")) {
+        continue;
+      }
+      slots.push({
+        key,
+        stimulusName: stimulus.stimulusName,
+        trialIndex: trial.trialIndex,
+        error: finalError.kind === "transient" ? finalError : originalError,
+        priorAttemptHistory:
+          report.retrySummary?.persistentErrors?.find(
+            (entry) =>
+              entry.stimulusName === stimulus.stimulusName
+              && entry.trialIndex === trial.trialIndex,
+          )?.attemptHistory ?? [
+            { attempt: 1, ...originalError },
+            ...(trial.retryError ? [{ attempt: 2, ...trial.retryError }] : []),
+          ],
+      });
+    }
+  }
+  return slots;
+}
+
+/**
+ * Re-judge one comparison slot from its preserved executor trajectories.
+ *
+ * The narrowed slice holds exactly one baseline and one treatment trajectory, so
+ * the retry report must describe exactly one trial for the planned stimulus. Any
+ * other shape is ambiguous and leaves the original error in place.
+ */
+function recoverComparisonSlot(slot, config) {
+  const baselineSlot = recordsForComparisonSlot(
+    config.baselineRecords,
+    slot.stimulusName,
+    slot.trialIndex,
+  );
+  const skilledSlot = recordsForComparisonSlot(
+    config.skilledRecords,
+    slot.stimulusName,
+    slot.trialIndex,
+  );
+  if (baselineSlot.length !== 1 || skilledSlot.length !== 1) {
+    // Missing evidence and duplicate evidence are different faults: the first
+    // means the slot has no preserved trajectory to re-judge, the second means
+    // the slot does not identify a single trajectory. Both are fail-closed, but
+    // they need different investigation, so they must not share one code.
+    const missing = baselineSlot.length === 0 || skilledSlot.length === 0;
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: missing
+          ? "targeted_slot_trajectory_missing"
+          : "targeted_slot_trajectory_ambiguous",
+        message:
+          `Expected exactly one preserved baseline and treatment trajectory for the slot, ` +
+          `found ${baselineSlot.length} baseline and ${skilledSlot.length} treatment record(s)`,
+      },
+    };
+  }
+  if (
+    !isCompleteExecutorRecord(baselineSlot[0]) ||
+    !isCompleteExecutorRecord(skilledSlot[0])
+  ) {
+    const describe = (record) =>
+      `type=${record?.type ?? "<missing>"} ` +
+      `status=${record?.status ?? "<missing>"} ` +
+      `trajectory=${record?.trajectory == null ? "missing" : "present"}`;
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_trajectory_incomplete",
+        message:
+          `Expected successful complete executor trajectories, found ` +
+          `baseline ${describe(baselineSlot[0])}; ` +
+          `treatment ${describe(skilledSlot[0])}`,
+      },
+    };
+  }
+
+  const baselineVariant = config.baselineVariant ?? "baseline";
+  const skilledVariant = config.skilledVariant ?? "skilled";
+  const baselineRecordVariant = baselineSlot[0]?.variant;
+  const skilledRecordVariant = skilledSlot[0]?.variant;
+  if (
+    (baselineRecordVariant != null && baselineRecordVariant !== baselineVariant)
+    || (skilledRecordVariant != null && skilledRecordVariant !== skilledVariant)
+  ) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_pairing",
+        kind: "permanent",
+        code: "targeted_slot_variant_mismatch",
+        message:
+          `Expected preserved variants ${baselineVariant}/${skilledVariant}, found ` +
+          `${baselineRecordVariant ?? "<source-file>"}/${skilledRecordVariant ?? "<source-file>"}`,
+      },
+    };
+  }
+
+  const stem = `${config.filePrefix}__slot${config.slotOrdinal}`;
+  const baselineSliceFile = join(config.workDir, `${stem}__baseline.jsonl`);
+  const skilledSliceFile = join(config.workDir, `${stem}__skilled.jsonl`);
+  const outFile = join(config.workDir, `${stem}__compare.jsonl`);
+  writeFileSync(baselineSliceFile, `${JSON.stringify(baselineSlot[0])}\n`);
+  writeFileSync(skilledSliceFile, `${JSON.stringify(skilledSlot[0])}\n`);
+
+  let retryReport;
+  try {
+    retryReport = config.compare(baselineSliceFile, skilledSliceFile, outFile);
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_judge",
+        kind: "unknown",
+        code: "targeted_retry_invocation_failed",
+        message: err instanceof Error ? err.message : String(err),
+      },
+    };
+  }
+
+  const allTrials = (retryReport?.stimuli ?? [])
+    .flatMap((stimulus) => stimulus.trials ?? []);
+  const trials = (retryReport?.stimuli ?? [])
+    .filter((stimulus) => stimulus.stimulusName === slot.stimulusName)
+    .flatMap((stimulus) => stimulus.trials ?? []);
+  if (allTrials.length !== 1 || trials.length !== 1) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_judge",
+        kind: "unknown",
+        code: "targeted_retry_result_ambiguous",
+        message:
+          `Targeted comparison retry returned ${allTrials.length} total trial(s), ` +
+          `${trials.length} for the planned slot`,
+      },
+    };
+  }
+  if (trials[0].errored) {
+    return { ok: false, error: classifyComparisonError(trials[0].evidence) };
+  }
+  const validWinner = new Set(["treatment", "baseline", "tie"]).has(
+    trials[0].winner,
+  );
+  if (!validWinner && !Number.isFinite(trials[0].score)) {
+    return {
+      ok: false,
+      error: {
+        phase: "comparison_judge",
+        kind: "permanent",
+        code: "targeted_retry_result_invalid",
+        message:
+          "Targeted comparison retry returned a trial without a valid winner or numeric score",
+      },
+    };
+  }
+  return { ok: true, trial: trials[0] };
+}
+
+/**
+ * Bounded recovery pass for transient comparison-judge faults.
+ *
+ * Re-judges each still-errored transient slot on its own, replaces only those
+ * slots, and leaves every successful judgment frozen. Unresolved slots stay
+ * errored so the measurement-validity gate keeps failing the leg.
+ */
+function recoverTransientComparisonSlots(primaryReport, config) {
+  const compare = config.compare ?? runCompare;
+  const maxSlots = config.maxSlots ?? MAX_TARGETED_COMPARISON_SLOTS;
+  const slots = transientComparisonSlots(primaryReport);
+  const identityErrors = targetedSlotIdentityErrors(
+    primaryReport,
+    config.baselineRecords,
+    config.skilledRecords,
+    config.baselineVariant ?? "baseline",
+    config.skilledVariant ?? "skilled",
+  );
+  const targeted = {
+    maxSlots,
+    plannedSlotCount: slots.length,
+    attemptedSlotCount: 0,
+    recoveredSlotCount: 0,
+    unresolvedSlotCount: 0,
+    skippedReason: null,
+    recoveredSlots: [],
+    unresolvedSlots: [],
+  };
+  if (slots.length === 0) return primaryReport;
+  if (slots.length > maxSlots) {
+    targeted.unresolvedSlotCount = slots.length;
+    targeted.skippedReason =
+      `${slots.length} comparison slot(s) remain transiently errored, above the ` +
+      `targeted recovery limit of ${maxSlots}; treating this as a systemic judge failure.`;
+    warn(targeted.skippedReason);
+    const skipped = structuredClone(primaryReport);
+    skipped.retrySummary = { ...(skipped.retrySummary ?? {}), targetedRecovery: targeted };
+    return skipped;
+  }
+
+  const recovered = new Map();
+  for (const [index, slot] of slots.entries()) {
+    warn(
+      `Re-judging transient comparison slot "${slot.stimulusName}" trial ${slot.trialIndex} ` +
+        `(${slot.error.code}) from preserved executor trajectories`,
+    );
+    targeted.attemptedSlotCount++;
+    const identityError = identityErrors.get(slot.stimulusName);
+    const outcome = identityError
+      ? { ok: false, error: identityError }
+      : recoverComparisonSlot(slot, {
+          ...config,
+          compare,
+          slotOrdinal: index + 1,
+        });
+    if (outcome.ok) {
+      recovered.set(slot.key, { slot, trial: outcome.trial });
+      targeted.recoveredSlotCount++;
+      targeted.recoveredSlots.push({
+        stimulusName: slot.stimulusName,
+        trialIndex: slot.trialIndex,
+        recoveredFrom: slot.error,
+      });
+    } else {
+      targeted.unresolvedSlotCount++;
+      targeted.unresolvedSlots.push({
+        stimulusName: slot.stimulusName,
+        trialIndex: slot.trialIndex,
+        attemptHistory: [
+          ...slot.priorAttemptHistory,
+          { attempt: 3, ...outcome.error },
+        ],
+      });
+    }
+  }
+
+  if (recovered.size === 0) {
+    const unchanged = structuredClone(primaryReport);
+    unchanged.retrySummary = { ...(unchanged.retrySummary ?? {}), targetedRecovery: targeted };
+    return unchanged;
+  }
+
+  const report = structuredClone(primaryReport);
+  for (const stimulus of report.stimuli ?? []) {
+    stimulus.trials = (stimulus.trials ?? []).map((trial) => {
+      const key = comparisonTrialKey(stimulus.stimulusName, trial);
+      const replacement = key === null ? undefined : recovered.get(key);
+      if (!trial.errored || !replacement) return trial;
+      return {
+        ...replacement.trial,
+        trialIndex: trial.trialIndex,
+        comparisonAttempt: 3,
+        targetedRecovery: true,
+        recoveredFrom: replacement.slot.error,
+      };
+    });
+  }
+
+  const previous = report.retrySummary ?? {};
+  const recoveredKeys = new Set(
+    [...recovered.values()].map((entry) =>
+      comparisonTrialKey(entry.slot.stimulusName, { trialIndex: entry.slot.trialIndex }),
+    ),
+  );
+  report.retrySummary = {
+    ...previous,
+    attempts: 3,
+    recoveredSlots: (previous.recoveredSlots ?? 0) + recovered.size,
+    recoveredErrors: [
+      ...(previous.recoveredErrors ?? []),
+      ...[...recovered.values()].map((entry) => ({
+        stimulusName: entry.slot.stimulusName,
+        trialIndex: entry.slot.trialIndex,
+        attempts: 3,
+        targetedRecovery: true,
+        ...entry.slot.error,
+      })),
+    ],
+    persistentErrors: (previous.persistentErrors ?? []).filter(
+      (entry) =>
+        !recoveredKeys.has(comparisonTrialKey(entry.stimulusName, { trialIndex: entry.trialIndex })),
+    ),
+    targetedRecovery: targeted,
+  };
+  return summarizeComparisonTrials(report, true);
+}
+
+/**
  * Run `vally compare` in two-run mode over one eval's baseline vs skilled
  * slices and return the parsed comparison record (or null on failure).
  */
@@ -922,7 +1588,7 @@ function pct(x) {
   return `${(x * 100).toFixed(1)}%`;
 }
 
-function comparisonToVerdict(report, identity, roles, nonActivationStims) {
+function comparisonToVerdict(report, identity, roles, nonActivationStims, targetKind = "skill") {
   const s = report.summary;
   const unmatchedBaseline = report.unmatchedBaseline ?? [];
   const unmatchedTreatment = report.unmatchedTreatment ?? [];
@@ -1024,22 +1690,31 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
 
   const { baselineByStim, skilledByStim, pluginByStim, hasPlugin } = roles;
 
-  // The authoritative scenario set is every stimulus that actually ran, in any
-  // variant, unioned with anything compare reported.
+  const observedStimulusNames = new Set([
+    ...skilledByStim.keys(),
+    ...baselineByStim.keys(),
+    ...(pluginByStim ? pluginByStim.keys() : []),
+    ...compareByStim.keys(),
+  ]);
+
+  // The authoritative scenario set includes every observed stimulus plus every
+  // declared dormancy contract. A missing dormant stimulus is retained as an
+  // explicit contract failure rather than disappearing from the verdict.
   const stimulusNames = [
     ...new Set([
-      ...skilledByStim.keys(),
-      ...baselineByStim.keys(),
-      ...(pluginByStim ? pluginByStim.keys() : []),
-      ...compareByStim.keys(),
+      ...observedStimulusNames,
+      ...nonActivation,
     ]),
   ].sort();
 
   const scenarios = stimulusNames.map((name) => {
     const st = compareByStim.get(name);
-    const baseline = roleFromRecords(baselineByStim.get(name));
-    const skilled = roleFromRecords(skilledByStim.get(name));
-    const plugin = hasPlugin ? roleFromRecords(pluginByStim.get(name)) : null;
+    const targetSkillName = targetKind === "skill" ? identity.skill : null;
+    const baseline = roleFromRecords(baselineByStim.get(name), targetSkillName);
+    const skilled = roleFromRecords(skilledByStim.get(name), targetSkillName);
+    const plugin = hasPlugin
+      ? roleFromRecords(pluginByStim.get(name), targetSkillName)
+      : null;
 
     // Per-scenario preference record, computed once rather than re-derived by
     // each renderer. Dormancy rows retain this evidence even though they do not
@@ -1070,7 +1745,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
         treatmentPassed: t.treatmentPassed ?? null,
         errored: t.errored ?? false,
       })),
-      // Absolute dashboard fields. `expect_activation: false` in the eval spec
+      // Absolute dashboard fields. `tags.expect_activation: "false"` in the eval spec
       // marks a scenario where the skill should stay dormant. It remains visible
       // as comparison and completion evidence, but it does not vote in the
       // preference gate.
@@ -1079,13 +1754,26 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
       preferenceGateExclusionReason: nonActivation.has(name)
         ? "activation_contract_only"
         : null,
+      observedInAnyRole: observedStimulusNames.has(name),
       timedOut: Boolean(skilled?.timedOut),
-      skillActivationIsolated: { activated: Boolean(skilled?.activated) },
+      skillActivationIsolated: {
+        activated: Boolean(skilled?.activated),
+        ...(skilled?.postActivation ?? {}),
+      },
       baseline: roleToDashboard(baseline),
       skilledIsolated: roleToDashboard(skilled),
     };
+    if (targetKind === "agent") {
+      scenario.agentActivationIsolated = { activated: Boolean(skilled?.activated) };
+    }
     if (hasPlugin) {
-      scenario.skillActivationPlugin = { activated: Boolean(plugin?.activated) };
+      scenario.skillActivationPlugin = {
+        activated: Boolean(plugin?.activated),
+        ...(plugin?.postActivation ?? {}),
+      };
+      if (targetKind === "agent") {
+        scenario.agentActivationPlugin = { activated: Boolean(plugin?.activated) };
+      }
       scenario.skilledPlugin = roleToDashboard(plugin);
     }
     return scenario;
@@ -1148,24 +1836,43 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     }
   }
 
-  // `expect_activation: false` is an explicit contract on the isolated target
+  // `tags.expect_activation: "false"` is an explicit contract on the isolated target
   // skill. Plugin activity cannot prove a violation because the plugin arm does
   // not identify which sibling skill emitted the activity event.
   const activationContractScenarios = scenarios
     .filter((scenario) => scenario.expectActivation === false)
-    .map((scenario) => ({
-      scenarioName: scenario.scenarioName,
-      expected: "dormant",
-      observed: scenario.skillActivationIsolated?.activated ? "activated" : "dormant",
-      satisfied: !scenario.skillActivationIsolated?.activated,
-    }));
-  const activationContractFailures = activationContractScenarios.filter(
-    (scenario) => !scenario.satisfied,
-  );
-  const observedStimulusNames = new Set(stimulusNames);
+    .map((scenario) => {
+      const observedInIsolatedRole = skilledByStim.has(scenario.scenarioName);
+      const activated = targetKind === "agent"
+        ? scenario.agentActivationIsolated?.activated
+        : scenario.skillActivationIsolated?.activated;
+      return {
+        scenarioName: scenario.scenarioName,
+        expected: "dormant",
+        observed: activated
+          ? "activated"
+          : observedInIsolatedRole
+            ? "dormant"
+            : "missing",
+        satisfied: observedInIsolatedRole && !activated,
+      };
+    });
   const unmatchedDormancyStimuli = [...nonActivation]
     .filter((name) => !observedStimulusNames.has(name))
     .sort();
+  const activationContractFailures = activationContractScenarios.filter(
+    (scenario) => !scenario.satisfied,
+  );
+  for (const scenarioName of unmatchedDormancyStimuli) {
+    if (!activationContractFailures.some((failure) => failure.scenarioName === scenarioName)) {
+      activationContractFailures.push({
+        scenarioName,
+        expected: "dormant",
+        observed: "missing",
+        satisfied: false,
+      });
+    }
+  }
   if (unmatchedDormancyStimuli.length > 0) {
     warn(
       `${identity.plugin}/${identity.skill}: ${unmatchedDormancyStimuli.length} dormancy annotation(s) ` +
@@ -1175,7 +1882,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
   const activationContract = {
     evaluated: true,
     requiredForPass: true,
-    source: "isolated_target_skill_activation",
+    source: `isolated_target_${targetKind}_activation`,
     reason:
       "Explicit dormancy expectations are evaluated independently of preference",
     count: activationContractScenarios.length,
@@ -1226,7 +1933,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
                       `${discordant} discordant preference vote(s). The sign test conditions on non-tie ` +
                       `stimulus votes and cannot reach ${SIGN_TEST_ALPHA} below ${MIN_CREDIBLE_STIMULI}, so ` +
                       `no record could have passed here — this is not a measured null. Either the ` +
-                      `skill is inert on these scenarios (make them discriminate) or the eval ` +
+                      `${targetKind} is inert on these scenarios (make them discriminate) or the eval ` +
                       `needs more distinct stimuli to clear the ties`
                     : `not credible (sign test p=${pValue.toFixed(3)} > ${SIGN_TEST_ALPHA})`;
 
@@ -1303,12 +2010,22 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     state = VERDICT_STATES.VALID_NO_CHANGE;
     stateReason = { code: "no_credible_preference_change", phase: "decision" };
   }
+  const noChangeDiagnosis = classifyNoChangeEvidence({
+    wins,
+    ties,
+    losses,
+    discordant,
+    minCredibleStimuli: MIN_CREDIBLE_STIMULI,
+    reasonCode: stateReason.code,
+  });
 
   return {
     skillName: identity.skill,
     skillPath: identity.skillPath,
+    skillKind: targetKind,
     state,
     stateReason,
+    noChangeDiagnosis,
     conclusive,
     underpowered,
     minCredibleStimuli: MIN_CREDIBLE_STIMULI,
@@ -1408,7 +2125,7 @@ function verdictSummaryLine(v) {
   return `${icon} ${v.skillName}: ${v.reason}${scenarios ? "\n" + scenarios : ""}`;
 }
 
-function invalidVerdict(identity, cause, message, accounting = {}) {
+function invalidVerdict(identity, cause, message, accounting = {}, targetKind = "skill") {
   const error = {
     phase: cause.phase,
     kind: cause.kind ?? "permanent",
@@ -1418,6 +2135,7 @@ function invalidVerdict(identity, cause, message, accounting = {}) {
   return {
     skillName: identity.skill,
     skillPath: identity.skillPath,
+    skillKind: targetKind,
     state: VERDICT_STATES.INVALID_INCONCLUSIVE,
     stateReason: { code: cause.code, phase: cause.phase },
     conclusive: false,
@@ -1525,7 +2243,7 @@ function invalidVerdict(identity, cause, message, accounting = {}) {
 
 function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval) {
   const results = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     evalFile,
     model: opts.model,
     judgeModel: opts["judge-model"],
@@ -1690,6 +2408,20 @@ function main() {
       let report;
       try {
         report = runCompareWithRetry(baselineSlice, skilledSlice, compareOut);
+        if (report) {
+          // A slice-level retry re-judges every trial, so a single unlucky judge
+          // session can stall twice and strand an otherwise-complete measurement.
+          // Re-judge only the still-errored transient slots, one slot at a time,
+          // from the executor trajectories already preserved in the slices above.
+          report = recoverTransientComparisonSlots(report, {
+            baselineRecords: baseline,
+            skilledRecords: skilled,
+            baselineVariant: opts["baseline-variant"],
+            skilledVariant: opts["skilled-variant"],
+            workDir,
+            filePrefix: `${plugin}__${skill}`,
+          });
+        }
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
         const message = `${plugin}/${skill}: vally compare failed (${detail})`;
@@ -1842,6 +2574,8 @@ if (isMain) {
 export {
   roleFromRecords,
   roleToDashboard,
+  continuedAfterSkillActivation,
+  postActivationFromRecords,
   groupByStimulus,
   stimulusOf,
   comparisonToVerdict,
@@ -1850,8 +2584,12 @@ export {
   splitVallyCommand,
   signTestPValue,
   trialDirection,
+  classifyNoChangeEvidence,
   classifyComparisonError,
   mergeComparisonReports,
+  recoverTransientComparisonSlots,
+  transientComparisonSlots,
+  MAX_TARGETED_COMPARISON_SLOTS,
   loadExpectedEvalFiles,
   normalizeEvalFile,
   VERDICT_STATES,

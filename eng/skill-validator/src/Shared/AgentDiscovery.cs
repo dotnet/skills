@@ -60,13 +60,15 @@ public static class AgentDiscovery
 
             if (!PluginDiscovery.TryGetSafeSubdirectory(pluginRoot, relativePath, out var fullPath, out _))
                 continue;
+            if (PathSafety.ContainsReparsePoint(pluginRoot, fullPath!))
+                continue;
             if (Directory.Exists(fullPath!))
             {
-                agents.AddRange(await DiscoverAgentsInDirectory(fullPath!));
+                agents.AddRange(await DiscoverAgentsInDirectory(fullPath!, pluginRoot));
             }
             else
             {
-                var agent = await DiscoverAgentAt(fullPath!);
+                var agent = await DiscoverAgentAt(fullPath!, pluginRoot);
                 if (agent is not null)
                     agents.Add(agent);
             }
@@ -77,12 +79,17 @@ public static class AgentDiscovery
     /// <summary>
     /// Discover agent files (.agent.md) in the given directory, or a single agent if a file path is provided.
     /// </summary>
-    public static async Task<IReadOnlyList<AgentInfo>> DiscoverAgentsInDirectory(string agentsDir)
+    public static async Task<IReadOnlyList<AgentInfo>> DiscoverAgentsInDirectory(
+        string agentsDir,
+        string? allowedRoot = null)
     {
+        if (allowedRoot is not null && PathSafety.ContainsReparsePoint(allowedRoot, agentsDir))
+            return [];
+
         // If the path is a file, try to discover it directly
         if (File.Exists(agentsDir))
         {
-            var agent = await DiscoverAgentAt(agentsDir);
+            var agent = await DiscoverAgentAt(agentsDir, allowedRoot);
             return agent is not null ? [agent] : [];
         }
 
@@ -92,16 +99,20 @@ public static class AgentDiscovery
         var agents = new List<AgentInfo>();
         foreach (var file in Directory.GetFiles(agentsDir, "*.agent.md"))
         {
-            var agent = await DiscoverAgentAt(file);
+            var agent = await DiscoverAgentAt(file, allowedRoot);
             if (agent is not null)
                 agents.Add(agent);
         }
         return agents;
     }
 
-    private static async Task<AgentInfo?> DiscoverAgentAt(string filePath)
+    private static async Task<AgentInfo?> DiscoverAgentAt(
+        string filePath,
+        string? allowedRoot = null)
     {
         if (!File.Exists(filePath))
+            return null;
+        if (allowedRoot is not null && PathSafety.ContainsReparsePoint(allowedRoot, filePath))
             return null;
 
         var content = await File.ReadAllTextAsync(filePath);
@@ -109,8 +120,7 @@ public static class AgentDiscovery
         var fileName = Path.GetFileName(filePath);
         var name = metadata.Name ?? "";
         var description = metadata.Description ?? "";
-
-        return new AgentInfo(name, description, filePath, content, fileName, metadata.Tools);
+        return new AgentInfo(name, description, filePath, content, fileName, metadata.Tools, metadata.Agents);
     }
 
     internal static (AgentFrontmatter Metadata, string Body) ParseAgentFrontmatter(string content)
@@ -125,4 +135,3 @@ public static class AgentDiscovery
         return (metadata, body);
     }
 }
-

@@ -1,0 +1,30 @@
+{
+  "pr": {
+    "number": 17,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "current_pr": {
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "trusted_playbook_available": true,
+  "changed_files": {
+    "repo/Generate.targets": {
+      "lines": [
+        2,
+        3,
+        4
+      ],
+      "patch": "@@ -1,2 +1,7 @@\n <Project>\n+  <Target Name=\"GenerateVersion\" BeforeTargets=\"CoreCompile\">\n+    <WriteLinesToFile File=\"$(MSBuildThisFileDirectory)Version.cs\" Lines=\"public static class VersionInfo { public const string Framework = &quot;$(TargetFramework)&quot;%3B }\" Overwrite=\"true\" />\n+    <ItemGroup><Compile Include=\"$(MSBuildThisFileDirectory)Version.cs\" /></ItemGroup>\n+  </Target>\n </Project>"
+    }
+  },
+  "related_files": [
+    "repo/First.csproj",
+    "repo/Second.csproj"
+  ],
+  "excluded_paths": "",
+  "environment": {
+    "MSBUILD_QUALITY_REVIEW_EXCLUDED_PATHS": ""
+  }
+}

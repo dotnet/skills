@@ -114,20 +114,36 @@ public static class PluginDiscovery
         out string? error)
     {
         serverNames = [];
+        if (!TryGetManifestMcpServers(pluginRoot, manifestPath, out var servers, out error))
+            return false;
+
+        if (servers is { } serverObject)
+            serverNames = ReadServerNames(serverObject);
+
+        return true;
+    }
+
+    internal static bool TryGetManifestMcpServers(
+        string pluginRoot,
+        string manifestPath,
+        out JsonElement? mcpServers,
+        out string? error)
+    {
+        mcpServers = null;
         error = null;
 
-        if (!TryReadJsonObject(manifestPath, out var doc, out var readError))
+        if (!TryReadJsonObject(manifestPath, out var manifest, out var readError))
         {
             error = $"could not be parsed as a JSON object: {readError}";
             return false;
         }
 
-        if (!doc.TryGetProperty("mcpServers", out var servers))
+        if (!manifest.TryGetProperty("mcpServers", out var servers))
             return true;
 
         if (servers.ValueKind == JsonValueKind.Object)
         {
-            serverNames = ReadServerNames(servers);
+            mcpServers = servers;
             return true;
         }
 
@@ -150,19 +166,19 @@ public static class PluginDiscovery
             return false;
         }
 
-        if (!TryReadJsonObject(resolved!, out var mcpDoc, out var mcpReadError))
+        if (!TryReadJsonObject(resolved!, out var mcpDocument, out var mcpReadError))
         {
             error = $"'mcpServers' references '{referencePath}', which could not be parsed as a JSON object: {mcpReadError}";
             return false;
         }
 
-        if (!mcpDoc.TryGetProperty("mcpServers", out var referenced) || referenced.ValueKind != JsonValueKind.Object)
+        if (!mcpDocument.TryGetProperty("mcpServers", out var referenced) || referenced.ValueKind != JsonValueKind.Object)
         {
             error = $"'mcpServers' references '{referencePath}', which has no 'mcpServers' object.";
             return false;
         }
 
-        serverNames = ReadServerNames(referenced);
+        mcpServers = referenced;
         return true;
     }
 
@@ -171,7 +187,7 @@ public static class PluginDiscovery
     /// other root kind, so the kind is checked here and reported as a structured error rather
     /// than escaping as an unhandled exception.
     /// </summary>
-    private static bool TryReadJsonObject(string path, out JsonElement doc, out string? error)
+    internal static bool TryReadJsonObject(string path, out JsonElement doc, out string? error)
     {
         try
         {

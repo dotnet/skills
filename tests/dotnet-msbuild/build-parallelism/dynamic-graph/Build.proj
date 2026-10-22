@@ -1,0 +1,10 @@
+<Project>
+  <Target Name="DiscoverAndBuild">
+    <ItemGroup>
+      <Discovered Include="$(MSBuildThisFileDirectory)modules\**\*.csproj" />
+    </ItemGroup>
+    <MSBuild Projects="@(Discovered)"
+             Targets="Build"
+             BuildInParallel="true" />
+  </Target>
+</Project>

@@ -1,17 +1,18 @@
 name: setup-local-sdk
 description: Evaluates the dotnet/setup-local-sdk skill
 type: capability
-config:
+defaults:
   timeout: 10m
 stimuli:
   - name: Detect incompatible .NET host version
     prompt: I already ran dotnet --version and it printed 9.0.306. I want to set up a local .NET 11 preview SDK for my project using the global.json SDK paths feature. Is that possible?
-    constraints:
-      reject_tools:
-        - bash
-        - powershell
-        - web_fetch
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - powershell
+            - web_fetch
       - type: output-contains
         config:
           substring: 9.0.306
@@ -116,12 +117,13 @@ stimuli:
 
   - name: Plan a project-local .NET 11 preview setup without downloading
     prompt: I want to try the latest .NET 11 preview in my project without affecting my global install. Show me the exact commands and configuration you would use to set it up locally, but do not download or install anything now.
-    constraints:
-      reject_tools:
-        - bash
-        - powershell
-        - web_fetch
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - powershell
+            - web_fetch
       - type: output-contains
         config:
           substring: dotnet-install

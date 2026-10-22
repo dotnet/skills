@@ -6,7 +6,7 @@ description: >
   USE WHEN the user needs [Authorize] on pages, AuthorizeView, role or policy-based access,
   login/logout Identity pages, or AuthenticationStateProvider.
   Also USE WHEN auth state is null after WebAssembly loads, SignInManager throws in an interactive
-  component, <NotAuthorized> content never renders in static SSR, or HttpContext.User is null in
+  component, NotAuthorized content never renders in static SSR, or HttpContext.User is null in
   an interactive component.
   DO NOT USE for general component authoring (see author-component), for prerendering concerns
   unrelated to auth (see support-prerendering), or for managing non-auth cascading state

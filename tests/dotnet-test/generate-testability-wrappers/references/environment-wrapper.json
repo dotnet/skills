@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "generate-testability-wrappers-environment",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "There is no built-in abstraction for `Environment`, so a small hand-written wrapper is the right call. I wrapped only the two members your code actually uses — `GetEnvironmentVariable` and `MachineName` — not the whole `Environment` API.\n\n### Interface\n\n```csharp\npublic interface IEnvironment\n{\n    string? GetEnvironmentVariable(string variable);\n    string MachineName { get; }\n}\n```\n\n### Default implementation (delegates to the real static)\n\n```csharp\npublic sealed class SystemEnvironment : IEnvironment\n{\n    public string? GetEnvironmentVariable(string variable)\n        => Environment.GetEnvironmentVariable(variable);\n\n    public string MachineName => Environment.MachineName;\n}\n```\n\nI made it `sealed` because it is a leaf adapter with no intended subclassing.\n\n### DI registration\n\n```csharp\nservices.AddSingleton<IEnvironment, SystemEnvironment>();\n```\n\n`AddSingleton` is correct here because the wrapper holds **no mutable state** — it just forwards to static members, so one shared instance is safe. If you later add a stateful wrapper (for example one that caches per-request values), switch it to `AddScoped`; for a wrapper that must not be shared at all, use `AddTransient`.\n\n### In tests\n\nInject a hand-rolled fake or a mock of `IEnvironment` that returns fixed values for `GetEnvironmentVariable` and `MachineName`, so the code under test sees a deterministic environment."
+    }
+  ]
+}

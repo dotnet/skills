@@ -220,7 +220,7 @@ internal sealed class BaselineStore
                 else if (f.Source is not null)
                 {
                     var resolved = AgentRunner.ResolveSourcePath(f.Source, evalPath, skillPath: null);
-                    sb.Append("s:").Append(resolved is not null && File.Exists(resolved) ? HashFile(resolved) : "missing");
+                    AppendSourceIdentity(sb, resolved);
                 }
                 sb.Append('\n');
             }
@@ -234,6 +234,29 @@ internal sealed class BaselineStore
         }
 
         return Sha256Hex(Encoding.UTF8.GetBytes(sb.ToString()));
+    }
+
+    private static void AppendSourceIdentity(StringBuilder sb, string? resolved)
+    {
+        if (resolved is not null && File.Exists(resolved))
+        {
+            sb.Append("s:file:").Append(HashFile(resolved));
+            return;
+        }
+
+        if (resolved is not null && Directory.Exists(resolved))
+        {
+            sb.Append("s:directory:");
+            var sourceRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resolved));
+            foreach (var (rel, full) in EnumerateDirFixtures(resolved, "", sourceRoot)
+                         .OrderBy(x => x.Rel, StringComparer.Ordinal))
+            {
+                sb.Append('\n').Append(rel).Append('=').Append(HashFile(full));
+            }
+            return;
+        }
+
+        sb.Append("s:missing");
     }
 
     private static readonly StringComparison PathComparison =
@@ -272,7 +295,9 @@ internal sealed class BaselineStore
         {
             if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
                 continue;
-            var rel = string.Concat(relBase, "/", entry.Name);
+            var rel = string.IsNullOrEmpty(relBase)
+                ? entry.Name
+                : string.Concat(relBase, "/", entry.Name);
             if (entry is DirectoryInfo sub)
             {
                 var subFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sub.FullName));
@@ -293,9 +318,21 @@ internal sealed class BaselineStore
     private static string CriteriaString(EvalScenario scenario)
     {
         var sb = new StringBuilder();
+        sb.Append("executor=").Append(AgentRunner.ExecutionContractVersion).Append('\0');
         sb.Append("turns=").Append(scenario.MaxTurns?.ToString() ?? "").Append('\0');
         sb.Append("tokens=").Append(scenario.MaxTokens?.ToString() ?? "").Append('\0');
         sb.Append("timeout=").Append(scenario.Timeout).Append('\0');
+        // Preserve existing identities when the opt-in policy is absent.
+        if (scenario.DenyShell)
+            sb.Append("deny-shell=true").Append('\0');
+        if (scenario.OfflineWorkflow)
+            sb.Append("offline-workflow-shell-denied=true").Append('\0')
+                .Append("offline-workflow-proposal-only-writes=true").Append('\0');
+        if (scenario.RejectShellRetries)
+            sb.Append("reject-shell-retries=true").Append('\0');
+        if (scenario.RejectAgents is { } rejectAgents)
+            foreach (var agent in rejectAgents.OrderBy(name => name, StringComparer.Ordinal))
+                sb.Append("RA:").Append(agent).Append('\0');
         if (scenario.Rubric is { } rubric)
             foreach (var r in rubric)
                 sb.Append("R:").Append(r).Append('\n');
@@ -312,6 +349,7 @@ internal sealed class BaselineStore
                   .Append(a.Value ?? "").Append('|').Append(a.Pattern ?? "").Append('|');
                 if (a.CommandArgs is { } ca)
                     sb.Append(ca.CommandToRun).Append(';').Append(ca.CommandArguments ?? "").Append(';')
+                      .Append(ca.ArgumentList is null ? "" : string.Join('\u001f', ca.ArgumentList)).Append(';')
                       .Append(ca.ExpectedExitCode?.ToString() ?? "").Append(';').Append(ca.ExpectedStdOutContains ?? "").Append(';')
                       .Append(ca.ExpectedStdErrorContains ?? "").Append(';').Append(ca.ExpectedStdOutMatches ?? "").Append(';')
                       .Append(ca.ExpectedStdErrorMatches ?? "").Append(';').Append(ca.Timeout?.ToString() ?? "");

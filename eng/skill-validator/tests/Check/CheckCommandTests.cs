@@ -1,14 +1,11 @@
-using Xunit;
 using System.Text.Json;
 using SkillValidator.Check;
 using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
-[CollectionDefinition("CheckCommandConsole", DisableParallelization = true)]
-public sealed class CheckCommandConsoleCollection;
-
-[Collection("CheckCommandConsole")]
+[TestClass]
+[DoNotParallelize]
 public class CheckCommandAggregateDescriptionTests
 {
     private static string CreatePluginFixture(string pluginName, params (string skillName, string description)[] skills)
@@ -34,7 +31,7 @@ public class CheckCommandAggregateDescriptionTests
         return root;
     }
 
-    [Fact]
+    [TestMethod]
     public async Task UnderAggregateLimit_Passes()
     {
         var root = CreatePluginFixture("test-plugin",
@@ -44,12 +41,12 @@ public class CheckCommandAggregateDescriptionTests
         {
             var config = new CheckConfig { PluginPaths = [Path.Combine(root, "test-plugin")] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.AreEqual(0, result);
         }
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [TestMethod]
     public void RenderedSkillMenuCost_CountsEscapedNameDescriptionLocationAndMarkup()
     {
         var skill = new SkillInfo(
@@ -65,10 +62,10 @@ public class CheckCommandAggregateDescriptionTests
         string expectedBlock =
             $"<skill>\n  <name>my-skill</name>\n  <description>Tom &amp; Jerry &lt;tag&gt;</description>\n  <location>{SkillProfiler.SkillMenuLocation}</location>\n</skill>";
 
-        Assert.Equal(expectedBlock.Length + 1, SkillProfiler.RenderedSkillMenuCost(skill));
+        Assert.AreEqual(expectedBlock.Length + 1, SkillProfiler.RenderedSkillMenuCost(skill));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DescriptionsSummingToLimit_Fails_BecauseRenderedOverheadIsCounted()
     {
         // Descriptions ALONE sum to exactly the cap. The previous check (which
@@ -91,12 +88,12 @@ public class CheckCommandAggregateDescriptionTests
         {
             var config = new CheckConfig { PluginPaths = [Path.Combine(root, "test-plugin")] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(1, result);
+            Assert.AreEqual(1, result);
         }
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task OverAggregateLimit_Fails()
     {
         int limit = SkillProfiler.MaxRenderedSkillMenuLength;
@@ -113,12 +110,12 @@ public class CheckCommandAggregateDescriptionTests
         {
             var config = new CheckConfig { PluginPaths = [Path.Combine(root, "test-plugin")] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(1, result);
+            Assert.AreEqual(1, result);
         }
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task MultiplePlugins_IndependentLimits()
     {
         // Each plugin is under limit individually — both should pass
@@ -131,7 +128,7 @@ public class CheckCommandAggregateDescriptionTests
         {
             var config = new CheckConfig { PluginPaths = [plugin1, plugin2] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.AreEqual(0, result);
         }
         finally { Directory.Delete(root, true); }
     }
@@ -159,7 +156,8 @@ public class CheckCommandAggregateDescriptionTests
     }
 }
 
-[Collection("CheckCommandConsole")]
+[TestClass]
+[DoNotParallelize]
 public class DuplicateSkillNameTests
 {
     private static string CreatePluginFixture(string pluginName, params (string skillName, string description)[] skills)
@@ -185,7 +183,7 @@ public class DuplicateSkillNameTests
         return root;
     }
 
-    [Fact]
+    [TestMethod]
     public async Task UniqueSkillNames_Passes()
     {
         var root = CreatePluginFixture("test-plugin",
@@ -195,12 +193,12 @@ public class DuplicateSkillNameTests
         {
             var config = new CheckConfig { PluginPaths = [Path.Combine(root, "test-plugin")] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.AreEqual(0, result);
         }
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task DuplicateSkillNames_Fails()
     {
         // Create two different plugins that each define a skill with the same (valid) name.
@@ -223,7 +221,7 @@ public class DuplicateSkillNameTests
 
             var result = await CheckCommand.Run(config);
             // Should fail specifically because the same skill name appears more than once
-            Assert.Equal(1, result);
+            Assert.AreEqual(1, result);
         }
         finally
         {
@@ -233,10 +231,10 @@ public class DuplicateSkillNameTests
     }
     // A plugin.json that is valid JSON but not an object must be reported as a validation error,
     // not crash the run with an unhandled InvalidOperationException.
-    [Theory]
-    [InlineData("[]")]
-    [InlineData("null")]
-    [InlineData("\"a string\"")]
+    [TestMethod]
+    [DataRow("[]")]
+    [DataRow("null")]
+    [DataRow("\"a string\"")]
     public async Task NonObjectPluginJsonRoot_ReportsErrorWithoutCrashing(string json)
     {
         var root = CreatePluginFixture("test-plugin", ("skill-a", "Short description A."));
@@ -247,13 +245,14 @@ public class DuplicateSkillNameTests
 
             var config = new CheckConfig { PluginPaths = [pluginDir] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(1, result);
+            Assert.AreEqual(1, result);
         }
         finally { Directory.Delete(root, true); }
     }
 }
 
-[Collection("CheckCommandConsole")]
+[TestClass]
+[DoNotParallelize]
 public class CheckCommandFilePathTests
 {
     private static string CreateSkillFixture(string skillName, string description)
@@ -276,7 +275,7 @@ public class CheckCommandFilePathTests
         return root;
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SkillsArg_WithSkillDirectoryPath_Passes()
     {
         var root = CreateSkillFixture("my-skill", "A short description.");
@@ -284,12 +283,12 @@ public class CheckCommandFilePathTests
         {
             var config = new CheckConfig { SkillPaths = [Path.Combine(root, "my-skill")] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.AreEqual(0, result);
         }
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SkillsArg_WithSkillMdFilePath_Passes()
     {
         var root = CreateSkillFixture("my-skill", "A short description.");
@@ -297,12 +296,12 @@ public class CheckCommandFilePathTests
         {
             var config = new CheckConfig { SkillPaths = [Path.Combine(root, "my-skill", "SKILL.md")] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.AreEqual(0, result);
         }
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task AgentsArg_WithAgentFilePath_Passes()
     {
         var root = CreateAgentFixture("test-agent");
@@ -310,12 +309,12 @@ public class CheckCommandFilePathTests
         {
             var config = new CheckConfig { AgentPaths = [Path.Combine(root, "agents", "test-agent.agent.md")] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.AreEqual(0, result);
         }
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task AgentsArg_WithDirectoryPath_Passes()
     {
         var root = CreateAgentFixture("test-agent");
@@ -323,12 +322,12 @@ public class CheckCommandFilePathTests
         {
             var config = new CheckConfig { AgentPaths = [Path.Combine(root, "agents")] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.AreEqual(0, result);
         }
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task CombinedSkillsAndAgents_Passes()
     {
         var skillRoot = CreateSkillFixture("my-skill", "A short description.");
@@ -341,7 +340,7 @@ public class CheckCommandFilePathTests
                 AgentPaths = [Path.Combine(agentRoot, "agents")],
             };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.AreEqual(0, result);
         }
         finally
         {
@@ -350,7 +349,7 @@ public class CheckCommandFilePathTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task CombinedSkillsAndAgents_WithFilePaths_Passes()
     {
         var skillRoot = CreateSkillFixture("my-skill", "A short description.");
@@ -363,7 +362,7 @@ public class CheckCommandFilePathTests
                 AgentPaths = [Path.Combine(agentRoot, "agents", "test-agent.agent.md")],
             };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.AreEqual(0, result);
         }
         finally
         {
@@ -372,7 +371,7 @@ public class CheckCommandFilePathTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task SkillsArg_WithNoDiscoveredSkills_Fails()
     {
         var root = Path.Combine(Path.GetTempPath(), $"file-test-{Guid.NewGuid():N}");
@@ -381,12 +380,12 @@ public class CheckCommandFilePathTests
         {
             var config = new CheckConfig { SkillPaths = [root] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(1, result);
+            Assert.AreEqual(1, result);
         }
         finally { Directory.Delete(root, true); }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task CombinedSkillsAndAgents_WithNoDiscoveredAgents_Fails()
     {
         var skillRoot = CreateSkillFixture("my-skill", "A short description.");
@@ -400,7 +399,7 @@ public class CheckCommandFilePathTests
                 AgentPaths = [emptyAgentRoot],
             };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(1, result);
+            Assert.AreEqual(1, result);
         }
         finally
         {
@@ -410,7 +409,8 @@ public class CheckCommandFilePathTests
     }
 }
 
-[Collection("CheckCommandConsole")]
+[TestClass]
+[DoNotParallelize]
 public class CheckCommandJsonOutputTests
 {
     private static string CreateSkillFixture(string skillName, string description, string body = "Content.")
@@ -441,7 +441,7 @@ public class CheckCommandJsonOutputTests
         return root;
     }
 
-    [Fact]
+    [TestMethod]
     public async Task JsonOutput_WithSkills_WritesStructuredReportToStdout()
     {
         var root = CreateSkillFixture("json-skill", "A short description.");
@@ -453,25 +453,25 @@ public class CheckCommandJsonOutputTests
                 OutputMode = CheckOutputMode.Json,
             }));
 
-            Assert.Equal(0, capture.ExitCode);
-            Assert.Equal("", capture.StandardError);
+            Assert.AreEqual(0, capture.ExitCode);
+            Assert.AreEqual("", capture.StandardError);
 
             using var document = JsonDocument.Parse(capture.StandardOutput);
             var report = document.RootElement;
             var skill = report.GetProperty("skills")[0];
             var warning = skill.GetProperty("warnings")[0];
 
-            Assert.Equal(1, report.GetProperty("counts").GetProperty("skillCount").GetInt32());
-            Assert.Equal(1, report.GetProperty("skills").GetArrayLength());
-            Assert.False(report.TryGetProperty("messages", out _));
-            Assert.False(report.TryGetProperty("invocation", out _));
-            Assert.False(report.TryGetProperty("scope", out _));
-            Assert.False(report.TryGetProperty("exitCode", out _));
-            Assert.False(report.TryGetProperty("succeeded", out _));
-            Assert.True(skill.GetProperty("warnings").GetArrayLength() > 0);
-            Assert.Equal("profile", warning.GetProperty("kind").GetString());
-            Assert.False(string.IsNullOrWhiteSpace(warning.GetProperty("message").GetString()));
-            Assert.False(skill.GetProperty("profile").TryGetProperty("warnings", out _));
+            Assert.AreEqual(1, report.GetProperty("counts").GetProperty("skillCount").GetInt32());
+            Assert.AreEqual(1, report.GetProperty("skills").GetArrayLength());
+            Assert.IsFalse(report.TryGetProperty("messages", out _));
+            Assert.IsFalse(report.TryGetProperty("invocation", out _));
+            Assert.IsFalse(report.TryGetProperty("scope", out _));
+            Assert.IsFalse(report.TryGetProperty("exitCode", out _));
+            Assert.IsFalse(report.TryGetProperty("succeeded", out _));
+            Assert.IsTrue(skill.GetProperty("warnings").GetArrayLength() > 0);
+            Assert.AreEqual("profile", warning.GetProperty("kind").GetString());
+            Assert.IsFalse(string.IsNullOrWhiteSpace(warning.GetProperty("message").GetString()));
+            Assert.IsFalse(skill.GetProperty("profile").TryGetProperty("warnings", out _));
         }
         finally
         {
@@ -479,25 +479,25 @@ public class CheckCommandJsonOutputTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task JsonFlag_WithMissingPaths_WritesStructuredFailureToStdout()
     {
         var command = CheckCommand.Create();
         var capture = await ConsoleCapture.RunAsync(() => command.Parse(["--json"]).InvokeAsync());
 
-        Assert.Equal(1, capture.ExitCode);
-        Assert.Equal("", capture.StandardError);
+        Assert.AreEqual(1, capture.ExitCode);
+        Assert.AreEqual("", capture.StandardError);
 
         using var document = JsonDocument.Parse(capture.StandardOutput);
         var report = document.RootElement;
 
-        Assert.Equal(0, report.GetProperty("counts").GetProperty("pluginCount").GetInt32());
-        Assert.Equal(0, report.GetProperty("skills").GetArrayLength());
-        Assert.Contains(report.GetProperty("errors").EnumerateArray(),
-            error => error.GetString()!.Contains("Specify one of --plugin, --skills, or --agents.", StringComparison.Ordinal));
+        Assert.AreEqual(0, report.GetProperty("counts").GetProperty("pluginCount").GetInt32());
+        Assert.AreEqual(0, report.GetProperty("skills").GetArrayLength());
+        Assert.IsTrue(report.GetProperty("errors").EnumerateArray().Any(
+            error => error.GetString()!.Contains("Specify one of --plugin, --skills, or --agents.", StringComparison.Ordinal)));
     }
 
-    [Fact]
+    [TestMethod]
     public async Task JsonOutput_WithMissingKnownDomains_WritesReferenceFailureToStdout()
     {
         var root = CreateSkillFixture("json-skill", "A short description.");
@@ -511,16 +511,16 @@ public class CheckCommandJsonOutputTests
                 OutputMode = CheckOutputMode.Json,
             }));
 
-            Assert.Equal(1, capture.ExitCode);
-            Assert.Equal("", capture.StandardError);
+            Assert.AreEqual(1, capture.ExitCode);
+            Assert.AreEqual("", capture.StandardError);
 
             using var document = JsonDocument.Parse(capture.StandardOutput);
             var report = document.RootElement;
 
-            Assert.Equal(1, report.GetProperty("skills").GetArrayLength());
-            Assert.Contains(report.GetProperty("errors").EnumerateArray(),
-                error => error.GetString() == $"Known-domains file not found: '{missingKnownDomains}'");
-            Assert.False(report.TryGetProperty("referenceScan", out _));
+            Assert.AreEqual(1, report.GetProperty("skills").GetArrayLength());
+            Assert.IsTrue(report.GetProperty("errors").EnumerateArray().Any(
+                error => error.GetString() == $"Known-domains file not found: '{missingKnownDomains}'"));
+            Assert.IsFalse(report.TryGetProperty("referenceScan", out _));
         }
         finally
         {
@@ -528,7 +528,7 @@ public class CheckCommandJsonOutputTests
         }
     }
 
-    [Fact]
+    [TestMethod]
     public async Task JsonOutput_WithDuplicateSkillNames_AttachesExternalDependencyWarningsByPath()
     {
         var rootOne = CreatePluginFixture("plugin-one", "shared-skill", "First description.", "#tool:custom/tool");
@@ -545,14 +545,14 @@ public class CheckCommandJsonOutputTests
                 OutputMode = CheckOutputMode.Json,
             }));
 
-            Assert.Equal(1, capture.ExitCode);
-            Assert.Equal("", capture.StandardError);
+            Assert.AreEqual(1, capture.ExitCode);
+            Assert.AreEqual("", capture.StandardError);
 
             using var document = JsonDocument.Parse(capture.StandardOutput);
             var report = document.RootElement;
             var skills = report.GetProperty("skills").EnumerateArray().ToList();
 
-            Assert.Equal(2, skills.Count);
+            Assert.AreEqual(2, skills.Count);
 
             foreach (var skill in skills)
             {
@@ -561,7 +561,7 @@ public class CheckCommandJsonOutputTests
                     .Select(warning => warning.GetProperty("kind").GetString())
                     .ToList();
 
-                Assert.Contains("externalDependency", warningKinds);
+                Assert.IsTrue(warningKinds.Contains("externalDependency"));
             }
         }
         finally

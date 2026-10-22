@@ -1,0 +1,48 @@
+diff --git a/fsharp/OrderService/OrderService.fsproj b/fsharp/OrderService/OrderService.fsproj
+--- a/fsharp/OrderService/OrderService.fsproj
++++ b/fsharp/OrderService/OrderService.fsproj
+@@ -6,6 +6,7 @@
+   <ItemGroup>
+     <Compile Include="Domain.fs" />
+     <Compile Include="Services.fs" />
++    <Compile Include="Validation.fs" />
+     <Compile Include="Program.fs" />
+   </ItemGroup>
+ </Project>
+diff --git a/fsharp/OrderService/Validation.fs b/fsharp/OrderService/Validation.fs
+new file mode 100644
+--- /dev/null
++++ b/fsharp/OrderService/Validation.fs
+@@ -0,0 +1,11 @@
++module OrderService.Validation
++
++open OrderService.Domain
++
++let validateOrder (order: Order) : Result<Order, string> =
++    if List.isEmpty order.Items then
++        Error "Order must have at least one item"
++    elif System.String.IsNullOrWhiteSpace order.CustomerName then
++        Error "Customer name must not be empty"
++    else
++        Ok order
+diff --git a/fsharp/OrderService/Program.fs b/fsharp/OrderService/Program.fs
+--- a/fsharp/OrderService/Program.fs
++++ b/fsharp/OrderService/Program.fs
+@@ -1,5 +1,6 @@
+ open OrderService.Domain
+ open OrderService.Services
++open OrderService.Validation
+
+ let order = {
+     Id = OrderId 1
+@@ -10,5 +11,8 @@
+     ]
+ }
+
+-let total = processOrder order
+-printfn "Order total: $%M" total
++match validateOrder order with
++| Error message -> printfn "Validation failed: %s" message
++| Ok validOrder ->
++    let total = processOrder validOrder
++    printfn "Order total: $%M" total

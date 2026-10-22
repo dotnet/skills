@@ -19,8 +19,9 @@ public static partial class ExternalDependencyChecker
         "ask_user", "bash", "powershell", "grep", "glob", "view", "sql",
         "report_intent", "store_memory", "fetch_copilot_cli_documentation",
         // Cross-host spellings that are not case-insensitive matches of the names
-        // above. Each supported host (Copilot CLI / VS Code, Claude Code, Gemini
-        // CLI) spells some built-in tools differently:
+        // above. Each supported .agent.md host (Copilot CLI / VS Code, Claude Code,
+        // Gemini CLI) spells some built-in tools differently. Native Codex agents use
+        // .codex/agents/*.toml and do not expose a matching generic tools array:
         //   "agent"             Copilot CLI / VS Code subagent fan-out (Claude: "task")
         //   "write"             Claude Code file creation   (Copilot: "create", Gemini: "write_file")
         //   "execute"           Copilot CLI / VS Code run-command (Claude: "bash", Gemini: "run_shell_command")
@@ -188,7 +189,7 @@ public static partial class ExternalDependencyChecker
 
     /// <summary>
     /// Check that an agent's <c>tools:</c> list is portable across every
-    /// supported host. When a capability is granted for one host (e.g. the
+    /// supported .agent.md host. When a capability is granted for one host (e.g. the
     /// Copilot CLI alias <c>edit</c>) but the equivalent for another host
     /// (Claude Code's <c>Edit</c> or Gemini CLI's <c>replace</c>) is absent, the
     /// agent works on one host and is silently tool-less on the others. Returns
@@ -234,7 +235,7 @@ public static partial class ExternalDependencyChecker
 
             findings.Add(
                 $"Agent tool '{capability.Name}' is declared for {presentLabel} but not {missingLabel} — " +
-                $"add {additions} to the tools list so the agent works across all supported hosts. (allow: {key})");
+                $"add {additions} to the tools list so the agent works across all supported .agent.md hosts. (allow: {key})");
         }
 
         return findings;

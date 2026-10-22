@@ -1,7 +1,11 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using SkillValidator.Shared;
 using GitHub.Copilot;
 
@@ -20,28 +24,123 @@ public sealed record RunOptions(
     string? SessionsDir = null,
     string? SessionId = null,
     AgentInfo? Agent = null,
-    IReadOnlyList<AgentInfo>? AdditionalAgents = null);
+    IReadOnlyList<AgentInfo>? AdditionalAgents = null,
+    bool SelectAgentAsPrimary = true,
+    WorkflowInfo? Workflow = null,
+    bool OfflineWorkflow = false);
+
+internal sealed class RunEventBuffer
+{
+    private readonly Lock _sync = new();
+    private readonly List<AgentEvent> _events = [];
+    private readonly StringBuilder _agentOutput = new();
+
+    internal void Record(string type, Action<AgentEvent, StringBuilder> populate)
+    {
+        lock (_sync)
+        {
+            var agentEvent = new AgentEvent(
+                type,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                []);
+            populate(agentEvent, _agentOutput);
+            _events.Add(agentEvent);
+        }
+    }
+
+    internal void Add(AgentEvent agentEvent)
+    {
+        lock (_sync)
+            _events.Add(agentEvent);
+    }
+
+    internal bool ContainsType(string type)
+    {
+        lock (_sync)
+            return _events.Any(agentEvent => agentEvent.Type == type);
+    }
+
+    internal (List<AgentEvent> Events, string AgentOutput) Snapshot()
+    {
+        lock (_sync)
+            return ([.. _events], _agentOutput.ToString());
+    }
+}
 
 public static class AgentRunner
 {
+    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v3";
+    private static readonly HashSet<string> EvaluatorOnlySetupEntries =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "eval.yaml",
+            "references",
+        };
     private static readonly ConcurrentDictionary<string, CopilotClient> _pluginClients = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
     private static readonly ConcurrentBag<string> _configDirs = [];
+    private static readonly Lazy<string> _evaluationRoot = new(() =>
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            $"skill-validator-{Environment.ProcessId}-{Guid.NewGuid():N}");
+        if (OperatingSystem.IsWindows())
+        {
+            using var currentIdentity = WindowsIdentity.GetCurrent();
+            var currentUser = currentIdentity.User
+                ?? throw new InvalidOperationException(
+                    "Cannot create the private evaluator root without a Windows user identity.");
+            var security = new DirectorySecurity();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            security.SetOwner(currentUser);
+            security.AddAccessRule(new FileSystemAccessRule(
+                currentUser,
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            FileSystemAclExtensions.Create(new DirectoryInfo(root), security);
+        }
+        else
+        {
+            const UnixFileMode ownerOnly =
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            Directory.CreateDirectory(root, ownerOnly);
+            File.SetUnixFileMode(root, ownerOnly);
+        }
+        return Path.GetFullPath(root);
+    });
     private static string? _capturedGitHubToken;
     private static bool _tokenCaptured;
+    private static readonly string[] GitHubTokenEnvKeys = ["GH_TOKEN", "GITHUB_TOKEN"];
 
     /// <summary>
-    /// Capture GITHUB_TOKEN once at startup so multiple clients can share it
-    /// and the env var is cleared from child processes.
+    /// Capture a GitHub token once at startup so multiple clients can share it
+    /// and the supported env aliases are cleared from child processes.
     /// </summary>
     public static void CaptureGitHubToken()
     {
         if (_tokenCaptured) return;
-        _capturedGitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
-        if (!string.IsNullOrEmpty(_capturedGitHubToken))
-            Environment.SetEnvironmentVariable("GITHUB_TOKEN", null);
+        _capturedGitHubToken = CaptureAndRemoveGitHubTokenAliases(
+            Environment.GetEnvironmentVariable,
+            key => Environment.SetEnvironmentVariable(key, null));
         _tokenCaptured = true;
+    }
+
+    internal static string? CaptureAndRemoveGitHubTokenAliases(
+        Func<string, string?> read,
+        Action<string> remove)
+    {
+        string? token = null;
+        foreach (var key in GitHubTokenEnvKeys)
+        {
+            var value = read(key);
+            if (string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(value))
+                token = value;
+            remove(key);
+        }
+        return token;
     }
 
     /// <summary>
@@ -71,7 +170,13 @@ public static class AgentRunner
                 LogLevel = verbose ? CopilotLogLevel.Info : CopilotLogLevel.None,
                 SessionFs = new SessionFsConfig
                 {
-                    InitialWorkingDirectory = Environment.CurrentDirectory,
+                    // The shared client is created during model discovery, before
+                    // per-scenario temp workspaces exist. Built-in file tools enforce
+                    // this client-level root even when SessionConfig.WorkingDirectory
+                    // points at a later sv-* workspace. Keep every fixture and staged
+                    // skill under one private evaluator root; per-session hooks below
+                    // further restrict each run to its narrow allowlist.
+                    InitialWorkingDirectory = GetEvaluationRoot(),
                     SessionStatePath = "session-state",
                     Conventions = OperatingSystem.IsWindows()
                         ? GitHub.Copilot.Rpc.SessionFsSetProviderConventions.Windows
@@ -99,6 +204,23 @@ public static class AgentRunner
     /// </summary>
     public static Task<CopilotClient> GetSharedClient(bool verbose)
         => GetPluginClient(null, verbose);
+
+    internal static string GetEvaluationRoot()
+    {
+        var root = _evaluationRoot.Value;
+        Directory.CreateDirectory(root);
+        return root;
+    }
+
+    internal static string CreatePrivateWorkDir(string prefix)
+    {
+        var workDir = Path.Combine(
+            GetEvaluationRoot(),
+            $"sv-{prefix}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workDir);
+        _workDirs.Add(workDir);
+        return workDir;
+    }
 
     /// <summary>Stop all plugin clients (including the no-plugin client).</summary>
     public static async Task StopAllClients()
@@ -129,21 +251,253 @@ public static class AgentRunner
     }
 
     /// <summary>
-    /// Extracts a file path from PreToolUseHookInput.ToolArgs for permission sandboxing.
-    /// Checks common arg keys: path, fileName, fullCommandText.
+    /// Extracts file paths from PreToolUseHookInput.ToolArgs for permission sandboxing.
+    /// Checks single- and multi-path file-tool keys. Shell command text is not itself a path; shell
+    /// paths are checked from PermissionRequestShell.PossiblePaths instead.
     /// </summary>
-    internal static string? ExtractPathFromToolArgs(PreToolUseHookInput input)
+    internal static IReadOnlyList<string> ExtractPathsFromToolArgs(PreToolUseHookInput input)
     {
         if (input.ToolArgs is not JsonElement args || args.ValueKind != JsonValueKind.Object)
-            return null;
+            return [];
 
-        foreach (var key in new[] { "path", "fileName", "fullCommandText" })
+        var paths = new List<string>();
+        var keys = new List<string>
         {
-            if (args.TryGetProperty(key, out var val) && val.ValueKind == JsonValueKind.String)
-                return val.GetString();
+            "path", "fileName", "sourcePath", "destinationPath", "oldPath", "newPath",
+            "paths",
+        };
+        if (input.ToolName?.Equals("rename", StringComparison.OrdinalIgnoreCase) == true
+            || input.ToolName?.Equals("move", StringComparison.OrdinalIgnoreCase) == true)
+            keys.AddRange(["source", "destination", "src", "dest", "from", "to"]);
+
+        foreach (var key in keys)
+        {
+            if (!args.TryGetProperty(key, out var value))
+                continue;
+
+            if (value.ValueKind == JsonValueKind.String && value.GetString() is { } path)
+            {
+                paths.Add(path);
+            }
+            else if (value.ValueKind == JsonValueKind.Array)
+            {
+                paths.AddRange(value.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString()!)
+                    .Where(path => !string.IsNullOrEmpty(path)));
+            }
         }
 
-        return null;
+        return paths;
+    }
+
+    internal static bool IsShellTool(string? toolName) =>
+        toolName is not null &&
+        (toolName.Equals("bash", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("execute", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("shell", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("run_shell_command", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("local_shell", StringComparison.OrdinalIgnoreCase));
+
+    internal static bool AgentNamesMatch(string actual, string expected) =>
+        actual[(actual.LastIndexOf(':') + 1)..].Equals(
+            expected[(expected.LastIndexOf(':') + 1)..], StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsFileMutationTool(string? toolName) =>
+        toolName?.ToLowerInvariant() is "edit" or "create" or "delete" or "remove"
+            or "rename" or "move" or "write" or "write_file" or "append" or "append_file" or "apply_patch";
+
+    private static readonly HashSet<string> AllowedPathlessShellCommands = new(
+        [
+            "dir",
+            "dotnet --info",
+            "dotnet --version",
+            "dotnet build",
+            "dotnet test",
+            "git diff",
+            "git diff --check",
+            "git status",
+            "git status --short",
+            "Get-Location",
+            "ls",
+            "pwd",
+        ],
+        StringComparer.OrdinalIgnoreCase);
+
+    internal static bool IsAllowedPathlessShellCommand(string? command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return false;
+
+        var normalized = string.Join(
+            ' ',
+            command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return AllowedPathlessShellCommands.Contains(normalized);
+    }
+
+    internal static bool CheckPermissions(IEnumerable<string>? reqPaths, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
+    {
+        return reqPaths is null || reqPaths.All(path =>
+            CheckPermission(path, workDir, skillPath, log, runLabel, pluginRoot, additionalAllowedDirs));
+    }
+
+    internal static bool CheckShellPermission(
+        PermissionRequestShell request,
+        string workDir,
+        string? skillPath,
+        Action<string>? log,
+        string? runLabel = null,
+        string? pluginRoot = null,
+        IReadOnlyList<string>? additionalAllowedDirs = null)
+    {
+        var hasUrl = request.PossibleUrls is { Length: > 0 }
+            || request.FullCommandText?.Contains("://", StringComparison.OrdinalIgnoreCase) == true;
+        if (hasUrl)
+        {
+            var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
+            log?.Invoke($"      ❌ Denying shell permission request with network URL{labelSuffix}");
+            return false;
+        }
+
+        if (MayCreateFileSystemLink(request.FullCommandText))
+        {
+            var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
+            log?.Invoke($"      ❌ Denying shell command that can create a filesystem link{labelSuffix}");
+            return false;
+        }
+
+        if (request.PossiblePaths is not { Length: > 0 }
+            && !IsAllowedPathlessShellCommand(request.FullCommandText))
+        {
+            var scopedPaths = GetScopedDotnetCommandPaths(request.FullCommandText);
+            if (scopedPaths is not null)
+                return CheckPermissions(scopedPaths, workDir, skillPath, log, runLabel, pluginRoot, additionalAllowedDirs);
+
+            var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
+            log?.Invoke($"      ❌ Denying unclassified shell permission request{labelSuffix}");
+            return false;
+        }
+
+        return CheckPermissions(
+            request.PossiblePaths,
+            workDir,
+            skillPath,
+            log,
+            runLabel,
+            pluginRoot,
+            additionalAllowedDirs);
+    }
+
+    internal static IReadOnlyList<string>? GetScopedDotnetCommandPaths(string? command)
+    {
+        if (string.IsNullOrWhiteSpace(command)
+            || command.IndexOfAny(['$', '`', ';', '&', '|', '<', '>', '\r', '\n', '(', ')', '{', '}']) >= 0)
+            return null;
+
+        var matches = Regex.Matches(command, "\"[^\"]*\"|'[^']*'|[^\\s\"']+");
+        var words = new List<string>();
+        var position = 0;
+        foreach (Match match in matches)
+        {
+            if (!string.IsNullOrWhiteSpace(command[position..match.Index]))
+                return null;
+            words.Add(match.Value[0] is '"' or '\'' ? match.Value[1..^1] : match.Value);
+            position = match.Index + match.Length;
+        }
+        if (!string.IsNullOrWhiteSpace(command[position..]) || words.Count < 2
+            || !words[0].Equals("dotnet", StringComparison.OrdinalIgnoreCase)
+            || words[1] is not ("build" or "test" or "run")
+            || words.Any(word => word.StartsWith('@')))
+            return null;
+
+        var paths = new List<string>();
+        var hasProject = false;
+        for (var index = 2; index < words.Count; index++)
+        {
+            var word = words[index];
+            if (word.StartsWith("--verbosity:", StringComparison.Ordinal)
+                || word.StartsWith("--verbosity=", StringComparison.Ordinal))
+            {
+                var value = word["--verbosity:".Length..];
+                if (value is not ("q" or "quiet" or "m" or "minimal" or "n" or "normal" or "d" or "detailed" or "diag" or "diagnostic"))
+                    return null;
+                continue;
+            }
+            if (word is "--no-restore" or "--no-build" or "--nologo" or "--no-incremental"
+                or "--list-tests" or "--report-trx")
+                continue;
+            if (word is "--project" or "--solution" or "--output" or "-o" or "--results-directory"
+                or "--report-trx-filename")
+            {
+                if (++index >= words.Count || string.IsNullOrWhiteSpace(words[index])
+                    || words[index].StartsWith('~'))
+                    return null;
+                paths.Add(words[index]);
+                hasProject |= word is "--project" or "--solution";
+                continue;
+            }
+            if (word is "--verbosity" or "-v" or "--configuration" or "-c" or "--framework" or "-f"
+                or "--filter" or "--logger" or "--collect")
+            {
+                if (++index >= words.Count || string.IsNullOrWhiteSpace(words[index]))
+                    return null;
+                var value = words[index];
+                if (word is "--logger" && value != "trx"
+                    || word is "--collect" && value is not ("Code Coverage" or "XPlat Code Coverage")
+                    || word is "--verbosity" or "-v" && value is not ("q" or "quiet" or "m" or "minimal" or "n" or "normal" or "d" or "detailed" or "diag" or "diagnostic")
+                    || word is "--configuration" or "-c" or "--framework" or "-f"
+                        && !Regex.IsMatch(value, "^[A-Za-z0-9._-]+$")
+                    || word == "--filter" && value.IndexOfAny(['/', '\\', ':']) >= 0)
+                    return null;
+                continue;
+            }
+            if (!word.StartsWith('-') && !hasProject)
+            {
+                if (word.StartsWith('~'))
+                    return null;
+                paths.Add(word);
+                hasProject = true;
+                continue;
+            }
+            return null;
+        }
+        if (words[1] == "run" && !hasProject)
+            return null;
+        return paths.Count > 0 ? paths : ["."];
+    }
+
+    internal static bool MayCreateFileSystemLink(string? command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return false;
+
+        return Regex.IsMatch(
+            command,
+            """
+            (?ix)
+            (?:
+                \bln\b
+              | \bmklink(?:\.exe)?\b
+              | \bjunction(?:\.exe)?\b
+              | \bfsutil(?:\.exe)?\s+(?:hardlink|reparsepoint)\b
+              | \bnew-item\b[^\r\n;|&]*-(?:itemtype|type)\s+(?:symboliclink|junction|hardlink)\b
+              | \b(?:directory|file)\.createsymboliclink\s*\(
+              | \b(?:file\.)?createhardlink\s*\(
+              | \bfs(?:\.promises)?\.symlinksync\s*\(
+              | \bfs(?:\.promises)?\.symlink\s*\(
+              | \.(?:symlinksync|symlink)\s*\(
+              | \bos\.symlink\s*\(
+              | \bfs(?:\.promises)?\.linksync\s*\(
+              | \bfs(?:\.promises)?\.link\s*\(
+              | \.(?:linksync|link)\s*\(
+              | \bos\.link\s*\(
+              | \.symlink_to\s*\(
+              | \.hardlink_to\s*\(
+            )
+            """,
+            RegexOptions.CultureInvariant,
+            TimeSpan.FromSeconds(1));
     }
 
     public static bool CheckPermission(string? reqPath, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
@@ -205,8 +559,13 @@ public static class AgentRunner
             string normalizedDir = Path.EndsInDirectorySeparator(dir)
                 ? dir
                 : dir + Path.DirectorySeparatorChar;
-            return resolved.Equals(normalizedDir, comparison) ||
-                   resolved.StartsWith(normalizedDir, comparison);
+            var lexicallyContained = resolved.Equals(normalizedDir, comparison)
+                || resolved.StartsWith(normalizedDir, comparison);
+            return lexicallyContained
+                && !PathSafety.ContainsReparsePoint(
+                    Path.TrimEndingDirectorySeparator(dir),
+                    Path.TrimEndingDirectorySeparator(resolved),
+                    missingPathIsUnsafe: false);
         });
 
         if (!anyAllowed)
@@ -229,8 +588,13 @@ public static class AgentRunner
         string? sessionsDir = null,
         string? sessionId = null,
         AgentInfo? agent = null,
-        IReadOnlyList<AgentInfo>? additionalAgents = null)
+        IReadOnlyList<AgentInfo>? additionalAgents = null,
+        bool denyShell = false,
+        Action<string?>? onShellDenied = null,
+        bool selectAgentAsPrimary = false,
+        bool offlineWorkflow = false)
     {
+        denyShell |= offlineWorkflow;
         // Runtime guard: Skill and Agent are mutually exclusive targets.
         // (additionalSkills/additionalAgents are cross-dependencies and may co-exist with either target.)
         if (skill is not null && agent is not null)
@@ -251,7 +615,7 @@ public static class AgentRunner
         }
         else
         {
-            configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
+            configDir = Path.Combine(GetEvaluationRoot(), $"sv-cfg-{Guid.NewGuid():N}");
             Directory.CreateDirectory(configDir);
             _configDirs.Add(configDir);
         }
@@ -267,7 +631,7 @@ public static class AgentRunner
         var noiseDirs = new List<string>();
         if (additionalSkills is { Count: > 0 })
         {
-            var stageDir = Path.Combine(Path.GetTempPath(), $"sv-noise-{Guid.NewGuid():N}");
+            var stageDir = Path.Combine(GetEvaluationRoot(), $"sv-noise-{Guid.NewGuid():N}");
             Directory.CreateDirectory(stageDir);
             _workDirs.Add(stageDir);
 
@@ -289,7 +653,7 @@ public static class AgentRunner
         IDictionary<string, McpServerConfig>? sdkMcp = null;
         if (mcpServers is { Count: > 0 })
         {
-            sdkMcp = new Dictionary<string, McpServerConfig>();
+            sdkMcp = new Dictionary<string, McpServerConfig>(StringComparer.OrdinalIgnoreCase);
             foreach (var (name, def) in mcpServers)
             {
                 if (!IsAllowedMcpCommand(def.Command))
@@ -315,16 +679,20 @@ public static class AgentRunner
                     continue;
                 }
 
+                var hardenedLaunch = HardenedBinlogMcpLaunch.Value;
                 var entry = new McpStdioServerConfig
                 {
                     Command = def.Command,
-                    Args = sanitizedArgs,
-                    Tools = def.Tools ?? ["*"],
+                    Args = [.. hardenedLaunch.Args],
+                    Tools = def.Tools ?? [],
+                    Env = new Dictionary<string, string>(hardenedLaunch.Environment),
                 };
 
-                // Sanitize env: strip dangerous keys that could hijack the process.
-                var sanitizedEnv = SanitizeMcpEnv(def.Env);
-                if (sanitizedEnv is not null) entry.Env = sanitizedEnv;
+                if (def.Env is { Count: > 0 })
+                {
+                    Console.Error.WriteLine(
+                        $"Ignoring plugin-supplied environment variables for MCP server '{name}'");
+                }
 
                 // Drop custom cwd — MCP servers run in workDir, not attacker-chosen dirs.
                 sdkMcp[name] = entry;
@@ -347,7 +715,7 @@ public static class AgentRunner
         string[] skillDirs;
         if (pluginRoot is not null)
         {
-            skillDirs = ResolvePluginSkillDirectories(pluginRoot);
+            skillDirs = await StagePluginSkillDirectories(pluginRoot);
         }
         else if (skill is not null)
         {
@@ -355,7 +723,7 @@ public static class AgentRunner
             // only this skill — not every sibling that shares the same parent.
             // Copy the full directory tree (references/, scripts/, etc.) so that
             // relative links inside SKILL.md continue to resolve.
-            var isoStageDir = Path.Combine(Path.GetTempPath(), $"sv-iso-{Guid.NewGuid():N}");
+            var isoStageDir = Path.Combine(GetEvaluationRoot(), $"sv-iso-{Guid.NewGuid():N}");
             Directory.CreateDirectory(isoStageDir);
             _workDirs.Add(isoStageDir);
 
@@ -383,30 +751,40 @@ public static class AgentRunner
             .Where(d => !string.IsNullOrEmpty(d))
             .ToList();
 
-        // In isolated runs the agent should only access the staged copies, not
-        // the original skill tree (which includes sibling skills).  Pass null
-        // for skillPath so the original location is NOT in the allowlist.
-        // In plugin mode, validate that skillPath is under pluginRoot before
-        // allowlisting it; otherwise fall back to pluginRoot coverage alone.
-        string? effectiveSkillPath = null;
-        if (pluginRoot is not null && skillPath is not null)
+        var referenceCatalogs = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var stagedRoot in additionalAllowedDirs)
         {
-            var normalizedSkill = Path.GetFullPath(skillPath);
-            var normalizedPlugin = Path.GetFullPath(pluginRoot);
-            if (!Path.EndsInDirectorySeparator(normalizedPlugin))
-                normalizedPlugin += Path.DirectorySeparatorChar;
-            var cmp = OperatingSystem.IsWindows()
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
-            if (normalizedSkill.StartsWith(normalizedPlugin, cmp))
-                effectiveSkillPath = skillPath;
+            foreach (var stagedSkill in await SkillDiscovery.DiscoverSkills(stagedRoot, stagedRoot))
+            {
+                if (stagedSkill.DisableModelInvocation)
+                    referenceCatalogs.TryAdd(Path.GetFileName(stagedSkill.Path), stagedSkill.SkillMdPath);
+            }
         }
+
+        var workspaceContext = $"The project workspace for this run is `{Path.GetFullPath(workDir)}`. "
+            + "File tools accept project-relative paths; prefer them over retyping temporary directory identifiers. "
+            + "Resolve project-relative paths against this workspace. "
+            + "A skill's base directory contains reference material, not the project. "
+            + "Do not search the parent evaluation directory or other scenario workspaces.";
+        if (referenceCatalogs.Count > 0)
+        {
+            workspaceContext += "\nReference-only catalogs are files, not callable skills. "
+                + "Read their bundled resources only when needed. Language files are in the "
+                + "catalog's extensions subdirectory (for example extensions/dotnet.md), "
+                + "not beside SKILL.md:\n"
+                + string.Join('\n', referenceCatalogs.Select(entry => $"- `{entry.Key}`: `{entry.Value}`"));
+        }
+
+        // Agents should access only the staged copies, never the original skill
+        // or plugin tree. Custom-agent prompts are already loaded into memory.
+        // The staged roots above contain all runtime skill content and are the
+        // only skill directories added to the per-session allowlist.
 
         // Build CustomAgents list for agent evaluation.
         // In plugin mode: register all plugin agents. In isolated mode: register
         // only the target agent (+ additional declared agents). In baseline: none.
         List<CustomAgentConfig>? customAgents = null;
-        if (pluginRoot is not null)
+        if (pluginRoot is not null && agent is not null)
         {
             // Plugin run: discover and register all agents in the plugin
             var pluginAgents = await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot);
@@ -420,12 +798,11 @@ public static class AgentRunner
         else if (agent is not null)
         {
             // Isolated agent run: register only the target agent + declared dependencies
-            customAgents = [BuildCustomAgentConfig(agent)];
-            if (additionalAgents is { Count: > 0 })
-            {
-                foreach (var dep in additionalAgents)
-                    customAgents.Add(BuildCustomAgentConfig(dep));
-            }
+            customAgents = new[] { agent }
+                .Concat(additionalAgents ?? [])
+                .DistinctBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(BuildCustomAgentConfig)
+                .ToList();
             if (verbose)
                 log?.Invoke($"      🤖 Registered agent(s) (isolated): {string.Join(", ", customAgents.Select(a => a.Name))}");
         }
@@ -437,38 +814,125 @@ public static class AgentRunner
                 log?.Invoke($"      🤖 Registered additional agent(s): {string.Join(", ", customAgents.Select(a => a.Name))}");
         }
 
+        var runLabel =
+            agent is not null
+                ? (pluginRoot is not null ? "agent-plugin" : "agent-isolated")
+                : (skill is not null ? "skilled" : "baseline");
+
+        void RecordShellDenial(string? requestingSessionId)
+        {
+            log?.Invoke($"      ❌ Shell execution denied by evaluation policy ({runLabel})");
+            onShellDenied?.Invoke(requestingSessionId);
+        }
+
         return new SessionConfig
         {
             Model = model,
             Streaming = true,
             WorkingDirectory = workDir,
-            SkillDirectories = [..skillDirs, ..noiseDirs],
+            SystemMessage = new SystemMessageConfig
+            {
+                Mode = SystemMessageMode.Append,
+                Content = workspaceContext,
+            },
+            SkillDirectories = [.. skillDirs, .. noiseDirs],
             ConfigDirectory = configDir,
             McpServers = sdkMcp,
             CustomAgents = customAgents,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
-            // The SDK requires a SessionFsProvider (abstract base class).
-            // Without this, events.jsonl files are never written and
-            // session replay data is lost.
-            CreateSessionFsProvider = _ => new LocalSessionFsHandler(configDir),
-            OnPermissionRequest = (request, _) =>
+            // The SDK uses one SessionFsProvider for both session-state I/O and
+            // built-in file tools. Keep state under configDir, resolve relative
+            // tool paths under workDir, and permit absolute paths only within
+            // this scenario workspace and its explicitly staged skill roots.
+            CreateSessionFsProvider = _ => new LocalSessionFsHandler(
+                configDir,
+                workDir,
+                new[] { workDir }.Concat(additionalAllowedDirs),
+                offlineWorkflow),
+            OnPermissionRequest = (request, invocation) =>
             {
-                // PermissionRequest carries per-kind data (e.g. Read.Path,
-                // Write.FileName, Shell.FullCommandText/PossiblePaths), but we
-                // don't use it here: permission sandboxing is enforced via
-                // Hooks.OnPreToolUse instead, so this handler approves all.
-                return Task.FromResult(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce());
+                if (denyShell && request is PermissionRequestShell)
+                    RecordShellDenial(invocation?.SessionId);
+                return Task.FromResult(DecidePermissionRequest(
+                    request,
+                    workDir,
+                    verbose ? log : null,
+                    runLabel,
+                    additionalAllowedDirs,
+                    sdkMcp,
+                    denyShell,
+                    offlineWorkflow));
             },
             Hooks = new SessionHooks
             {
                 OnPreToolUse = (input, invocation) =>
                 {
-                    var runLabel =
-                        agent is not null
-                            ? (pluginRoot is not null ? "agent-plugin" : "agent-isolated")
-                            : (skill is not null ? "skilled" : "baseline");
-                    var reqPath = ExtractPathFromToolArgs(input);
-                    var allowed = CheckPermission(reqPath, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
+                    if (selectAgentAsPrimary && agent?.Agents is { } delegates
+                        && !delegates.Any(name => name == "*" || AgentNamesMatch(name, agent.Name))
+                        && (string.Equals(input.ToolName, "task", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(input.ToolName, "agent", StringComparison.OrdinalIgnoreCase))
+                        && input.ToolArgs is JsonElement taskArgs
+                        && taskArgs.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var key in new[] { "agent_type", "agent", "agent_name", "agentName" })
+                        {
+                            if (taskArgs.TryGetProperty(key, out var requested)
+                                && requested.ValueKind == JsonValueKind.String
+                                && requested.GetString() is { } name
+                                && AgentNamesMatch(name, agent.Name))
+                            {
+                                return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                                {
+                                    PermissionDecision = "deny",
+                                    PermissionDecisionReason =
+                                        $"You are already the primary agent '{agent.Name}', which excludes itself from its declared delegates. Continue this work in the current context.",
+                                });
+                            }
+                        }
+                    }
+
+                    if (IsShellTool(input.ToolName))
+                    {
+                        if (!denyShell)
+                            return Task.FromResult<PreToolUseHookOutput?>(null);
+
+                        RecordShellDenial(input.SessionId ?? invocation?.SessionId);
+                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                        {
+                            PermissionDecision = "deny",
+                            PermissionDecisionReason =
+                                "All shell execution is denied by evaluation policy; file tools retain their existing permissions",
+                        });
+                    }
+
+                    var reqPaths = ExtractPathsFromToolArgs(input);
+                    if (reqPaths.Any(LocalSessionFsHandler.IsSessionStatePath))
+                    {
+                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                        {
+                            PermissionDecision = "deny",
+                            PermissionDecisionReason = "Session state is reserved for the evaluator",
+                        });
+                    }
+                    var allowed = CheckPermissions(
+                        reqPaths,
+                        workDir,
+                        skillPath: null,
+                        verbose ? log : null,
+                        runLabel,
+                        pluginRoot: null,
+                        additionalAllowedDirs);
+                    // SDK hooks may omit paths; the filesystem provider enforces every resolved write.
+                    if (offlineWorkflow && IsFileMutationTool(input.ToolName)
+                        && reqPaths.Any(path => !LocalSessionFsHandler.IsWorkflowProposalPath(path, workDir)))
+                    {
+                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                        {
+                            PermissionDecision = "deny",
+                            PermissionDecisionReason =
+                                "Offline workflow inputs and resources are read-only; only result.json may be written",
+                        });
+                    }
                     return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                     {
                         PermissionDecision = allowed ? "allow" : "deny",
@@ -477,6 +941,87 @@ public static class AgentRunner
                 },
             },
         };
+    }
+
+    internal static GitHub.Copilot.Rpc.PermissionDecision DecidePermissionRequest(
+        PermissionRequest request,
+        string workDir,
+        Action<string>? log,
+        string runLabel,
+        IReadOnlyList<string> additionalAllowedDirs,
+        IDictionary<string, McpServerConfig>? allowedMcpServers,
+        bool denyShell = false,
+        bool offlineWorkflow = false)
+    {
+        GitHub.Copilot.Rpc.PermissionDecision CheckPath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)
+                || LocalSessionFsHandler.IsSessionStatePath(path)
+                || !CheckPermission(
+                    path,
+                    workDir,
+                    skillPath: null,
+                    log,
+                    runLabel,
+                    pluginRoot: null,
+                    additionalAllowedDirs))
+            {
+                return GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                    "Path outside allowed directories");
+            }
+
+            return GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce();
+        }
+
+        return request switch
+        {
+            PermissionRequestShell when denyShell => GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                "All shell execution is denied by evaluation policy; file tools retain their existing permissions"),
+            PermissionRequestShell shellRequest => CheckShellPermission(
+                shellRequest,
+                workDir,
+                skillPath: null,
+                log,
+                runLabel,
+                pluginRoot: null,
+                additionalAllowedDirs)
+                    ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
+                    : GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                        "Path outside allowed directories, network access requested, or command not allowlisted"),
+            PermissionRequestRead readRequest => CheckPath(readRequest.Path),
+            PermissionRequestWrite writeRequest when offlineWorkflow
+                && !LocalSessionFsHandler.IsWorkflowProposalPath(writeRequest.FileName, workDir) =>
+                    GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                        "Offline workflow inputs and resources are read-only; only result.json may be written"),
+            PermissionRequestWrite writeRequest => CheckPath(writeRequest.FileName),
+            PermissionRequestMcp mcpRequest => IsAllowedMcpPermission(
+                mcpRequest,
+                allowedMcpServers)
+                    ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
+                    : GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                        "MCP server or tool is not allowed"),
+            PermissionRequestUrl => GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                "Network access is not allowed during evaluation"),
+            _ => GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                "Unsupported permission request during evaluation"),
+        };
+    }
+
+    private static bool IsAllowedMcpPermission(
+        PermissionRequestMcp request,
+        IDictionary<string, McpServerConfig>? allowedMcpServers)
+    {
+        if (allowedMcpServers is null
+            || string.IsNullOrWhiteSpace(request.ServerName)
+            || string.IsNullOrWhiteSpace(request.ToolName)
+            || !allowedMcpServers.TryGetValue(request.ServerName, out var server))
+        {
+            return false;
+        }
+
+        return server.Tools is { Count: > 0 } tools && tools.Any(tool =>
+            tool == "*"
+            || tool.Equals(request.ToolName, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -490,7 +1035,7 @@ public static class AgentRunner
             Name = agent.Name,
             DisplayName = agent.Name,
             Description = agent.Description,
-            Prompt = body,
+            Prompt = $"Active custom-agent identity: `{agent.Name}`. You are already executing this agent.\n\n{body}",
             Tools = agent.Tools?.ToList(),
         };
     }
@@ -526,6 +1071,28 @@ public static class AgentRunner
         return dirs.ToArray();
     }
 
+    private static async Task<string[]> StagePluginSkillDirectories(string pluginRoot)
+    {
+        var stagedRoots = new List<string>();
+        foreach (var sourceRoot in ResolvePluginSkillDirectories(pluginRoot))
+        {
+            var skills = await SkillDiscovery.DiscoverSkills(sourceRoot, pluginRoot);
+            if (skills.Count == 0)
+                continue;
+
+            var stageDir = Path.Combine(GetEvaluationRoot(), $"sv-plugin-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(stageDir);
+            _workDirs.Add(stageDir);
+            foreach (var discoveredSkill in skills)
+            {
+                var stagedSkillDir = Path.Combine(stageDir, Path.GetFileName(discoveredSkill.Path));
+                CopyDirectory(discoveredSkill.Path, stagedSkillDir);
+            }
+            stagedRoots.Add(stageDir);
+        }
+        return stagedRoots.ToArray();
+    }
+
     public static async Task<RunMetrics> RunAgent(RunOptions options, CancellationToken cancellationToken = default)
     {
         // Validate mutual exclusivity
@@ -548,14 +1115,22 @@ public static class AgentRunner
     private static async Task<RunMetrics> RunAgentCore(RunOptions options, CancellationToken cancellationToken)
     {
         var workDir = await SetupWorkDir(options.Scenario, options.Skill?.Path, options.EvalPath);
+        var offlineWorkflow = options.OfflineWorkflow || options.Scenario.OfflineWorkflow;
+        var agent = options.Agent;
+        if (options.Workflow is not null)
+        {
+            var workflowAgent = agent
+                ?? throw new InvalidOperationException("Workflow execution requires its primary persona");
+            WorkflowDiscovery.StageResources(options.Workflow, workDir);
+            agent = workflowAgent with { AgentMdContent = WorkflowDiscovery.RenderPrompt(workflowAgent.AgentMdContent, workDir) };
+        }
         if (options.Verbose)
         {
             var write = options.Log ?? (msg => Console.Error.WriteLine(msg));
             write($"      📂 Work dir: {workDir} ({(options.Skill is not null ? "skilled" : "baseline")})");
         }
 
-        var events = new List<AgentEvent>();
-        string agentOutput = "";
+        var eventBuffer = new RunEventBuffer();
         var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         bool timedOut = false;
 
@@ -568,7 +1143,15 @@ public static class AgentRunner
             await using var session = await client.CreateSessionAsync(
                 await BuildSessionConfig(options.Skill, options.PluginRoot, options.Model, workDir, options.McpServers,
                     options.AdditionalSkills, options.Log, options.Verbose, options.SessionsDir, options.SessionId,
-                    options.Agent, options.AdditionalAgents));
+                    agent, options.AdditionalAgents,
+                    denyShell: options.Scenario.DenyShell,
+                    onShellDenied: requestingSessionId =>
+                        eventBuffer.Record("evaluator.shell_denied", (agentEvent, _) =>
+                        {
+                            agentEvent.Data["sessionId"] = JsonValue.Create(requestingSessionId);
+                        }),
+                    selectAgentAsPrimary: options.SelectAgentAsPrimary,
+                    offlineWorkflow: offlineWorkflow));
 
             var done = new TaskCompletionSource();
             var effectiveTimeout = options.Scenario.Timeout;
@@ -581,117 +1164,122 @@ public static class AgentRunner
             // from the agent selection is captured in the events list.
             session.On<SessionEvent>(evt =>
             {
-                var agentEvent = new AgentEvent(
-                    evt.Type,
-                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    []);
-
-                // Copy known event data
-                switch (evt)
+                eventBuffer.Record(evt.Type, (agentEvent, agentOutput) =>
                 {
-                    case AssistantMessageDeltaEvent delta:
-                        agentEvent.Data["deltaContent"] = JsonValue.Create(delta.Data.DeltaContent);
-                        agentOutput += delta.Data.DeltaContent ?? "";
-                        break;
-                    case AssistantMessageEvent msg:
-                        agentEvent.Data["content"] = JsonValue.Create(msg.Data.Content);
-                        if (!string.IsNullOrEmpty(msg.Data.Content))
-                            agentOutput = msg.Data.Content;
-                        break;
-                    case ToolExecutionStartEvent toolStart:
-                        agentEvent.Data["toolName"] = JsonValue.Create(toolStart.Data.ToolName);
-                        agentEvent.Data["arguments"] = JsonValue.Create(toolStart.Data.Arguments?.ToString());
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      🔧 {toolStart.Data.ToolName}");
-                        }
-                        break;
-                    case ToolExecutionCompleteEvent toolComplete:
-                        agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success.ToString());
-                        agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
-                        break;
-                    case SkillInvokedEvent skillInvoked:
-                        agentEvent.Data["name"] = JsonValue.Create(skillInvoked.Data.Name);
-                        agentEvent.Data["path"] = JsonValue.Create(skillInvoked.Data.Path);
-                        if (skillInvoked.Data.AllowedTools is { } allowedTools)
-                        {
-                            var arr = new JsonArray();
-                            foreach (var tool in allowedTools)
-                                arr.Add((JsonNode?)JsonValue.Create(tool));
-                            agentEvent.Data["allowedTools"] = arr;
-                        }
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      📘 Skill invoked: {skillInvoked.Data.Name}");
-                        }
-                        break;
-                    case SubagentStartedEvent subagentStarted:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentStarted.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentStarted.Data.AgentDisplayName);
-                        agentEvent.Data["agentDescription"] = JsonValue.Create(subagentStarted.Data.AgentDescription);
-                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentStarted.Data.ToolCallId);
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      🤖 Subagent started: {subagentStarted.Data.AgentName}");
-                        }
-                        break;
-                    case SubagentCompletedEvent subagentCompleted:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentCompleted.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentCompleted.Data.AgentDisplayName);
-                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentCompleted.Data.ToolCallId);
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      ✅ Subagent completed: {subagentCompleted.Data.AgentName}");
-                        }
-                        break;
-                    case SubagentFailedEvent subagentFailed:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentFailed.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentFailed.Data.AgentDisplayName);
-                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentFailed.Data.ToolCallId);
-                        agentEvent.Data["error"] = JsonValue.Create(subagentFailed.Data.Error);
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      ❌ Subagent failed: {subagentFailed.Data.AgentName}");
-                        }
-                        break;
-                    case SubagentSelectedEvent subagentSelected:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentSelected.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentSelected.Data.AgentDisplayName);
-                        break;
-                    case SubagentDeselectedEvent:
-                        break;
-                    case AssistantUsageEvent usage:
-                        agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
-                        agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);
-                        agentEvent.Data["cacheReadTokens"] = JsonValue.Create(usage.Data.CacheReadTokens);
-                        agentEvent.Data["cacheWriteTokens"] = JsonValue.Create(usage.Data.CacheWriteTokens);
-                        agentEvent.Data["model"] = JsonValue.Create(usage.Data.Model);
-                        break;
-                    case UserMessageEvent userMsg:
-                        agentEvent.Data["content"] = JsonValue.Create(userMsg.Data.Content);
-                        break;
-                    case SessionIdleEvent:
-                        done.TrySetResult();
-                        break;
-                    case SessionErrorEvent err:
-                        agentEvent.Data["message"] = JsonValue.Create(err.Data.Message);
-                        done.TrySetException(new InvalidOperationException(err.Data.Message ?? "Session error"));
-                        break;
-                }
-
-                events.Add(agentEvent);
+                    // Copy known event data
+                    switch (evt)
+                    {
+                        case AssistantMessageDeltaEvent delta:
+                            agentEvent.Data["deltaContent"] = JsonValue.Create(delta.Data.DeltaContent);
+                            agentOutput.Append(delta.Data.DeltaContent);
+                            break;
+                        case AssistantMessageEvent msg:
+                            agentEvent.Data["content"] = JsonValue.Create(msg.Data.Content);
+                            if (!string.IsNullOrEmpty(msg.Data.Content))
+                            {
+                                agentOutput.Clear();
+                                agentOutput.Append(msg.Data.Content);
+                            }
+                            break;
+                        case ToolExecutionStartEvent toolStart:
+                            agentEvent.Data["toolName"] = JsonValue.Create(toolStart.Data.ToolName);
+                            agentEvent.Data["arguments"] = JsonValue.Create(toolStart.Data.Arguments?.ToString());
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      🔧 {toolStart.Data.ToolName}");
+                            }
+                            break;
+                        case ToolExecutionCompleteEvent toolComplete:
+                            agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success);
+                            agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
+                            break;
+                        case SkillInvokedEvent skillInvoked:
+                            agentEvent.Data["name"] = JsonValue.Create(skillInvoked.Data.Name);
+                            agentEvent.Data["path"] = JsonValue.Create(skillInvoked.Data.Path);
+                            if (skillInvoked.Data.AllowedTools is { } allowedTools)
+                            {
+                                var arr = new JsonArray();
+                                foreach (var tool in allowedTools)
+                                    arr.Add((JsonNode?)JsonValue.Create(tool));
+                                agentEvent.Data["allowedTools"] = arr;
+                            }
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      📘 Skill invoked: {skillInvoked.Data.Name}");
+                            }
+                            break;
+                        case SubagentStartedEvent subagentStarted:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentStarted.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentStarted.Data.AgentDisplayName);
+                            agentEvent.Data["agentDescription"] = JsonValue.Create(subagentStarted.Data.AgentDescription);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(subagentStarted.Data.ToolCallId);
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      🤖 Subagent started: {subagentStarted.Data.AgentName}");
+                            }
+                            break;
+                        case SubagentCompletedEvent subagentCompleted:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentCompleted.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentCompleted.Data.AgentDisplayName);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(subagentCompleted.Data.ToolCallId);
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      ✅ Subagent completed: {subagentCompleted.Data.AgentName}");
+                            }
+                            break;
+                        case SubagentFailedEvent subagentFailed:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentFailed.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentFailed.Data.AgentDisplayName);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(subagentFailed.Data.ToolCallId);
+                            agentEvent.Data["error"] = JsonValue.Create(subagentFailed.Data.Error);
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      ❌ Subagent failed: {subagentFailed.Data.AgentName}");
+                            }
+                            break;
+                        case SubagentSelectedEvent subagentSelected:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentSelected.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentSelected.Data.AgentDisplayName);
+                            break;
+                        case SubagentDeselectedEvent:
+                            break;
+                        case AssistantUsageEvent usage:
+                            agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
+                            agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);
+                            agentEvent.Data["cacheReadTokens"] = JsonValue.Create(usage.Data.CacheReadTokens);
+                            agentEvent.Data["cacheWriteTokens"] = JsonValue.Create(usage.Data.CacheWriteTokens);
+                            agentEvent.Data["model"] = JsonValue.Create(usage.Data.Model);
+                            break;
+                        case UserMessageEvent userMsg:
+                            agentEvent.Data["content"] = JsonValue.Create(userMsg.Data.Content);
+                            break;
+                        case SessionIdleEvent:
+                            done.TrySetResult();
+                            break;
+                        case SessionErrorEvent err:
+                            agentEvent.Data["message"] = JsonValue.Create(err.Data.Message);
+                            done.TrySetException(new InvalidOperationException(err.Data.Message ?? "Session error"));
+                            break;
+                    }
+                });
             });
 
-            // For agent evaluation: explicitly select the agent as primary persona.
-            // Must happen after CreateSessionAsync and event handler setup, before SendAsync.
-            if (options.Agent is not null)
+            // Expected-active custom-agent evaluation selects the target as the
+            // primary persona. A successful SelectAsync is recorded directly for
+            // the activation gate; optional SDK subagent events continue to report
+            // later delegation and organic routing.
+            if (options.Agent is not null && options.SelectAgentAsPrimary)
             {
                 await session.Rpc.Agent.SelectAsync(options.Agent.Name);
+                eventBuffer.Record("agent.primary_selected", (agentEvent, _) =>
+                {
+                    agentEvent.Data["agentName"] = JsonValue.Create(options.Agent.Name);
+                });
                 if (options.Verbose)
                 {
                     var write = options.Log ?? (msg => Console.Error.WriteLine(msg));
@@ -699,13 +1287,28 @@ public static class AgentRunner
                 }
             }
 
-            await session.SendAsync(new MessageOptions { Prompt = options.Scenario.Prompt });
+            var prompt = offlineWorkflow
+                ? """
+                  This is an offline workflow decision evaluation. Only the supplied fixture
+                  evidence is available. GitHub, Azure DevOps, collectors, and safe-output
+                  publication are not connected. Use local file tools to inspect that evidence.
+                  Shell execution is denied in every model session; do not retry it.
+                  Evidence and installed resources are read-only; only result.json may be written.
+                  Represent intended safe-output operations as a proposed action in result.json,
+                  using the JSON schema requested below. Do not invoke unavailable network or
+                  publication tools, claim a proposal was published, or execute untrusted code.
+                  Fixture context replaces runtime environment values. A workflow noop is a
+                  valid decision when justified by the evidence, not missing activation.
+
+                  """ + options.Scenario.Prompt
+                : options.Scenario.Prompt;
+            await session.SendAsync(new MessageOptions { Prompt = prompt });
             await done.Task;
         }
         catch (TimeoutException te)
         {
             timedOut = true;
-            events.Add(new AgentEvent(
+            eventBuffer.Add(new AgentEvent(
                 "runner.error",
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(te.ToString()) }));
@@ -729,15 +1332,15 @@ public static class AgentRunner
                 || msg.Contains("timed out", StringComparison.OrdinalIgnoreCase))
             {
                 // Timeout: record a dedicated event (the timer fired, no session.error exists)
-                events.Add(new AgentEvent(
+                eventBuffer.Add(new AgentEvent(
                     "runner.timeout",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
             }
-            else if (!events.Any(e => e.Type == "session.error"))
+            else if (!eventBuffer.ContainsType("session.error"))
             {
                 // Only add runner.error when there isn't already a session.error event
-                events.Add(new AgentEvent(
+                eventBuffer.Add(new AgentEvent(
                     "runner.error",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
@@ -745,14 +1348,31 @@ public static class AgentRunner
         }
 
         var wallTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime;
+        var (events, agentOutput) = eventBuffer.Snapshot();
         var metrics = MetricsCollector.CollectMetrics(events, agentOutput, wallTimeMs, workDir);
         metrics.TimedOut = timedOut;
+        if (offlineWorkflow)
+            CaptureWorkflowProposal(metrics);
         return metrics;
     }
 
-    private static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
+    internal static void CaptureWorkflowProposal(RunMetrics metrics)
     {
-        var workDir = Path.Combine(Path.GetTempPath(), $"sv-{Guid.NewGuid():N}");
+        var path = Path.Combine(metrics.WorkDir, "result.json");
+        if (!File.Exists(path))
+            return; // Missing output is a completion failure evaluated by the scenario graders.
+        if (PathSafety.ContainsReparsePoint(metrics.WorkDir, path))
+            throw new InvalidOperationException("Workflow proposal contains an unsafe file-system path");
+        if (new FileInfo(path).Length > 1_048_576)
+            throw new InvalidOperationException("Workflow proposal exceeds the 1 MiB evidence limit");
+        metrics.WorkflowProposalJson = File.ReadAllText(path);
+        metrics.AgentOutput += "\n\nProposed workflow output (offline; not published):\n"
+            + metrics.WorkflowProposalJson;
+    }
+
+    internal static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
+    {
+        var workDir = Path.Combine(GetEvaluationRoot(), $"sv-{Guid.NewGuid():N}");
         Directory.CreateDirectory(workDir);
         _workDirs.Add(workDir);
 
@@ -762,7 +1382,23 @@ public static class AgentRunner
             var evalDir = Path.GetDirectoryName(evalPath)!;
             foreach (var entry in new DirectoryInfo(evalDir).EnumerateFileSystemInfos())
             {
-                if (entry.Name == "eval.yaml") continue;
+                if (EvaluatorOnlySetupEntries.Contains(entry.Name))
+                    continue;
+                FileAttributes attributes;
+                try
+                {
+                    attributes = entry.Attributes;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Console.Error.WriteLine($"Unable to inspect setup entry, skipping: {entry.FullName}");
+                    continue;
+                }
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    Console.Error.WriteLine($"Setup entry is a symbolic link or reparse point, skipping: {entry.FullName}");
+                    continue;
+                }
                 var dest = Path.Combine(workDir, entry.Name);
                 if (entry is DirectoryInfo dir)
                     CopyDirectory(dir.FullName, dest);
@@ -807,7 +1443,15 @@ public static class AgentRunner
                     {
                         continue;
                     }
-                    File.Copy(resolvedSource, targetPath, true);
+                    if (Directory.Exists(resolvedSource))
+                    {
+                        Directory.CreateDirectory(targetPath);
+                        CopyDirectory(resolvedSource, targetPath);
+                    }
+                    else
+                    {
+                        File.Copy(resolvedSource, targetPath, true);
+                    }
                 }
             }
         }
@@ -817,50 +1461,54 @@ public static class AgentRunner
         {
             foreach (var cmd in commands)
             {
-                try
-                {
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
-                        Arguments = OperatingSystem.IsWindows() ? $"/c {cmd}" : $"-c \"{cmd.Replace("\"", "\\\"")}\"",
-                        WorkingDirectory = workDir,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                    };
-
-                    // Scrub sensitive environment variables from child processes.
-                    // ProcessStartInfo.Environment is pre-populated with the current
-                    // process's environment on first access; removing keys prevents
-                    // them from being inherited by the child.
-                    ScrubSensitiveEnvironment(psi);
-
-                    using var proc = Process.Start(psi);
-                    if (proc is not null)
-                    {
-                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-                        try
-                        {
-                            await proc.WaitForExitAsync(cts.Token);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            // Process timed out — kill the orphan
-                            try { proc.Kill(true); } catch { }
-                            Console.Error.WriteLine($"Setup command timed out and was killed");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Setup commands may return non-zero exit codes
-                    // (e.g. building a broken project to produce a binlog)
-                    Console.Error.WriteLine($"Setup command failed: {ex.GetType().Name}: {ex.Message}");
-                }
+                await RunSetupCommand(cmd, workDir);
             }
         }
 
         return workDir;
+    }
+
+    internal static async Task RunSetupCommand(
+        string command,
+        string workDir,
+        TimeSpan? timeout = null)
+    {
+        var psi = CreateSetupProcessStartInfo(command, workDir);
+        using var process = Process.Start(psi)
+            ?? throw new InvalidOperationException($"Setup command failed to start: {command}");
+        using var cts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(120));
+        try
+        {
+            await process.WaitForExitAsync(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            try { await process.WaitForExitAsync(); } catch { }
+            throw new TimeoutException($"Setup command timed out and was killed: {command}");
+        }
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Setup command exited with code {process.ExitCode}: {command}");
+        }
+    }
+
+    internal static ProcessStartInfo CreateSetupProcessStartInfo(string command, string workDir)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
+            Arguments = OperatingSystem.IsWindows() ? $"/c {command}" : $"-c \"{command.Replace("\"", "\\\"")}\"",
+            WorkingDirectory = workDir,
+            UseShellExecute = false,
+        };
+
+        // Setup output is intentionally inherited. Redirecting unused streams
+        // can deadlock when a verbose command fills an unread OS pipe.
+        ScrubSensitiveEnvironment(psi);
+        return psi;
     }
 
     // --- Security: environment scrubbing for child processes ---
@@ -884,19 +1532,50 @@ public static class AgentRunner
 
         var canonicalBaseDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDir));
         var sourcePath = Path.GetFullPath(Path.Combine(baseDir, source));
-        // Prevent path traversal: source must stay inside the base directory
-        if (!sourcePath.StartsWith(canonicalBaseDir + Path.DirectorySeparatorChar, pathComparison)
-            && !sourcePath.Equals(canonicalBaseDir, pathComparison))
+        var allowedRoot = evalPath is null
+            ? canonicalBaseDir
+            : FindRepositoryRoot(canonicalBaseDir) ?? canonicalBaseDir;
+        var normalizedAllowedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot));
+        // Vally fixture paths are relative to eval.yaml and may intentionally
+        // reference a sibling eval's shared fixtures. Keep them inside the
+        // repository root; standalone legacy evals remain confined to their
+        // own eval/skill directory when no repository root can be identified.
+        if (!sourcePath.StartsWith(normalizedAllowedRoot + Path.DirectorySeparatorChar, pathComparison)
+            && !sourcePath.Equals(normalizedAllowedRoot, pathComparison))
         {
-            Console.Error.WriteLine($"Setup file source escapes base directory, skipping: {source}");
+            Console.Error.WriteLine($"Setup file source escapes the allowed repository directory, skipping: {source}");
+            return null;
+        }
+        if (PathSafety.ContainsReparsePoint(
+            normalizedAllowedRoot,
+            sourcePath,
+            missingPathIsUnsafe: false))
+        {
+            Console.Error.WriteLine($"Setup file source contains a symbolic link or reparse point, skipping: {source}");
             return null;
         }
 
         return sourcePath;
     }
 
+    private static string? FindRepositoryRoot(string startDirectory)
+    {
+        var current = new DirectoryInfo(startDirectory);
+        while (current is not null)
+        {
+            if (Directory.Exists(Path.Combine(current.FullName, "plugins"))
+                && Directory.Exists(Path.Combine(current.FullName, "tests")))
+            {
+                return current.FullName;
+            }
+            current = current.Parent;
+        }
+        return null;
+    }
+
     private static readonly string[] SensitiveEnvKeys =
     [
+        "GH_TOKEN",
         "GITHUB_TOKEN",
         "ACTIONS_RUNTIME_TOKEN",
         "ACTIONS_ID_TOKEN_REQUEST_URL",
@@ -911,6 +1590,13 @@ public static class AgentRunner
         "NODE_AUTH_TOKEN",
         "NPM_TOKEN",
         "NUGET_API_KEY",
+        "NUGET_CREDENTIALPROVIDERS_PATH",
+        "NUGET_FALLBACK_PACKAGES",
+        "NUGET_HTTP_CACHE_PATH",
+        "NUGET_NETCORE_PLUGIN_PATHS",
+        "NUGET_PACKAGES",
+        "NUGET_PLUGIN_PATHS",
+        "NUGET_SCRATCH",
     ];
 
     private static readonly string[] SensitiveEnvPrefixes =
@@ -941,7 +1627,7 @@ public static class AgentRunner
 
     private static readonly HashSet<string> AllowedMcpCommands = new(StringComparer.OrdinalIgnoreCase)
     {
-        "dotnet", "dnx", "node", "npx", "python", "python3", "uvx",
+        "dotnet",
     };
 
     internal static bool IsAllowedMcpCommand(string command)
@@ -993,40 +1679,79 @@ public static class AgentRunner
         return sanitized.Count > 0 ? sanitized : null;
     }
 
-    // Per-runtime dangerous arg patterns that enable arbitrary code execution.
-    private static readonly Dictionary<string, HashSet<string>> DangerousMcpArgs =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["node"] = new(StringComparer.Ordinal) { "-e", "--eval", "-p", "--print", "--input-type" },
-            ["python"] = new(StringComparer.Ordinal) { "-c", "-m" },
-            ["python3"] = new(StringComparer.Ordinal) { "-c", "-m" },
-            ["npx"] = new(StringComparer.Ordinal) { "-y", "--yes" },
-            ["uvx"] = new(StringComparer.Ordinal) { "--from" },
-        };
+    private static readonly string[] AllowedBinlogMcpArgs =
+        ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"];
+
+    private const string BinlogMcpPackage = "Microsoft.AITools.BinlogMcp";
+    private const string BinlogMcpVersion = "3.0.2";
+    private const string TrustedNugetSource = "https://api.nuget.org/v3/index.json";
+    private static readonly Lazy<HardenedMcpLaunch> HardenedBinlogMcpLaunch =
+        new(CreateHardenedBinlogMcpLaunch);
 
     internal static string[]? SanitizeMcpArgs(string command, string[] args)
     {
         var cmdName = Path.GetFileNameWithoutExtension(command);
-        if (!DangerousMcpArgs.TryGetValue(cmdName, out var blocked))
-            return args;
+        if (!cmdName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+            return null;
 
-        foreach (var arg in args)
-        {
-            foreach (var flag in blocked)
-            {
-                // Exact match: -e, --eval
-                if (arg.Equals(flag, StringComparison.Ordinal))
-                    return null;
-                // Combined form: -econsole.log(1), --eval=...
-                if (flag.StartsWith("--") && arg.StartsWith(flag + "=", StringComparison.Ordinal))
-                    return null;
-                if (flag.StartsWith("-") && !flag.StartsWith("--") && arg.StartsWith(flag, StringComparison.Ordinal) && arg.Length > flag.Length)
-                    return null;
-            }
-        }
-
-        return args;
+        return args.SequenceEqual(AllowedBinlogMcpArgs, StringComparer.Ordinal)
+            ? [.. args]
+            : null;
     }
+
+    private static HardenedMcpLaunch CreateHardenedBinlogMcpLaunch()
+    {
+        var root = Path.Combine(GetEvaluationRoot(), $"sv-mcp-{Guid.NewGuid():N}");
+        var packages = Path.Combine(root, "packages");
+        var httpCache = Path.Combine(root, "http-cache");
+        Directory.CreateDirectory(packages);
+        Directory.CreateDirectory(httpCache);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        };
+
+        var configPath = Path.Combine(root, "NuGet.config");
+        File.WriteAllText(
+            configPath,
+            $"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <configuration>
+              <packageSources>
+                <clear />
+                <add key="nuget.org" value="{TrustedNugetSource}" protocolVersion="3" />
+              </packageSources>
+              <fallbackPackageFolders>
+                <clear />
+              </fallbackPackageFolders>
+              <packageSourceMapping>
+                <packageSource key="nuget.org">
+                  <package pattern="*" />
+                </packageSource>
+              </packageSourceMapping>
+            </configuration>
+            """);
+
+        return new HardenedMcpLaunch(
+            Args:
+            [
+                "dnx",
+                $"{BinlogMcpPackage}@{BinlogMcpVersion}",
+                "--yes",
+                "--configfile",
+                configPath,
+            ],
+            Environment: new Dictionary<string, string>
+            {
+                ["NUGET_PACKAGES"] = packages,
+                ["NUGET_HTTP_CACHE_PATH"] = httpCache,
+                ["NUGET_FALLBACK_PACKAGES"] = "",
+            });
+    }
+
+    private sealed record HardenedMcpLaunch(
+        string[] Args,
+        Dictionary<string, string> Environment);
 
     /// <summary>
     /// Recursively copies a directory tree, skipping symlinks and reparse
@@ -1035,6 +1760,18 @@ public static class AgentRunner
     /// </summary>
     private static void CopyDirectory(string source, string destination)
     {
+        FileAttributes attributes;
+        try
+        {
+            attributes = File.GetAttributes(source);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new IOException($"Unable to inspect source directory '{source}'.", ex);
+        }
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+            throw new IOException($"Refusing to copy symbolic link or reparse-point directory '{source}'.");
+
         var sourceRoot = Path.GetFullPath(source);
         if (!Path.EndsInDirectorySeparator(sourceRoot))
             sourceRoot += Path.DirectorySeparatorChar;

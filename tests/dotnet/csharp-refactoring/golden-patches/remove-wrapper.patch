@@ -1,0 +1,34 @@
+diff --git a/src/Billing/Pricing.cs b/src/Billing/Pricing.cs
+index b4bdf26..da1dc7c 100644
+--- a/src/Billing/Pricing.cs
++++ b/src/Billing/Pricing.cs
+@@ -6,12 +6,6 @@ internal static class TaxRules
+     public static decimal Apply(decimal amount) => amount + (amount * 0.08m);
+ }
+ 
+-/// <summary>Legacy tax entry point retained for older callers.</summary>
+-internal static class LegacyTax
+-{
+-    public static decimal ApplyTaxWrapper(decimal amount) => TaxRules.Apply(amount);
+-}
+-
+ internal static class PricingMath
+ {
+     internal static decimal ApplyDiscount(decimal amount, decimal rate) => amount - (amount * rate);
+diff --git a/tests/Billing.Tests/BillingTests.cs b/tests/Billing.Tests/BillingTests.cs
+index 16b686c..0c0a180 100644
+--- a/tests/Billing.Tests/BillingTests.cs
++++ b/tests/Billing.Tests/BillingTests.cs
+@@ -56,10 +56,9 @@ public class BillingTests
+     }
+ 
+     [Fact]
+-    public void Tax_Wrapper_MatchesUnderlyingRule()
++    public void Tax_Rule_AppliesEightPercent()
+     {
+-        Assert.Equal(TaxRules.Apply(100m), LegacyTax.ApplyTaxWrapper(100m));
+-        Assert.Equal(108m, LegacyTax.ApplyTaxWrapper(100m));
++        Assert.Equal(108m, TaxRules.Apply(100m));
+     }
+ 
+     [Fact]

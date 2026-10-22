@@ -2,9 +2,9 @@
 name: code-testing-extensions
 description: >-
   Provides file paths to language-specific extension files for the code-testing
-  pipeline. Call this skill to discover available extension guidance files
-  (e.g., dotnet.md for .NET, cpp.md for C++). Do not use directly — invoked
-  by code-testing agents and skills that need language-specific references.
+  pipeline. Read this reference-only catalog for extension guidance files
+  (e.g., dotnet.md for .NET, cpp.md for C++). Agents and skills read its bundled
+  files directly; do not invoke this catalog through the model's skill tool.
 user-invocable: false
 disable-model-invocation: true
 license: MIT
@@ -12,7 +12,9 @@ license: MIT
 
 # Code Testing Extensions
 
-This skill provides access to language-specific guidance files used by the code-testing pipeline. Call this skill to get the file paths, then read the relevant file for your target language.
+This reference-only catalog lists bundled guidance for the code-testing
+pipeline. Read the matching file directly; do not invoke this catalog as a
+skill. Resource paths are relative to this catalog, not the project workspace.
 
 ## Available Extension Files
 
@@ -37,4 +39,7 @@ This skill provides access to language-specific guidance files used by the code-
 
 ## Usage
 
-Read the appropriate extension file for the target language before writing test code. When an `<language>-examples.md` file exists for the target language, read it alongside the base extension to see a concrete end-to-end pipeline walkthrough (research output, plan, generated tests, fix cycles, final report).
+Read the appropriate base extension before writing test code. Load an
+`<language>-examples.md` file only when the repository has no representative
+tests and the base extension does not resolve the needed pattern. Do not load
+end-to-end examples for a focused request with established local conventions.
