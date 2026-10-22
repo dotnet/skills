@@ -1,0 +1,9 @@
+@page "/"
+
+<h1>Basic migration</h1>
+<button @onclick="Increment">Clicked @count times</button>
+
+@code {
+    private int count;
+    private void Increment() => count++;
+}
