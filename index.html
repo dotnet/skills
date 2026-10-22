@@ -245,6 +245,11 @@
       background: var(--surface); color: var(--text); border: 1px solid var(--border);
       border-radius: 6px; padding: 6px 8px; font-size: 13px; margin-left: 4px;
     }
+    .sv-controls input[type="search"] {
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 8px; font-size: 13px; margin-left: 4px;
+    }
+    .sv-controls input[type="search"]:focus-visible { outline: 2px solid var(--skilled); outline-offset: 2px; }
     .sv-sub { display: block; color: var(--text-muted); font-size: 11px; font-weight: 400; margin-top: 2px; }
     .sv-controls .sv-sub { display: inline; margin: 0; }
     .sv-table td { vertical-align: top; }
@@ -260,6 +265,10 @@
     .sv-btn { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
     .sv-btn:hover { border-color: var(--skilled); color: var(--skilled); }
     /* Model leaf rows carry the real numbers, so undo the token-table level-2 muting. */
+    .sv-table { overflow: visible; }
+    .sv-table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+    .sv-table thead th:first-child { border-top-left-radius: 8px; }
+    .sv-table thead th:last-child { border-top-right-radius: 8px; }
     .sv-table tr.level-2 td { color: var(--text); }
     .sv-table tr.sv-detail td { padding-left: 88px; }
   </style>
