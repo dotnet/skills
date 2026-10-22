@@ -8,8 +8,12 @@ stimuli:
     prompt: "Is `AppSettingsHelper` part of the public API anywhere? Its int/bool setting parsing looks duplicated with `ConfigReader`. If it's safe to do, consolidate the setting parsing into one place and update the callers, without changing behavior. The solution is at Fixture.sln."
     environment:
       files:
-        - src: .
-          dest: .
+        - src: Fixture.sln
+          dest: Fixture.sln
+        - src: src
+          dest: src
+        - src: tests
+          dest: tests
     graders:
       - type: output-matches
         config:
