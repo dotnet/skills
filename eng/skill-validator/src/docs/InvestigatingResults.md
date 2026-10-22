@@ -61,7 +61,7 @@ behavior against the corrected executor.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
 
-> Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14 startup guard. It waits for
+> Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup
 > calls. Session-provider errors are harness failures, not skill-quality verdicts.
 > This does not change the historical result schema documented below.
