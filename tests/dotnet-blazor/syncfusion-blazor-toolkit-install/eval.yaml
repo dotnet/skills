@@ -384,7 +384,10 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(AddSyncfusionBlazorToolkit|registration|static asset|bundled|_content|interactive)
-
+      # Affirmative recommendation of the commercial CDN script — warnings allowed
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:keep|add|include|retain|use|reference|link|load)\b[^\n]{0,60}(?:cdn\.syncfusion|CDN script|<script[^>]*syncfusion)'
       - type: prompt
     rubric:
       - Looks at registration, interactive boundary, and static web assets — not commercial CDN scripts.
