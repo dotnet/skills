@@ -1,0 +1,770 @@
+diff --git a/fixtures/blazor-crud/BlazorApp.csproj b/fixtures/blazor-crud/BlazorApp.csproj
+index b5f6af0..4a28b0f 100644
+--- a/fixtures/blazor-crud/BlazorApp.csproj
++++ b/fixtures/blazor-crud/BlazorApp.csproj
+@@ -7,4 +7,12 @@
+     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+   </PropertyGroup>
+
++  <ItemGroup>
++    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
++    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
++      <PrivateAssets>all</PrivateAssets>
++      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
++    </PackageReference>
++  </ItemGroup>
++
+ </Project>
+diff --git a/fixtures/blazor-crud/Components/Layout/NavMenu.razor b/fixtures/blazor-crud/Components/Layout/NavMenu.razor
+index b09664d..a76e77f 100644
+--- a/fixtures/blazor-crud/Components/Layout/NavMenu.razor
++++ b/fixtures/blazor-crud/Components/Layout/NavMenu.razor
+@@ -25,6 +25,18 @@
+                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+             </NavLink>
+         </div>
++
++        <div class="nav-item px-3">
++            <NavLink class="nav-link" href="employees">
++                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Employees
++            </NavLink>
++        </div>
++
++        <div class="nav-item px-3">
++            <NavLink class="nav-link" href="departments">
++                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Departments
++            </NavLink>
++        </div>
+     </nav>
+ </div>
+
+diff --git a/fixtures/blazor-crud/Components/Pages/Departments.razor b/fixtures/blazor-crud/Components/Pages/Departments.razor
+new file mode 100644
+index 0000000..faef217
+--- /dev/null
++++ b/fixtures/blazor-crud/Components/Pages/Departments.razor
+@@ -0,0 +1,213 @@
++@page "/departments"
++@rendermode InteractiveServer
++@using BlazorApp.Data
++@using BlazorApp.Models
++@using Microsoft.EntityFrameworkCore
++@inject IDbContextFactory<AppDbContext> DbFactory
++
++<PageTitle>Departments</PageTitle>
++
++<h1>Departments</h1>
++
++@if (!string.IsNullOrWhiteSpace(statusMessage))
++{
++    <div class="alert alert-info" role="status">@statusMessage</div>
++}
++
++<div class="row g-4">
++    <div class="col-lg-7">
++        <div class="d-flex justify-content-between align-items-center mb-3">
++            <h2 class="h4 mb-0">Department list</h2>
++            <button type="button" class="btn btn-primary" @onclick="StartCreate">New department</button>
++        </div>
++
++        @if (departments.Count == 0)
++        {
++            <p>No departments have been added.</p>
++        }
++        else
++        {
++            <table class="table table-striped align-middle">
++                <thead>
++                    <tr>
++                        <th>Name</th>
++                        <th>Employees</th>
++                        <th><span class="visually-hidden">Actions</span></th>
++                    </tr>
++                </thead>
++                <tbody>
++                    @foreach (var department in departments)
++                    {
++                        <tr>
++                            <td>@department.Name</td>
++                            <td>@department.Employees.Count</td>
++                            <td class="text-nowrap">
++                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => SelectDepartmentAsync(department.Id)">Details</button>
++                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => EditDepartmentAsync(department.Id)">Edit</button>
++                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveDepartmentAsync(department.Id)">Delete</button>
++                            </td>
++                        </tr>
++                    }
++                </tbody>
++            </table>
++        }
++
++        @if (selectedDepartment is not null)
++        {
++            <section class="card mt-3" aria-labelledby="department-details-heading">
++                <div class="card-body">
++                    <h2 id="department-details-heading" class="h5">Department details</h2>
++                    <p><strong>Name:</strong> @selectedDepartment.Name</p>
++                    <p class="mb-1"><strong>Employees:</strong></p>
++                    @if (selectedDepartment.Employees.Count == 0)
++                    {
++                        <p class="mb-0">No employees are assigned.</p>
++                    }
++                    else
++                    {
++                        <ul class="mb-0">
++                            @foreach (var employee in selectedDepartment.Employees.OrderBy(employee => employee.LastName))
++                            {
++                                <li>@employee.FirstName @employee.LastName</li>
++                            }
++                        </ul>
++                    }
++                </div>
++            </section>
++        }
++    </div>
++
++    <div class="col-lg-5">
++        <h2 class="h4">@(departmentForm.Id == 0 ? "Create department" : "Edit department")</h2>
++        <EditForm Model="@departmentForm" OnValidSubmit="SaveDepartmentAsync" @key="departmentForm">
++            <DataAnnotationsValidator />
++            <ValidationSummary />
++
++            <div class="mb-3">
++                <label class="form-label" for="department-name">Name</label>
++                <InputText id="department-name" class="form-control" @bind-Value="departmentForm.Name" />
++                <ValidationMessage For="@(() => departmentForm.Name)" />
++            </div>
++            <button type="submit" class="btn btn-primary">Save department</button>
++            <button type="button" class="btn btn-secondary ms-2" @onclick="StartCreate">Cancel</button>
++        </EditForm>
++    </div>
++</div>
++
++@code {
++    private List<Department> departments = [];
++    private Department departmentForm = new();
++    private Department? selectedDepartment;
++    private string? statusMessage;
++
++    protected override Task OnInitializedAsync() => LoadDepartmentsAsync();
++
++    private async Task LoadDepartmentsAsync()
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        departments = await db.Departments.AsNoTracking()
++            .Include(department => department.Employees)
++            .OrderBy(department => department.Name)
++            .ToListAsync();
++
++        if (selectedDepartment is not null)
++        {
++            selectedDepartment = await db.Departments.AsNoTracking()
++                .Include(department => department.Employees)
++                .FirstOrDefaultAsync(department => department.Id == selectedDepartment.Id);
++        }
++    }
++
++    private void StartCreate()
++    {
++        departmentForm = new();
++        statusMessage = null;
++    }
++
++    private async Task SelectDepartmentAsync(int id)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        selectedDepartment = await db.Departments.AsNoTracking()
++            .Include(department => department.Employees)
++            .FirstOrDefaultAsync(department => department.Id == id);
++    }
++
++    private async Task EditDepartmentAsync(int id)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        var department = await db.Departments.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id);
++        if (department is null)
++        {
++            statusMessage = "The department no longer exists.";
++            return;
++        }
++
++        departmentForm = new Department { Id = department.Id, Name = department.Name };
++        statusMessage = null;
++    }
++
++    private async Task SaveDepartmentAsync()
++    {
++        var wasNew = departmentForm.Id == 0;
++        if (wasNew)
++        {
++            await AddDepartmentAsync(departmentForm);
++        }
++        else if (!await UpdateDepartmentAsync(departmentForm))
++        {
++            return;
++        }
++
++        statusMessage = wasNew ? "Department added." : "Department updated.";
++        departmentForm = new();
++        await LoadDepartmentsAsync();
++    }
++
++    private async Task AddDepartmentAsync(Department model)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        await db.Departments.AddAsync(new Department { Name = model.Name });
++        await db.SaveChangesAsync();
++    }
++
++    private async Task<bool> UpdateDepartmentAsync(Department model)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        var department = await db.Departments.FindAsync(model.Id);
++        if (department is null)
++        {
++            statusMessage = "The department no longer exists.";
++            return false;
++        }
++
++        department.Name = model.Name;
++        await db.SaveChangesAsync();
++        return true;
++    }
++
++    private async Task RemoveDepartmentAsync(int id)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        if (await db.Employees.AnyAsync(employee => employee.DepartmentId == id))
++        {
++            statusMessage = "Move or delete the department's employees before deleting it.";
++            return;
++        }
++
++        var department = await db.Departments.FindAsync(id);
++        if (department is null)
++        {
++            statusMessage = "The department no longer exists.";
++            return;
++        }
++
++        db.Departments.Remove(department);
++        await db.SaveChangesAsync();
++        if (selectedDepartment?.Id == id)
++        {
++            selectedDepartment = null;
++        }
++        statusMessage = "Department deleted.";
++        await LoadDepartmentsAsync();
++    }
++}
+diff --git a/fixtures/blazor-crud/Components/Pages/Employees.razor b/fixtures/blazor-crud/Components/Pages/Employees.razor
+new file mode 100644
+index 0000000..61eeb23
+--- /dev/null
++++ b/fixtures/blazor-crud/Components/Pages/Employees.razor
+@@ -0,0 +1,247 @@
++@page "/employees"
++@rendermode InteractiveServer
++@using BlazorApp.Data
++@using BlazorApp.Models
++@using Microsoft.EntityFrameworkCore
++@inject IDbContextFactory<AppDbContext> DbFactory
++
++<PageTitle>Employees</PageTitle>
++
++<h1>Employees</h1>
++
++@if (!string.IsNullOrWhiteSpace(statusMessage))
++{
++    <div class="alert alert-info" role="status">@statusMessage</div>
++}
++
++<div class="row g-4">
++    <div class="col-lg-7">
++        <div class="d-flex justify-content-between align-items-center mb-3">
++            <h2 class="h4 mb-0">Employee list</h2>
++            <button type="button" class="btn btn-primary" @onclick="StartCreate" disabled="@(departments.Count == 0)">New employee</button>
++        </div>
++
++        @if (departments.Count == 0)
++        {
++            <p class="alert alert-warning">Create a <a href="departments">department</a> before adding employees.</p>
++        }
++
++        @if (employees.Count == 0)
++        {
++            <p>No employees have been added.</p>
++        }
++        else
++        {
++            <table class="table table-striped align-middle">
++                <thead>
++                    <tr>
++                        <th>Name</th>
++                        <th>Email</th>
++                        <th>Department</th>
++                        <th><span class="visually-hidden">Actions</span></th>
++                    </tr>
++                </thead>
++                <tbody>
++                    @foreach (var employee in employees)
++                    {
++                        <tr>
++                            <td>@employee.FirstName @employee.LastName</td>
++                            <td>@employee.Email</td>
++                            <td>@employee.Department.Name</td>
++                            <td class="text-nowrap">
++                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => SelectEmployeeAsync(employee.Id)">Details</button>
++                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => EditEmployeeAsync(employee.Id)">Edit</button>
++                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveEmployeeAsync(employee.Id)">Delete</button>
++                            </td>
++                        </tr>
++                    }
++                </tbody>
++            </table>
++        }
++
++        @if (selectedEmployee is not null)
++        {
++            <section class="card mt-3" aria-labelledby="employee-details-heading">
++                <div class="card-body">
++                    <h2 id="employee-details-heading" class="h5">Employee details</h2>
++                    <dl class="row mb-0">
++                        <dt class="col-sm-4">Name</dt>
++                        <dd class="col-sm-8">@selectedEmployee.FirstName @selectedEmployee.LastName</dd>
++                        <dt class="col-sm-4">Email</dt>
++                        <dd class="col-sm-8">@selectedEmployee.Email</dd>
++                        <dt class="col-sm-4">Department</dt>
++                        <dd class="col-sm-8">@selectedEmployee.Department.Name</dd>
++                    </dl>
++                </div>
++            </section>
++        }
++    </div>
++
++    <div class="col-lg-5">
++        <h2 class="h4">@(employeeForm.Id == 0 ? "Create employee" : "Edit employee")</h2>
++        <EditForm Model="@employeeForm" OnValidSubmit="SaveEmployeeAsync" @key="employeeForm">
++            <DataAnnotationsValidator />
++            <ValidationSummary />
++
++            <div class="mb-3">
++                <label class="form-label" for="employee-first-name">First name</label>
++                <InputText id="employee-first-name" class="form-control" @bind-Value="employeeForm.FirstName" />
++                <ValidationMessage For="@(() => employeeForm.FirstName)" />
++            </div>
++            <div class="mb-3">
++                <label class="form-label" for="employee-last-name">Last name</label>
++                <InputText id="employee-last-name" class="form-control" @bind-Value="employeeForm.LastName" />
++                <ValidationMessage For="@(() => employeeForm.LastName)" />
++            </div>
++            <div class="mb-3">
++                <label class="form-label" for="employee-email">Email</label>
++                <InputText id="employee-email" class="form-control" @bind-Value="employeeForm.Email" />
++                <ValidationMessage For="@(() => employeeForm.Email)" />
++            </div>
++            <div class="mb-3">
++                <label class="form-label" for="employee-department">Department</label>
++                <InputSelect id="employee-department" class="form-select" @bind-Value="employeeForm.DepartmentId">
++                    <option value="0">Select a department</option>
++                    @foreach (var department in departments)
++                    {
++                        <option value="@department.Id">@department.Name</option>
++                    }
++                </InputSelect>
++                <ValidationMessage For="@(() => employeeForm.DepartmentId)" />
++            </div>
++            <button type="submit" class="btn btn-primary" disabled="@(departments.Count == 0)">Save employee</button>
++            <button type="button" class="btn btn-secondary ms-2" @onclick="StartCreate">Cancel</button>
++        </EditForm>
++    </div>
++</div>
++
++@code {
++    private List<Employee> employees = [];
++    private List<Department> departments = [];
++    private Employee employeeForm = new();
++    private Employee? selectedEmployee;
++    private string? statusMessage;
++
++    protected override Task OnInitializedAsync() => LoadEmployeesAsync();
++
++    private async Task LoadEmployeesAsync()
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        departments = await db.Departments.AsNoTracking().OrderBy(department => department.Name).ToListAsync();
++        employees = await db.Employees.AsNoTracking()
++            .Include(employee => employee.Department)
++            .OrderBy(employee => employee.LastName)
++            .ThenBy(employee => employee.FirstName)
++            .ToListAsync();
++
++        if (selectedEmployee is not null)
++        {
++            selectedEmployee = await db.Employees.AsNoTracking()
++                .Include(employee => employee.Department)
++                .FirstOrDefaultAsync(employee => employee.Id == selectedEmployee.Id);
++        }
++    }
++
++    private void StartCreate()
++    {
++        employeeForm = new();
++        statusMessage = null;
++    }
++
++    private async Task SelectEmployeeAsync(int id)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        selectedEmployee = await db.Employees.AsNoTracking()
++            .Include(employee => employee.Department)
++            .FirstOrDefaultAsync(employee => employee.Id == id);
++    }
++
++    private async Task EditEmployeeAsync(int id)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        var employee = await db.Employees.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id);
++        if (employee is null)
++        {
++            statusMessage = "The employee no longer exists.";
++            return;
++        }
++
++        employeeForm = new Employee
++        {
++            Id = employee.Id,
++            FirstName = employee.FirstName,
++            LastName = employee.LastName,
++            Email = employee.Email,
++            DepartmentId = employee.DepartmentId
++        };
++        statusMessage = null;
++    }
++
++    private async Task SaveEmployeeAsync()
++    {
++        var wasNew = employeeForm.Id == 0;
++        if (wasNew)
++        {
++            await AddEmployeeAsync(employeeForm);
++        }
++        else if (!await UpdateEmployeeAsync(employeeForm))
++        {
++            return;
++        }
++
++        statusMessage = wasNew ? "Employee added." : "Employee updated.";
++        employeeForm = new();
++        await LoadEmployeesAsync();
++    }
++
++    private async Task AddEmployeeAsync(Employee model)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        await db.Employees.AddAsync(new Employee
++        {
++            FirstName = model.FirstName,
++            LastName = model.LastName,
++            Email = model.Email,
++            DepartmentId = model.DepartmentId
++        });
++        await db.SaveChangesAsync();
++    }
++
++    private async Task<bool> UpdateEmployeeAsync(Employee model)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        var employee = await db.Employees.FindAsync(model.Id);
++        if (employee is null)
++        {
++            statusMessage = "The employee no longer exists.";
++            return false;
++        }
++
++        employee.FirstName = model.FirstName;
++        employee.LastName = model.LastName;
++        employee.Email = model.Email;
++        employee.DepartmentId = model.DepartmentId;
++        await db.SaveChangesAsync();
++        return true;
++    }
++
++    private async Task RemoveEmployeeAsync(int id)
++    {
++        await using var db = await DbFactory.CreateDbContextAsync();
++        var employee = await db.Employees.FindAsync(id);
++        if (employee is null)
++        {
++            statusMessage = "The employee no longer exists.";
++            return;
++        }
++
++        db.Employees.Remove(employee);
++        await db.SaveChangesAsync();
++        if (selectedEmployee?.Id == id)
++        {
++            selectedEmployee = null;
++        }
++        statusMessage = "Employee deleted.";
++        await LoadEmployeesAsync();
++    }
++}
+diff --git a/fixtures/blazor-crud/Data/AppDbContext.cs b/fixtures/blazor-crud/Data/AppDbContext.cs
+new file mode 100644
+index 0000000..14bfd4a
+--- /dev/null
++++ b/fixtures/blazor-crud/Data/AppDbContext.cs
+@@ -0,0 +1,19 @@
++using BlazorApp.Models;
++using Microsoft.EntityFrameworkCore;
++
++namespace BlazorApp.Data;
++
++public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
++{
++    public DbSet<Employee> Employees => Set<Employee>();
++    public DbSet<Department> Departments => Set<Department>();
++
++    protected override void OnModelCreating(ModelBuilder modelBuilder)
++    {
++        modelBuilder.Entity<Employee>()
++            .HasOne(employee => employee.Department)
++            .WithMany(department => department.Employees)
++            .HasForeignKey(employee => employee.DepartmentId)
++            .OnDelete(DeleteBehavior.Restrict);
++    }
++}
+diff --git a/fixtures/blazor-crud/Migrations/20261012220222_InitialCreate.Designer.cs b/fixtures/blazor-crud/Migrations/20261012220222_InitialCreate.Designer.cs
+new file mode 100644
+index 0000000..d812c07
+--- /dev/null
++++ b/fixtures/blazor-crud/Migrations/20261012220222_InitialCreate.Designer.cs
+@@ -0,0 +1,56 @@
++// <auto-generated />
++using BlazorApp.Data;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace BlazorApp.Migrations;
++
++[DbContext(typeof(AppDbContext))]
++[Migration("20261012220222_InitialCreate")]
++partial class InitialCreate
++{
++    protected override void BuildTargetModel(ModelBuilder modelBuilder)
++    {
++#pragma warning disable 612, 618
++        modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
++
++        modelBuilder.Entity("BlazorApp.Models.Department", b =>
++        {
++            b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER");
++            b.Property<string>("Name").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
++            b.HasKey("Id");
++            b.ToTable("Departments");
++        });
++
++        modelBuilder.Entity("BlazorApp.Models.Employee", b =>
++        {
++            b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER");
++            b.Property<int>("DepartmentId").HasColumnType("INTEGER");
++            b.Property<string>("Email").IsRequired().HasMaxLength(256).HasColumnType("TEXT");
++            b.Property<string>("FirstName").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
++            b.Property<string>("LastName").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
++            b.HasKey("Id");
++            b.HasIndex("DepartmentId");
++            b.ToTable("Employees");
++        });
++
++        modelBuilder.Entity("BlazorApp.Models.Employee", b =>
++        {
++            b.HasOne("BlazorApp.Models.Department", "Department")
++                .WithMany("Employees")
++                .HasForeignKey("DepartmentId")
++                .OnDelete(DeleteBehavior.Restrict)
++                .IsRequired();
++            b.Navigation("Department");
++        });
++
++        modelBuilder.Entity("BlazorApp.Models.Department", b =>
++        {
++            b.Navigation("Employees");
++        });
++#pragma warning restore 612, 618
++    }
++}
+diff --git a/fixtures/blazor-crud/Migrations/20261012220222_InitialCreate.cs b/fixtures/blazor-crud/Migrations/20261012220222_InitialCreate.cs
+new file mode 100644
+index 0000000..677f23b
+--- /dev/null
++++ b/fixtures/blazor-crud/Migrations/20261012220222_InitialCreate.cs
+@@ -0,0 +1,57 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace BlazorApp.Migrations;
++
++public partial class InitialCreate : Migration
++{
++    protected override void Up(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.CreateTable(
++            name: "Departments",
++            columns: table => new
++            {
++                Id = table.Column<int>(type: "INTEGER", nullable: false)
++                    .Annotation("Sqlite:Autoincrement", true),
++                Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false)
++            },
++            constraints: table =>
++            {
++                table.PrimaryKey("PK_Departments", x => x.Id);
++            });
++
++        migrationBuilder.CreateTable(
++            name: "Employees",
++            columns: table => new
++            {
++                Id = table.Column<int>(type: "INTEGER", nullable: false)
++                    .Annotation("Sqlite:Autoincrement", true),
++                FirstName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
++                LastName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
++                Email = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
++                DepartmentId = table.Column<int>(type: "INTEGER", nullable: false)
++            },
++            constraints: table =>
++            {
++                table.PrimaryKey("PK_Employees", x => x.Id);
++                table.ForeignKey(
++                    name: "FK_Employees_Departments_DepartmentId",
++                    column: x => x.DepartmentId,
++                    principalTable: "Departments",
++                    principalColumn: "Id",
++                    onDelete: ReferentialAction.Restrict);
++            });
++
++        migrationBuilder.CreateIndex(
++            name: "IX_Employees_DepartmentId",
++            table: "Employees",
++            column: "DepartmentId");
++    }
++
++    protected override void Down(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropTable(name: "Employees");
++        migrationBuilder.DropTable(name: "Departments");
++    }
++}
+diff --git a/fixtures/blazor-crud/Migrations/AppDbContextModelSnapshot.cs b/fixtures/blazor-crud/Migrations/AppDbContextModelSnapshot.cs
+new file mode 100644
+index 0000000..da4b96b
+--- /dev/null
++++ b/fixtures/blazor-crud/Migrations/AppDbContextModelSnapshot.cs
+@@ -0,0 +1,54 @@
++// <auto-generated />
++using BlazorApp.Data;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++
++#nullable disable
++
++namespace BlazorApp.Migrations;
++
++[DbContext(typeof(AppDbContext))]
++partial class AppDbContextModelSnapshot : ModelSnapshot
++{
++    protected override void BuildModel(ModelBuilder modelBuilder)
++    {
++#pragma warning disable 612, 618
++        modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
++
++        modelBuilder.Entity("BlazorApp.Models.Department", b =>
++        {
++            b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER");
++            b.Property<string>("Name").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
++            b.HasKey("Id");
++            b.ToTable("Departments");
++        });
++
++        modelBuilder.Entity("BlazorApp.Models.Employee", b =>
++        {
++            b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER");
++            b.Property<int>("DepartmentId").HasColumnType("INTEGER");
++            b.Property<string>("Email").IsRequired().HasMaxLength(256).HasColumnType("TEXT");
++            b.Property<string>("FirstName").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
++            b.Property<string>("LastName").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
++            b.HasKey("Id");
++            b.HasIndex("DepartmentId");
++            b.ToTable("Employees");
++        });
++
++        modelBuilder.Entity("BlazorApp.Models.Employee", b =>
++        {
++            b.HasOne("BlazorApp.Models.Department", "Department")
++                .WithMany("Employees")
++                .HasForeignKey("DepartmentId")
++                .OnDelete(DeleteBehavior.Restrict)
++                .IsRequired();
++            b.Navigation("Department");
++        });
++
++        modelBuilder.Entity("BlazorApp.Models.Department", b =>
++        {
++            b.Navigation("Employees");
++        });
++#pragma warning restore 612, 618
++    }
++}
+diff --git a/fixtures/blazor-crud/Models/Employee.cs b/fixtures/blazor-crud/Models/Employee.cs
+index 97d8711..0ad32f3 100644
+--- a/fixtures/blazor-crud/Models/Employee.cs
++++ b/fixtures/blazor-crud/Models/Employee.cs
+@@ -14,9 +14,13 @@ public class Employee
+     [StringLength(100)]
+     public string LastName { get; set; } = string.Empty;
+
++    [Required]
+     [EmailAddress]
++    [StringLength(256)]
+     public string Email { get; set; } = string.Empty;
+
++    [Range(1, int.MaxValue, ErrorMessage = "Select a department.")]
+     public int DepartmentId { get; set; }
++
+     public Department Department { get; set; } = null!;
+ }
+diff --git a/fixtures/blazor-crud/Program.cs b/fixtures/blazor-crud/Program.cs
+index 5955cfe..b302f46 100644
+--- a/fixtures/blazor-crud/Program.cs
++++ b/fixtures/blazor-crud/Program.cs
+@@ -1,7 +1,13 @@
+ using BlazorApp.Components;
++using BlazorApp.Data;
++using Microsoft.EntityFrameworkCore;
+
+ var builder = WebApplication.CreateBuilder(args);
+
++builder.Services.AddDbContextFactory<AppDbContext>(options =>
++    options.UseSqlite(builder.Configuration.GetConnectionString("AppDbContext")
++        ?? throw new InvalidOperationException("Connection string 'AppDbContext' was not found.")));
++
+ // Add services to the container.
+ builder.Services.AddRazorComponents()
+     .AddInteractiveServerComponents();
+diff --git a/fixtures/blazor-crud/appsettings.json b/fixtures/blazor-crud/appsettings.json
+index 10f68b8..47ab442 100644
+--- a/fixtures/blazor-crud/appsettings.json
++++ b/fixtures/blazor-crud/appsettings.json
+@@ -1,4 +1,7 @@
+ {
++  "ConnectionStrings": {
++    "AppDbContext": "Data Source=blazor-crud.db"
++  },
+   "Logging": {
+     "LogLevel": {
+       "Default": "Information",
