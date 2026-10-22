@@ -258,7 +258,8 @@ The shared skill/native-agent reader and quality gate retain historical top-leve
 Boolean `expect_activation: false` support. Tagged values must be strings
 `"false"` or `"true"`; malformed values or conflicting old/new declarations
 fail explicitly instead of silently dropping a contract. The zero-dependency
-adapter supports block and flow mappings, not aliased `tags` mappings.
+adapter supports block and flow mappings with literal keys. Aliased `tags`
+mappings, escaped/tagged/anchored keys, and YAML merges fail explicitly.
 
 The same scenario becomes an isolated-arm activation contract. Unexpected
 target-skill activation blocks a pass with

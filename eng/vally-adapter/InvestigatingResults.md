@@ -214,7 +214,7 @@ The adapter's zero-dependency YAML scanner follows PyYAML's historical Boolean s
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
 `off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items and tags.
 Native tag values must be the quoted strings `"false"` or `"true"`. Malformed
-tags, unsupported aliased tag mappings, and conflicting legacy/tagged values
+tags, unsupported aliases/escaped keys/YAML merges, and conflicting legacy/tagged values
 fail explicitly; the skill adapter uses its existing `eval_spec_unreadable`
 invalid-verdict path. They cannot silently restore a dormancy stimulus to preference voting.
 An annotation that matches no observed stimulus is retained under

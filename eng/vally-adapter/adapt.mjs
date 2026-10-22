@@ -336,6 +336,11 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     tagIndent = null;
   };
   const applyTagEntry = (entry) => {
+    const key = /^\s*("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:]+):/.exec(entry)?.[1].trim();
+    if (key === "<<" || /^[!&*?]/.test(entry.trim()) ||
+        (key?.startsWith('"') && key.includes("\\"))) {
+      throw new Error(`unsupported tags key for ${curName} in ${evalFile}; use literal keys without merges`);
+    }
     const kv = /^\s*(["']?)expect_activation\1:\s?(.*?)\s*$/.exec(entry);
     if (!kv) return;
     const value = /^(["'])(false|true)\1(?:\s+#.*)?$/.exec(kv[2].trim());
