@@ -589,7 +589,7 @@ stimuli:
             message: |-
               Do not merge as-is: CI is green, but three changes break package consumers.
 
-              1. ParseBoolSetting gains `bool strict = false`. Callers still compile, but this is a binary break: the two-parameter method no longer exists, so any assembly compiled against the previous package throws MissingMethodException until it is recompiled. The diff also rewrites the shipped line in PublicAPI.Shipped.txt, which hides the break from the RS0017 gate. Keep the original method and add a new overload instead. Separately, the non-strict path now trims input, so " true " used to return the fallback and now returns true, which is a behavior change.
+              1. ParseBoolSetting gains `bool strict = false`. Callers still compile, but this is a binary break: the two-parameter method no longer exists, so any assembly compiled against the previous package throws MissingMethodException until it is recompiled. The diff also rewrites the shipped line in PublicAPI.Shipped.txt, which hides the break from the RS0017 gate. Keep the original method and add a new overload instead.
               2. Coupons becomes sealed. Any consumer type that derives from Coupons stops compiling, and a sealed class cannot be unsealed later without another review.
               3. PlatformInfo's LegacyTag changes from net8 to net8.0. Only the net8.0 build changes, so PlatformInfo.Current() now returns platform:net8.0 for net8 consumers. The test was edited to match rather than catching the change.
 
