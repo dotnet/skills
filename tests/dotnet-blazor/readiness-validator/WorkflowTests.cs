@@ -524,8 +524,14 @@ internal static class WorkflowTests
             @"(?m)^\s*(?:args:\s*\r?\n\s*- -I\s*\r?\n\s*- -c\s*\r?\n\s*- &guidance_program|args: \[-I, -c, \*guidance_program,)").Count == 3,
             "all guidance grader bootstraps ignore workspace import shadowing");
         using var tools = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(repositoryRoot, "eng", "evaluation-tools", "package.json")));
-        Assert(tools.RootElement.GetProperty("dependencies").GetProperty("@microsoft/vally-cli").GetString() == "0.14.0",
-            "guidance grader contract is tested against the declared Vally 0.14.0 pin");
+        var vallyVersion = tools.RootElement.GetProperty("dependencies").GetProperty("@microsoft/vally-cli").GetString();
+        Assert(vallyVersion is not null && Regex.IsMatch(vallyVersion, @"\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z"),
+            "guidance fixtures require an exact repository Vally CLI release pin");
+        using var toolLock = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(repositoryRoot, "eng", "evaluation-tools", "package-lock.json")));
+        var lockedPackages = toolLock.RootElement.GetProperty("packages");
+        Assert(lockedPackages.GetProperty("").GetProperty("dependencies").GetProperty("@microsoft/vally-cli").GetString() == vallyVersion &&
+            lockedPackages.GetProperty("node_modules/@microsoft/vally-cli").GetProperty("version").GetString() == vallyVersion,
+            "guidance fixtures require the declared Vally CLI pin to match the root and resolved lockfile entries");
         var root = Path.Combine(Environment.GetEnvironmentVariable("READINESS_TEST_ARTIFACTS") ?? Path.GetTempPath(),
             "guidance-" + Guid.NewGuid().ToString("N"));
         var previous = Environment.GetEnvironmentVariable("READINESS_SKILL_ROOT");
