@@ -29,6 +29,10 @@
 .PARAMETER CommitJson
     Optional JSON string with commit info (id, message, author, timestamp, url).
 
+.PARAMETER ExecutionId
+    Stable identity shared by every published judge view from one evaluation
+    workflow execution, such as the GitHub run ID and attempt.
+
 .PARAMETER PurgeStaleFiles
     When set, scans DataDir for plugin JSON files, purges entries older than the
     retention window, and deletes files that have no remaining entries.
@@ -70,6 +74,9 @@ param(
 
     [Parameter(ParameterSetName = 'Generate')]
     [string]$CommitJson,
+
+    [Parameter(ParameterSetName = 'Generate')]
+    [string]$ExecutionId,
 
     [Parameter(ParameterSetName = 'Generate')]
     [ValidateSet('scheduled', 'pr')]
@@ -183,6 +190,7 @@ function Update-SkillValueIndex([string]$Directory) {
                     plugin     = $file.BaseName
                     commit     = $entry.commit
                     date       = $entry.date
+                    executionId = $entry.executionId
                     model      = $entry.model
                     judgeModel = $entry.judgeModel
                     skills     = $entry.skills
@@ -702,6 +710,7 @@ $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $qualityEntry = @{
     commit          = $commit
     date            = $now
+    executionId     = $ExecutionId
     tool            = "customBiggerIsBetter"
     model           = $model
     benches         = $qualityBenches.ToArray()
@@ -709,10 +718,11 @@ $qualityEntry = @{
 }
 
 $efficiencyEntry = @{
-    commit = $commit
-    date   = $now
-    tool   = "customSmallerIsBetter"
-    model  = $model
+    commit      = $commit
+    date        = $now
+    executionId = $ExecutionId
+    tool        = "customSmallerIsBetter"
+    model       = $model
     benches = $efficiencyBenches.ToArray()
 }
 
@@ -769,6 +779,16 @@ foreach ($verdict in $results.verdicts) {
     } else {
         $null
     }
+    $targetActivationFailed = (
+        $verdict.PSObject.Properties['stateReason'] -and
+        $verdict.stateReason -and
+        $verdict.stateReason.code -eq "target_agent_not_activated"
+    )
+    $completionRegressed = (
+        $verdict.PSObject.Properties['stateReason'] -and
+        $verdict.stateReason -and
+        $verdict.stateReason.code -eq "native_completion_regression"
+    )
     $preference = if ($signTest) {
         @{
             count              = [int]$verdict.stimulusVoteCount
@@ -908,17 +928,20 @@ foreach ($verdict in $results.verdicts) {
         baselineOnlyPass  = $baselineOnlyPass
         treatmentOnlyPass = $treatmentOnlyPass
         hasPassData      = ($passTotal -gt 0)
+        targetActivationFailed = $targetActivationFailed
+        completionRegressed = $completionRegressed
         activationContract = $activationContract
         preference       = $preference
     })
 }
 
 $skillValueEntry = @{
-    commit     = $commit
-    date       = $now
-    model      = $model
-    judgeModel = $results.judgeModel
-    skills     = $skillValueSkills.ToArray()
+    commit      = $commit
+    date        = $now
+    executionId = $ExecutionId
+    model       = $model
+    judgeModel  = $results.judgeModel
+    skills      = $skillValueSkills.ToArray()
 }
 
 

@@ -1529,6 +1529,7 @@ jobs:
       - name: Generate benchmark data
         run: |
           $sha = "${{ github.sha }}"
+          $executionId = "${{ github.run_id }}:${{ github.run_attempt }}"
           $commitMsg = git log -1 --format='%s' $sha
           $commitTimestamp = git log -1 --format='%aI' $sha
           $commitAuthor = git log -1 --format='%an' $sha
@@ -1618,6 +1619,7 @@ jobs:
                 PluginName     = $plugin
                 OutputDir      = "/tmp/eval-data/data"
                 CommitJson     = $commitJson
+                ExecutionId    = $executionId
                 RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
                 Source         = 'scheduled'
                 SkipTokenUsage = $true
