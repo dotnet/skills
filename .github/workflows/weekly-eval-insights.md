@@ -332,7 +332,9 @@ malformed, or internally inconsistent, call `noop` with the exact limitation.
 - Differentiate treatment from control only when the official paired evidence
   meets every recorded statistical, practical-significance, and activation
   condition.
-- Reliability is conclusive expected results divided by expected results.
+- Published-result reliability is conclusive retained results divided by
+  retained results. Expected evaluation coverage is unavailable because failed
+  runs can produce no retained target result.
 - Keep treatment pass rate separate from differentiation and reliability.
 - Report statistically credible reverse preference as a preference loss. Do not
   call preference loss an objective completion regression.
@@ -363,9 +365,10 @@ Include:
   main-branch manual evaluations
 - executor models and judge models
 - average workflow duration
-- expected, conclusive, invalid, underpowered, differentiated, and preference
-  loss result counts
-- overall reliability and differentiation rates
+- retained published, conclusive, invalid, underpowered, differentiated, and
+  preference loss result counts
+- published-result reliability and differentiation rates
+- expected evaluation coverage status
 - AI Credits status, with total or average token telemetry when useful
 
 ### Executive insights
@@ -393,12 +396,12 @@ State when there is not enough historical evidence to establish a trend.
 
 Group by plugin. For every skill with evidence in the current window, include:
 
-- expected result count
+- retained published result count
 - treatment pass rate
 - differentiation rate
 - average treatment duration
 - token use
-- reliability
+- published-result reliability
 - key status such as consistently differentiating, flaky, invalid,
   model-sensitive, consistently passing, underpowered, timeout, activation
   failure, preference loss, or no credible change

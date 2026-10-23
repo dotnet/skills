@@ -61,6 +61,12 @@ test('differentiation requires authoritative gate evidence', () => {
   assert.equal(isDifferentiated(skill({
     activationContract: { evaluated: false, passed: null, count: 0, violated: 0 },
   })), false);
+  assert.equal(isDifferentiated(skill({
+    targetActivationFailed: true,
+  })), false);
+  assert.equal(classify(skill({
+    targetActivationFailed: true,
+  })), 'activation-failed');
 });
 
 test('credible reverse preference is reported as a preference loss', () => {
@@ -123,9 +129,9 @@ test('weekly report separates reliability, differentiation, and pass rate', () =
   assert.equal(report.weekKey, '2026-W43');
   assert.equal(report.workflowRuns.count, 2);
   assert.equal(report.workflowRuns.averageDurationMs, 600000);
-  assert.equal(report.current.expectedResults, 2);
-  assert.equal(report.current.conclusiveResults, 1);
-  assert.equal(report.current.reliabilityRate, 0.5);
+  assert.equal(report.current.publishedResults, 2);
+  assert.equal(report.current.publishedConclusiveResults, 1);
+  assert.equal(report.current.publishedResultReliabilityRate, 0.5);
   assert.equal(report.current.differentiatedResults, 1);
   assert.equal(report.current.differentiationRate, 1);
   assert.equal(report.current.plugins[0].skills[0].treatmentPassRate, 0.65);
@@ -157,12 +163,67 @@ test('resource metrics are not double counted across judges', () => {
   });
 
   const result = report.current.plugins[0].skills[0];
-  assert.equal(result.expectedResults, 2);
+  assert.equal(result.publishedResults, 2);
   assert.equal(result.metricObservationCount, 1);
   assert.equal(result.pairedScenarioCount, 10);
   assert.equal(result.averageTreatmentTokens, 80);
   assert.equal(result.flaky, false);
   assert.equal(result.modelSensitive, false);
+});
+
+test('resource deduplication keeps the richest judge view', () => {
+  const report = buildReport({
+    dashboard: {
+      entries: [
+        {
+          ...entry('2026-10-17T00:00:00Z', skill({
+            baseline: { n: 0, timeMs: null, tokens: null },
+            treatment: { n: 0, timeMs: null, tokens: null },
+          }), 'executor', 'judge-a'),
+          executionId: 'run-1',
+        },
+        {
+          ...entry('2026-10-17T00:00:01Z', skill(), 'executor', 'judge-b'),
+          executionId: 'run-1',
+        },
+      ],
+    },
+    workflowRuns: [],
+    windowEnd: '2026-10-21T17:00:00Z',
+  });
+
+  const result = report.current.plugins[0].skills[0];
+  assert.equal(result.metricObservationCount, 1);
+  assert.equal(result.pairedScenarioCount, 10);
+  assert.equal(result.averageTreatmentTokens, 80);
+});
+
+test('pass telemetry includes every retained judge view', () => {
+  const report = buildReport({
+    dashboard: {
+      entries: [
+        {
+          ...entry('2026-10-17T00:00:00Z', skill({
+            treatmentFail: 0,
+          }), 'executor', 'judge-a'),
+          executionId: 'run-1',
+        },
+        {
+          ...entry('2026-10-17T00:00:01Z', skill({
+            treatmentFail: 10,
+          }), 'executor', 'judge-b'),
+          executionId: 'run-1',
+        },
+      ],
+    },
+    workflowRuns: [],
+    windowEnd: '2026-10-21T17:00:00Z',
+  });
+
+  const result = report.current.plugins[0].skills[0];
+  assert.equal(result.metricObservationCount, 1);
+  assert.equal(result.treatmentPassRate, 0.5);
+  assert.equal(result.consistentlyPassing, false);
 });
 
 test('resource metrics preserve independent runs on the same day', () => {

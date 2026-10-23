@@ -25,6 +25,8 @@ on:
       - "eng/evaluation/path-safety.ps1"
       - "eng/evaluation/workflow-targets.ps1"
       - "eng/evaluation/test_workflow_targets.py"
+      - "eng/evaluation/weekly-eval-insights.js"
+      - "eng/evaluation/weekly-eval-insights.test.js"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
@@ -54,6 +56,8 @@ on:
       - "eng/evaluation/path-safety.ps1"
       - "eng/evaluation/workflow-targets.ps1"
       - "eng/evaluation/test_workflow_targets.py"
+      - "eng/evaluation/weekly-eval-insights.js"
+      - "eng/evaluation/weekly-eval-insights.test.js"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
@@ -79,7 +83,11 @@ jobs:
           node-version: 22
 
       - name: Run adapter fault-injection and report tests
-        run: node --test eng/vally-adapter/*.test.mjs eng/dashboard/*.test.js
+        run: >-
+          node --test
+          eng/vally-adapter/*.test.mjs
+          eng/dashboard/*.test.js
+          eng/evaluation/weekly-eval-insights.test.js
 
   evaluation-tools:
     runs-on: ubuntu-latest

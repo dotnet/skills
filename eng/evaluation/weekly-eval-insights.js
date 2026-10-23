@@ -51,6 +51,7 @@ function isDifferentiated(skill) {
     && preference.practicalPassed === true
     && Number.isFinite(preference.pValue)
     && preference.pValue <= alpha
+    && skill.targetActivationFailed !== true
     && skill.activationContract?.evaluated === true
     && skill.activationContract.passed === true;
 }
@@ -65,11 +66,13 @@ function isPreferenceLoss(skill) {
     && preference.practicalPassed === true
     && Number.isFinite(preference.pValue)
     && preference.pValue <= alpha
+    && skill.targetActivationFailed !== true
     && skill.activationContract?.evaluated === true
     && skill.activationContract.passed === true;
 }
 
 function classify(skill) {
+  if (skill.targetActivationFailed === true) return 'activation-failed';
   if (skill.activationContract?.passed === false) return 'activation-failed';
   if (skill.activationContract?.evaluated !== true) return 'activation-unverified';
   if (!skill.preference || skill.preference.conclusive !== true) return 'invalid';
@@ -108,29 +111,43 @@ function deduplicateMetricRecords(records) {
         record.executionId,
       ].join('\u0000')
       : `legacy\u0000${index}`;
-    if (!unique.has(key)) unique.set(key, record);
+    const existing = unique.get(key);
+    const pairedCount = Math.min(
+      Number(record.skill.baseline?.n) || 0,
+      Number(record.skill.treatment?.n) || 0,
+    );
+    const existingPairedCount = existing
+      ? Math.min(
+        Number(existing.skill.baseline?.n) || 0,
+        Number(existing.skill.treatment?.n) || 0,
+      )
+      : -1;
+    if (!existing || pairedCount > existingPairedCount) unique.set(key, record);
   }
   return [...unique.values()];
 }
 
 function aggregateSkill(records) {
   const metricRecords = deduplicateMetricRecords(records);
-  const expectedResults = records.length;
-  const conclusiveResults = records.filter(record => record.skill.preference?.conclusive === true).length;
+  const publishedResults = records.length;
+  const publishedConclusiveResults =
+    records.filter(record => record.skill.preference?.conclusive === true).length;
   const differentiatedResults = records.filter(record => isDifferentiated(record.skill)).length;
   const preferenceLossResults = records.filter(record => isPreferenceLoss(record.skill)).length;
-  const invalidResults = expectedResults - conclusiveResults;
+  const publishedInvalidResults = publishedResults - publishedConclusiveResults;
   const underpoweredResults = records.filter(record => record.skill.preference?.underpowered === true).length;
   const timedOutResults = records.filter(record => record.skill.timedOut === true).length;
-  const activationFailures = records.filter(record => record.skill.activationContract?.passed === false).length;
-  const allMetricObservationsHavePassEvidence = metricRecords.length > 0
-    && metricRecords.every(record => Number(record.skill.passTotal) > 0);
-  const passTotal = metricRecords.reduce((sum, record) => sum + (Number(record.skill.passTotal) || 0), 0);
-  const treatmentFailures = metricRecords.reduce(
+  const activationFailures = records.filter(record =>
+    record.skill.targetActivationFailed === true
+    || record.skill.activationContract?.passed === false).length;
+  const allPublishedViewsHavePassEvidence = records.length > 0
+    && records.every(record => Number(record.skill.passTotal) > 0);
+  const passTotal = records.reduce((sum, record) => sum + (Number(record.skill.passTotal) || 0), 0);
+  const treatmentFailures = records.reduce(
     (sum, record) => sum + (Number(record.skill.treatmentFail) || 0),
     0,
   );
-  const baselineFailures = metricRecords.reduce(
+  const baselineFailures = records.reduce(
     (sum, record) => sum + (Number(record.skill.baselineFail) || 0),
     0,
   );
@@ -159,14 +176,14 @@ function aggregateSkill(records) {
   }
 
   return {
-    expectedResults,
-    conclusiveResults,
-    invalidResults,
+    publishedResults,
+    publishedConclusiveResults,
+    publishedInvalidResults,
     underpoweredResults,
     differentiatedResults,
     preferenceLossResults,
-    reliabilityRate: round(ratio(conclusiveResults, expectedResults)),
-    differentiationRate: round(ratio(differentiatedResults, conclusiveResults)),
+    publishedResultReliabilityRate: round(ratio(publishedConclusiveResults, publishedResults)),
+    differentiationRate: round(ratio(differentiatedResults, publishedConclusiveResults)),
     treatmentPassRate: round(ratio(passTotal - treatmentFailures, passTotal)),
     baselinePassRate: round(ratio(passTotal - baselineFailures, passTotal)),
     timedOutResults,
@@ -186,12 +203,14 @@ function aggregateSkill(records) {
       flakyDimensions.length === 0
       && new Set(stableDimensionStatuses).size > 1,
     consistentlyPassing:
-      expectedResults >= 2
-      && conclusiveResults === expectedResults
-      && allMetricObservationsHavePassEvidence
+      publishedResults >= 2
+      && publishedConclusiveResults === publishedResults
+      && allPublishedViewsHavePassEvidence
       && treatmentFailures === 0,
     consistentlyDifferentiating:
-      expectedResults >= 2 && differentiatedResults === expectedResults && conclusiveResults === expectedResults,
+      publishedResults >= 2
+      && differentiatedResults === publishedResults
+      && publishedConclusiveResults === publishedResults,
   };
 }
 
@@ -260,13 +279,15 @@ function aggregateWindow(entries, startMs, endMs) {
   return {
     start: new Date(startMs).toISOString(),
     end: new Date(endMs).toISOString(),
-    expectedResults: records.length,
-    conclusiveResults: records.filter(record => record.skill.preference?.conclusive === true).length,
-    invalidResults: records.filter(record => record.skill.preference?.conclusive !== true).length,
+    publishedResults: records.length,
+    publishedConclusiveResults:
+      records.filter(record => record.skill.preference?.conclusive === true).length,
+    publishedInvalidResults:
+      records.filter(record => record.skill.preference?.conclusive !== true).length,
     underpoweredResults: records.filter(record => record.skill.preference?.underpowered === true).length,
     differentiatedResults: records.filter(record => isDifferentiated(record.skill)).length,
     preferenceLossResults: records.filter(record => isPreferenceLoss(record.skill)).length,
-    reliabilityRate: round(ratio(
+    publishedResultReliabilityRate: round(ratio(
       records.filter(record => record.skill.preference?.conclusive === true).length,
       records.length,
     )),
@@ -306,8 +327,11 @@ function aggregateWindow(entries, startMs, endMs) {
         .sort(descending('averageTreatmentTokens'))
         .slice(0, 10),
       leastReliable: allSkills
-        .filter(skill => skill.reliabilityRate !== null && skill.reliabilityRate < 1)
-        .sort((left, right) => left.reliabilityRate - right.reliabilityRate)
+        .filter(skill =>
+          skill.publishedResultReliabilityRate !== null
+          && skill.publishedResultReliabilityRate < 1)
+        .sort((left, right) =>
+          left.publishedResultReliabilityRate - right.publishedResultReliabilityRate)
         .slice(0, 10),
     },
   };
@@ -361,7 +385,10 @@ function buildReport({ dashboard, workflowRuns, windowEnd }) {
         'A conclusive, sufficiently powered treatment win with p <= alpha, practical significance, and a passing activation contract.',
       preferenceLoss:
         'A conclusive, sufficiently powered reverse preference with p <= alpha, practical significance, and a passing activation contract. This is triage evidence, not an objective completion regression.',
-      reliability: 'Conclusive expected evaluation results divided by expected evaluation results.',
+      publishedResultReliability:
+        'Conclusive retained evaluation results divided by retained evaluation results. Missing evaluation outputs are not represented in retained data.',
+      expectedCoverage:
+        'Unavailable: official retained data does not include a complete expected-target manifest for failed runs with no published output.',
       passRate: 'Treatment completion passes divided by trials with explicit paired pass evidence.',
       resourceDeduplication:
         'Resource metrics remove judge views with the same plugin, skill, executor model, and stable evaluation execution ID. Legacy entries without an execution ID remain separate.',
