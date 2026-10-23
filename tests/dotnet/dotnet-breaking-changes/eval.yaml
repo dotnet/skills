@@ -171,9 +171,9 @@ stimuli:
           dest: .grading/assert-test-coverage.js
         - src: fixtures/grading/assert-tests-kill-mutants.js
           dest: .grading/assert-tests-kill-mutants.js
-        # The original decimal-only implementation is the "feature removed" mutant.
-        - src: src/Billing/AppSettingsHelper.cs
-          dest: .grading/mutants/hex/no-hex/src/Billing/AppSettingsHelper.cs
+        # Replaces only the ParseIntSetting declaration with the decimal-only original.
+        - src: fixtures/grading/mutants/hex/no-hex.json
+          dest: .grading/mutants/hex/no-hex.json
     graders:
       # Executes the requested feature through the shipped signature, independent of agent tests.
       - *grader-checks
@@ -191,7 +191,8 @@ stimuli:
           command: node .grading/assert-test-coverage.js hex
           expected_exit_code: 0
           timeout: 1m
-      # The agent's own tests (GraderChecks excluded) must fail once hex parsing is removed.
+      # The agent's own tests (GraderChecks excluded) must fail once hex parsing is removed:
+      # the mutant must build and TRX must report a failed test; build errors never count.
       - type: run-command
         config:
           command: node .grading/assert-tests-kill-mutants.js .grading/mutants/hex
@@ -340,10 +341,10 @@ stimuli:
           dest: .grading/assert-test-coverage.js
         - src: fixtures/grading/assert-tests-kill-mutants.js
           dest: .grading/assert-tests-kill-mutants.js
-        - src: fixtures/grading/mutants/platform/tag-always-net10/src/Billing/PlatformInfo.cs
-          dest: .grading/mutants/platform/tag-always-net10/src/Billing/PlatformInfo.cs
-        - src: fixtures/grading/mutants/platform/tag-always-net8/src/Billing/PlatformInfo.cs
-          dest: .grading/mutants/platform/tag-always-net8/src/Billing/PlatformInfo.cs
+        - src: fixtures/grading/mutants/platform/tag-always-net10.json
+          dest: .grading/mutants/platform/tag-always-net10.json
+        - src: fixtures/grading/mutants/platform/tag-always-net8.json
+          dest: .grading/mutants/platform/tag-always-net8.json
     graders:
       # Executes Tag() and Current() on each target framework; the coverage check below
       # only proves tests were written, not that each branch returns the right value.
@@ -364,8 +365,9 @@ stimuli:
           command: node .grading/assert-test-coverage.js platform
           expected_exit_code: 0
           timeout: 1m
-      # Each mutant breaks Tag() on one target only, so the agent's own tests (GraderChecks
-      # excluded) must assert the tag on both net8.0 and net10.0 to kill both.
+      # Each mutant breaks Tag() on one target only and pins Current() to its correct output,
+      # so the agent's own tests (GraderChecks excluded) must assert Tag() on both net8.0 and
+      # net10.0 to kill both. Kills need a green build and a TRX-reported failed test.
       - type: run-command
         config:
           command: node .grading/assert-tests-kill-mutants.js .grading/mutants/platform

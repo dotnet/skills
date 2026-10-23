@@ -1,0 +1,9 @@
+{
+  "description": "Hex support removed: ParseIntSetting goes back to decimal-only parsing.",
+  "replace": [
+    {
+      "declaration": "\\bint\\s+ParseIntSetting\\s*\\(\\s*string\\s*\\?\\s*\\w+\\s*,\\s*int\\s+\\w+\\s*\\)",
+      "with": "public static int ParseIntSetting(string? raw, int fallback) => int.TryParse(raw, out var v) ? v : fallback;"
+    }
+  ]
+}

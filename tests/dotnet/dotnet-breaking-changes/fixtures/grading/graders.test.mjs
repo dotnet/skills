@@ -2,6 +2,7 @@
 // Run: node --test tests/dotnet/dotnet-breaking-changes/fixtures/grading/graders.test.mjs
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -190,25 +191,109 @@ test("assert-test-coverage: string containing // still counts as code", () => wi
   assert.equal(covered(root, "hex"), 0);
 }));
 
-// assert-tests-kill-mutants plumbing, with a fake runner standing in for `dotnet test`.
-// The fake "test run" fails only when production lacks HEX and a copied test file contains
-// ASSERT_HEX, mirroring an agent test that detects the removed feature.
+// assert-tests-kill-mutants: declaration-level mutation.
+const killMutants = createRequire(import.meta.url)("./assert-tests-kill-mutants.js");
+const hexSpec = JSON.parse(readFileSync(join(grading, "mutants", "hex", "no-hex.json"), "utf8"));
+const platformSpec = name => JSON.parse(readFileSync(join(grading, "mutants", "platform", `${name}.json`), "utf8"));
+const mutate = (src, spec) => spec.replace.reduce((text, r) => killMutants.replaceDeclarations(text, r.declaration, r.with).text, src);
+
+const goldenHex = `namespace Billing;
+public static class AppSettingsHelper
+{
+    // a stray { brace in a comment
+    public static int ParseIntSetting(string? raw, int fallback)
+    {
+        var closing = "}";
+        if (raw is not null && raw.StartsWith("0x")) { return ParseHex(raw); }
+        return int.TryParse(raw, out var value) ? value : fallback;
+    }
+
+    private static int ParseHex(string s) => 0;
+}
+
+public static class ConfigReader
+{
+    public static int ReadInt(string? raw, int fallback) => int.TryParse(raw, out var v) ? v : fallback;
+}
+`;
+
+test("assert-tests-kill-mutants: hex mutant replaces only the ParseIntSetting body", () => {
+  const out = mutate(goldenHex, hexSpec);
+  assert.doesNotMatch(out, /StartsWith\("0x"\)/);
+  assert.match(out, /public static int ParseIntSetting\(string\? raw, int fallback\) => int\.TryParse\(raw, out var v\) \? v : fallback;\n\n    private static int ParseHex/);
+  assert.match(out, /public static class ConfigReader/);
+  assert.match(out, /a stray \{ brace in a comment/);
+});
+
+test("assert-tests-kill-mutants: calls and commented-out declarations are not mutated", () => {
+  const src = `public static class PlatformInfo
+{
+    // public static string Tag() => "old";
+    public static string Current() => Label(Tag());
+    public static string Tag() => Pick();
+    private static string Label(string t) => $"platform:{t}";
+}`;
+  const out = mutate(src, platformSpec("tag-always-net10"));
+  assert.match(out, /\/\/ public static string Tag\(\) => "old";/);
+  assert.match(out, /public static string Tag\(\) => "net10";/);
+  assert.match(out, /#if NET8_0\n        return "platform:net8";/);
+  assert.match(out, /private static string Label/);
+  assert.doesNotMatch(out, /Pick\(\)/);
+});
+
+test("assert-tests-kill-mutants: platform mutants replace every #if-split Tag() and pin Current()", () => {
+  const src = `public static class PlatformInfo
+{
+    public static string Current() { return Label(Tag()); }
+#if NET8_0
+    public static string Tag() => "net8";
+#else
+    public static string Tag()
+    {
+        return "net10";
+    }
+#endif
+    private static string Label(string t) => $"platform:{t}";
+}`;
+  for (const [name, tag] of [["tag-always-net10", "net10"], ["tag-always-net8", "net8"]]) {
+    const out = mutate(src, platformSpec(name));
+    assert.equal(out.match(new RegExp(`public static string Tag\\(\\) => "${tag}";`, "g")).length, 2);
+    assert.doesNotMatch(out, /Label\(Tag\(\)\)/);
+    assert.match(out, /return "platform:net8";\n#else\n        return "platform:net10";/);
+  }
+});
+
+// End-to-end plumbing with a fake runner standing in for dotnet build/test. The fake test run
+// writes a TRX whose failed count is 1 only when production no longer calls ParseHex(raw) and a
+// copied test file contains ASSERT_HEX, mirroring an agent test that detects the removed feature.
 const fakeRunner = `
 const fs = require('fs'), path = require('path');
-const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e =>
-  e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
+const [phase, results] = process.argv.slice(2);
+const walk = d => fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap(e =>
+  e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]) : [];
 if (fs.existsSync('.grading')) process.exit(3);
-const prod = fs.readFileSync('src/Billing/AppSettingsHelper.cs', 'utf8');
-const detects = walk('tests').some(f => fs.readFileSync(f, 'utf8').includes('ASSERT_HEX'));
-process.exit(!prod.includes('HEX') && detects ? 1 : 0);
+const src = walk('src').map(f => fs.readFileSync(f, 'utf8')).join('\\n');
+const tests = walk('tests').map(f => fs.readFileSync(f, 'utf8')).join('\\n');
+const hex = src.includes('ParseHex(raw)');
+if (phase === 'build') {
+  const duplicateType = (src.match(/class ConfigReader\\b/g) || []).length > 1;
+  process.exit(duplicateType || (!hex && tests.includes('BREAKS_BUILD_WITHOUT_HEX')) ? 1 : 0);
+}
+if (!hex && tests.includes('CRASH_WITHOUT_HEX')) process.kill(process.pid, 'SIGKILL');
+if (!hex && tests.includes('NO_TRX_WITHOUT_HEX')) process.exit(1);
+const failed = !hex && tests.includes('ASSERT_HEX') ? 1 : 0;
+fs.mkdirSync(results, { recursive: true });
+fs.writeFileSync(path.join(results, 'run.trx'),
+  '<TestRun><ResultSummary><Counters total="3" executed="3" passed="' + (3 - failed) + '" failed="' + failed + '" /></ResultSummary></TestRun>');
+process.exit(failed);
 `;
 
 function mutantWorkspace(fn) {
   const root = mkdtempSync(join(tmpdir(), "bc-kill-"));
   try {
-    write(root, "src/Billing/AppSettingsHelper.cs", "HEX implementation");
+    write(root, "src/Billing/AppSettingsHelper.cs", goldenHex);
     write(root, "tests/Billing.Tests/BillingTests.cs", "decimal tests only");
-    write(root, ".grading/mutants/hex/no-hex/src/Billing/AppSettingsHelper.cs", "decimal only");
+    cpSync(join(grading, "mutants", "hex", "no-hex.json"), join(root, ".grading", "mutants", "hex", "no-hex.json"));
     cpSync(join(grading, "assert-tests-kill-mutants.js"), join(root, ".grading", "assert-tests-kill-mutants.js"));
     write(root, ".grading/fake-runner.js", fakeRunner);
     fn(root, () => spawnSync(process.execPath,
@@ -233,24 +318,45 @@ test("assert-tests-kill-mutants: grader-owned GraderChecks cannot kill the mutan
 }));
 
 test("assert-tests-kill-mutants: tests failing before mutation do not count", () => mutantWorkspace((root, kill) => {
-  write(root, "src/Billing/AppSettingsHelper.cs", "decimal only");
   write(root, "tests/Billing.Tests/HexTests.cs", "ASSERT_HEX");
+  write(root, "src/Billing/AppSettingsHelper.cs", goldenHex.replace("return ParseHex(raw);", "return 0;"));
   assert.equal(kill(), 1);
 }));
 
 test("assert-tests-kill-mutants: the workspace itself is never modified", () => mutantWorkspace((root, kill) => {
   write(root, "tests/Billing.Tests/HexTests.cs", "ASSERT_HEX");
   assert.equal(kill(), 0);
-  assert.equal(readFileSync(join(root, "src", "Billing", "AppSettingsHelper.cs"), "utf8"), "HEX implementation");
+  assert.equal(readFileSync(join(root, "src", "Billing", "AppSettingsHelper.cs"), "utf8"), goldenHex);
 }));
 
-test("assert-tests-kill-mutants: platform mutants each break Tag() on one target only", () => {
-  for (const [name, tag] of [["tag-always-net10", "ModernTag"], ["tag-always-net8", "LegacyTag"]]) {
-    const text = readFileSync(join(grading, "mutants", "platform", name, "src", "Billing", "PlatformInfo.cs"), "utf8");
-    assert.match(text, new RegExp(`public static string Tag\\(\\) => ${tag};`));
-    assert.match(text, /#if NET8_0\s+return Label\(LegacyTag\);\s+#else\s+return Label\(ModernTag\);/);
-  }
-});
+test("assert-tests-kill-mutants: ConfigReader moved to its own file still mutates and builds", () => mutantWorkspace((root, kill) => {
+  const [helper, reader] = goldenHex.split("public static class ConfigReader");
+  write(root, "src/Billing/AppSettingsHelper.cs", helper);
+  write(root, "src/Billing/ConfigReader.cs", `namespace Billing;\npublic static class ConfigReader${reader}`);
+  write(root, "tests/Billing.Tests/HexTests.cs", "ASSERT_HEX");
+  assert.equal(kill(), 0);
+}));
+
+test("assert-tests-kill-mutants: a mutant that fails to build is a grader error, not a kill", () => mutantWorkspace((root, kill) => {
+  write(root, "tests/Billing.Tests/HexTests.cs", "BREAKS_BUILD_WITHOUT_HEX");
+  assert.equal(kill(), 2);
+}));
+
+test("assert-tests-kill-mutants: a crashed test run is a grader error, not a kill", () => mutantWorkspace((root, kill) => {
+  write(root, "tests/Billing.Tests/HexTests.cs", "CRASH_WITHOUT_HEX");
+  assert.equal(kill(), 2);
+}));
+
+test("assert-tests-kill-mutants: a non-zero exit without TRX results is a grader error, not a kill", () => mutantWorkspace((root, kill) => {
+  write(root, "tests/Billing.Tests/HexTests.cs", "NO_TRX_WITHOUT_HEX");
+  assert.equal(kill(), 2);
+}));
+
+test("assert-tests-kill-mutants: a mutant declaration missing from src is a grader error", () => mutantWorkspace((root, kill) => {
+  write(root, "src/Billing/AppSettingsHelper.cs", goldenHex.replace("ParseIntSetting(string? raw, int fallback)", "ParseInt(string? raw, int fallback)"));
+  write(root, "tests/Billing.Tests/HexTests.cs", "ASSERT_HEX");
+  assert.equal(kill(), 2);
+}));
 test("assert-test-coverage: per-target platform tests split across files pass", () => withWorkspace(root => {
   write(root, "tests/Billing.Tests/Net8/PlatformTagNet8Tests.cs", `
 #if NET8_0
