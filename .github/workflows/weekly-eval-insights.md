@@ -218,6 +218,7 @@ steps:
       gh api --method GET --paginate --slurp \
         "repos/${REPOSITORY}/actions/workflows/evaluation.yml/runs" \
         -f per_page=100 \
+        -f event=schedule \
         -f "created=${window_start}..${window_end}" \
         > /tmp/gh-aw/data/evaluation-run-pages.json
       node eng/evaluation/weekly-eval-insights.js \
@@ -308,8 +309,6 @@ engine:
       ) }}
 ---
 
-# Weekly Evaluation Insights
-
 ## Task
 
 Read `/tmp/gh-aw/data/weekly-eval-insights.json`. This is the authoritative,
@@ -359,6 +358,9 @@ Use `###` headings only for main sections.
 Include:
 
 - official evaluation workflow run count and conclusions
+- state that workflow-run statistics cover the scheduled official evaluation
+  population; retained skill statistics may also include explicitly published
+  main-branch manual evaluations
 - executor models and judge models
 - average workflow duration
 - expected, conclusive, invalid, underpowered, differentiated, and preference

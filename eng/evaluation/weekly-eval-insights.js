@@ -51,7 +51,8 @@ function isDifferentiated(skill) {
     && preference.practicalPassed === true
     && Number.isFinite(preference.pValue)
     && preference.pValue <= alpha
-    && skill.activationContract?.passed !== false;
+    && skill.activationContract?.evaluated === true
+    && skill.activationContract.passed === true;
 }
 
 function isPreferenceLoss(skill) {
@@ -64,11 +65,13 @@ function isPreferenceLoss(skill) {
     && preference.practicalPassed === true
     && Number.isFinite(preference.pValue)
     && preference.pValue <= alpha
-    && skill.activationContract?.passed !== false;
+    && skill.activationContract?.evaluated === true
+    && skill.activationContract.passed === true;
 }
 
 function classify(skill) {
   if (skill.activationContract?.passed === false) return 'activation-failed';
+  if (skill.activationContract?.evaluated !== true) return 'activation-unverified';
   if (!skill.preference || skill.preference.conclusive !== true) return 'invalid';
   if (skill.preference.underpowered === true) return 'underpowered';
   if (isDifferentiated(skill)) return 'differentiated';
@@ -96,15 +99,15 @@ function weightedMetric(records, arm, field) {
 
 function deduplicateMetricRecords(records) {
   const unique = new Map();
-  for (const record of records) {
-    const commit = record.commit?.id ?? record.commit?.url ?? 'unknown-commit';
-    const key = [
-      record.plugin,
-      record.skill.skill,
-      record.model,
-      commit,
-      record.date,
-    ].join('\u0000');
+  for (const [index, record] of records.entries()) {
+    const key = record.executionId
+      ? [
+        record.plugin,
+        record.skill.skill,
+        record.model,
+        record.executionId,
+      ].join('\u0000')
+      : `legacy\u0000${index}`;
     if (!unique.has(key)) unique.set(key, record);
   }
   return [...unique.values()];
@@ -120,6 +123,8 @@ function aggregateSkill(records) {
   const underpoweredResults = records.filter(record => record.skill.preference?.underpowered === true).length;
   const timedOutResults = records.filter(record => record.skill.timedOut === true).length;
   const activationFailures = records.filter(record => record.skill.activationContract?.passed === false).length;
+  const allMetricObservationsHavePassEvidence = metricRecords.length > 0
+    && metricRecords.every(record => Number(record.skill.passTotal) > 0);
   const passTotal = metricRecords.reduce((sum, record) => sum + (Number(record.skill.passTotal) || 0), 0);
   const treatmentFailures = metricRecords.reduce(
     (sum, record) => sum + (Number(record.skill.treatmentFail) || 0),
@@ -183,7 +188,7 @@ function aggregateSkill(records) {
     consistentlyPassing:
       expectedResults >= 2
       && conclusiveResults === expectedResults
-      && passTotal > 0
+      && allMetricObservationsHavePassEvidence
       && treatmentFailures === 0,
     consistentlyDifferentiating:
       expectedResults >= 2 && differentiatedResults === expectedResults && conclusiveResults === expectedResults,
@@ -199,6 +204,7 @@ function collectRecords(entries, startMs, endMs) {
         plugin: entry.plugin,
         model: entry.model,
         judgeModel: entry.judgeModel,
+        executionId: entry.executionId,
         date: entry.date,
         commit: entry.commit,
         skill,
@@ -231,9 +237,17 @@ function aggregateWindow(entries, startMs, endMs) {
         ...aggregateSkill(skillRecords),
       });
     }
+    const pluginAggregate = aggregateSkill(pluginRecords);
     plugins.push({
       plugin,
-      ...aggregateSkill(pluginRecords),
+      ...pluginAggregate,
+      flaky: skills.some(skill => skill.flaky),
+      flakyDimensions: skills.flatMap(skill =>
+        skill.flakyDimensions.map(dimension => ({ skill: skill.skill, ...dimension }))),
+      modelSensitive: skills.some(skill => skill.modelSensitive),
+      consistentlyPassing: skills.length > 0 && skills.every(skill => skill.consistentlyPassing),
+      consistentlyDifferentiating:
+        skills.length > 0 && skills.every(skill => skill.consistentlyDifferentiating),
       skills,
     });
   }
@@ -305,6 +319,7 @@ function aggregateRuns(runs, startMs, endMs) {
     return Number.isFinite(created) && created >= startMs && created < endMs;
   });
   const completedDurations = selected
+    .filter(run => typeof run.conclusion === 'string' && run.conclusion.length > 0)
     .map(run => [Date.parse(run.run_started_at ?? run.created_at), Date.parse(run.updated_at)])
     .filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end >= start)
     .map(([start, end]) => end - start);
@@ -349,7 +364,7 @@ function buildReport({ dashboard, workflowRuns, windowEnd }) {
       reliability: 'Conclusive expected evaluation results divided by expected evaluation results.',
       passRate: 'Treatment completion passes divided by trials with explicit paired pass evidence.',
       resourceDeduplication:
-        'Resource metrics remove only exact duplicate judge views with the same plugin, skill, executor model, commit, and evaluation timestamp. Distinct runs are preserved.',
+        'Resource metrics remove judge views with the same plugin, skill, executor model, and stable evaluation execution ID. Legacy entries without an execution ID remain separate.',
       aiCredits:
         'Unavailable: official evaluation CI does not emit authoritative AI Credits. Token telemetry is reported without estimating credits.',
     },
