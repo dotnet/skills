@@ -108,17 +108,29 @@ function bodyEnd(masked, from) {
   return -1;
 }
 
+// Start offset of the declaration whose return type begins at `at`: walk back over modifier
+// keywords only, so preceding members, braces, and attributes on the same line are preserved.
+const modifier = /(?:^|[^\w$@])(public|private|protected|internal|static|virtual|override|sealed|new|unsafe|extern|async|partial|readonly|abstract)$/;
+function declarationStart(masked, at) {
+  let s = at;
+  for (;;) {
+    let j = s;
+    while (j > 0 && /\s/.test(masked[j - 1])) j--;
+    const m = modifier.exec(masked.slice(Math.max(0, j - 16), j));
+    if (!m) return s;
+    s = j - m[1].length;
+  }
+}
+
 // Replace every declaration matching `declaration` in `src`; returns { text, count }.
 function replaceDeclarations(src, declaration, replacement) {
   const masked = mask(src);
   const re = new RegExp(declaration, 'g');
   const spans = [];
   for (let m; (m = re.exec(masked));) {
-    const lineStart = masked.lastIndexOf('\n', m.index) + 1;
-    const indent = /^[ \t]*/.exec(masked.slice(lineStart))[0].length;
     const end = bodyEnd(masked, m.index + m[0].length);
     if (end < 0) throw new Error(`could not find the body of '${m[0]}'`);
-    spans.push([lineStart + indent, end]);
+    spans.push([declarationStart(masked, m.index), end]);
   }
   let text = src;
   for (const [a, b] of spans.reverse()) text = text.slice(0, a) + replacement + text.slice(b);

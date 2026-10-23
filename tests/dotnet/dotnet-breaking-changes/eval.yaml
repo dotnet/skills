@@ -167,8 +167,6 @@ stimuli:
       files:
         - src: fixtures/grading/HexParsingChecks.cs
           dest: tests/Billing.Tests/GraderChecks/HexParsingChecks.cs
-        - src: fixtures/grading/assert-test-coverage.js
-          dest: .grading/assert-test-coverage.js
         - src: fixtures/grading/assert-tests-kill-mutants.js
           dest: .grading/assert-tests-kill-mutants.js
         # Replaces only the ParseIntSetting declaration with the decimal-only original.
@@ -184,15 +182,10 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Shipped.txt
           value: static Billing.AppSettingsHelper.ParseIntSetting(string? raw, int fallback) -> int
-      # Requested test coverage, in any agent-authored test file and assertion style
-      # (for example an [InlineData("0x1F", 31)] theory). Comments do not count.
-      - type: run-command
-        config:
-          command: node .grading/assert-test-coverage.js hex
-          expected_exit_code: 0
-          timeout: 1m
-      # The agent's own tests (GraderChecks excluded) must fail once hex parsing is removed:
-      # the mutant must build and TRX must report a failed test; build errors never count.
+      # Requested test coverage, in any file, assertion style, or derived form: the agent's own
+      # tests (GraderChecks excluded) must fail once hex parsing is removed. The mutant must
+      # build and TRX must report a failed test; build errors, comments, and unexecuted text
+      # never count.
       - type: run-command
         config:
           command: node .grading/assert-tests-kill-mutants.js .grading/mutants/hex
@@ -337,8 +330,6 @@ stimuli:
       files:
         - src: fixtures/grading/PlatformTagChecks.cs
           dest: tests/Billing.Tests/GraderChecks/PlatformTagChecks.cs
-        - src: fixtures/grading/assert-test-coverage.js
-          dest: .grading/assert-test-coverage.js
         - src: fixtures/grading/assert-tests-kill-mutants.js
           dest: .grading/assert-tests-kill-mutants.js
         - src: fixtures/grading/mutants/platform/tag-always-net10.json
@@ -346,8 +337,7 @@ stimuli:
         - src: fixtures/grading/mutants/platform/tag-always-net8.json
           dest: .grading/mutants/platform/tag-always-net8.json
     graders:
-      # Executes Tag() and Current() on each target framework; the coverage check below
-      # only proves tests were written, not that each branch returns the right value.
+      # Executes Tag() and Current() on each target framework, independent of agent tests.
       - *grader-checks
       - type: file-contains
         config:
@@ -357,17 +347,11 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
           value: static Billing.PlatformInfo.Tag() -> string!
-      # Agent tests must exercise Tag() with both target tags, in any file, layout, or binding
-      # (for example an #if-selected expected constant asserted against PlatformInfo.Tag(), a
-      # `using static` Tag(), an alias, or a method group). Comments do not count.
-      - type: run-command
-        config:
-          command: node .grading/assert-test-coverage.js platform
-          expected_exit_code: 0
-          timeout: 1m
-      # Each mutant breaks Tag() on one target only and pins Current() to its correct output,
-      # so the agent's own tests (GraderChecks excluded) must assert Tag() on both net8.0 and
-      # net10.0 to kill both. Kills need a green build and a TRX-reported failed test.
+      # Requested test coverage, in any file, binding, or assertion style (literal per-target
+      # tags or a derived expectation such as one computed from Current()): each mutant breaks
+      # Tag() on one target only and pins Current() to its correct output, so the agent's own
+      # tests (GraderChecks excluded) must check Tag() on both net8.0 and net10.0 to kill both.
+      # Kills need a green build and a TRX-reported failed test.
       - type: run-command
         config:
           command: node .grading/assert-tests-kill-mutants.js .grading/mutants/platform

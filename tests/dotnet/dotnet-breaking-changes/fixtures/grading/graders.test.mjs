@@ -20,9 +20,7 @@ function workspace(manifestName = "unchanged-nullability.json") {
     cpSync(join(suite, file), join(root, file));
   }
   mkdirSync(join(root, ".grading"));
-  for (const script of ["assert-unchanged.js", "assert-test-coverage.js"]) {
-    cpSync(join(grading, script), join(root, ".grading", script));
-  }
+  cpSync(join(grading, "assert-unchanged.js"), join(root, ".grading", "assert-unchanged.js"));
   cpSync(join(grading, manifestName), join(root, ".grading", "unchanged.json"));
   return root;
 }
@@ -37,7 +35,6 @@ function run(root, ...args) {
 }
 
 const unchanged = root => run(root, ".grading/assert-unchanged.js", ".grading/unchanged.json");
-const covered = (root, check) => run(root, ".grading/assert-test-coverage.js", check);
 
 function withWorkspace(fn) {
   const root = workspace();
@@ -110,17 +107,6 @@ test("assert-unchanged: added source file fails", () => withWorkspace(root => {
   assert.equal(unchanged(root), 1);
 }));
 
-test("assert-test-coverage: pristine tests do not count as coverage", () => withWorkspace(root => {
-  assert.equal(covered(root, "hex"), 1);
-  assert.equal(covered(root, "platform"), 1);
-}));
-
-test("assert-test-coverage: golden-style hex assertion passes", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/BillingTests.cs",
-    'Assert.Equal(31, AppSettingsHelper.ParseIntSetting("0x1F", 0));');
-  assert.equal(covered(root, "hex"), 0);
-}));
-
 // Local-rename scope: OrderProcessor.cs may differ only by the requested, complete rename.
 function withLocalRename(fn) {
   const root = workspace("unchanged-local-rename.json");
@@ -179,76 +165,6 @@ test("assert-unchanged: the rename plus a test edit, added file, or deleted file
     });
   }
 });
-
-test("assert-test-coverage: hex theory in a separate file passes", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/Parsing/HexParsingTests.cs", `
-    [Theory]
-    [InlineData("0x1F", 31)]
-    [InlineData("0XFF", 255)]
-    public void ParsesHex(string raw, int expected)
-        => Assert.Equal(expected, AppSettingsHelper.ParseIntSetting(raw, 0));`);
-  assert.equal(covered(root, "hex"), 0);
-}));
-
-test("assert-test-coverage: grader-owned checks are not agent coverage", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/GraderChecks/HexParsingChecks.cs",
-    'AppSettingsHelper.ParseIntSetting("0x1F", 0); PlatformInfo.Tag(); "net8"; "net10";');
-  assert.equal(covered(root, "hex"), 1);
-  assert.equal(covered(root, "platform"), 1);
-}));
-
-test("assert-test-coverage: golden-style platform assertions pass", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/BillingTests.cs", `
-#if NET8_0
-    Assert.Equal("net8", PlatformInfo.Tag());
-#else
-    Assert.Equal("net10", PlatformInfo.Tag());
-#endif`);
-  assert.equal(covered(root, "platform"), 0);
-}));
-
-test("assert-test-coverage: #if-selected expected constant in a separate file passes", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/PlatformTagTests.cs", `
-    [Fact]
-    public void TagMatchesTarget()
-    {
-#if NET8_0
-        const string expected = "net8";
-#else
-        const string expected = "net10";
-#endif
-        Assert.Equal(expected, PlatformInfo.Tag());
-    }`);
-  assert.equal(covered(root, "platform"), 0);
-}));
-
-test("assert-test-coverage: platform test covering one target fails", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/PlatformTagTests.cs",
-    'Assert.Equal("net10", PlatformInfo.Tag());');
-  assert.equal(covered(root, "platform"), 1);
-}));
-
-test("assert-test-coverage: comment-only hex mention is not coverage", () => withWorkspace(root => {
-  const file = join(root, "tests", "Billing.Tests", "BillingTests.cs");
-  writeFileSync(file, readFileSync(file, "utf8") + '\n// Example hexadecimal input: "0x1F".\n');
-  assert.equal(covered(root, "hex"), 1);
-  writeFileSync(file, readFileSync(file, "utf8") + '\n/* ParseIntSetting("0x1F", 0) */\n');
-  assert.equal(covered(root, "hex"), 1);
-}));
-
-test("assert-test-coverage: comment-only platform mention is not coverage", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/PlatformTagTests.cs", `
-    // Assert.Equal("net8", PlatformInfo.Tag());
-    /* Assert.Equal("net10", PlatformInfo.Tag()); */
-    public class PlatformTagTests {}`);
-  assert.equal(covered(root, "platform"), 1);
-}));
-
-test("assert-test-coverage: string containing // still counts as code", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/HexTests.cs",
-    'var url = "http://example"; Assert.Equal(31, AppSettingsHelper.ParseIntSetting("0x1F", 0)); // done');
-  assert.equal(covered(root, "hex"), 0);
-}));
 
 // assert-tests-kill-mutants: declaration-level mutation.
 const killMutants = createRequire(import.meta.url)("./assert-tests-kill-mutants.js");
@@ -362,9 +278,37 @@ ${tagDecl}
   });
 }
 
+for (const [layout, src] of [
+  ["Current() then Tag() on one line", `public static class PlatformInfo
+{
+    public static string Current() => Label(Tag()); public static string Tag() => Pick();
+    private static string Label(string t) => $"platform:{t}";
+}`],
+  ["Tag() then Current() on one line", `public static class PlatformInfo
+{
+    public static string Tag() => Pick(); public static string Current() { return Label(Tag()); }
+    private static string Label(string t) => $"platform:{t}";
+}`],
+  ["the whole type on one line", `public static class PlatformInfo { [System.Obsolete] public static string Tag() => Pick(); public static string Current() => Label(Tag()); private static string Label(string t) => $"platform:{t}"; }`],
+]) {
+  test(`assert-tests-kill-mutants: same-line members are preserved (${layout})`, () => {
+    const out = mutate(src, platformSpec("tag-always-net10"));
+    assert.equal(out.match(/public static string Tag\(\) => "net10";/g).length, 1);
+    assert.equal(out.match(/public static string Current\(\)\n    \{\n#if NET8_0/g).length, 1);
+    assert.match(out, /^public static class PlatformInfo\s*\{/);
+    assert.match(out, /private static string Label\(string t\) => \$"platform:\{t\}";/);
+    assert.doesNotMatch(out, /Pick\(\)|Label\(Tag\(\)\)/);
+    assert.equal((out.match(/\{/g) || []).length, (out.match(/\}/g) || []).length);
+    if (layout.startsWith("the whole type")) assert.match(out, /\[System\.Obsolete\] public static string Tag\(\) => "net10";/);
+  });
+}
+
 // End-to-end plumbing with a fake runner standing in for dotnet build/test. The fake test run
 // writes a TRX whose failed count is 1 only when production no longer calls ParseHex(raw) and a
 // copied test file contains ASSERT_HEX, mirroring an agent test that detects the removed feature.
+// For platform mutants, ASSERT_TAG_NET8 / ASSERT_TAG_NET10 stand for an agent test that checks
+// Tag() on that target (by literal or derived expectation); each kills only the mutant that
+// breaks its own target.
 const fakeRunner = `
 const fs = require('fs'), path = require('path');
 const [phase, results] = process.argv.slice(2);
@@ -380,23 +324,35 @@ if (phase === 'build') {
 }
 if (!hex && tests.includes('CRASH_WITHOUT_HEX')) process.kill(process.pid, 'SIGKILL');
 if (!hex && tests.includes('NO_TRX_WITHOUT_HEX')) process.exit(1);
-const failed = !hex && tests.includes('ASSERT_HEX') ? 1 : 0;
+const brokeNet8 = src.includes('Tag() => "net10";'), brokeNet10 = src.includes('Tag() => "net8";');
+const failed = (!hex && tests.includes('ASSERT_HEX')) ||
+  (brokeNet8 && tests.includes('ASSERT_TAG_NET8')) || (brokeNet10 && tests.includes('ASSERT_TAG_NET10')) ? 1 : 0;
 fs.mkdirSync(results, { recursive: true });
 fs.writeFileSync(path.join(results, 'run.trx'),
   '<TestRun><ResultSummary><Counters total="3" executed="3" passed="' + (3 - failed) + '" failed="' + failed + '" /></ResultSummary></TestRun>');
 process.exit(failed);
 `;
 
-function mutantWorkspace(fn) {
+const goldenPlatform = `namespace Billing;
+public static class PlatformInfo
+{
+    public static string Current() => $"platform:{Tag()}";
+    public static string Tag() => Pick();
+    private static string Pick() => "";
+}
+`;
+
+function mutantWorkspace(fn, kind = "hex") {
   const root = mkdtempSync(join(tmpdir(), "bc-kill-"));
   try {
-    write(root, "src/Billing/AppSettingsHelper.cs", goldenHex);
+    if (kind === "hex") write(root, "src/Billing/AppSettingsHelper.cs", goldenHex);
+    else write(root, "src/Billing/PlatformInfo.cs", goldenPlatform);
     write(root, "tests/Billing.Tests/BillingTests.cs", "decimal tests only");
-    cpSync(join(grading, "mutants", "hex", "no-hex.json"), join(root, ".grading", "mutants", "hex", "no-hex.json"));
+    cpSync(join(grading, "mutants", kind), join(root, ".grading", "mutants", kind), { recursive: true });
     cpSync(join(grading, "assert-tests-kill-mutants.js"), join(root, ".grading", "assert-tests-kill-mutants.js"));
     write(root, ".grading/fake-runner.js", fakeRunner);
     fn(root, () => spawnSync(process.execPath,
-      [".grading/assert-tests-kill-mutants.js", ".grading/mutants/hex"],
+      [".grading/assert-tests-kill-mutants.js", `.grading/mutants/${kind}`],
       { cwd: root, encoding: "utf8",
         env: { ...process.env, MUTANT_TEST_RUNNER: join(root, ".grading", "fake-runner.js") } }).status);
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -456,36 +412,22 @@ test("assert-tests-kill-mutants: a mutant declaration missing from src is a grad
   write(root, "tests/Billing.Tests/HexTests.cs", "ASSERT_HEX");
   assert.equal(kill(), 2);
 }));
-test("assert-test-coverage: per-target platform tests split across files pass", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/Net8/PlatformTagNet8Tests.cs", `
-#if NET8_0
-    [Fact] public void Tag() => Assert.Equal("net8", PlatformInfo.Tag());
-#endif`);
-  write(root, "tests/Billing.Tests/Net10/PlatformTagNet10Tests.cs", `
-#if NET10_0
-    [Fact] public void Tag() => Assert.Equal("net10", PlatformInfo.Tag());
-#endif`);
-  assert.equal(covered(root, "platform"), 0);
-}));
 
-test("assert-test-coverage: a target literal in a file that never calls Tag() does not count", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/PlatformTagTests.cs", 'Assert.Equal("net10", PlatformInfo.Tag());');
-  write(root, "tests/Billing.Tests/Unrelated.cs", 'var label = "net8";');
-  assert.equal(covered(root, "platform"), 1);
-}));
+// The one-target rejections formerly enforced by a static coverage gate now come from mutation:
+// a test that checks Tag() on only one target leaves the other target's mutant alive.
+test("assert-tests-kill-mutants: platform tests checking Tag() on both targets kill both mutants", () => mutantWorkspace((root, kill) => {
+  write(root, "tests/Billing.Tests/PlatformTagTests.cs", "ASSERT_TAG_NET8 ASSERT_TAG_NET10");
+  assert.equal(kill(), 0);
+}, "platform"));
 
-for (const [binding, body] of [
-  ["using static", 'using static Billing.PlatformInfo;\n#if NET8_0\n    Assert.Equal("net8", Tag());\n#else\n    Assert.Equal("net10", Tag());\n#endif'],
-  ["a type alias", 'using P = Billing.PlatformInfo;\n#if NET8_0\n    Assert.Equal("net8", P.Tag());\n#else\n    Assert.Equal("net10", P.Tag());\n#endif'],
-  ["a method-group delegate", 'Func<string> tag = PlatformInfo.Tag;\n#if NET8_0\n    Assert.Equal("net8", tag());\n#else\n    Assert.Equal("net10", tag());\n#endif'],
-]) {
-  test(`assert-test-coverage: platform tests bound via ${binding} pass`, () => withWorkspace(root => {
-    write(root, "tests/Billing.Tests/PlatformTagTests.cs", body);
-    assert.equal(covered(root, "platform"), 0);
-  }));
+for (const [target, marker] of [["net8.0", "ASSERT_TAG_NET8"], ["net10.0", "ASSERT_TAG_NET10"]]) {
+  test(`assert-tests-kill-mutants: platform tests checking only ${target} leave a survivor`, () => mutantWorkspace((root, kill) => {
+    write(root, "tests/Billing.Tests/PlatformTagTests.cs", marker);
+    assert.equal(kill(), 1);
+  }, "platform"));
 }
 
-test("assert-test-coverage: an aliased Tag() test missing one target still fails", () => withWorkspace(root => {
-  write(root, "tests/Billing.Tests/PlatformTagTests.cs", 'using P = Billing.PlatformInfo;\nAssert.Equal("net10", P.Tag());');
-  assert.equal(covered(root, "platform"), 1);
-}));
+test("assert-tests-kill-mutants: platform checks only in grader-owned GraderChecks leave survivors", () => mutantWorkspace((root, kill) => {
+  write(root, "tests/Billing.Tests/GraderChecks/PlatformChecks.cs", "ASSERT_TAG_NET8 ASSERT_TAG_NET10");
+  assert.equal(kill(), 1);
+}, "platform"));
