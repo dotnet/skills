@@ -396,7 +396,14 @@ stimuli:
     golden_patch:
       path: golden-patches/rename-friend-member.patch
     prompt: "Rename the internal `PricingMath.ApplyDiscount` helper to `CalculateDiscount` and update every consumer without changing results. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/FriendRenameChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/FriendRenameChecks.cs
     graders:
+      # Grader-owned expected discounts; the agent edits BillingTests.cs for the rename, so
+      # its assertion alone cannot prove the results are unchanged.
+      - *grader-checks
       - type: file-contains
         config:
           path: src/Billing/Pricing.cs

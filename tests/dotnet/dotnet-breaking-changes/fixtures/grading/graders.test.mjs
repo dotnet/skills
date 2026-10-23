@@ -251,3 +251,20 @@ test("assert-tests-kill-mutants: platform mutants each break Tag() on one target
     assert.match(text, /#if NET8_0\s+return Label\(LegacyTag\);\s+#else\s+return Label\(ModernTag\);/);
   }
 });
+test("assert-test-coverage: per-target platform tests split across files pass", () => withWorkspace(root => {
+  write(root, "tests/Billing.Tests/Net8/PlatformTagNet8Tests.cs", `
+#if NET8_0
+    [Fact] public void Tag() => Assert.Equal("net8", PlatformInfo.Tag());
+#endif`);
+  write(root, "tests/Billing.Tests/Net10/PlatformTagNet10Tests.cs", `
+#if NET10_0
+    [Fact] public void Tag() => Assert.Equal("net10", PlatformInfo.Tag());
+#endif`);
+  assert.equal(covered(root, "platform"), 0);
+}));
+
+test("assert-test-coverage: a target literal in a file that never calls Tag() does not count", () => withWorkspace(root => {
+  write(root, "tests/Billing.Tests/PlatformTagTests.cs", 'Assert.Equal("net10", PlatformInfo.Tag());');
+  write(root, "tests/Billing.Tests/Unrelated.cs", 'var label = "net8";');
+  assert.equal(covered(root, "platform"), 1);
+}));

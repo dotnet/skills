@@ -1,8 +1,8 @@
 // Staged only for grading. Usage: node assert-test-coverage.js <hex|platform>
 // Proves the agent wrote tests for the requested feature without dictating file names or
-// assertion style: some agent-authored C# file under tests/ (grader-owned GraderChecks and build
-// output excluded) must reference the member and every required input/expected literal in code,
-// not in comments. This is only a cheap static gate: assert-tests-kill-mutants.js proves the
+// assertion style: agent-authored C# files under tests/ (grader-owned GraderChecks and build
+// output excluded) that reference the member must, together, contain every required
+// input/expected literal in code, not in comments. This is only a cheap static gate: assert-tests-kill-mutants.js proves the
 // agent's tests actually fail when the feature is removed, and GraderChecks grade behavior.
 const fs = require('fs');
 
@@ -59,12 +59,16 @@ const walk = d => !fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: tr
     ? (skip.has(e.name) ? [] : walk(`${d}/${e.name}`))
     : e.name.endsWith('.cs') ? [`${d}/${e.name}`] : []);
 
-const covering = walk('tests').filter(f => {
-  const text = stripComments(fs.readFileSync(f, 'utf8'));
-  return check.member.test(text) && check.literals.every(l => l.test(text));
-});
-if (!covering.length) {
-  console.error(`no agent-authored test covers ${process.argv[2]}`);
+// Each required literal must appear, in code, in an agent-authored test file that also references
+// the member; e.g. per-target platform tests may be split across a NET8_0 file and a NET10_0 file.
+const referencing = walk('tests')
+  .map(f => ({ f, text: stripComments(fs.readFileSync(f, 'utf8')) }))
+  .filter(({ text }) => check.member.test(text));
+const missing = check.literals.filter(l => !referencing.some(({ text }) => l.test(text)));
+if (!referencing.length || missing.length) {
+  console.error(`no agent-authored test covers ${process.argv[2]}` +
+    (referencing.length ? `; missing ${missing.map(String).join(', ')}` : ''));
   process.exit(1);
 }
+const covering = referencing.filter(({ text }) => check.literals.some(l => l.test(text))).map(r => r.f);
 console.log('covered by:', covering.join(', '));
