@@ -167,6 +167,8 @@ stimuli:
       files:
         - src: fixtures/grading/HexParsingChecks.cs
           dest: tests/Billing.Tests/GraderChecks/HexParsingChecks.cs
+        - src: fixtures/grading/assert-test-coverage.js
+          dest: .grading/assert-test-coverage.js
     graders:
       # Executes the requested feature through the shipped signature, independent of agent tests.
       - *grader-checks
@@ -177,10 +179,13 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Shipped.txt
           value: static Billing.AppSettingsHelper.ParseIntSetting(string? raw, int fallback) -> int
-      - type: file-matches
+      # Requested test coverage, in any agent-authored test file and assertion style
+      # (for example an [InlineData("0x1F", 31)] theory).
+      - type: run-command
         config:
-          path: tests/Billing.Tests/BillingTests.cs
-          pattern: 'ParseIntSetting\(\s*"0x1F"'
+          command: node .grading/assert-test-coverage.js hex
+          expected_exit_code: 0
+          timeout: 1m
       # The shipped signature must not break: existing decimal-parsing tests must
       # still pass after hex support is added.
       - type: run-command
@@ -320,9 +325,11 @@ stimuli:
       files:
         - src: fixtures/grading/PlatformTagChecks.cs
           dest: tests/Billing.Tests/GraderChecks/PlatformTagChecks.cs
+        - src: fixtures/grading/assert-test-coverage.js
+          dest: .grading/assert-test-coverage.js
     graders:
-      # Executes Tag() and Current() on each target framework; the agent-test regexes below
-      # only prove tests were written, not that each branch returns the right value.
+      # Executes Tag() and Current() on each target framework; the coverage check below
+      # only proves tests were written, not that each branch returns the right value.
       - *grader-checks
       - type: file-contains
         config:
@@ -332,14 +339,13 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
           value: static Billing.PlatformInfo.Tag() -> string!
-      - type: file-matches
+      # Agent tests must exercise Tag() with both target tags, in any file or layout (for
+      # example an #if-selected expected constant asserted against PlatformInfo.Tag()).
+      - type: run-command
         config:
-          path: tests/Billing.Tests/BillingTests.cs
-          pattern: '"net8"[^;\n]*PlatformInfo\.Tag\(\)|PlatformInfo\.Tag\(\)[^;\n]*"net8"'
-      - type: file-matches
-        config:
-          path: tests/Billing.Tests/BillingTests.cs
-          pattern: '"net10"[^;\n]*PlatformInfo\.Tag\(\)|PlatformInfo\.Tag\(\)[^;\n]*"net10"'
+          command: node .grading/assert-test-coverage.js platform
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: src/Billing/Billing.csproj
@@ -510,10 +516,10 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Shipped.txt
           value: IFormatProvider
-      - type: file-matches
+      - type: file-contains
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
-          pattern: 'ParseIntSetting\(string\? raw, int fallback, System\.IFormatProvider'
+          value: ParseIntSetting(string? raw, int fallback, System.IFormatProvider
       # Moving the old signature to `*REMOVED*` keeps Shipped.txt intact and the build green
       # while still deleting the method compiled consumers bind to.
       - type: file-not-contains
