@@ -77,8 +77,8 @@ function classify(skill) {
   if (skill.completionRegressed === true) return 'completion-regression';
   if (skill.targetActivationFailed === true) return 'activation-failed';
   if (skill.activationContract?.passed === false) return 'activation-failed';
-  if (skill.activationContract?.evaluated !== true) return 'activation-unverified';
   if (!skill.preference || skill.preference.conclusive !== true) return 'invalid';
+  if (skill.activationContract?.evaluated !== true) return 'activation-unverified';
   if (skill.preference.underpowered === true) return 'underpowered';
   if (isDifferentiated(skill)) return 'differentiated';
   if (isPreferenceLoss(skill)) return 'preference-loss';

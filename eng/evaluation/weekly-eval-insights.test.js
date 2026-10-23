@@ -76,6 +76,31 @@ test('differentiation requires authoritative gate evidence', () => {
   })), 'activation-failed');
 });
 
+test('invalid measurements take priority over unverified activation', () => {
+  const invalidWithUnevaluatedContract = skill({
+    activationContract: { evaluated: false, passed: null, count: 0, violated: 0 },
+    preference: {
+      ...skill().preference,
+      conclusive: false,
+    },
+  });
+  const invalidWithoutContract = skill({
+    activationContract: undefined,
+    preference: null,
+  });
+
+  assert.equal(classify(invalidWithUnevaluatedContract), 'invalid');
+  assert.equal(classify(invalidWithoutContract), 'invalid');
+  assert.equal(classify({
+    ...invalidWithUnevaluatedContract,
+    completionRegressed: true,
+  }), 'completion-regression');
+  assert.equal(classify({
+    ...invalidWithoutContract,
+    targetActivationFailed: true,
+  }), 'activation-failed');
+});
+
 test('credible reverse preference is reported as a preference loss', () => {
   const loss = skill({
     preference: {
