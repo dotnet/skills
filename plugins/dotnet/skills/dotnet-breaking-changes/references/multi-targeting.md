@@ -10,9 +10,11 @@
 ## Why this is a hidden surface
 
 A project with `<TargetFrameworks>` (plural) compiles once per TFM, and code under `#if` compiles
-differently per TFM, per platform, and per custom symbol. Your editor and a default `dotnet build`
-usually show/exercise **one** active branch. An edit that is correct there can leave another target
-uncompilable or behaviorally different — and CI (which builds all of them) is where it surfaces.
+differently per TFM, per platform, and per custom symbol. Your editor's live diagnostics, and any build
+or test scoped with `-f`, cover **one** target framework and its active branches. An edit that is
+correct there can leave another target uncompilable or behaviorally different — and CI is where it
+surfaces. An unqualified `dotnet build` does compile every declared TFM, but only for the current
+configuration, platform, RID, and `DefineConstants`; and compiling is not proof of runtime behavior.
 
 Common conditional symbols: framework (`NET8_0_OR_GREATER`, `NETFRAMEWORK`, `NETSTANDARD2_0`), platform
 (`WINDOWS`, `LINUX`, `OSX`), runtime flavor (`CORECLR`, `MONO`, `NATIVEAOT`), and repo-defined symbols
@@ -36,7 +38,7 @@ intended per-target behavior; only unify what is genuinely duplicated with ident
 
 ## Re-gate every target
 
-After the edit, build **and** test each target, not just the default:
+After the edit, build **and** test every target, not just the one your editor or a `-f` build covered:
 
 ```bash
 dotnet build                         # builds every TargetFramework
@@ -45,4 +47,7 @@ dotnet test -f net8.0                # test a specific TFM
 # platform/RID-specific code: build/test on (or cross-target for) each supported RID
 ```
 
-A green default build is **not** proof the other targets are green.
+A green unqualified `dotnet build` does prove every declared TFM compiles for that configuration, so do
+not report declared frameworks as unbuilt after one. It does **not** prove: targets you only built
+with `-f` or saw in the editor, other platform/RID or custom-symbol configurations (build those
+separately), or runtime behavior (run the tests; an unqualified `dotnet test` runs every TFM).
