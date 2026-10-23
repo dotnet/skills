@@ -1,0 +1,10 @@
+<Project>
+  <Target Name="WriteCatalog">
+    <MakeDir Directories="obj" />
+    <ReadLinesFromFile File="%(Specs.Identity)" Condition="'@(Specs)' != ''">
+      <Output TaskParameter="Lines" ItemName="_CatalogLines" />
+    </ReadLinesFromFile>
+    <WriteLinesToFile File="obj\catalog.txt" Lines="@(_CatalogLines)" Overwrite="true" />
+    <WriteLinesToFile File="obj\generator-runs.txt" Lines="generated" Overwrite="false" />
+  </Target>
+</Project>

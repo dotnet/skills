@@ -118,6 +118,10 @@ stimuli:
       off parallelism? Explain what the evidence supports and what to measure next.
       This is an advisory question; no checkout is available.
     graders:
+      - &advisory-work-budget
+        type: tool-calls
+        config:
+          disallowed: [view, glob, rg, grep, bash, powershell, task]
       - type: prompt
     rubric:
       - Explained that overlapping cumulative dependency waits can exceed elapsed time and do not establish exclusive task cost or CPU utilization.
@@ -137,12 +141,49 @@ stimuli:
       Both succeeded. Is the claim justified? Give a minimal measurement plan;
       don't change settings, purge caches, or stop shared build servers.
     graders:
+      - *advisory-work-budget
       - type: prompt
     rubric:
       - Rejected the claimed speedup because forced work, restore policy, and input state differ between the measurements.
-      - Proposed repeated comparisons with the same invocation, inputs, configuration, and instrumentation.
-      - Kept first-build, changed-input, and unchanged-build results distinct and accounted for measurement variation.
+      - Isolated the old versus new setting values while keeping invocation, restore policy, input state, configuration, and instrumentation equivalent, rather than measuring restore versus no-restore.
+      - Scoped the conclusion to the measured workload and accounted for variation without inventing the unspecified setting or requiring every build scenario to be measured.
       - Avoided destructive cache clearing or shared-server shutdown as a generic prerequisite.
+
+  - name: Assess a supported workload-specific build improvement
+    tags:
+      capability: supported-performance-claim
+      risk: medium
+      journey: review-measured-improvement
+    prompt: |
+      We compared the old and new values of one build setting using the same
+      command, SDK, machine, configuration, source revision, restore policy,
+      and recorded input edit. We alternated the setting values and restored
+      the same starting output state for each successful run. The required
+      outputs matched. Times were 40, 41, 39 seconds before and 20, 21, 19
+      seconds after. Can we report about a 50 percent build-time reduction?
+      Assess these measurements and their limits; no checkout is available.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: msbuild-supported-measurement
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Yes, for this measured workload: median elapsed time fell from
+              40 to 20 seconds, a 50 percent reduction. The matched conditions
+              and outputs support attributing the observed difference to the
+              setting under comparison. Three runs per setting do not establish the
+              same benefit for other workloads, hosts, or cache states.
+    graders:
+      - *advisory-work-budget
+      - type: prompt
+    rubric:
+      - Recognized that the supplied controls and matching outputs support an observed improvement for this workload.
+      - Calculated an approximately 50 percent elapsed-time reduction without presenting it as a universal guarantee.
+      - Acknowledged the small sample and limited deployment scope without rejecting the evidence merely because no checkout or additional build scenarios were supplied.
+      - Answered the advisory question without claiming new measurements or requiring destructive cache or server operations.
 
   - name: Repair stale generation after input membership changes
     tags:
@@ -150,18 +191,112 @@ stimuli:
       risk: high
       journey: repair-incremental-build
     prompt: |
-      A custom MSBuild target combines every Specs/*.json into obj/catalog.txt.
-      It declares Inputs="@(Specs)" and Outputs="obj/catalog.txt". Editing an
-      existing spec works, but deleting a spec or adding a file with an older
-      timestamp leaves stale entries in the catalog. Explain a targeted repair
-      and how to verify it; don't just force every target to rebuild.
+      project/Build.proj combines every Specs/*.json into obj/catalog.txt.
+      Editing an existing spec works, but deleting a spec or adding a file
+      with an older timestamp leaves stale entries in the catalog. Repair the
+      build wiring and verify the result, including a second unchanged build.
+      Keep Generator.targets and the spec files unchanged. The output must
+      contain every remaining spec's content, including when none remain;
+      don't force generation on every build.
+    agent_environment:
+      files:
+        - src: fixtures/incremental
+          dest: project
+        - &sdk-policy
+          src: fixtures/global.json
+          dest: global.json
+    grading_environment:
+      files:
+        - &contract-checker
+          src: graders/check-contracts.mjs
+          dest: .eval/check-contracts.mjs
+        - &contract-inputs
+          src: graders/fixture-inputs.json
+          dest: .eval/inputs.json
+    golden_patch:
+      path: references/incremental-membership.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: msbuild-incremental-membership
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        notes: Curated expected steps; golden_patch and run-command independently replay the edit and verification.
+        steps:
+          - step_id: 1
+            source: agent
+            message: Track input membership without dropping the original input timestamps.
+            tool_calls:
+              - tool_call_id: fix-membership
+                function_name: edit
+                arguments:
+                  path: project/Build.proj
+                  old_str: '  <Target Name="GenerateCatalog" Inputs="@(Specs)" Outputs="obj\catalog.txt">'
+                  new_str: |
+                    <Target Name="TrackCatalogInputs">
+                      <MakeDir Directories="obj" />
+                      <WriteLinesToFile File="obj\catalog.inputs" Lines="@(Specs)"
+                                        Overwrite="true" WriteOnlyWhenDifferent="true" />
+                    </Target>
+                    <Target Name="GenerateCatalog" DependsOnTargets="TrackCatalogInputs"
+                            Inputs="@(Specs);obj\catalog.inputs" Outputs="obj\catalog.txt">
+            observation:
+              results:
+                - source_call_id: fix-membership
+                  content: Build.proj updated; generator and spec files unchanged.
+          - step_id: 2
+            source: agent
+            message: Build twice and verify the initial output and unchanged skip.
+            tool_calls:
+              - tool_call_id: verify-membership
+                function_name: powershell
+                arguments:
+                  command: |
+                    $ErrorActionPreference = 'Stop'
+                    dotnet msbuild project\Build.proj -t:Build -nologo -v:quiet
+                    if ($LASTEXITCODE -ne 0) { throw 'Initial build failed' }
+                    $expected = @(Get-ChildItem project\Specs -Filter *.json | Get-Content | Sort-Object)
+                    $actual = @(Get-Content project\obj\catalog.txt | Sort-Object)
+                    if (Compare-Object $expected $actual) { throw 'Catalog content differs' }
+                    $count = @(Get-Content project\obj\generator-runs.txt).Count
+                    $stamp = (Get-Item project\obj\catalog.txt).LastWriteTimeUtc
+                    dotnet msbuild project\Build.proj -t:Build -nologo -v:quiet
+                    if ($LASTEXITCODE -ne 0) { throw 'Unchanged build failed' }
+                    if (@(Get-Content project\obj\generator-runs.txt).Count -ne $count) { throw 'Generator ran again' }
+                    if ((Get-Item project\obj\catalog.txt).LastWriteTimeUtc -ne $stamp) { throw 'Catalog was rewritten' }
+            observation:
+              results:
+                - source_call_id: verify-membership
+                  content: "Exit code 0; catalog content matched and the second build preserved its timestamp and execution count."
+          - step_id: 3
+            source: agent
+            message: |
+              Updated only Build.proj. A deleted spec is no longer in @(Specs),
+              so timestamp checks never see it; an older added spec supplies
+              no timestamp newer than the existing output. The membership
+              file records the full list and changes when either case alters
+              that list, invalidating the catalog. Retaining @(Specs) in
+              Inputs still catches content edits. WriteOnlyWhenDifferent
+              leaves the membership timestamp stable on unchanged builds.
+
+              Built twice: the initial catalog matched the spec contents,
+              and the second unchanged build preserved the execution count
+              and output timestamp. Deletion, older-file addition, missing
+              output, and empty input are additional verification cases,
+              not measurements claimed here. No elapsed-time improvement
+              was measured.
     graders:
+      - type: run-command
+        config:
+          command: node
+          args: [.eval/check-contracts.mjs, incremental]
+          expected_exit_code: 0
+          timeout: 2m
       - type: prompt
     rubric:
       - Explained why timestamp checks on the current item list do not remember removed inputs or necessarily detect older added inputs.
-      - Proposed tracking input membership with a stable manifest or equivalent mechanism while retaining content-change invalidation.
-      - Included deletion, older-file addition, missing output, and a second unchanged build in the verification plan.
-      - Preserved output completeness and did not invent a stamp that hides relevant changes or an invalid Incremental target attribute.
+      - Repaired input membership and content-change invalidation without altering the generator or its inputs.
+      - Explained how the repair preserves complete output after deletion, older-file addition, missing output, and an empty input set while retaining unchanged-build skips; the executable grader checks those outcomes.
+      - Distinguished checks actually run from proposed verification and did not claim unmeasured elapsed-time savings.
 
   - name: Preserve a new hook when an optional predecessor is absent
     tags:
@@ -169,13 +304,100 @@ stimuli:
       risk: high
       journey: review-build-authoring
     prompt: |
-      Our custom .targets imports a hook like this:
+      Fix project/Build.proj, which imports a hook like this:
       <Import Project="$(BeforeHook)" Condition="Exists('$(BeforeHook)')" />
       BeforeHook is set to "optional.targets;required.targets". The first file
       is absent on fresh clones; required.targets exists and must always load.
-      It doesn't run on those clones. Explain why and show a fix that also
-      preserves the old hook's order on machines where optional.targets exists.
+      The required hook doesn't load on those clones. Preserve optional-before-
+      required ordering when optional.targets is present, and fail if the
+      required file is missing. Leave required.targets and the optional hook
+      definition in optional.targets.example unchanged. An aggregation file
+      is fine if needed.
+    agent_environment:
+      files:
+        - src: fixtures/hooks
+          dest: project
+        - *sdk-policy
+    grading_environment:
+      files:
+        - *contract-checker
+        - *contract-inputs
+    golden_patch:
+      path: references/hook-composition.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: msbuild-hook-composition
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        notes: Curated expected steps; golden_patch and run-command independently replay the edit and verification.
+        steps:
+          - step_id: 1
+            source: agent
+            message: Replace the whole-list guard with distinct optional and required imports.
+            tool_calls:
+              - tool_call_id: fix-hooks
+                function_name: edit
+                arguments:
+                  path: project/Build.proj
+                  old_str: '  <Import Project="$(BeforeHook)" Condition="Exists(''$(BeforeHook)'')" />'
+                  new_str: |
+                    <Import Project="optional.targets" Condition="Exists('optional.targets')" />
+                    <Import Project="required.targets" />
+            observation:
+              results:
+                - source_call_id: fix-hooks
+                  content: Build.proj updated; hook definitions unchanged.
+          - step_id: 2
+            source: agent
+            message: Exercise all optional/required presence combinations and hook ordering.
+            tool_calls:
+              - tool_call_id: verify-hooks
+                function_name: powershell
+                arguments:
+                  command: |
+                    $ErrorActionPreference = 'Stop'
+                    $matrix = Join-Path ([IO.Path]::GetTempPath()) ('hook-check-' + [guid]::NewGuid())
+                    New-Item -ItemType Directory -Path $matrix | Out-Null
+                    Copy-Item -LiteralPath global.json -Destination (Join-Path $matrix global.json)
+                    try {
+                      foreach ($optional in @($false, $true)) {
+                        foreach ($required in @($true, $false)) {
+                          $copy = Join-Path $matrix "$optional-$required"
+                          Copy-Item -LiteralPath project -Destination $copy -Recurse
+                          if ($optional) { Copy-Item -LiteralPath (Join-Path $copy optional.targets.example) -Destination (Join-Path $copy optional.targets) }
+                          if (-not $required) { Remove-Item -LiteralPath (Join-Path $copy required.targets) }
+                          $order = dotnet msbuild (Join-Path $copy Build.proj) -t:Build -getProperty:HookOrder -nologo -v:quiet
+                          if ($required) {
+                            if ($LASTEXITCODE -ne 0) { throw 'Valid hook configuration failed' }
+                            $expected = if ($optional) { 'optional;required;' } else { 'required;' }
+                            if ($order -ne $expected) { throw 'Wrong hook order' }
+                          } elseif ($LASTEXITCODE -eq 0) { throw 'Missing required hook succeeded' }
+                        }
+                      }
+                    } finally { Remove-Item -LiteralPath $matrix -Recurse -Force }
+            observation:
+              results:
+                - source_call_id: verify-hooks
+                  content: "Exit code 0; all four hook contract combinations completed."
+          - step_id: 3
+            source: agent
+            message: |
+              The condition on the combined path suppressed the required
+              hook when the optional hook was absent. Each import now has
+              its own contract: the optional hook runs first when present,
+              and a missing required hook fails rather than silently skips.
+              Builds in temporary copies passed all four combinations: required alone,
+              optional then required, and explicit failure with either
+              optional state when required.targets is absent. Hook files
+              were left unchanged; semicolon-separated imports themselves
+              are not categorically invalid.
     graders:
+      - type: run-command
+        config:
+          command: node
+          args: [.eval/check-contracts.mjs, hooks]
+          expected_exit_code: 0
+          timeout: 2m
       - type: prompt
     rubric:
       - Identified that the condition on the whole list can suppress the valid required import when the optional path is missing.
@@ -224,8 +446,38 @@ stimuli:
       directory. There is no nuspec in the project directory or its immediate
       parent. The configured nuspec maps that source file to
       buildTransitive/net8.0/Example.props, and the produced nupkg contains it.
-      Is a guard or directory reorganization needed? No other changes are requested.
+      The files are under project/ and the package is in project/feed/.
+      Is a guard or directory reorganization needed? No changes are requested.
+    agent_environment:
+      files:
+        - src: fixtures/packed-import
+          dest: project
+        - *sdk-policy
+    grading_environment:
+      files:
+        - *contract-checker
+        - *contract-inputs
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: msbuild-valid-packed-import
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No changes are needed. The configured nuspec supplies the
+              required buildTransitive/net8.0/Example.props in the package;
+              the import is resolved from the packed build/net8.0 location,
+              not from the source layout. Guarding it would hide a broken
+              package instead of preserving the required contract.
     graders:
+      - type: run-command
+        config:
+          command: node
+          args: [.eval/check-contracts.mjs, packed-import]
+          expected_exit_code: 0
+          timeout: 2m
       - type: prompt
     rubric:
       - Followed the configured NuspecFile outside the project and its parent, accounted for NuspecBasePath, and resolved the import against the packed layout.

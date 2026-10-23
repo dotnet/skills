@@ -1,0 +1,7 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup>
+    <BeforeHook>optional.targets;required.targets</BeforeHook>
+  </PropertyGroup>
+  <Import Project="$(BeforeHook)" Condition="Exists('$(BeforeHook)')" />
+  <Target Name="Build" />
+</Project>

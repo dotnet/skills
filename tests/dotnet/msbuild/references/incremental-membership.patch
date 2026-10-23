@@ -1,0 +1,18 @@
+diff --git a/project/Build.proj b/project/Build.proj
+--- a/project/Build.proj
++++ b/project/Build.proj
+@@ -3,7 +3,13 @@
+     <Specs Include="Specs\*.json" />
+   </ItemGroup>
+   <Import Project="Generator.targets" />
+-  <Target Name="GenerateCatalog" Inputs="@(Specs)" Outputs="obj\catalog.txt">
++  <Target Name="TrackCatalogInputs">
++    <MakeDir Directories="obj" />
++    <WriteLinesToFile File="obj\catalog.inputs" Lines="@(Specs)"
++                      Overwrite="true" WriteOnlyWhenDifferent="true" />
++  </Target>
++  <Target Name="GenerateCatalog" DependsOnTargets="TrackCatalogInputs"
++          Inputs="@(Specs);obj\catalog.inputs" Outputs="obj\catalog.txt">
+     <CallTarget Targets="WriteCatalog" />
+   </Target>
+   <Target Name="Build" DependsOnTargets="GenerateCatalog" />

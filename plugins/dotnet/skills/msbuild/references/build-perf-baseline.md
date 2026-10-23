@@ -29,6 +29,18 @@ Record those settings, source revision/local changes, machine resources, cache
 state, and exact input edit. Compare successful builds of the same scenario, not
 a failed build, a smaller solution, or differently instrumented runs.
 
+For an advisory before/after claim, first assess the supplied measurements. A
+`Rebuild` including restore and an unchanged ordinary build without restore do
+not isolate an MSBuild setting. The corrective experiment compares the **old
+setting value with the new value**, keeping the invocation, restore policy,
+input edit, starting output state, and instrumentation equivalent in both arms.
+Do not infer the unspecified setting from a command-line difference.
+
+Conversely, accept comparable repeated measurements as evidence for their
+stated workload, with sample-size and noise limits. A checkout, a fresh binlog,
+or measurements of every other build scenario are not prerequisites for
+answering a self-contained advisory question.
+
 ### Cold Build (First Build)
 
 No previous output exists for the selected build. An end-to-end cold-output

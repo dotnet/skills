@@ -1,14 +1,16 @@
 ---
 name: msbuild
-description: "Use only for MSBuild failure investigation, build-performance analysis, or review of existing build XML/extension contracts. A plan to convert a working legacy/non-SDK project to SDK style or migrate packages.config is a project-system migration, NOT a build-file review: do not activate, even to check scope. Framework/API upgrades are also excluded. Activate for advisory Import/Exists hook and NuGet packed-import questions even without a checkout or failed build; .csproj/.fsproj/.vbproj/.props/.targets conditions; custom-target inputs/outputs; .binlog capture/replay; failing dotnet build/restore/pack/publish or MSBuild-based test builds; slow evaluation, compilation, copying, or no-change builds; and controlled timing comparisons. Exclude SDK installation alone, C# refactoring, runtime profiling, assertions after successful builds, and non-MSBuild builds."
+description: "Use only for MSBuild failure investigation, build-performance analysis, or review of existing build XML/extension contracts. Failed assertions after a successful build are code/test debugging, not MSBuild: do not activate just because dotnet test failed. A plan to convert a working legacy/non-SDK project to SDK style or migrate packages.config is a project-system migration, NOT a build-file review: do not activate, even to check scope. Framework/API upgrades are also excluded. Activate for advisory Import/Exists hook and NuGet packed-import questions even without a checkout or failed build; .csproj/.fsproj/.vbproj/.props/.targets conditions; custom-target inputs/outputs; .binlog capture/replay; failing dotnet build/restore/pack/publish; slow evaluation, compilation, copying, or no-change builds; and controlled timing comparisons. Exclude SDK installation alone, C# refactoring, runtime profiling, and non-MSBuild builds."
 license: MIT
 ---
 
 # MSBuild troubleshooting
 
-This is the entry skill. Choose **troubleshooting**, **performance**, or **authoring review**, then
-read only the relevant local references. The references retain the content and identities of
-the original MSBuild skills, with correctness fixes; they are not separate skills to activate.
+For a self-contained timing or timeline question, use the performance decision table below
+and answer directly. Do not open references, discover a checkout, or run commands when the
+supplied evidence settles the question.
+Otherwise choose **troubleshooting**, **performance**, or **authoring review**, then read only
+the reference that resolves the next unknown. References are not separate skills to activate.
 
 ## Start with the task and evidence
 
@@ -47,6 +49,25 @@ Do not turn a targeted failure investigation into solution-wide authoring cleanu
 **Goal:** measure the reported scenario, identify its bottleneck, change one cause, and compare
 equivalent builds without losing required behavior.
 
+For advisory questions covered by this table, give a verdict, the decisive evidence, and a
+ranked next-measurement plan only where evidence is missing. Stop there; do not load references
+or start a diagnostic workflow to restate supplied facts.
+
+| Supplied evidence | Decision | Smallest useful follow-up |
+| --- | --- | --- |
+| Parallel target totals include overlapping dependency waits | Do not treat cumulative wait as exclusive work, CPU utilization, or a reason to remove required references or disable parallelism. | Confirm critical-path task intervals, dependency completion, and waiting projects' resumption before attributing wall time to a candidate task. Inspect its compiler/analyzer/generator or I/O detail, including unnecessary reruns. Measure resource contention before proposing node-budget changes. |
+| Before/after commands, restore policy, or input/output states differ | Reject attribution to the setting: the comparison is confounded. | **A = old setting; B = new setting; identical command and workload.** Keep the setting unnamed if it was not supplied. Restore-on versus restore-off, or Rebuild versus no-op, measures a different change and cannot replace this A/B test. |
+| Repeated successful runs have matched conditions and required outputs | Accept the observed improvement for that workload; compute the reduction from comparable summaries and report the spread. | Qualify sample size and deployment scope without inventing failures, hidden confounds, or statistical limitations. Other workloads or a checkout are not prerequisites for reporting the supplied observation. |
+
+For a proposed experiment, keep the SDK, machine, configuration, restore policy, and
+instrumentation equivalent. Replay the same input edit from equivalent starting outputs for
+each arm; alternate and repeat matched pairs to report variation. Change only the setting,
+compare the reported workload, and verify required outputs and diagnostics. The original
+confounded difference is not an effect size the experiment must reproduce. Do not substitute
+a different workload or require a matrix of cold, changed-input, and no-op builds.
+
+When actual investigation or optimization is requested:
+
 1. Reuse matching measurements. If they are missing, establish the relevant baseline before
    editing configuration; do not time a failed build as a successful baseline.
 2. Classify evaluation versus target/task execution. Inclusive target totals and dependency waits
@@ -82,6 +103,16 @@ Record the existing contract before editing. Review only relevant catalog entrie
 pattern is not proof of a defect. Leave already-correct patterns unchanged. Validate the original
 configurations, relevant consumers, and affected incremental/pack/publish behavior.
 
+Keep optional and required imports distinct, including inside aggregation files:
+
+```xml
+<Import Project="optional.targets" Condition="Exists('optional.targets')" />
+<Import Project="required.targets" />
+```
+
+The required import must load or fail, not silently skip. Check optional present/absent crossed
+with required present/absent, preserving the intended import order when both exist.
+
 ## Shared evidence and safety
 
 - For capture-only requests, use [binlog-generation](references/binlog-generation.md), report the
@@ -89,8 +120,10 @@ configurations, relevant consumers, and affected incremental/pack/publish behavi
   [MSBuild replay](references/binlog-failure-analysis.md#replay-a-binary-log), never binary-file
   text parsing. Replay success and replay duration are not the recorded build's result or duration.
 - Resolve these files relative to this skill. Do not load the original plugin's skills or search
-  other installations/checkouts. If a bundled reference is missing, allow one listing of
-  `references`, report the gap, and do not pretend its guidance was followed.
+  other installations/checkouts. After a failed reference read, allow one listing of `references`
+  to distinguish a missing bundled file from a present-but-unreadable tool integration failure.
+  Report the error and reduced coverage; do not retry through shell commands or other readers,
+  and do not pretend unread guidance was followed. Never work around a policy denial.
 - Do not clean outputs/caches, stop shared build servers, disable diagnostics, change SDKs, or
   serialize builds as generic fixes. Scope any necessary destructive experiment to approved,
   owned outputs. Keep binary and replayed logs local unless sharing is authorized.
@@ -99,7 +132,9 @@ configurations, relevant consumers, and affected incremental/pack/publish behavi
 
 ## Completion
 
-Return the selected task, the cause/bottleneck or authoring decision, supporting evidence,
-and the minimal change made or proposed. State when no change is needed. Give the exact
-verification and result, distinguishing successful, failed, and not-run checks; performance work
-also needs comparable measurements and uncertainty. Keep the response proportional to the task.
+For advice only, return the verdict, decisive evidence, and any necessary next measurement;
+do not manufacture a verification section or claim new measurements.
+For repository work, return the cause/bottleneck or authoring decision, supporting evidence,
+and the minimal change made or proposed. State when no change is needed. Give exact successful,
+failed, and not-run checks; performance changes also need comparable measurements and
+uncertainty. Keep the response proportional to the task.
