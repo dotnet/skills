@@ -167,3 +167,87 @@ test("assert-test-coverage: platform test covering one target fails", () => with
     'Assert.Equal("net10", PlatformInfo.Tag());');
   assert.equal(covered(root, "platform"), 1);
 }));
+
+test("assert-test-coverage: comment-only hex mention is not coverage", () => withWorkspace(root => {
+  const file = join(root, "tests", "Billing.Tests", "BillingTests.cs");
+  writeFileSync(file, readFileSync(file, "utf8") + '\n// Example hexadecimal input: "0x1F".\n');
+  assert.equal(covered(root, "hex"), 1);
+  writeFileSync(file, readFileSync(file, "utf8") + '\n/* ParseIntSetting("0x1F", 0) */\n');
+  assert.equal(covered(root, "hex"), 1);
+}));
+
+test("assert-test-coverage: comment-only platform mention is not coverage", () => withWorkspace(root => {
+  write(root, "tests/Billing.Tests/PlatformTagTests.cs", `
+    // Assert.Equal("net8", PlatformInfo.Tag());
+    /* Assert.Equal("net10", PlatformInfo.Tag()); */
+    public class PlatformTagTests {}`);
+  assert.equal(covered(root, "platform"), 1);
+}));
+
+test("assert-test-coverage: string containing // still counts as code", () => withWorkspace(root => {
+  write(root, "tests/Billing.Tests/HexTests.cs",
+    'var url = "http://example"; Assert.Equal(31, AppSettingsHelper.ParseIntSetting("0x1F", 0)); // done');
+  assert.equal(covered(root, "hex"), 0);
+}));
+
+// assert-tests-kill-mutants plumbing, with a fake runner standing in for `dotnet test`.
+// The fake "test run" fails only when production lacks HEX and a copied test file contains
+// ASSERT_HEX, mirroring an agent test that detects the removed feature.
+const fakeRunner = `
+const fs = require('fs'), path = require('path');
+const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e =>
+  e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
+if (fs.existsSync('.grading')) process.exit(3);
+const prod = fs.readFileSync('src/Billing/AppSettingsHelper.cs', 'utf8');
+const detects = walk('tests').some(f => fs.readFileSync(f, 'utf8').includes('ASSERT_HEX'));
+process.exit(!prod.includes('HEX') && detects ? 1 : 0);
+`;
+
+function mutantWorkspace(fn) {
+  const root = mkdtempSync(join(tmpdir(), "bc-kill-"));
+  try {
+    write(root, "src/Billing/AppSettingsHelper.cs", "HEX implementation");
+    write(root, "tests/Billing.Tests/BillingTests.cs", "decimal tests only");
+    write(root, ".grading/mutants/hex/no-hex/src/Billing/AppSettingsHelper.cs", "decimal only");
+    cpSync(join(grading, "assert-tests-kill-mutants.js"), join(root, ".grading", "assert-tests-kill-mutants.js"));
+    write(root, ".grading/fake-runner.js", fakeRunner);
+    fn(root, () => spawnSync(process.execPath,
+      [".grading/assert-tests-kill-mutants.js", ".grading/mutants/hex"],
+      { cwd: root, encoding: "utf8",
+        env: { ...process.env, MUTANT_TEST_RUNNER: join(root, ".grading", "fake-runner.js") } }).status);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+}
+
+test("assert-tests-kill-mutants: an agent test that detects removal passes", () => mutantWorkspace((root, kill) => {
+  write(root, "tests/Billing.Tests/HexTests.cs", "ASSERT_HEX");
+  assert.equal(kill(), 0);
+}));
+
+test("assert-tests-kill-mutants: no detecting agent test leaves a survivor", () => mutantWorkspace((root, kill) => {
+  assert.equal(kill(), 1);
+}));
+
+test("assert-tests-kill-mutants: grader-owned GraderChecks cannot kill the mutant", () => mutantWorkspace((root, kill) => {
+  write(root, "tests/Billing.Tests/GraderChecks/HexParsingChecks.cs", "ASSERT_HEX");
+  assert.equal(kill(), 1);
+}));
+
+test("assert-tests-kill-mutants: tests failing before mutation do not count", () => mutantWorkspace((root, kill) => {
+  write(root, "src/Billing/AppSettingsHelper.cs", "decimal only");
+  write(root, "tests/Billing.Tests/HexTests.cs", "ASSERT_HEX");
+  assert.equal(kill(), 1);
+}));
+
+test("assert-tests-kill-mutants: the workspace itself is never modified", () => mutantWorkspace((root, kill) => {
+  write(root, "tests/Billing.Tests/HexTests.cs", "ASSERT_HEX");
+  assert.equal(kill(), 0);
+  assert.equal(readFileSync(join(root, "src", "Billing", "AppSettingsHelper.cs"), "utf8"), "HEX implementation");
+}));
+
+test("assert-tests-kill-mutants: platform mutants each break Tag() on one target only", () => {
+  for (const [name, tag] of [["tag-always-net10", "ModernTag"], ["tag-always-net8", "LegacyTag"]]) {
+    const text = readFileSync(join(grading, "mutants", "platform", name, "src", "Billing", "PlatformInfo.cs"), "utf8");
+    assert.match(text, new RegExp(`public static string Tag\\(\\) => ${tag};`));
+    assert.match(text, /#if NET8_0\s+return Label\(LegacyTag\);\s+#else\s+return Label\(ModernTag\);/);
+  }
+});
