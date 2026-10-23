@@ -162,18 +162,22 @@ stimuli:
       journey: add-feature
     golden_patch:
       path: golden-patches/add-hex-parsing.patch
-    prompt: "The Billing library ships as a package. Add hex support to `AppSettingsHelper.ParseIntSetting` so callers can parse values like `0x1F` in addition to plain decimals, and cover it with a test, without disrupting existing consumers. The solution is at Fixture.sln."
+    # The opt-in leaves the API shape to the agent. The natural unskilled shape, an optional
+    # `bool allowHex = false` added in place, compiles every caller and passes every test while
+    # removing the shipped two-parameter method that already-compiled consumers bind to.
+    prompt: "The Billing library ships as a package. Some callers want `AppSettingsHelper.ParseIntSetting` to also accept hex values like `0x1F`. Let them opt in by passing `allowHex: true`; every existing call must keep returning exactly what it returns today. Cover it with a test. The solution is at Fixture.sln."
     grading_environment:
       files:
         - src: fixtures/grading/HexParsingChecks.cs
           dest: tests/Billing.Tests/GraderChecks/HexParsingChecks.cs
         - src: fixtures/grading/assert-tests-kill-mutants.js
           dest: .grading/assert-tests-kill-mutants.js
-        # Replaces only the ParseIntSetting declaration with the decimal-only original.
+        # Replaces only the allowHex ParseIntSetting declaration with a decimal-only body.
         - src: fixtures/grading/mutants/hex/no-hex.json
           dest: .grading/mutants/hex/no-hex.json
     graders:
-      # Executes the requested feature through the shipped signature, independent of agent tests.
+      # Binds the shipped two-parameter signature to a delegate (fails to compile after an
+      # in-place optional parameter), pins its decimal-only results, and runs the opt-in path.
       - *grader-checks
       # RS0017 is an error here, so an intact shipped line plus a green build proves the
       # original two-parameter method still exists for already-compiled consumers. Adding
@@ -201,9 +205,9 @@ stimuli:
           timeout: 5m
       - type: prompt
     rubric:
-      - "Added tested hexadecimal parsing while retaining decimal and fallback behavior"
-      - "Kept the shipped ParseIntSetting signature and nullability contract unchanged"
-      - "Did not alter the API baseline when the public surface did not change"
+      - "Added tested opt-in hexadecimal parsing while existing two-argument calls keep their decimal-only results"
+      - "Kept the shipped two-parameter ParseIntSetting method intact and added a separate overload instead of an optional parameter"
+      - "Recorded only the new overload in PublicAPI.Unshipped.txt and left PublicAPI.Shipped.txt unchanged"
 
   - name: Rename a vague public method without breaking existing callers
     tags:
@@ -382,13 +386,24 @@ stimuli:
     golden_patch:
       path: golden-patches/rename-friend-member.patch
     prompt: "Rename the internal `PricingMath.ApplyDiscount` helper to `CalculateDiscount` and update every consumer without changing results. The solution is at Fixture.sln."
+    # Adds a second friend, Billing.Plugins, that ships from another repository. A name grep
+    # finds only the in-repo test consumer (run 39998662353: both arms passed every grader and the
+    # judge split on a test-method rename), so only enumerating the friends reveals a consumer
+    # that this change cannot update and whose compiled binding to ApplyDiscount must survive.
+    environment:
+      files:
+        - src: fixtures/external-friend/AssemblyInfo.cs
+          dest: fixtures/external-friend/AssemblyInfo.cs
+      commands:
+        - node -e "const fs=require('fs');fs.copyFileSync('fixtures/external-friend/AssemblyInfo.cs','src/Billing/AssemblyInfo.cs');fs.rmSync('fixtures',{recursive:true})"
     grading_environment:
       files:
         - src: fixtures/grading/FriendRenameChecks.cs
           dest: tests/Billing.Tests/GraderChecks/FriendRenameChecks.cs
     graders:
       # Grader-owned expected discounts; the agent edits BillingTests.cs for the rename, so
-      # its assertion alone cannot prove the results are unchanged.
+      # its assertion alone cannot prove the results are unchanged. The checks also call
+      # ApplyDiscount as the out-of-repo Billing.Plugins friend does, so a plain rename fails.
       - *grader-checks
       - type: file-contains
         config:
@@ -406,6 +421,11 @@ stimuli:
         config:
           path: src/Billing/AssemblyInfo.cs
           value: InternalsVisibleTo("Billing.Tests")
+      # Dropping the external grant would "fix" the rename by breaking Billing.Plugins outright.
+      - type: file-contains
+        config:
+          path: src/Billing/AssemblyInfo.cs
+          value: InternalsVisibleTo("Billing.Plugins")
       - type: run-command
         config:
           command: dotnet test Fixture.sln -v:q --no-restore
@@ -415,6 +435,7 @@ stimuli:
       - type: prompt
     rubric:
       - "Found and updated the consumer in the assembly granted internal access"
+      - "Recognized that Billing.Plugins is a friend built outside this repository that cannot be updated here, kept ApplyDiscount working for it (for example as an [Obsolete] forwarder to CalculateDiscount), and told the user"
       - "Preserved the friend relationship and discount result"
       - "Did not add the internal member to a public API baseline"
 
@@ -570,7 +591,7 @@ stimuli:
               2. Coupons becomes sealed. Any consumer type that derives from Coupons stops compiling, and a sealed class cannot be unsealed later without another review.
               3. PlatformInfo's LegacyTag changes from net8 to net8.0. Only the net8.0 build changes, so PlatformInfo.Current() now returns platform:net8.0 for net8 consumers. The test was edited to match rather than catching the change.
 
-              The discountRate rename in OrderProcessor is an internal local rename and is not a compatibility concern.
+              Not breaks: the discountRate rename in OrderProcessor is an internal local rename, and the default `raw?.Trim()` in ParseBoolSetting returns the same results as before because bool.TryParse already ignores surrounding whitespace.
     graders:
       # Read-only review: source, tests, projects, baselines, and the diff itself must be unchanged.
       - *workspace-unchanged
@@ -606,6 +627,9 @@ stimuli:
       - "Identified sealing Coupons as a break for consumers that derive from it"
       - "Identified the net8.0-only PlatformInfo result change and that the test was edited to match it"
       - "Did not flag the internal OrderProcessor local rename as a compatibility concern"
+      # The default Trim() is a no-op: bool.TryParse already ignores surrounding whitespace. Run 39998662353
+      # (Luna) awarded the baseline for reporting it as a fourth break; a false positive must not read as breadth.
+      - "Did not report the default whitespace trimming in ParseBoolSetting as a behavior change: bool.TryParse already ignores leading and trailing whitespace, so default-path results are unchanged; counting it as a break is a misclassification"
       - "Left the repository unchanged"
 
   # Dormancy guard inside an on-target repository: a local rename has no consumer-visible

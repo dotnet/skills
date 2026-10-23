@@ -178,12 +178,15 @@ const mutate = (src, spec) => spec.replace.reduce((text, r) => killMutants.repla
 const goldenHex = `namespace Billing;
 public static class AppSettingsHelper
 {
-    // a stray { brace in a comment
     public static int ParseIntSetting(string? raw, int fallback)
+        => int.TryParse(raw, out var value) ? value : fallback;
+
+    // a stray { brace in a comment
+    public static int ParseIntSetting(string? raw, int fallback, bool allowHex)
     {
         var closing = "}";
-        if (raw is not null && raw.StartsWith("0x")) { return ParseHex(raw); }
-        return int.TryParse(raw, out var value) ? value : fallback;
+        if (allowHex && raw is not null && raw.StartsWith("0x")) { return ParseHex(raw); }
+        return ParseIntSetting(raw, fallback);
     }
 
     private static int ParseHex(string s) => 0;
@@ -195,12 +198,19 @@ public static class ConfigReader
 }
 `;
 
-test("assert-tests-kill-mutants: hex mutant replaces only the ParseIntSetting body", () => {
+test("assert-tests-kill-mutants: hex mutant replaces only the allowHex ParseIntSetting overload", () => {
   const out = mutate(goldenHex, hexSpec);
   assert.doesNotMatch(out, /StartsWith\("0x"\)/);
-  assert.match(out, /public static int ParseIntSetting\(string\? raw, int fallback\) => int\.TryParse\(raw, out var v\) \? v : fallback;\n\n    private static int ParseHex/);
+  assert.match(out, /public static int ParseIntSetting\(string\? raw, int fallback\)\n        => int\.TryParse\(raw, out var value\) \? value : fallback;/);
+  assert.match(out, /public static int ParseIntSetting\(string\? raw, int fallback, bool allowHex\) => int\.TryParse\(raw, out var v\) \? v : fallback;\n\n    private static int ParseHex/);
   assert.match(out, /public static class ConfigReader/);
   assert.match(out, /a stray \{ brace in a comment/);
+});
+
+test("assert-tests-kill-mutants: hex mutant also matches an allowHex overload with a default value", () => {
+  const out = mutate(goldenHex.replace("bool allowHex)", "bool allowHex = false)"), hexSpec);
+  assert.doesNotMatch(out, /StartsWith\("0x"\)/);
+  assert.match(out, /bool allowHex\) => int\.TryParse\(raw, out var v\) \? v : fallback;/);
 });
 
 test("assert-tests-kill-mutants: calls and commented-out declarations are not mutated", () => {
@@ -411,7 +421,7 @@ test("assert-tests-kill-mutants: a non-zero exit without TRX results is a grader
 }));
 
 test("assert-tests-kill-mutants: a mutant declaration missing from src is a grader error", () => mutantWorkspace((root, kill) => {
-  write(root, "src/Billing/AppSettingsHelper.cs", goldenHex.replace("ParseIntSetting(string? raw, int fallback)", "ParseInt(string? raw, int fallback)"));
+  write(root, "src/Billing/AppSettingsHelper.cs", goldenHex.replace("ParseIntSetting(string? raw, int fallback, bool allowHex)", "ParseInt(string? raw, int fallback, bool allowHex)"));
   write(root, "tests/Billing.Tests/HexTests.cs", "ASSERT_HEX");
   assert.equal(kill(), 2);
 }));

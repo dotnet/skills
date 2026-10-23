@@ -1,9 +1,9 @@
 {
-  "description": "Hex support removed: ParseIntSetting goes back to decimal-only parsing.",
+  "description": "Hex support removed: the allowHex overload ignores the flag and parses decimals only.",
   "replace": [
     {
-      "declaration": "\\bint\\s+ParseIntSetting\\s*\\(\\s*string\\s*\\?\\s*\\w+\\s*,\\s*int\\s+\\w+\\s*\\)",
-      "with": "public static int ParseIntSetting(string? raw, int fallback) => int.TryParse(raw, out var v) ? v : fallback;"
+      "declaration": "\\bint\\s+ParseIntSetting\\s*\\(\\s*string\\s*\\?\\s*\\w+\\s*,\\s*int\\s+\\w+\\s*,\\s*bool\\s+\\w+(?:\\s*=\\s*\\w+)?\\s*\\)",
+      "with": "public static int ParseIntSetting(string? raw, int fallback, bool allowHex) => int.TryParse(raw, out var v) ? v : fallback;"
     }
   ]
 }

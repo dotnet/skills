@@ -36,6 +36,10 @@ the assembly name/key half of the relationship as an incidental part of another 
 
 - Treat internal members that friends consume with the **same care as public API**: search all friend
   assemblies for binding references before renaming/moving/removing.
+- A named friend that is **not built from this repository** (shipped separately and compiled against your
+  released package) cannot be searched or updated, and a green build here cannot see it. Treat the
+  internals it may bind to as shipped API: rename by adding the new name and keeping the old one as an
+  `[Obsolete]` forwarder to it, keep the grant, and tell the user which friend this protects.
 - If the change is large, let the **compiler across the whole solution** (build the friend projects too) be
   the safety net — a missed reference becomes a build error in the friend project, not a silent break.
 - Adding a new friend (`InternalsVisibleTo`) to make a change "reachable" is itself a surface change — flag

@@ -72,7 +72,8 @@ Public API (1) is the **default** surface to check on any library edit; the othe
 
 4. **InternalsVisibleTo.** `internal` is not private across a solution: test and friend assemblies bind to
    internals (and, when strong-named, to a public key). An internal rename/move/removal can break a
-   consumer with no reference in the declaring project. See `references/internals-visible-to.md`.
+   consumer with no reference in the declaring project. A friend built outside this repo cannot be
+   updated, so keep the old internal name as an `[Obsolete]` forwarder. See `references/internals-visible-to.md`.
 
 ## Decisions a green build will not make for you
 
@@ -96,7 +97,10 @@ in this shape, scaled to the diff:
 1. One verdict line first (e.g. "Do not merge as-is: N changes break consumers").
 2. One numbered item per consumer-visible change: what changed, **binary** (already-compiled
    consumers fail), **source** (consumers fail to recompile), or **behavioral** (same signature,
-   different result, possibly on only one target), who breaks, and the safe shape.
+   different result, possibly on only one target), who breaks, and the safe shape. A behavioral
+   claim needs a concrete input whose old and new results differ; if unsure, probe both versions
+   with a one-line program — framework parsers already tolerate much (e.g. `bool.TryParse` ignores
+   surrounding whitespace), and a no-op rewrite is not a break. Say when the diff edits a test to match.
 3. One line naming the internal-only edits that are safe.
 
 Cover only surfaces the diff touches; do not add trimming, AOT, or tooling commentary it does not raise.

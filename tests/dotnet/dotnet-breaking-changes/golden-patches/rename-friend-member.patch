@@ -1,13 +1,17 @@
 diff --git a/src/Billing/Pricing.cs b/src/Billing/Pricing.cs
-index b4bdf26..c8937ee 100644
+index b4bdf26..697a883 100644
 --- a/src/Billing/Pricing.cs
 +++ b/src/Billing/Pricing.cs
-@@ -14,7 +14,7 @@ internal static class LegacyTax
+@@ -14,7 +14,11 @@ internal static class LegacyTax
  
  internal static class PricingMath
  {
 -    internal static decimal ApplyDiscount(decimal amount, decimal rate) => amount - (amount * rate);
 +    internal static decimal CalculateDiscount(decimal amount, decimal rate) => amount - (amount * rate);
++
++    // Billing.Plugins is a friend built outside this repo and still binds to the old name.
++    [Obsolete("Use CalculateDiscount.")]
++    internal static decimal ApplyDiscount(decimal amount, decimal rate) => CalculateDiscount(amount, rate);
  }
  
  internal sealed class GoldPricing
