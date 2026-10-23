@@ -2350,6 +2350,10 @@ esac
         test_script = steps[
             "Test evaluation tooling and MSBuild contracts without model calls"
         ]["run"]
+        self.assertEqual(
+            steps["Setup .NET SDK for MSBuild contracts"]["with"]["global-json-file"],
+            "tests/dotnet/msbuild/fixtures/global.json",
+        )
         self.assertIn(
             "node --test eng/evaluation-tools/*.test.mjs",
             test_script,

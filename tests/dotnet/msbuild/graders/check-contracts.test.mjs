@@ -13,7 +13,7 @@ function fixture(t, scenario) {
   const root = mkdtempSync(join(tmpdir(), "msbuild-contract-test-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   cpSync(join(suite, "fixtures", scenario), join(root, "project"), { recursive: true });
-  cpSync(resolve(suite, "..", "..", "..", "global.json"), join(root, "global.json"));
+  cpSync(join(suite, "fixtures", "global.json"), join(root, "global.json"));
   mkdirSync(join(root, ".eval"));
   cpSync(join(suite, "graders", "fixture-inputs.json"), join(root, ".eval", "inputs.json"));
   return root;

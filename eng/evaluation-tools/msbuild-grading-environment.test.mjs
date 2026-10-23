@@ -12,7 +12,7 @@ const suite = fileURLToPath(new URL("../../tests/dotnet/msbuild/", import.meta.u
 const spec = await loadEvalSpec(join(suite, "eval.yaml"));
 test("trusted grading baseline matches every supplied source, package, and SDK policy", () => {
   const baseline = JSON.parse(readFileSync(join(suite, "graders", "fixture-inputs.json"), "utf8"));
-  assert.equal(baseline.sdkPolicy, readFileSync(new URL("../../global.json", import.meta.url), "utf8"));
+  assert.equal(baseline.sdkPolicy, readFileSync(join(suite, "fixtures", "global.json"), "utf8"));
   for (const [scenario, expected] of Object.entries(baseline.scenarios)) {
     assert.deepEqual(fixtureInputs(join(suite, "fixtures", scenario)), expected);
   }
