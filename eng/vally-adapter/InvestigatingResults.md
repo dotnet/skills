@@ -163,10 +163,12 @@ comparison as unknown rather than guessing.
 Retained Skill Value entries also carry a stable evaluation execution identity
 so repeated judge views do not multiply executor resource telemetry. Native
 target non-activation is preserved separately from the dormancy activation
-contract and cannot qualify as proven differentiation. Weekly health reporting
-labels its ratio as **published-result reliability** because failed executions
-can produce no retained target output; complete expected-target coverage is
-reported as unavailable rather than inferred from retained rows.
+contract and cannot qualify as proven differentiation. Native objective
+completion regression is also retained separately and overrides favorable
+preference evidence. Weekly health reporting labels its ratio as
+**published-result reliability** because failed executions can produce no
+retained target output; complete expected-target coverage is reported as
+unavailable rather than inferred from retained rows.
 
 The 0–10 **Quality Score Triage** summary and trend charts remain useful for
 spotting changes in absolute grader scores. They do not decide pass/fail. Older

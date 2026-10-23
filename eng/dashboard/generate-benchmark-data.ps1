@@ -784,6 +784,11 @@ foreach ($verdict in $results.verdicts) {
         $verdict.stateReason -and
         $verdict.stateReason.code -eq "target_agent_not_activated"
     )
+    $completionRegressed = (
+        $verdict.PSObject.Properties['stateReason'] -and
+        $verdict.stateReason -and
+        $verdict.stateReason.code -eq "native_completion_regression"
+    )
     $preference = if ($signTest) {
         @{
             count              = [int]$verdict.stimulusVoteCount
@@ -924,6 +929,7 @@ foreach ($verdict in $results.verdicts) {
         treatmentOnlyPass = $treatmentOnlyPass
         hasPassData      = ($passTotal -gt 0)
         targetActivationFailed = $targetActivationFailed
+        completionRegressed = $completionRegressed
         activationContract = $activationContract
         preference       = $preference
     })

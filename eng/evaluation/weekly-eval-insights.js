@@ -51,6 +51,7 @@ function isDifferentiated(skill) {
     && preference.practicalPassed === true
     && Number.isFinite(preference.pValue)
     && preference.pValue <= alpha
+    && skill.completionRegressed !== true
     && skill.targetActivationFailed !== true
     && skill.activationContract?.evaluated === true
     && skill.activationContract.passed === true;
@@ -66,12 +67,14 @@ function isPreferenceLoss(skill) {
     && preference.practicalPassed === true
     && Number.isFinite(preference.pValue)
     && preference.pValue <= alpha
+    && skill.completionRegressed !== true
     && skill.targetActivationFailed !== true
     && skill.activationContract?.evaluated === true
     && skill.activationContract.passed === true;
 }
 
 function classify(skill) {
+  if (skill.completionRegressed === true) return 'completion-regression';
   if (skill.targetActivationFailed === true) return 'activation-failed';
   if (skill.activationContract?.passed === false) return 'activation-failed';
   if (skill.activationContract?.evaluated !== true) return 'activation-unverified';
@@ -134,6 +137,8 @@ function aggregateSkill(records) {
     records.filter(record => record.skill.preference?.conclusive === true).length;
   const differentiatedResults = records.filter(record => isDifferentiated(record.skill)).length;
   const preferenceLossResults = records.filter(record => isPreferenceLoss(record.skill)).length;
+  const completionRegressionResults =
+    records.filter(record => record.skill.completionRegressed === true).length;
   const publishedInvalidResults = publishedResults - publishedConclusiveResults;
   const underpoweredResults = records.filter(record => record.skill.preference?.underpowered === true).length;
   const timedOutResults = records.filter(record => record.skill.timedOut === true).length;
@@ -182,6 +187,7 @@ function aggregateSkill(records) {
     underpoweredResults,
     differentiatedResults,
     preferenceLossResults,
+    completionRegressionResults,
     publishedResultReliabilityRate: round(ratio(publishedConclusiveResults, publishedResults)),
     differentiationRate: round(ratio(differentiatedResults, publishedConclusiveResults)),
     treatmentPassRate: round(ratio(passTotal - treatmentFailures, passTotal)),
@@ -287,6 +293,8 @@ function aggregateWindow(entries, startMs, endMs) {
     underpoweredResults: records.filter(record => record.skill.preference?.underpowered === true).length,
     differentiatedResults: records.filter(record => isDifferentiated(record.skill)).length,
     preferenceLossResults: records.filter(record => isPreferenceLoss(record.skill)).length,
+    completionRegressionResults:
+      records.filter(record => record.skill.completionRegressed === true).length,
     publishedResultReliabilityRate: round(ratio(
       records.filter(record => record.skill.preference?.conclusive === true).length,
       records.length,
@@ -316,6 +324,11 @@ function aggregateWindow(entries, startMs, endMs) {
       preferenceLosses: allSkills.filter(skill => skill.preferenceLossResults > 0)
         .sort((left, right) =>
           right.preferenceLossResults - left.preferenceLossResults
+          || left.plugin.localeCompare(right.plugin)
+          || left.skill.localeCompare(right.skill)),
+      completionRegressions: allSkills.filter(skill => skill.completionRegressionResults > 0)
+        .sort((left, right) =>
+          right.completionRegressionResults - left.completionRegressionResults
           || left.plugin.localeCompare(right.plugin)
           || left.skill.localeCompare(right.skill)),
       modelSensitive: allSkills.filter(skill => skill.modelSensitive)
@@ -385,6 +398,8 @@ function buildReport({ dashboard, workflowRuns, windowEnd }) {
         'A conclusive, sufficiently powered treatment win with p <= alpha, practical significance, and a passing activation contract.',
       preferenceLoss:
         'A conclusive, sufficiently powered reverse preference with p <= alpha, practical significance, and a passing activation contract. This is triage evidence, not an objective completion regression.',
+      completionRegression:
+        'An authoritative native objective completion regression retained from the evaluator. It overrides favorable preference evidence and cannot count as differentiation.',
       publishedResultReliability:
         'Conclusive retained evaluation results divided by retained evaluation results. Missing evaluation outputs are not represented in retained data.',
       expectedCoverage:

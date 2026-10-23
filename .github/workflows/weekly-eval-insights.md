@@ -48,6 +48,7 @@ safe-outputs:
         contains(needs.agent.outputs.output_types, 'publish_weekly_eval_report')
       runs-on: ubuntu-latest
       permissions:
+        actions: read
         contents: read
         issues: write
       inputs:
@@ -89,7 +90,16 @@ safe-outputs:
               const item = items[0];
               const weekKey = item.week_key;
               const body = item.body;
-              const now = new Date();
+              const currentRun = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.runId,
+              });
+              const now = new Date(currentRun.data.run_started_at);
+              if (Number.isNaN(now.getTime())) {
+                core.setFailed("Workflow run start time is unavailable");
+                return;
+              }
               const isoDate = new Date(Date.UTC(
                 now.getUTCFullYear(),
                 now.getUTCMonth(),
@@ -338,6 +348,8 @@ malformed, or internally inconsistent, call `noop` with the exact limitation.
 - Keep treatment pass rate separate from differentiation and reliability.
 - Report statistically credible reverse preference as a preference loss. Do not
   call preference loss an objective completion regression.
+- Report retained native objective completion regression separately. It
+  overrides preference evidence and cannot count as differentiation.
 - Treat changes for the same skill, executor model, and judge model as
   flakiness. Treat stable differences across model or judge dimensions as model
   sensitivity, not flakiness.
@@ -345,7 +357,8 @@ malformed, or internally inconsistent, call `noop` with the exact limitation.
   token telemetry as supporting resource evidence, but never estimate AI Credits
   or dollar spend.
 - Distinguish invalid measurement, underpowered design, timeout, activation
-  failure, no credible change, preference loss, and proven differentiation.
+  failure, native completion regression, no credible change, preference loss,
+  and proven differentiation.
 - State missing data and small samples. Do not turn absence of evidence into a
   positive or negative conclusion.
 
@@ -366,7 +379,7 @@ Include:
 - executor models and judge models
 - average workflow duration
 - retained published, conclusive, invalid, underpowered, differentiated, and
-  preference loss result counts
+  preference loss result counts, plus native completion regressions
 - published-result reliability and differentiation rates
 - expected evaluation coverage status
 - AI Credits status, with total or average token telemetry when useful
@@ -404,7 +417,7 @@ Group by plugin. For every skill with evidence in the current window, include:
 - published-result reliability
 - key status such as consistently differentiating, flaky, invalid,
   model-sensitive, consistently passing, underpowered, timeout, activation
-  failure, preference loss, or no credible change
+  failure, native completion regression, preference loss, or no credible change
 
 Use compact tables. Put large plugin sections in `<details>` blocks.
 

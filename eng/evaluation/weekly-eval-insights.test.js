@@ -93,6 +93,34 @@ test('credible reverse preference is reported as a preference loss', () => {
   }), false);
 });
 
+test('native completion regression overrides favorable preference evidence', () => {
+  const regression = skill({
+    completionRegressed: true,
+  });
+
+  assert.equal(isDifferentiated(regression), false);
+  assert.equal(isPreferenceLoss(regression), false);
+  assert.equal(classify(regression), 'completion-regression');
+
+  const report = buildReport({
+    dashboard: {
+      entries: [
+        {
+          ...entry('2026-10-17T00:00:00Z', regression),
+          executionId: 'run-1',
+        },
+      ],
+    },
+    workflowRuns: [],
+    windowEnd: '2026-10-21T17:00:00Z',
+  });
+
+  assert.equal(report.current.differentiatedResults, 0);
+  assert.equal(report.current.preferenceLossResults, 0);
+  assert.equal(report.current.completionRegressionResults, 1);
+  assert.equal(report.current.signals.completionRegressions.length, 1);
+});
+
 test('weekly report separates reliability, differentiation, and pass rate', () => {
   const report = buildReport({
     dashboard: {
