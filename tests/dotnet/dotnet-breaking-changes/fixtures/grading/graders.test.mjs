@@ -173,7 +173,7 @@ test("assert-unchanged: the rename plus a test edit, added file, or deleted file
 const killMutants = createRequire(import.meta.url)("./assert-tests-kill-mutants.js");
 const hexSpec = JSON.parse(readFileSync(join(grading, "mutants", "hex", "no-hex.json"), "utf8"));
 const platformSpec = name => JSON.parse(readFileSync(join(grading, "mutants", "platform", `${name}.json`), "utf8"));
-const mutate = (src, spec) => spec.replace.reduce((text, r) => killMutants.replaceDeclarations(text, r.declaration, r.with).text, src);
+const mutate = (src, spec) => spec.replace.reduce((text, r) => killMutants.replaceDeclarations(text, r.declaration, r.with, r.body).text, src);
 
 const goldenHex = `namespace Billing;
 public static class AppSettingsHelper
@@ -202,15 +202,21 @@ test("assert-tests-kill-mutants: hex mutant replaces only the allowHex ParseIntS
   const out = mutate(goldenHex, hexSpec);
   assert.doesNotMatch(out, /StartsWith\("0x"\)/);
   assert.match(out, /public static int ParseIntSetting\(string\? raw, int fallback\)\n        => int\.TryParse\(raw, out var value\) \? value : fallback;/);
-  assert.match(out, /public static int ParseIntSetting\(string\? raw, int fallback, bool allowHex\) => int\.TryParse\(raw, out var v\) \? v : fallback;\n\n    private static int ParseHex/);
+  assert.match(out, /public static int ParseIntSetting\(string\? raw, int fallback, bool allowHex\) => int\.TryParse\(raw, out var mutantValue\) \? mutantValue : fallback;\n\n    private static int ParseHex/);
   assert.match(out, /public static class ConfigReader/);
   assert.match(out, /a stray \{ brace in a comment/);
 });
 
-test("assert-tests-kill-mutants: hex mutant also matches an allowHex overload with a default value", () => {
-  const out = mutate(goldenHex.replace("bool allowHex)", "bool allowHex = false)"), hexSpec);
+test("assert-tests-kill-mutants: hex mutant keeps the agent's parameter names and defaults", () => {
+  // A correct overload may use a default and its own names; the PublicAPI baseline records that
+  // exact header, so rewriting it would make RS0016/RS0017 fail the mutant build.
+  const header = "public static int ParseIntSetting(string? text, int defaultValue, bool allowHex = false)";
+  const src = goldenHex.replace("public static int ParseIntSetting(string? raw, int fallback, bool allowHex)", header)
+    .replace("raw.StartsWith", "text.StartsWith").replace("ParseHex(raw)", "ParseHex(text)")
+    .replace("return ParseIntSetting(raw, fallback);", "return ParseIntSetting(text, defaultValue);");
+  const out = mutate(src, hexSpec);
   assert.doesNotMatch(out, /StartsWith\("0x"\)/);
-  assert.match(out, /bool allowHex\) => int\.TryParse\(raw, out var v\) \? v : fallback;/);
+  assert.ok(out.includes(`${header} => int.TryParse(text, out var mutantValue) ? mutantValue : defaultValue;`), out);
 });
 
 test("assert-tests-kill-mutants: calls and commented-out declarations are not mutated", () => {

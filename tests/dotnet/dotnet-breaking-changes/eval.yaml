@@ -172,7 +172,8 @@ stimuli:
           dest: tests/Billing.Tests/GraderChecks/HexParsingChecks.cs
         - src: fixtures/grading/assert-tests-kill-mutants.js
           dest: .grading/assert-tests-kill-mutants.js
-        # Replaces only the allowHex ParseIntSetting declaration with a decimal-only body.
+        # Replaces only the body of the agent's allowHex ParseIntSetting overload with a decimal-only
+        # body, keeping its parameter names and defaults so its PublicAPI baseline still matches.
         - src: fixtures/grading/mutants/hex/no-hex.json
           dest: .grading/mutants/hex/no-hex.json
     graders:

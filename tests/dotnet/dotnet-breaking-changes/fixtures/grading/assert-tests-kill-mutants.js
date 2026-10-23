@@ -2,7 +2,7 @@
 // Proves the agent's own tests detect removal of the requested feature. Each <name>.json in
 // <mutants-dir> is one mutant: a list of C# member declarations (regex over comment/string-masked
 // src/**/*.cs) whose full declarations - expression or block bodied, every #if branch - are
-// replaced. Only the targeted members change, so agent refactors elsewhere (moved types, new
+// replaced ("with"), or whose body alone is replaced ("body", keeping the agent's header). Only the targeted members change, so agent refactors elsewhere (moved types, new
 // helpers, new public API) still compile under the mutant.
 // For the unmutated copy and each mutant, the workspace is copied without build output, harness
 // files, or grader-owned GraderChecks, then built and tested with a TRX logger.
@@ -122,18 +122,53 @@ function declarationStart(masked, at) {
   }
 }
 
+// Parameter names of the last top-level parameter list in `header` (masked source).
+function parameterNames(header) {
+  const close = header.lastIndexOf(')');
+  let depth = 0, open = -1;
+  for (let i = close; i >= 0; i--) {
+    if (header[i] === ')') depth++;
+    else if (header[i] === '(' && --depth === 0) { open = i; break; }
+  }
+  if (open < 0) return [];
+  const parts = [];
+  let cur = '';
+  depth = 0;
+  for (const c of header.slice(open + 1, close)) {
+    if ('(<[{'.includes(c)) depth++;
+    else if (')>]}'.includes(c)) depth--;
+    if (c === ',' && depth === 0) { parts.push(cur); cur = ''; } else cur += c;
+  }
+  if (cur.trim()) parts.push(cur);
+  return parts.map(p => /@?(\w+)\s*$/.exec(p.split('=')[0].trim())?.[0] ?? '');
+}
+
 // Replace every declaration matching `declaration` in `src`; returns { text, count }.
-function replaceDeclarations(src, declaration, replacement) {
+// With `replacement`, the whole declaration is replaced. With `body`, only the body is replaced
+// and the agent's own header (modifiers, parameter names, defaults) is kept, so a correct
+// solution's API baseline still matches; `$1`, `$2`, ... in `body` become its parameter names.
+function replaceDeclarations(src, declaration, replacement, body) {
   const masked = mask(src);
   const re = new RegExp(declaration, 'g');
   const spans = [];
   for (let m; (m = re.exec(masked));) {
-    const end = bodyEnd(masked, m.index + m[0].length);
+    const headerEnd = m.index + m[0].length;
+    const end = bodyEnd(masked, headerEnd);
     if (end < 0) throw new Error(`could not find the body of '${m[0]}'`);
-    spans.push([declarationStart(masked, m.index), end]);
+    if (body === undefined) {
+      spans.push([declarationStart(masked, m.index), end, replacement]);
+    } else {
+      const names = parameterNames(masked.slice(m.index, headerEnd));
+      const filled = body.replace(/\$(\d+)/g, (t, k) => {
+        const name = names[Number(k) - 1];
+        if (!name) throw new Error(`'${m[0]}' has no parameter ${k} for mutant body`);
+        return name;
+      });
+      spans.push([headerEnd, end, ` ${filled}`]);
+    }
   }
   let text = src;
-  for (const [a, b] of spans.reverse()) text = text.slice(0, a) + replacement + text.slice(b);
+  for (const [a, b, r] of spans.reverse()) text = text.slice(0, a) + r + text.slice(b);
   return { text, count: spans.length };
 }
 
@@ -149,11 +184,11 @@ function csFiles(dir) {
 // Apply a mutant spec to the workspace at `root`; throws when a declaration is not found.
 function applyMutant(root, spec) {
   const files = csFiles(path.join(root, 'src'));
-  for (const { declaration, with: replacement } of spec.replace) {
+  for (const { declaration, with: replacement, body } of spec.replace) {
     let total = 0;
     for (const f of files) {
       const src = fs.readFileSync(f, 'utf8');
-      const { text, count } = replaceDeclarations(src, declaration, replacement);
+      const { text, count } = replaceDeclarations(src, declaration, replacement, body);
       if (count) { fs.writeFileSync(f, text); total += count; }
     }
     if (!total) throw new Error(`no declaration matching /${declaration}/ under src/`);
