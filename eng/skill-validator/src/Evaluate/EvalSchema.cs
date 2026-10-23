@@ -123,6 +123,18 @@ public static class EvalSchema
                 .SelectMany(config => config.Disallowed ?? [])
                 .Distinct()
                 .ToList();
+            foreach (var pattern in requiredTools.Concat(disallowedTools))
+            {
+                try
+                {
+                    _ = AssertionEvaluator.CreateToolNamePattern(pattern);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Stimulus '{stimulus.Name}' has an invalid tool-calls name pattern '{pattern}': {ex.Message}", ex);
+                }
+            }
             SetupConfig? setup = null;
             if (stimulus.Environment is not null)
             {
@@ -156,7 +168,9 @@ public static class EvalSchema
                 DenyShell: ReadBooleanTag(stimulus.Tags, "deny_shell")
                     ?? stimulus.DenyShell,
                 RejectAgents: stimulus.Constraints?.RejectAgents,
-                RejectShellRetries: stimulus.Constraints?.RejectShellRetries ?? false));
+                RejectShellRetries: stimulus.Constraints?.RejectShellRetries ?? false,
+                ExpectToolsArePatterns: requiredTools.Count > 0,
+                RejectToolsArePatterns: disallowedTools.Count > 0));
         }
 
         return scenarios.Count > 0 ? new EvalConfig(scenarios) : null;

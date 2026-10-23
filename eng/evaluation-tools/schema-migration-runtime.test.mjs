@@ -87,6 +87,43 @@ test("tool-calls required and disallowed lists affect trajectory results", async
   assert.equal((await grade(disallowed, completedToolCall("bash"))).passed, false);
 });
 
+test("readiness advice guards reject exact write and execution names without substring collisions", async () => {
+  const spec = await loadEvalSpec(
+    join("tests", "dotnet-blazor", "blazor-component-readiness", "eval.yaml"),
+  );
+  const advice = spec.stimuli.slice(0, 2);
+  assert.equal(advice.length, 2);
+  const denied = [
+    "execute", "bash", "Bash", "run_shell_command", "powershell", "pwsh",
+    "shell", "local_shell", "edit", "Edit", "Write", "write", "write_file",
+    "create", "apply_patch", "web_search", "web_fetch",
+  ];
+  const allowedNameControls = [
+    "view", "read_file", "read_bash", "bash_status", "edit_pr_review_comment",
+    "web_fetch_metadata",
+  ];
+  for (const item of advice) {
+    const guards = item.graders.filter((grader) => grader.type === "tool-calls");
+    assert.equal(guards.length, 1, `${item.name}: expected one tool guard`);
+    const [guard] = guards;
+    assert.equal((await grade(guard, [])).passed, true, item.name);
+    for (const tool of denied) {
+      assert.equal(
+        (await grade(guard, completedToolCall(tool))).passed,
+        false,
+        `${item.name}: must reject ${tool}`,
+      );
+    }
+    for (const tool of allowedNameControls) {
+      assert.equal(
+        (await grade(guard, completedToolCall(tool))).passed,
+        true,
+        `${item.name}: must not reject the similar name ${tool}`,
+      );
+    }
+  }
+});
+
 test("skill-invocation required list affects trajectory results", async () => {
   const required = {
     type: "skill-invocation",

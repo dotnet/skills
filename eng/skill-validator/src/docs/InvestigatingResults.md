@@ -43,6 +43,24 @@ permission contract version participates in baseline identity; recompute
 baselines recorded before this contract rather than comparing old denial
 behavior against the corrected executor.
 
+Native `tool-calls` grader `required`/`disallowed` string entries are case-sensitive
+tool-name regular expressions, not literal names. This runner preserves that
+distinction from legacy `expect_tools`/`reject_tools`, which still use exact names.
+Use anchors for exact bans, for example `disallowed: ['^(?:bash|edit|create|apply_patch)$']`;
+an unanchored `bash` also matches `read_bash`. Invalid native name patterns fail
+during scenario parsing, and pattern timeouts fail the constraint explicitly.
+The native-versus-legacy matching mode is part of baseline identity, so old
+exact-matching results are not reused for a native regex guard.
+
+This runner supports string name patterns using .NET regular expressions, not
+Vally's object entries or argument/result/sequence matching. Use the portable
+name-pattern subset when sharing evals between runners. Stock Vally 0.18 checks
+disallowed calls when their `tool_result` arrives; a dangling call is not by
+itself caught by a disallowed-only grader. This is not an execution sandbox.
+Vally 0.14's stock Copilot execution/grading path did not enforce the historical
+`constraints.reject_tools` list. Moving it to a native grader adds enforcement;
+preserving its text does not establish unchanged scores or runtime equivalence.
+
 > The workflow token preflight tries another pool candidate for HTTP 429 or 402
 > quota exhaustion and for the paired heading and token-environment lines in
 > the Copilot CLI's no-authentication setup block. Unrelated service and
@@ -655,7 +673,7 @@ empty set and report a clean run.
 **Cause:** The model already knows this topic well from training data. The skill can't improve on an already-excellent answer, and the overhead of loading the skill (extra tokens, tool calls) causes a net regression.
 
 **Fixes:**
-- **Add a `tool-calls` grader with `config.disallowed`** (for example, `["bash", "edit"]`) so the eval fails if either baseline or skilled agent uses those tools. This keeps the comparison focused on answer quality instead of tool-induced overhead.
+- **Add a `tool-calls` grader with `config.disallowed`** (for example, `["^bash$", "^edit$"]`) so the eval fails if either baseline or skilled agent uses those exact tools. These entries are name regexes; enumerate the relevant execution/write aliases for the evaluator's tool catalog rather than assuming the examples ban every write. This keeps the comparison focused on answer quality instead of tool-induced overhead.
 - **Make the scenario harder** so the baseline struggles — add complexity, edge cases, or constraints that require the skill's specific knowledge
 - **Rewrite the prompt** to be purely diagnostic (e.g., "Don't modify any files — just explain the root cause") to prevent the agent from spending time on tool calls
 - **Remove the scenario** if the model consistently scores 5.0/5 without the skill — it isn't testing the skill's value
