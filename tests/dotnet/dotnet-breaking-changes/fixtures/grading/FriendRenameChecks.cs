@@ -21,6 +21,9 @@ public class FriendRenameChecks
     [InlineData(100, 0.10, 90)]
     [InlineData(200, 0.25, 150)]
     public void ApplyDiscountStillBindsForExternalFriend(double amount, double rate, double expected)
-        => Assert.Equal((decimal)expected, PricingMath.ApplyDiscount((decimal)amount, (decimal)rate));
+    {
+        Func<decimal, decimal, decimal> applyDiscount = PricingMath.ApplyDiscount;
+        Assert.Equal((decimal)expected, applyDiscount((decimal)amount, (decimal)rate));
+    }
 #pragma warning restore CS0618
 }
