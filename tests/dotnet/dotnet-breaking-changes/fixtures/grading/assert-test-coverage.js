@@ -43,9 +43,11 @@ function stripComments(src) {
   return out;
 }
 
+// Static gate only: match the member name (any binding - qualified, `using static`, alias, or
+// method group); assert-tests-kill-mutants.js proves the bound calls actually detect regressions.
 const checks = {
   hex: { member: /\bParseIntSetting\b/, literals: [/"0[xX][0-9A-Fa-f]+"/] },
-  platform: { member: /\bPlatformInfo\s*\.\s*Tag\s*\(\s*\)/, literals: [/"net8"/, /"net10"/] },
+  platform: { member: /\bTag\b/, literals: [/"net8"/, /"net10"/] },
 };
 const check = checks[process.argv[2]];
 if (!check) {

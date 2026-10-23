@@ -374,3 +374,19 @@ test("assert-test-coverage: a target literal in a file that never calls Tag() do
   write(root, "tests/Billing.Tests/Unrelated.cs", 'var label = "net8";');
   assert.equal(covered(root, "platform"), 1);
 }));
+
+for (const [binding, body] of [
+  ["using static", 'using static Billing.PlatformInfo;\n#if NET8_0\n    Assert.Equal("net8", Tag());\n#else\n    Assert.Equal("net10", Tag());\n#endif'],
+  ["a type alias", 'using P = Billing.PlatformInfo;\n#if NET8_0\n    Assert.Equal("net8", P.Tag());\n#else\n    Assert.Equal("net10", P.Tag());\n#endif'],
+  ["a method-group delegate", 'Func<string> tag = PlatformInfo.Tag;\n#if NET8_0\n    Assert.Equal("net8", tag());\n#else\n    Assert.Equal("net10", tag());\n#endif'],
+]) {
+  test(`assert-test-coverage: platform tests bound via ${binding} pass`, () => withWorkspace(root => {
+    write(root, "tests/Billing.Tests/PlatformTagTests.cs", body);
+    assert.equal(covered(root, "platform"), 0);
+  }));
+}
+
+test("assert-test-coverage: an aliased Tag() test missing one target still fails", () => withWorkspace(root => {
+  write(root, "tests/Billing.Tests/PlatformTagTests.cs", 'using P = Billing.PlatformInfo;\nAssert.Equal("net10", P.Tag());');
+  assert.equal(covered(root, "platform"), 1);
+}));

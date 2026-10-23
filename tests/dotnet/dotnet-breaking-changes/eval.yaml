@@ -357,9 +357,9 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
           value: static Billing.PlatformInfo.Tag() -> string!
-      # Agent tests must exercise Tag() with both target tags, in any file or layout (for
-      # example an #if-selected expected constant asserted against PlatformInfo.Tag()).
-      # Comments do not count.
+      # Agent tests must exercise Tag() with both target tags, in any file, layout, or binding
+      # (for example an #if-selected expected constant asserted against PlatformInfo.Tag(), a
+      # `using static` Tag(), an alias, or a method group). Comments do not count.
       - type: run-command
         config:
           command: node .grading/assert-test-coverage.js platform
