@@ -92,7 +92,14 @@ stimuli:
           value: RS0016;RS0017;RS0036
       - type: run-command
         config:
-          command: node -e "const s=require('fs').readFileSync('src/Billing/AppSettingsHelper.cs','utf8'); const count=x=>s.split(x).length-1; if (count('int.TryParse')>1 || count('bool.TryParse')>1) process.exit(1)"
+          command: >-
+            node -e "const fs=require('fs'),path=require('path');
+            const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{
+            const p=path.join(d,e.name);
+            return e.isDirectory()?(['bin','obj'].includes(e.name)?[]:walk(p)):(e.name.endsWith('.cs')?[p]:[])});
+            const s=walk('src/Billing').map(p=>fs.readFileSync(p,'utf8')).join('\n');
+            const count=x=>s.split(x).length-1;
+            if(count('int.TryParse')>1||count('bool.TryParse')>1)process.exit(1)"
           expected_exit_code: 0
       # Behavior gate for the agent's own refactor; the grader-only consumer above is what
       # enforces the shipped surface.
