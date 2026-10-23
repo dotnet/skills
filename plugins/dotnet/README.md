@@ -60,8 +60,10 @@ XML spellings.
 The checker and authoritative source hashes/SDK policy are staged only for
 grading, after the agent finishes. The supplied package is checked byte-for-byte
 and consumed as-is; it is not replaced with a fresh pack during grading.
-The fixtures use their own stable SDK policy rather than the repository's
-preview authoring SDK, and the grader records the SDK actually selected.
+The fixtures use a stable 10.0.100 minimum with `latestMajor` roll-forward rather
+than the repository's preview authoring SDK. Do not raise this minimum to the
+latest patch: cached runners can have an older SDK patch or feature band.
+The grader records the SDK actually selected.
 
 Before comparing model results, run the
 [installed-reference smoke](../../eng/vally-adapter/InvestigatingResults.md#sdk-reference-file-access)
