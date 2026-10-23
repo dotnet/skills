@@ -88,6 +88,9 @@ test("assert-unchanged: already-shared manifest declares its injected grader che
   const manifest = JSON.parse(readFileSync(join(grading, "unchanged-already-shared.json"), "utf8"));
   assert.deepEqual(manifest.graderFiles,
     ["tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs"]);
+  const parameterName = JSON.parse(readFileSync(join(grading, "unchanged-parameter-name.json"), "utf8"));
+  assert.deepEqual(parameterName.graderFiles,
+    ["tests/Billing.Tests/GraderChecks/NamedArgumentConsumerChecks.cs"]);
   for (const name of ["unchanged-nullability.json", "unchanged-review.json"]) {
     const other = JSON.parse(readFileSync(join(grading, name), "utf8"));
     assert.equal(other.graderFiles, undefined, `${name} injects no grader files`);

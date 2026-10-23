@@ -1,18 +1,18 @@
 ---
 name: dotnet-breaking-changes
 description: >
-  Use before changing .NET/C# code whose callers you do not control: the library ships as a NuGet
-  package, or the repo has PublicAPI.Shipped.txt/PublicAPI.Unshipped.txt, ApiCompat or package
-  validation, multiple TargetFrameworks, InternalsVisibleTo, or partial/generated (.g.cs) types. A green
-  build and passing tests do NOT prove compatibility: optional parameters, interface members,
-  sealing, const values, nullability, and #if branches break consumers silently.
+  Use before changing .NET/C# code whose callers you do not control: a NuGet library, or a repo with
+  PublicAPI.Shipped/Unshipped.txt, ApiCompat or package validation, multiple TargetFrameworks,
+  InternalsVisibleTo, or partial/generated (.g.cs) types. Green builds and tests miss silent breaks
+  from optional parameters, parameter names, interface members, sealing, const values,
+  nullability, and #if branches.
   USE FOR: "without breaking existing callers"; adding an optional parameter, overload, or
-  interface member to a public method/type; renaming a public method or alias; changing a
-  signature, nullability, const/default value, or attribute; adding a target framework; renaming
-  an internal used by a friend assembly; fixing RS0016/RS0017 or ApiCompat errors; reviewing a
-  diff/PR for "is this breaking?".
-  DO NOT USE FOR: framework/SDK/NuGet upgrades (use dotnet-upgrade), formatting, renaming
-  a local or private member, or apps without public/cross-assembly surface.
+  interface member; renaming a public method, parameter, or alias; changing a signature,
+  nullability, const/default value, or attribute; adding a target framework; renaming an internal
+  used by a friend assembly; fixing RS0016/RS0017 or ApiCompat errors; "is this PR breaking?".
+  DO NOT USE FOR: a console app, web app, or other executable whose callers all live in the same
+  project (renaming its public members is a plain refactor);
+  renaming a local or private member; formatting; framework/SDK/NuGet upgrades (use dotnet-upgrade).
 license: MIT
 ---
 
@@ -85,17 +85,33 @@ green build or test run. Use the safe shape instead.
 | Fix RS0017 by editing or deleting a line in `PublicAPI.Shipped.txt` | Shipped lines are the released contract; rewriting one hides the break the gate exists to report | Leave shipped lines alone. Restore the shipped member and record new surface in `PublicAPI.Unshipped.txt` |
 | Add a member to a shipped public interface | Every existing implementer, including ones in other packages, stops compiling | Add a default interface implementation (requires runtime support: not on `netstandard2.0` or .NET Framework targets), or add a new interface. A default member is callable only through the interface, so also add a public member on any concrete type that must expose it, and record both |
 | Rename a shipped member | Source and binary break | Add the new name, keep the old one as an `[Obsolete]` forwarder, and record only the new member |
+| Rename a parameter of a shipped member | Callers passing it by name (`raw: x`) stop compiling and late-bound/`dynamic` callers fail; positional callers in this repo hide it. PublicAPI analyzers report it as RS0016 + RS0017 | Keep the shipped name — no overload can carry a different name for the same signature. Leave it unchanged and explain |
 | Seal a class, make a member non-virtual, or narrow a parameter's nullability | Derived types, overrides, or nullable callers break | Treat as a breaking change; escalate rather than edit |
 | Change a `const` value or an optional parameter's default | The old value is compiled into callers and persists until they recompile | Preserve the shipped constant/default; introduce a separately named member (which may be `static readonly`) or a new overload for new behavior. Replacing an existing `const` with `static readonly` is itself source-breaking |
 | Change a value under `#if` for one target | Only consumers of that target see it; tests edited to match will not catch it | Treat as a behavior change for that target and call it out |
 
-When asked **"is this a breaking change?"** or to review a diff, classify each finding as **binary**
-(already-compiled consumers fail), **source** (consumers fail to recompile), or **behavioral** (same
-signature, different result, possibly on only one target). Name the internal-only edits that are
-safe instead of padding the list. Make no edits unless asked.
+When asked **"is this a breaking change?"** or to review a diff, make no edits unless asked and answer
+in this shape, scaled to the diff:
+
+1. One verdict line first (e.g. "Do not merge as-is: N changes break consumers").
+2. One numbered item per consumer-visible change: what changed, **binary** (already-compiled
+   consumers fail), **source** (consumers fail to recompile), or **behavioral** (same signature,
+   different result, possibly on only one target), who breaks, and the safe shape.
+3. One line naming the internal-only edits that are safe.
+
+Cover only surfaces the diff touches; do not add trimming, AOT, or tooling commentary it does not raise.
+
+## Verify before reporting
+
+Build and test **every** target framework (`dotnet test -f <tfm>` for each), not only the default. If
+the project sets `EnablePackageValidation`, run `dotnet pack` — package validation runs only after
+`Pack`, never on build. Report exactly which commands ran and their result.
 
 ## Stop and escalate (do not silently proceed)
 
+- The requested change is **already in place** — e.g. the "duplicated" code already delegates to one
+  implementation, or the overload already exists. Say so and change nothing; do not invent a
+  refactor to have something to show.
 - A **public/shipped API** would change and you cannot verify compatibility — no shim/forwarder path and
   no PublicApiAnalyzers/ApiCompat/package-validation gate to catch a break.
 - The edit changes an **observable annotation** (nullability, `[DynamicallyAccessedMembers]`,

@@ -31,6 +31,8 @@ break consumers or the API gate:
 
 - Signature changes: parameter type/order, return type, adding a required parameter, `params`, default
   values, generic arity or **constraints**.
+- **Parameter names**, including case: callers that pass arguments by name (`Parse(raw: s)`) and
+  late-bound callers (`dynamic`, VB late binding) break. Positional callers hide this.
 - **Adding an optional parameter** to an existing public method: source-compatible, but **binary-breaking**.
   The compiled call site binds to the exact old signature, so it fails with `MissingMethodException`
   until the consumer recompiles. Add an overload instead.

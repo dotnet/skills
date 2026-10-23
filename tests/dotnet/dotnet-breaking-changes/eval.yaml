@@ -453,54 +453,38 @@ stimuli:
       - "Left the declared method and shipped baseline unchanged as requested when unsafe"
       - "Did not hide the contract change by rewriting the baseline"
 
-  - name: Repair a missing public API baseline entry
+  - name: Keep a shipped parameter name stable when asked to rename it
     tags:
-      capability: public-api-gate-repair
-      risk: wrong-baseline
-      journey: fix-build
-    golden_patch:
-      path: golden-patches/repair-api-baseline.patch
-    prompt: "The solution now fails with RS0016 after `PlatformInfo.Tag()` was added. Keep the new method and fix the exact build issue without changing its behavior or adding a different compatibility system. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: fixtures/missing-api-baseline/PlatformInfo.cs
-          dest: fixtures/missing-api-baseline/PlatformInfo.cs
-      commands:
-        - node -e "require('fs').copyFileSync('fixtures/missing-api-baseline/PlatformInfo.cs', 'src/Billing/PlatformInfo.cs')"
+      capability: parameter-name-contract
+      risk: named-argument-break
+      journey: modify-code
+    # Every in-repo caller is positional, so a rename compiles here once the shipped baseline
+    # line is rewritten; only consumers passing `raw:` by name (or binding late) break.
+    prompt: "`raw` is an unclear parameter name. Rename the `raw` parameter of `AppSettingsHelper.ParseIntSetting` to `value` and update this repository, keeping existing callers compiling. If that cannot be done safely, leave it unchanged and explain the problem. The solution is at Fixture.sln."
     grading_environment:
       files:
-        - src: fixtures/grading/PlatformTagChecks.cs
-          dest: tests/Billing.Tests/GraderChecks/PlatformTagChecks.cs
+        - src: fixtures/grading/NamedArgumentConsumerChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/NamedArgumentConsumerChecks.cs
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-parameter-name.json
+          dest: .grading/unchanged.json
     graders:
-      # "Keep the new method without changing its behavior", checked on both target frameworks.
+      # Grader-only downstream caller that passes arguments by name; it compiles only while the
+      # shipped parameter name survives.
       - *grader-checks
-      - type: file-contains
+      # The safe outcome is no change: renaming plus a rewritten or *REMOVED* baseline fails here.
+      - *workspace-unchanged
+      - type: output-matches
         config:
-          path: src/Billing/PublicAPI.Unshipped.txt
-          value: static Billing.PlatformInfo.Tag() -> string!
-      - type: file-not-contains
-        config:
-          path: src/Billing/Billing.csproj
-          value: EnablePackageValidation
-      - type: file-contains
-        config:
-          path: src/Billing/Billing.csproj
-          value: Microsoft.CodeAnalysis.PublicApiAnalyzers
-      - type: file-contains
-        config:
-          path: src/Billing/Billing.csproj
-          value: RS0016;RS0017;RS0036
-      - type: run-command
-        config:
-          command: dotnet test Fixture.sln -v:q --no-restore
-          expected_exit_code: 0
-          stdout_contains: Passed!
-          timeout: 5m
+          pattern: '(?i)(named|by name|raw:|late[- ]?bound|late[- ]?binding|dynamic)'
       - type: prompt
+        config:
+          prompt: "Reference outcome: explain that renaming a shipped parameter breaks consumers that pass it by name or bind late, even though positional callers still compile, and leave code and API baselines unchanged."
     rubric:
-      - "Added the missing Tag entry to the existing unshipped API baseline"
-      - "Kept Tag and its behavior unchanged"
-      - "Did not add package validation, suppress the diagnostic, or rewrite shipped entries"
+      - "Recognized that renaming a shipped public parameter breaks consumers that pass it by name or bind late, even though this repository's positional callers still compile"
+      - "Left the method, its callers, and both API baseline files unchanged"
+      - "Did not hide the change by rewriting PublicAPI.Shipped.txt or recording *REMOVED* entries"
 
   - name: Extend a shipped method with an extra parameter without a binary break
     tags:
@@ -555,62 +539,6 @@ stimuli:
       - "Kept the shipped two-parameter ParseIntSetting signature and added the IFormatProvider capability as a new overload rather than an optional parameter on the shipped method"
       - "Recorded only the new overload in PublicAPI.Unshipped.txt and left the shipped baseline untouched"
       - "Explained that an in-place optional parameter would break already-compiled consumers even though callers still compile"
-
-  - name: Add a member to a shipped public interface that other packages implement
-    tags:
-      capability: public-interface-extension
-      risk: implementer-break
-      journey: add-feature
-    golden_patch:
-      path: golden-patches/add-interface-member.patch
-    prompt: "Add a `Describe(string tier)` method to the public `IDiscountPolicy` interface that returns a human-readable label for the tier, and make it available on `TierDiscountPolicy`. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: fixtures/interface-extension/DiscountPolicy.cs
-          dest: src/Billing/DiscountPolicy.cs
-        - src: fixtures/interface-extension/ThirdPartyPolicy.cs
-          dest: tests/Billing.Tests/ThirdPartyPolicy.cs
-        - src: fixtures/interface-extension/DiscountPolicyTests.cs
-          dest: tests/Billing.Tests/DiscountPolicyTests.cs
-        - src: fixtures/interface-extension/PublicAPI.Shipped.txt
-          dest: fixtures/interface-extension/PublicAPI.Shipped.txt
-      commands:
-        - node -e "const fs=require('fs');fs.copyFileSync('fixtures/interface-extension/PublicAPI.Shipped.txt','src/Billing/PublicAPI.Shipped.txt');fs.rmSync('fixtures',{recursive:true})"
-    grading_environment:
-      files:
-        - src: fixtures/grading/DiscountPolicyContractChecks.cs
-          dest: tests/Billing.Tests/GraderChecks/DiscountPolicyContractChecks.cs
-    graders:
-      # Grader-owned implementer of only the shipped RateFor contract, plus Describe label checks
-      # on it and via a concrete TierDiscountPolicy call; editing the writable canary cannot hide a break here.
-      - *grader-checks
-      # ThirdPartyPolicy stands in for a downstream package's implementation. An abstract
-      # interface member only compiles if that implementer is edited, which real consumers
-      # cannot do; a default interface member keeps it compiling unchanged.
-      - type: file-not-contains
-        config:
-          path: tests/Billing.Tests/ThirdPartyPolicy.cs
-          value: Describe
-      - type: file-contains
-        config:
-          path: src/Billing/PublicAPI.Unshipped.txt
-          value: Billing.IDiscountPolicy.Describe(string! tier) -> string!
-      - type: file-contains
-        config:
-          path: src/Billing/PublicAPI.Shipped.txt
-          value: Billing.IDiscountPolicy.RateFor(string! tier) -> decimal
-      - type: run-command
-        config:
-          command: dotnet test Fixture.sln -v:q -f net8.0 --no-restore && dotnet test Fixture.sln -v:q -f net10.0 --no-restore
-          expected_exit_code: 0
-          stdout_contains: Passed!
-          timeout: 5m
-      - type: prompt
-    rubric:
-      - "Recognized that adding an abstract member to a shipped public interface breaks every existing implementer, including ones in other packages"
-      - "Used a default interface implementation (or an equivalent non-breaking design) so the downstream ThirdPartyPolicy compiles unchanged"
-      - "Made Describe callable on the concrete TierDiscountPolicy (a public member, not only the interface default) and recorded each new public member in the unshipped API baseline"
-      - "Kept the build and tests green on net8.0 and net10.0"
 
   - name: Review a green pull request for consumer-breaking changes
     tags:
@@ -680,13 +608,15 @@ stimuli:
       - "Did not flag the internal OrderProcessor local rename as a compatibility concern"
       - "Left the repository unchanged"
 
-  # On-target repository, trivial change: activation is acceptable here, but the work must stay
-  # proportionate. The genuine routing boundary is the private-app case below.
+  # Dormancy guard inside an on-target repository: a local rename has no consumer-visible
+  # surface, and the description excludes it. Neither model activated the skill here in any
+  # arm (run 39988891371), so as a preference stimulus it could only tie.
   - name: Keep a local-variable rename proportionate inside a shipped library
     tags:
       capability: proportionate-local-change
       risk: over-application
       journey: modify-code
+      expect_activation: "false"
     prompt: "Inside `OrderProcessor.DoStuff`, the local variable `subtotal` is a bit terse. Rename that local to `runningTotal` for readability. Keep behavior identical. The solution is at Fixture.sln."
     grading_environment:
       files:
