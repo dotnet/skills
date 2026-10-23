@@ -67,25 +67,43 @@ function mask(src) {
   return out.join('');
 }
 
-// End offset (exclusive) of the member body that follows offset `from`, or -1.
+// End offset (exclusive) of the member body that follows offset `from`, or -1. Preprocessor
+// aware: a body whose terminator falls inside #if/#elif/#else branches (for example `=>` then
+// `#if NET8_0` / `"net8";` / `#else` / `"net10";` / `#endif`, or a `{ }` per branch) extends to the
+// end of the matching #endif line, and later branches are skipped rather than re-parsed.
 function bodyEnd(masked, from) {
-  let i = from;
-  while (i < masked.length && /\s/.test(masked[i])) i++;
-  if (masked.startsWith('=>', i)) {
-    let depth = 0;
-    for (; i < masked.length; i++) {
-      const c = masked[i];
+  let pp = 0, mode = null, depth = 0, terminated = false;
+  for (let i = from; i < masked.length; i++) {
+    const c = masked[i];
+    if (c === '#' && /^[ \t]*$/.test(masked.slice(masked.lastIndexOf('\n', i - 1) + 1, i))) {
+      const lineEnd = masked.indexOf('\n', i) < 0 ? masked.length : masked.indexOf('\n', i);
+      const word = /^#\s*(\w+)/.exec(masked.slice(i, lineEnd));
+      if (word && word[1] === 'if') pp++;
+      else if (word && word[1] === 'endif') {
+        if (pp === 0) return -1;
+        if (--pp === 0 && terminated) return lineEnd;
+      }
+      i = lineEnd;
+      continue;
+    }
+    if (terminated) continue;
+    if (mode === null) {
+      if (/\s/.test(c)) continue;
+      if (masked.startsWith('=>', i)) { mode = 'expr'; i++; continue; }
+      if (c === '{') { mode = 'block'; depth = 1; continue; }
+      return -1;
+    }
+    let done = false;
+    if (mode === 'expr') {
       if ('([{'.includes(c)) depth++;
       else if (')]}'.includes(c)) depth--;
-      else if (c === ';' && depth === 0) return i + 1;
+      else if (c === ';' && depth === 0) done = true;
+    } else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) done = true;
+    if (done) {
+      if (pp === 0) return i + 1;
+      terminated = true;
     }
-    return -1;
-  }
-  if (masked[i] !== '{') return -1;
-  let depth = 0;
-  for (; i < masked.length; i++) {
-    if (masked[i] === '{') depth++;
-    else if (masked[i] === '}' && --depth === 0) return i + 1;
   }
   return -1;
 }

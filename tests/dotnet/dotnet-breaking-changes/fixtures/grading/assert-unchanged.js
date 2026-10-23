@@ -2,15 +2,27 @@
 // Fails when any manifest file differs from its starting content (line endings normalized),
 // is missing, or when a file not in the manifest appears under the manifest's roots or as a
 // build/configuration input at the workspace root. `graderFiles` lists the exact files the
-// stimulus's grading_environment injects; nothing else is exempt.
+// stimulus's grading_environment injects; nothing else is exempt. `renames` maps a manifest file
+// to the one requested identifier rename ({ from, to }): that file must no longer contain `from`
+// and, with `to` mapped back to `from`, must match its starting content exactly.
 const fs = require('fs');
 const crypto = require('crypto');
 
 const manifest = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const graderFiles = new Set(manifest.graderFiles || []);
-const hash = p => crypto.createHash('sha256')
-  .update(fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n'))
-  .digest('hex');
+const renames = manifest.renames || {};
+const word = w => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+const content = p => {
+  const text = fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+  const r = renames[p];
+  if (!r) return text;
+  if (word(r.from).test(text)) return null;
+  return text.replace(word(r.to), r.from);
+};
+const hash = p => {
+  const text = content(p);
+  return text === null ? null : crypto.createHash('sha256').update(text).digest('hex');
+};
 const skip = new Set(['bin', 'obj', 'TestResults']);
 const walk = d => !fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: true })
   .flatMap(e => e.isDirectory()

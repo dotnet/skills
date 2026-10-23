@@ -121,6 +121,65 @@ test("assert-test-coverage: golden-style hex assertion passes", () => withWorksp
   assert.equal(covered(root, "hex"), 0);
 }));
 
+// Local-rename scope: OrderProcessor.cs may differ only by the requested, complete rename.
+function withLocalRename(fn) {
+  const root = workspace("unchanged-local-rename.json");
+  try { fn(root); } finally { rmSync(root, { recursive: true, force: true }); }
+}
+const processor = "src/Billing/OrderProcessor.cs";
+const renameLocal = root => write(root, processor,
+  readFileSync(join(root, processor), "utf8").replace(/\bsubtotal\b/g, "runningTotal"));
+
+test("assert-unchanged: the requested local rename passes", () => withLocalRename(root => {
+  renameLocal(root);
+  assert.equal(unchanged(root), 0);
+}));
+
+test("assert-unchanged: the local rename with CRLF line endings passes", () => withLocalRename(root => {
+  renameLocal(root);
+  write(root, processor, readFileSync(join(root, processor), "utf8").replace(/\r?\n/g, "\r\n"));
+  assert.equal(unchanged(root), 0);
+}));
+
+test("assert-unchanged: an unrenamed or partially renamed local fails", () => withLocalRename(root => {
+  assert.equal(unchanged(root), 1);
+  write(root, processor, readFileSync(join(root, processor), "utf8")
+    .replace("decimal subtotal = 0m;", "decimal runningTotal = 0m; decimal subtotal = runningTotal;"));
+  assert.equal(unchanged(root), 1);
+}));
+
+test("assert-unchanged: an extra OrderProcessor edit beyond the rename fails", () => withLocalRename(root => {
+  renameLocal(root);
+  write(root, processor, readFileSync(join(root, processor), "utf8").replace("9.99m", "9.98m"));
+  assert.equal(unchanged(root), 1);
+}));
+
+test("assert-unchanged: the rename plus an unrelated compatibility alias fails", () => withLocalRename(root => {
+  renameLocal(root);
+  write(root, "src/Billing/AppSettingsHelper.cs",
+    readFileSync(join(root, "src/Billing/AppSettingsHelper.cs"), "utf8") +
+    "\npublic static class Compat { public static int Parse(string? r, int f) => AppSettingsHelper.ParseIntSetting(r, f); }\n");
+  write(root, "src/Billing/PublicAPI.Unshipped.txt",
+    readFileSync(join(root, "src/Billing/PublicAPI.Unshipped.txt"), "utf8") +
+    "Billing.Compat\nstatic Billing.Compat.Parse(string? r, int f) -> int\n");
+  assert.equal(unchanged(root), 1);
+}));
+
+test("assert-unchanged: the rename plus a test edit, added file, or deleted file fails", () => {
+  for (const extra of [
+    root => write(root, "tests/Billing.Tests/BillingTests.cs",
+      readFileSync(join(root, "tests/Billing.Tests/BillingTests.cs"), "utf8") + "\n// tweaked\n"),
+    root => write(root, "src/Billing/OrderProcessorAliases.cs", "namespace Billing;"),
+    root => rmSync(join(root, "src/Billing/Pricing.cs")),
+  ]) {
+    withLocalRename(root => {
+      renameLocal(root);
+      extra(root);
+      assert.equal(unchanged(root), 1);
+    });
+  }
+});
+
 test("assert-test-coverage: hex theory in a separate file passes", () => withWorkspace(root => {
   write(root, "tests/Billing.Tests/Parsing/HexParsingTests.cs", `
     [Theory]
@@ -262,6 +321,46 @@ test("assert-tests-kill-mutants: platform mutants replace every #if-split Tag() 
     assert.match(out, /return "platform:net8";\n#else\n        return "platform:net10";/);
   }
 });
+
+for (const [layout, tagDecl] of [
+  ["#if branches inside an expression body", `    public static string Tag() =>
+#if NET8_0
+        "net8";
+#else
+        "net10";
+#endif`],
+  ["a { } block per #if branch", `    public static string Tag()
+#if NET8_0
+    { return "net8"; }
+#else
+    { return "net10"; }
+#endif`],
+  ["an => body per #if branch", `    public static string Tag()
+#if NET8_0
+        => "net8";
+#elif NET10_0
+        => "net10";
+#else
+        => "other";
+#endif`],
+]) {
+  test(`assert-tests-kill-mutants: replaces a Tag() with ${layout} as one balanced span`, () => {
+    const src = `public static class PlatformInfo
+{
+    public static string Current() => Label(Tag());
+
+${tagDecl}
+
+    private static string Label(string t) => $"platform:{t}";
+}`;
+    const out = mutate(src, platformSpec("tag-always-net8"));
+    assert.equal(out.match(/public static string Tag\(\) => "net8";/g).length, 1);
+    assert.doesNotMatch(out, /"net10";|"other"|\{ return/);
+    assert.equal((out.match(/^#if\b/gm) || []).length, (out.match(/^#endif\b/gm) || []).length);
+    assert.equal((out.match(/^#else\b/gm) || []).length, 1);
+    assert.match(out, /return "platform:net10";\n#endif\n    }\n\n    public static string Tag\(\) => "net8";\n\n    private static string Label/);
+  });
+}
 
 // End-to-end plumbing with a fake runner standing in for dotnet build/test. The fake test run
 // writes a TRX whose failed count is 1 only when production no longer calls ParseHex(raw) and a

@@ -704,12 +704,28 @@ stimuli:
       risk: over-application
       journey: modify-code
     prompt: "Inside `OrderProcessor.DoStuff`, the local variable `subtotal` is a bit terse. Rename that local to `runningTotal` for readability. Keep behavior identical. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-local-rename.json
+          dest: .grading/unchanged.json
     graders:
       - type: file-contains
         config:
           path: src/Billing/OrderProcessor.cs
           value: runningTotal
-      # The local rename is behavior-identical: tests must still pass unchanged.
+      # Complete-state scope check: OrderProcessor.cs may differ only by the subtotal ->
+      # runningTotal rename (fully applied); every other source, test, project file, and API
+      # baseline must be byte-identical (line endings aside), with no files added or removed
+      # under src/ or tests/ and no new root build inputs. Compatibility aliases, baseline
+      # entries, and test edits all fail here.
+      - type: run-command
+        config:
+          command: node .grading/assert-unchanged.js .grading/unchanged.json
+          expected_exit_code: 0
+          timeout: 1m
+      # The local rename is behavior-identical: the unchanged tests must still pass.
       - type: run-command
         config:
           command: dotnet test Fixture.sln -v:q --no-restore
