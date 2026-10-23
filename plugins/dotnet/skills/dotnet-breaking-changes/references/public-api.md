@@ -33,9 +33,10 @@ break consumers or the API gate:
   values, generic arity or **constraints**.
 - **Parameter names**, including case: callers that pass arguments by name (`Parse(raw: s)`) and
   late-bound callers (`dynamic`, VB late binding) break. Positional callers hide this.
-- **Adding an optional parameter** to an existing public method: source-compatible, but **binary-breaking**.
-  The compiled call site binds to the exact old signature, so it fails with `MissingMethodException`
-  until the consumer recompiles. Add an overload instead.
+- **Adding an optional parameter** to an existing public method is **binary-breaking**, even when ordinary
+  source calls still compile. Already-compiled call sites bind to the exact old signature and fail with
+  `MissingMethodException`. It can also be **source-breaking**: method-group conversions to the old
+  delegate type no longer compile. Keep the original method and add an overload instead.
 - **Adding a member to a public interface** breaks every implementer. A default interface member avoids
   this only where the runtime supports it (.NET Core 3.0+ and .NET 5+, not `netstandard2.0` or .NET
   Framework).
