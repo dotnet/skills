@@ -149,8 +149,16 @@ function packedImport(root, sdkPolicy) {
   isolatedProject(root, sdkPolicy, (project) => {
     cpSync(join(root, "project", "feed"), join(project, "feed"), { recursive: true });
     const consumer = join("consumer", "Consumer.proj");
+    const config = join(project, "consumer", "NuGet.Config");
+    writeFileSync(config, `<configuration>
+  <packageSources>
+    <clear />
+    <add key="fixture" value="../feed" />
+  </packageSources>
+</configuration>
+`);
     const restore = [
-      `-p:RestoreSources=${join(project, "feed")}`,
+      `-p:RestoreConfigFile=${config}`,
       `-p:RestorePackagesPath=${join(project, "packages")}`,
       "-p:NuGetAudit=false",
     ];

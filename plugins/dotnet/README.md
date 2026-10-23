@@ -60,6 +60,8 @@ XML spellings.
 The checker and authoritative source hashes/SDK policy are staged only for
 grading, after the agent finishes. The supplied package is checked byte-for-byte
 and consumed as-is; it is not replaced with a fresh pack during grading.
+The consumer uses a grader-owned local-feed NuGet configuration so inherited
+host package-source mappings cannot reject the supplied fixture package.
 The fixtures use a stable 10.0.100 minimum with `latestMajor` roll-forward rather
 than the repository's preview authoring SDK. Do not raise this minimum to the
 latest patch: cached runners can have an older SDK patch or feature band.

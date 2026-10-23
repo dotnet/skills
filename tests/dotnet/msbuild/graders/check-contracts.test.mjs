@@ -162,6 +162,29 @@ test("packed layout builds a real local-feed consumer and fails for a missing re
   verify(root, "packed-import");
 });
 
+test("packed consumer ignores inherited package source mapping", (t) => {
+  const root = fixture(t, "packed-import");
+  const host = mkdtempSync(join(tmpdir(), "msbuild-host-nuget-"));
+  t.after(() => rmSync(host, { recursive: true, force: true }));
+  writeFileSync(join(host, "NuGet.Config"), `<configuration>
+  <packageSources>
+    <clear />
+    <add key="host" value="." />
+  </packageSources>
+  <packageSourceMapping>
+    <clear />
+    <packageSource key="host"><package pattern="Unrelated.*" /></packageSource>
+  </packageSourceMapping>
+</configuration>
+`);
+  const result = spawnSync(process.execPath,
+    [join(suite, "graders", "check-contracts.mjs"), "packed-import"],
+    { cwd: root, encoding: "utf8", timeout: 120_000,
+      env: { ...process.env, TMPDIR: host, TEMP: host, TMP: host } });
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
 for (const mutation of ["deletion", "corruption", "directory removal"]) {
   test(`packed no-change contract rejects supplied package ${mutation}`, (t) => {
     const root = fixture(t, "packed-import");
