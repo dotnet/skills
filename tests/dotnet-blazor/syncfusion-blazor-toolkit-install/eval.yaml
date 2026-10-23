@@ -384,10 +384,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(AddSyncfusionBlazorToolkit|registration|static asset|bundled|_content|interactive)
-      # Affirmative recommendation of the commercial CDN script — warnings allowed
+      # Affirmative recommendation of the commercial CDN script. Negation applies only
+      # inside the same clause as the verb, so an earlier "does not" cannot hide a
+      # later "load the CDN script". Warnings ("use no CDN script", "do not load") pass.
       - type: output-not-matches
         config:
-          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:keep|add|include|retain|use|reference|link|load)\b[^\n]{0,60}(?:cdn\.syncfusion|CDN script|<script[^>]*syncfusion)'
+          pattern: '(?i)(?:(?<![\s\S])|(?<=[.!?;])\s*|,\s+(?!(?:or|nor)\b))(?:(?!\b(?:not|never|avoid|without|no|unnecessary|instead of|rather than|no longer|cannot|can not)\b|\w+n[''’]t\b)[^,.;!?])*?\b(?:keep|add|include|retain|use|reference|link|load)\b(?:(?!\b(?:not|never|avoid|without|no|unnecessary|instead of|rather than|no longer|neither|nor|cannot|can not)\b|\w+n[''’]t\b)[^,.;!?]){0,80}?(?:cdn\.syncfusion|CDN script|<script[^>\n]*syncfusion)'
       - type: prompt
     rubric:
       - Looks at registration, interactive boundary, and static web assets — not commercial CDN scripts.
