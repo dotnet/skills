@@ -50,9 +50,51 @@ test("assert-unchanged: pristine workspace passes", () => withWorkspace(root => 
 test("assert-unchanged: harness assets and build output are ignored", () => withWorkspace(root => {
   write(root, ".grading/extra.txt", "harness");
   write(root, "src/Billing/obj/project.assets.json", "{}");
-  write(root, "tests/Billing.Tests/GraderChecks/Checks.cs", "class C {}");
+  write(root, "tests/Billing.Tests/bin/Debug/out.txt", "x");
   assert.equal(unchanged(root), 0);
 }));
+
+for (const file of ["src/Billing/GraderChecks/Unexpected.cs", "tests/Billing.Tests/GraderChecks/Checks.cs"]) {
+  test(`assert-unchanged: undeclared ${file} fails`, () => withWorkspace(root => {
+    write(root, file, "class C {}");
+    assert.equal(unchanged(root), 1);
+  }));
+}
+
+test("assert-unchanged: only the exact declared grader file is exempt", () => withWorkspace(root => {
+  const manifestPath = join(root, ".grading", "unchanged.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  manifest.graderFiles = ["tests/Billing.Tests/GraderChecks/Declared.cs"];
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  write(root, "tests/Billing.Tests/GraderChecks/Declared.cs", "class D {}");
+  assert.equal(unchanged(root), 0);
+  write(root, "tests/Billing.Tests/GraderChecks/Other.cs", "class O {}");
+  assert.equal(unchanged(root), 1);
+}));
+
+test("assert-unchanged: real already-shared workspace with its injected check passes", () => {
+  const root = workspace("unchanged-already-shared.json");
+  try {
+    cpSync(join(suite, "fixtures", "already-shared", "AppSettingsHelper.cs"),
+      join(root, "src", "Billing", "AppSettingsHelper.cs"));
+    mkdirSync(join(root, "tests", "Billing.Tests", "GraderChecks"));
+    cpSync(join(grading, "ShippedParsingConsumerChecks.cs"),
+      join(root, "tests", "Billing.Tests", "GraderChecks", "ShippedParsingConsumerChecks.cs"));
+    assert.equal(unchanged(root), 0);
+    write(root, "tests/Billing.Tests/GraderChecks/Extra.cs", "class E {}");
+    assert.equal(unchanged(root), 1);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("assert-unchanged: already-shared manifest declares its injected grader check", () => {
+  const manifest = JSON.parse(readFileSync(join(grading, "unchanged-already-shared.json"), "utf8"));
+  assert.deepEqual(manifest.graderFiles,
+    ["tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs"]);
+  for (const name of ["unchanged-nullability.json", "unchanged-review.json"]) {
+    const other = JSON.parse(readFileSync(join(grading, name), "utf8"));
+    assert.equal(other.graderFiles, undefined, `${name} injects no grader files`);
+  }
+});
 
 for (const file of ["Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props",
   "NuGet.config", ".editorconfig", ".globalconfig", "Extra.props"]) {

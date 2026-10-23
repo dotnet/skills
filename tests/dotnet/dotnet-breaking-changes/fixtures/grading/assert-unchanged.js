@@ -1,15 +1,17 @@
 // Staged only for grading. Usage: node assert-unchanged.js <manifest.json>
 // Fails when any manifest file differs from its starting content (line endings normalized),
 // is missing, or when a file not in the manifest appears under the manifest's roots or as a
-// build/configuration input at the workspace root.
+// build/configuration input at the workspace root. `graderFiles` lists the exact files the
+// stimulus's grading_environment injects; nothing else is exempt.
 const fs = require('fs');
 const crypto = require('crypto');
 
 const manifest = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const graderFiles = new Set(manifest.graderFiles || []);
 const hash = p => crypto.createHash('sha256')
   .update(fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n'))
   .digest('hex');
-const skip = new Set(['bin', 'obj', 'TestResults', 'GraderChecks']);
+const skip = new Set(['bin', 'obj', 'TestResults']);
 const walk = d => !fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: true })
   .flatMap(e => e.isDirectory()
     ? (skip.has(e.name) ? [] : walk(`${d}/${e.name}`))
@@ -17,7 +19,8 @@ const walk = d => !fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: tr
 
 const changed = Object.keys(manifest.files)
   .filter(p => !fs.existsSync(p) || hash(p) !== manifest.files[p]);
-const unexpected = manifest.roots.flatMap(walk).filter(p => !(p in manifest.files));
+const unexpected = manifest.roots.flatMap(walk)
+  .filter(p => !(p in manifest.files) && !graderFiles.has(p));
 // MSBuild, NuGet, and the compiler also pick up configuration from the workspace root, so a new
 // root Directory.Build.props, NuGet.config, .editorconfig, etc. changes every project even though
 // src/ and tests/ are untouched. Only build inputs are matched; the harness-owned .grading

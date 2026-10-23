@@ -4,8 +4,8 @@ type: capability
 defaults:
   timeout: 15m
   runs: 1
-scoring:
-  threshold: 0.8
+# No scoring.threshold: every grader must pass. A mean-score threshold would let unrelated
+# passing checks offset a failed compatibility or preservation grader.
 # The fixture uses exact analyzer/test package versions. The runner must provide
 # its normal NuGet restore cache or network access; stimuli do not install tools.
 environment:
