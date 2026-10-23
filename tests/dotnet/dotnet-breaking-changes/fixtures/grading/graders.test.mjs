@@ -219,6 +219,26 @@ test("assert-tests-kill-mutants: hex mutant keeps the agent's parameter names an
   assert.ok(out.includes(`${header} => int.TryParse(text, out var mutantValue) ? mutantValue : defaultValue;`), out);
 });
 
+test("assert-tests-kill-mutants: equivalent String spellings match all affected declarations", () => {
+  const hex = mutate(goldenHex.replace("string? raw", "String? raw"), hexSpec);
+  assert.doesNotMatch(hex, /StartsWith\("0x"\)/);
+
+  const platform = `public static class PlatformInfo
+{
+    public static System.String Current() => Label(Tag());
+#if NET8_0
+    public static String Tag() => "net8";
+#else
+    public static System.String Tag() => "net10";
+#endif
+}`;
+  for (const name of ["tag-always-net10", "tag-always-net8"]) {
+    const out = mutate(platform, platformSpec(name));
+    assert.equal(out.match(/public static string Tag\(\) => "net(?:8|10)";/g).length, 2);
+    assert.match(out, /public static string Current\(\)\n    \{/);
+  }
+});
+
 test("assert-tests-kill-mutants: calls and commented-out declarations are not mutated", () => {
   const src = `public static class PlatformInfo
 {
