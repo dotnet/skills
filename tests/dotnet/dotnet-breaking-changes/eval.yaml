@@ -1,0 +1,737 @@
+name: dotnet-breaking-changes
+description: Evaluates the dotnet/dotnet-breaking-changes skill
+type: capability
+defaults:
+  timeout: 15m
+  runs: 1
+# No scoring.threshold: every grader must pass. A mean-score threshold would let unrelated
+# passing checks offset a failed compatibility or preservation grader.
+# The fixture uses exact analyzer/test package versions. The runner must provide
+# its normal NuGet restore cache or network access; stimuli do not install tools.
+environment:
+  files:
+    - src: global.json
+      dest: global.json
+    - src: Fixture.sln
+      dest: Fixture.sln
+    - src: src/Billing/AppSettingsHelper.cs
+      dest: src/Billing/AppSettingsHelper.cs
+    - src: src/Billing/AssemblyInfo.cs
+      dest: src/Billing/AssemblyInfo.cs
+    - src: src/Billing/Billing.csproj
+      dest: src/Billing/Billing.csproj
+    - src: src/Billing/Coupons.cs
+      dest: src/Billing/Coupons.cs
+    - src: src/Billing/Coupons.g.cs.template
+      dest: src/Billing/Coupons.g.cs.template
+    - src: src/Billing/OrderProcessor.cs
+      dest: src/Billing/OrderProcessor.cs
+    - src: src/Billing/PlatformInfo.cs
+      dest: src/Billing/PlatformInfo.cs
+    - src: src/Billing/Pricing.cs
+      dest: src/Billing/Pricing.cs
+    - src: src/Billing/PublicAPI.Shipped.txt
+      dest: src/Billing/PublicAPI.Shipped.txt
+    - src: src/Billing/PublicAPI.Unshipped.txt
+      dest: src/Billing/PublicAPI.Unshipped.txt
+    - src: tests/Billing.Tests/Billing.Tests.csproj
+      dest: tests/Billing.Tests/Billing.Tests.csproj
+    - src: tests/Billing.Tests/BillingTests.cs
+      dest: tests/Billing.Tests/BillingTests.cs
+  commands:
+    - dotnet restore Fixture.sln --nologo
+stimuli:
+  - name: Answer a public-API question before consolidating duplicated parsing
+    tags:
+      capability: public-surface-audit
+      risk: silent-api-removal
+      journey: modify-code
+    golden_patch:
+      path: golden-patches/share-parsing.patch
+    prompt: "This Billing library ships as a NuGet package. `AppSettingsHelper` and `ConfigReader` repeat the same int and bool parsing. Use one shared implementation without breaking existing callers or changing results. The solution is at Fixture.sln."
+    # Grader-only downstream consumer: staged after the agent finishes, so migrating or
+    # deleting in-repo callers and tests cannot hide a removed or re-signatured shipped member.
+    grading_environment:
+      files:
+        - src: fixtures/grading/ShippedParsingConsumerChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs
+    graders:
+      - &grader-checks
+        type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore --filter FullyQualifiedName~Billing.GraderChecks
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      # Billing.csproj does not enforce the shipped baseline by itself, so require it byte-for-byte.
+      - &shipped-baseline-unchanged
+        type: run-command
+        config:
+          command: node -e "const s=require('fs').readFileSync('src/Billing/PublicAPI.Shipped.txt','utf8').replace(/\r\n/g,'\n'); const h=require('crypto').createHash('sha256').update(s).digest('hex'); if (h!=='fda63613e1820e7362d2298da18b47f77bb48b3c237085aee33d533696089a6a') { console.error('PublicAPI.Shipped.txt changed'); process.exit(1) }"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: AppSettingsHelper
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.ConfigReader.ReadInt(string? raw, int fallback) -> int
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.ConfigReader.ReadBool(string? raw, bool fallback) -> bool
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: Microsoft.CodeAnalysis.PublicApiAnalyzers
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: RS0016;RS0017;RS0036
+      - type: run-command
+        config:
+          command: >-
+            node -e "const fs=require('fs'),path=require('path');
+            const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{
+            const p=path.join(d,e.name);
+            return e.isDirectory()?(['bin','obj'].includes(e.name)?[]:walk(p)):(e.name.endsWith('.cs')?[p]:[])});
+            const s=walk('src/Billing').map(p=>fs.readFileSync(p,'utf8')).join('\n');
+            const count=x=>s.split(x).length-1;
+            if(count('int.TryParse')>1||count('bool.TryParse')>1)process.exit(1)"
+          expected_exit_code: 0
+      # Behavior gate for the agent's own refactor; the grader-only consumer above is what
+      # enforces the shipped surface.
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Correctly identified AppSettingsHelper and ConfigReader as shipped public surface"
+      - "Consolidated the implementation without removing or changing either existing public contract"
+      - "Preserved parsing behavior"
+
+  - name: Leave already-shared parsing alone when asked to consolidate it
+    tags:
+      capability: already-compatible-no-op
+      risk: unnecessary-rewrite
+      journey: modify-code
+    # Already-correct input: ConfigReader already delegates to AppSettingsHelper, so the right
+    # outcome is to notice that and change nothing, not to churn shipped surface or baselines.
+    prompt: "`AppSettingsHelper` and `ConfigReader` duplicate the int and bool parsing logic. Consolidate them into one shared implementation without changing results. The solution is at Fixture.sln."
+    environment:
+      files:
+        - src: fixtures/already-shared/AppSettingsHelper.cs
+          dest: fixtures/already-shared/AppSettingsHelper.cs
+      commands:
+        - node -e "const fs=require('fs');fs.copyFileSync('fixtures/already-shared/AppSettingsHelper.cs','src/Billing/AppSettingsHelper.cs');fs.rmSync('fixtures',{recursive:true})"
+    grading_environment:
+      files:
+        - src: fixtures/grading/ShippedParsingConsumerChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-already-shared.json
+          dest: .grading/unchanged.json
+    graders:
+      # Every in-scope source, test, project, and API baseline file must match its starting
+      # content (line endings normalized), and no new files may appear outside bin/obj.
+      - &workspace-unchanged
+        type: run-command
+        config:
+          command: node .grading/assert-unchanged.js .grading/unchanged.json
+          expected_exit_code: 0
+          timeout: 1m
+      - *grader-checks
+      - type: prompt
+        config:
+          prompt: "Reference outcome: notice that ConfigReader already delegates to AppSettingsHelper, report that there is no remaining duplication, and change no files."
+    rubric:
+      - "Recognized that the parsing is already shared through one implementation"
+      - "Made no code, test, or API baseline changes"
+      - "Told the user plainly that no consolidation was needed"
+
+  - name: Add behavior to a shipped public member without breaking the contract
+    tags:
+      capability: public-behavior-extension
+      risk: signature-drift
+      journey: add-feature
+    golden_patch:
+      path: golden-patches/add-hex-parsing.patch
+    # The opt-in leaves the API shape to the agent. The natural unskilled shape, an optional
+    # `bool allowHex = false` added in place, compiles every caller and passes every test while
+    # removing the shipped two-parameter method that already-compiled consumers bind to.
+    prompt: "The Billing library ships as a package. Some callers want `AppSettingsHelper.ParseIntSetting` to also accept hex values like `0x1F`. Let them opt in by passing `allowHex: true`; every existing call must keep returning exactly what it returns today. Cover it with a test. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/HexParsingChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/HexParsingChecks.cs
+        - src: fixtures/grading/assert-tests-kill-mutants.js
+          dest: .grading/assert-tests-kill-mutants.js
+        # Replaces only the body of the agent's allowHex ParseIntSetting overload with a decimal-only
+        # body, keeping its parameter names and defaults so its PublicAPI baseline still matches.
+        - src: fixtures/grading/mutants/hex/no-hex.json
+          dest: .grading/mutants/hex/no-hex.json
+    graders:
+      # Binds the shipped two-parameter signature to a delegate (fails to compile after an
+      # in-place optional parameter), pins its decimal-only results, and runs the opt-in path.
+      - *grader-checks
+      # RS0017 is an error here, so an intact shipped line plus a green build proves the
+      # original two-parameter method still exists for already-compiled consumers. Adding
+      # an optional parameter in place forces this line to be rewritten.
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.AppSettingsHelper.ParseIntSetting(string? raw, int fallback) -> int
+      # Requested test coverage, in any file, assertion style, or derived form: the agent's own
+      # tests (GraderChecks excluded) must fail once hex parsing is removed. The mutant must
+      # build and TRX must report a failed test; build errors, comments, and unexecuted text
+      # never count.
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-kill-mutants.js .grading/mutants/hex
+          expected_exit_code: 0
+          timeout: 10m
+      # The shipped signature must not break: existing decimal-parsing tests must
+      # still pass after hex support is added.
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Added tested opt-in hexadecimal parsing while existing two-argument calls keep their decimal-only results"
+      - "Kept the shipped two-parameter ParseIntSetting method intact and added a separate overload instead of an optional parameter"
+      - "Recorded only the new overload in PublicAPI.Unshipped.txt and left PublicAPI.Shipped.txt unchanged"
+
+  - name: Rename a vague public method without breaking existing callers
+    tags:
+      capability: public-member-rename
+      risk: source-compatibility
+      journey: modify-code
+    golden_patch:
+      path: golden-patches/rename-conditional-helper.patch
+    # Deliberately states the request the way users do ("rename it"), without naming the
+    # compatibility constraint; noticing that Current() is shipped surface is the skill's job.
+    prompt: "The `PlatformInfo.Current()` name is vague. Rename it to `GetCurrent()` and update this repository's callers. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/PlatformRenameChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/PlatformRenameChecks.cs
+    graders:
+      # Runs on net8.0 and net10.0: both names keep the framework-specific label, and Current()
+      # still binds like an existing consumer call even if the agent rewrote its own tests.
+      - *grader-checks
+      - type: file-contains
+        config:
+          path: src/Billing/PlatformInfo.cs
+          value: GetCurrent()
+      # The retained shipped entry plus a green RS0017 build proves Current() still exists,
+      # whether it forwards to GetCurrent() or the reverse. A `*REMOVED*` line would let the
+      # build pass while deleting Current() for already-shipped consumers.
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.PlatformInfo.Current() -> string!
+      - type: file-not-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: "*REMOVED*"
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: static Billing.PlatformInfo.GetCurrent() -> string!
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PlatformInfo.GetCurrent()
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q -f net8.0 --no-restore && dotnet test Fixture.sln -v:q -f net10.0 --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Added GetCurrent and moved repository callers while keeping Current callable for already-shipped consumers, and explained why a hard rename would break them"
+      - "Recorded only the new public member in the unshipped API baseline"
+      - "Preserved the expected platform result on net8.0 and net10.0"
+
+  - name: Rename a member of a partial type that a generated part references
+    tags:
+      capability: generated-public-rename
+      risk: regenerated-break
+      journey: modify-generated-source
+    golden_patch:
+      path: golden-patches/rename-generated-member.patch
+    prompt: "The public `Coupons.Redeem` name in this package is too generic. Add `Apply` as the preferred name and update this repository without breaking existing consumers. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/CouponRenameChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/CouponRenameChecks.cs
+    graders:
+      # Binds Redeem to its shipped (string, decimal) -> decimal shape and checks both names'
+      # results; an obsolete Redeem with an extra optional parameter fails to bind here.
+      - *grader-checks
+      - *shipped-baseline-unchanged
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.cs
+          value: Apply
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.g.cs.template
+          value: Apply(
+      - type: file-not-contains
+        config:
+          path: src/Billing/Coupons.g.cs.template
+          value: Redeem(
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.cs
+          value: Redeem(
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.cs
+          value: Obsolete(
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: Billing.Coupons.Apply
+      # Full-propagation gate across the partial type: building the solution
+      # regenerates the partial from the template. If the template (or any caller)
+      # still references the old name, the regenerated code fails to compile.
+      - type: run-command
+        config:
+          command: dotnet clean Fixture.sln -v:q && dotnet test Fixture.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Added Apply while retaining Redeem as an obsolete forwarding entry point for existing consumers"
+      - "Updated the source template so regenerated partial code calls Apply"
+      - "Recorded the new public member and preserved coupon behavior after a clean rebuild"
+
+  - name: Add a new public method that must be correct on every target framework
+    tags:
+      capability: public-member-addition
+      risk: missing-api-baseline
+      journey: add-feature
+    golden_patch:
+      path: golden-patches/add-platform-tag.patch
+    prompt: "This library ships as a package. Add a public `PlatformInfo.Tag()` method that returns only the short platform tag, such as `net10` or `net8`, without changing `Current()`, and cover it with tests. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/PlatformTagChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/PlatformTagChecks.cs
+        - src: fixtures/grading/assert-tests-kill-mutants.js
+          dest: .grading/assert-tests-kill-mutants.js
+        - src: fixtures/grading/mutants/platform/tag-always-net10.json
+          dest: .grading/mutants/platform/tag-always-net10.json
+        - src: fixtures/grading/mutants/platform/tag-always-net8.json
+          dest: .grading/mutants/platform/tag-always-net8.json
+    graders:
+      # Executes Tag() and Current() on each target framework, independent of agent tests.
+      - *grader-checks
+      - type: file-contains
+        config:
+          path: src/Billing/PlatformInfo.cs
+          value: Tag()
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: static Billing.PlatformInfo.Tag() -> string!
+      # Requested test coverage, in any file, binding, or assertion style (literal per-target
+      # tags or a derived expectation such as one computed from Current()): each mutant breaks
+      # Tag() on one target only and pins Current() to its correct output, so the agent's own
+      # tests (GraderChecks excluded) must check Tag() on both net8.0 and net10.0 to kill both.
+      # Kills need a green build and a TRX-reported failed test.
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-kill-mutants.js .grading/mutants/platform
+          expected_exit_code: 0
+          timeout: 10m
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+      # Multi-target gate: the new method must compile on BOTH net8.0 and net10.0.
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q -f net8.0 --no-restore && dotnet test Fixture.sln -v:q -f net10.0 --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Implemented and tested the correct short tag on net8.0 and net10.0"
+      - "Recorded Tag as new public surface without changing shipped entries"
+      - "Preserved the existing Current behavior"
+
+  - name: Rename an internal member used by a friend assembly
+    tags:
+      capability: friend-member-rename
+      risk: friend-consumer-break
+      journey: modify-code
+    golden_patch:
+      path: golden-patches/rename-friend-member.patch
+    prompt: "Rename the internal `PricingMath.ApplyDiscount` helper to `CalculateDiscount` and update every consumer without changing results. The solution is at Fixture.sln."
+    # Adds a second friend, Billing.Plugins, that ships from another repository. A name grep
+    # finds only the in-repo test consumer (run 39998662353: both arms passed every grader and the
+    # judge split on a test-method rename), so only enumerating the friends reveals a consumer
+    # that this change cannot update and whose compiled binding to ApplyDiscount must survive.
+    environment:
+      files:
+        - src: fixtures/external-friend/AssemblyInfo.cs
+          dest: fixtures/external-friend/AssemblyInfo.cs
+      commands:
+        - node -e "const fs=require('fs');fs.copyFileSync('fixtures/external-friend/AssemblyInfo.cs','src/Billing/AssemblyInfo.cs');fs.rmSync('fixtures',{recursive:true})"
+    grading_environment:
+      files:
+        - src: fixtures/grading/FriendRenameChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/FriendRenameChecks.cs
+    graders:
+      # Grader-owned expected discounts; the agent edits BillingTests.cs for the rename, so
+      # its assertion alone cannot prove the results are unchanged. The checks also call
+      # ApplyDiscount as the out-of-repo Billing.Plugins friend does, so a plain rename fails.
+      - *grader-checks
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: CalculateDiscount(
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PricingMath.CalculateDiscount(
+      - type: file-not-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PricingMath.ApplyDiscount(
+      - type: file-contains
+        config:
+          path: src/Billing/AssemblyInfo.cs
+          value: InternalsVisibleTo("Billing.Tests")
+      # Dropping the external grant would "fix" the rename by breaking Billing.Plugins outright.
+      - type: file-contains
+        config:
+          path: src/Billing/AssemblyInfo.cs
+          value: InternalsVisibleTo("Billing.Plugins")
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Found and updated the consumer in the assembly granted internal access"
+      - "Recognized that Billing.Plugins is a friend built outside this repository that cannot be updated here, kept ApplyDiscount working for it (for example as an [Obsolete] forwarder to CalculateDiscount), and told the user"
+      - "Preserved the friend relationship and discount result"
+      - "Did not add the internal member to a public API baseline"
+
+  - name: Preserve a shipped nullability contract
+    tags:
+      capability: nullability-review
+      risk: source-compatibility
+      journey: review-change
+    prompt: "Change the `raw` parameter of `AppSettingsHelper.ParseIntSetting` from `string?` to `string` while keeping existing callers compiling. If that cannot be done safely, leave it unchanged and explain the problem. Do not make unrelated edits. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-nullability.json
+          dest: .grading/unchanged.json
+    graders:
+      # The safe outcome is no change at all: any edit to source, tests, projects, or baselines
+      # (including a body that quietly returns the fallback) fails here.
+      - *workspace-unchanged
+      - type: file-contains
+        config:
+          path: src/Billing/AppSettingsHelper.cs
+          value: ParseIntSetting(string? raw
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: ParseIntSetting(string? raw
+      - type: output-matches
+        config:
+          pattern: '(nullability|nullable|consumer|contract|breaking)'
+      - type: prompt
+        config:
+          prompt: "Reference outcome: explain that narrowing the nullable parameter can break source consumers, and leave both code and shipped API baseline unchanged."
+    rubric:
+      - "Recognized that narrowing a shipped nullable parameter can affect existing callers even when runtime code still compiles"
+      - "Left the declared method and shipped baseline unchanged as requested when unsafe"
+      - "Did not hide the contract change by rewriting the baseline"
+
+  - name: Keep a shipped parameter name stable when asked to rename it
+    tags:
+      capability: parameter-name-contract
+      risk: named-argument-break
+      journey: modify-code
+    # Every in-repo caller is positional, so a rename compiles here once the shipped baseline
+    # line is rewritten; only consumers passing `raw:` by name (or binding late) break.
+    prompt: "`raw` is an unclear parameter name. Rename the `raw` parameter of `AppSettingsHelper.ParseIntSetting` to `value` and update this repository, keeping existing callers compiling. If that cannot be done safely, leave it unchanged and explain the problem. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/NamedArgumentConsumerChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/NamedArgumentConsumerChecks.cs
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-parameter-name.json
+          dest: .grading/unchanged.json
+    graders:
+      # Grader-only downstream caller that passes arguments by name; it compiles only while the
+      # shipped parameter name survives.
+      - *grader-checks
+      # The safe outcome is no change: renaming plus a rewritten or *REMOVED* baseline fails here.
+      - *workspace-unchanged
+      - type: output-matches
+        config:
+          pattern: '(?i)(named|by name|raw:|late[- ]?bound|late[- ]?binding|dynamic)'
+      - type: prompt
+        config:
+          prompt: "Reference outcome: explain that renaming a shipped parameter breaks consumers that pass it by name or bind late, even though positional callers still compile, and leave code and API baselines unchanged."
+    rubric:
+      - "Recognized that renaming a shipped public parameter breaks consumers that pass it by name or bind late, even though this repository's positional callers still compile"
+      - "Left the method, its callers, and both API baseline files unchanged"
+      - "Did not hide the change by rewriting PublicAPI.Shipped.txt or recording *REMOVED* entries"
+
+  - name: Extend a shipped method with an extra parameter without a binary break
+    tags:
+      capability: public-overload-addition
+      risk: binary-break-optional-parameter
+      journey: add-feature
+    golden_patch:
+      path: golden-patches/add-format-provider-overload.patch
+    # Phrased as users phrase it; the binary-compatibility constraint is left for the agent to notice.
+    prompt: "Some callers need culture-specific number parsing. Add an optional `IFormatProvider` parameter to `AppSettingsHelper.ParseIntSetting` so they can pass one. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/ShippedParsingConsumerChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs
+        - src: fixtures/grading/FormatProviderOverloadChecks.cs
+          dest: tests/Billing.Tests/GraderChecks/FormatProviderOverloadChecks.cs
+    graders:
+      # Binds ParseIntSetting to Func<string?, int, int>; an in-place optional parameter fails
+      # this consumer compile regardless of how the API baseline files were edited. The second
+      # check parses "~5" with a custom NegativeSign, so an overload ignoring the provider fails.
+      - *grader-checks
+      # Adding `IFormatProvider? provider = null` in place compiles every caller and passes
+      # every test once the shipped baseline line is rewritten, but removes the two-parameter
+      # method that already-compiled consumers bind to (MissingMethodException at run time).
+      # RS0017 is an error, so this intact line plus a green build proves that method survived.
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.AppSettingsHelper.ParseIntSetting(string? raw, int fallback) -> int
+      - type: file-not-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: IFormatProvider
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: ParseIntSetting(string? raw, int fallback, System.IFormatProvider
+      # Moving the old signature to `*REMOVED*` keeps Shipped.txt intact and the build green
+      # while still deleting the method compiled consumers bind to.
+      - type: file-not-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: "*REMOVED*"
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Kept the shipped two-parameter ParseIntSetting signature and added the IFormatProvider capability as a new overload rather than an optional parameter on the shipped method"
+      - "Recorded only the new overload in PublicAPI.Unshipped.txt and left the shipped baseline untouched"
+      - "Explained that an in-place optional parameter would break already-compiled consumers even though callers still compile"
+
+  - name: Review a green pull request for consumer-breaking changes
+    tags:
+      capability: breaking-change-review
+      risk: missed-binary-break
+      journey: review-change
+    environment:
+      files:
+        - src: fixtures/review/proposed-change.diff
+          dest: review/proposed-change.diff
+    grading_environment:
+      files:
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-review.json
+          dest: .grading/unchanged.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-breaking-changes-review-green-pr"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Do not merge as-is: CI is green, but three changes break package consumers.
+
+              1. ParseBoolSetting gains `bool strict = false`. Callers still compile, but this is a binary break: the two-parameter method no longer exists, so any assembly compiled against the previous package throws MissingMethodException until it is recompiled. The diff also rewrites the shipped line in PublicAPI.Shipped.txt, which hides the break from the RS0017 gate. Keep the original method and add a new overload instead.
+              2. Coupons becomes sealed. Any consumer type that derives from Coupons stops compiling, and a sealed class cannot be unsealed later without another review.
+              3. PlatformInfo's LegacyTag changes from net8 to net8.0. Only the net8.0 build changes, so PlatformInfo.Current() now returns platform:net8.0 for net8 consumers. The test was edited to match rather than catching the change.
+
+              Not breaks: the discountRate rename in OrderProcessor is an internal local rename, and the default `raw?.Trim()` in ParseBoolSetting returns the same results as before because bool.TryParse already ignores surrounding whitespace.
+    graders:
+      # Read-only review: source, tests, projects, baselines, and the diff itself must be unchanged.
+      - *workspace-unchanged
+      - type: output-matches
+        config:
+          pattern: '(?i)(binary|MissingMethodException|recompil)'
+      - type: output-matches
+        config:
+          pattern: '(?i)seal'
+      - type: output-matches
+        config:
+          pattern: '(?i)(LegacyTag|PlatformInfo|platform:net8)'
+      - type: file-contains
+        config:
+          path: src/Billing/AppSettingsHelper.cs
+          value: ParseBoolSetting(string? raw, bool fallback)
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.AppSettingsHelper.ParseBoolSetting(string? raw, bool fallback) -> bool
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.cs
+          value: public partial class Coupons
+      - type: file-contains
+        config:
+          path: src/Billing/PlatformInfo.cs
+          value: LegacyTag = "net8";
+      - type: prompt
+    prompt: "Review review/proposed-change.diff before I merge it into this package. CI is green. Is anything in it a breaking change for consumers? Do not apply or edit anything; just give me your verdict. The solution is at Fixture.sln."
+    rubric:
+      - "Identified the in-place optional parameter on ParseBoolSetting as a binary break for already-compiled consumers even though source still compiles, and noted that rewriting the shipped baseline hides it"
+      - "Identified sealing Coupons as a break for consumers that derive from it"
+      - "Identified the net8.0-only PlatformInfo result change and that the test was edited to match it"
+      - "Did not flag the internal OrderProcessor local rename as a compatibility concern"
+      # The default Trim() is a no-op: bool.TryParse already ignores surrounding whitespace. Run 39998662353
+      # (Luna) awarded the baseline for reporting it as a fourth break; a false positive must not read as breadth.
+      - "Did not report the default whitespace trimming in ParseBoolSetting as a behavior change: bool.TryParse already ignores leading and trailing whitespace, so default-path results are unchanged; counting it as a break is a misclassification"
+      - "Left the repository unchanged"
+
+  # Dormancy guard inside an on-target repository: a local rename has no consumer-visible
+  # surface, and the description excludes it. Neither model activated the skill here in any
+  # arm (run 39988891371), so as a preference stimulus it could only tie.
+  - name: Keep a local-variable rename proportionate inside a shipped library
+    tags:
+      capability: proportionate-local-change
+      risk: over-application
+      journey: modify-code
+      expect_activation: "false"
+    prompt: "Inside `OrderProcessor.DoStuff`, the local variable `subtotal` is a bit terse. Rename that local to `runningTotal` for readability. Keep behavior identical. The solution is at Fixture.sln."
+    grading_environment:
+      files:
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-local-rename.json
+          dest: .grading/unchanged.json
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: runningTotal
+      # Complete-state scope check: OrderProcessor.cs may differ only by the subtotal ->
+      # runningTotal rename (fully applied); every other source, test, project file, and API
+      # baseline must be byte-identical (line endings aside), with no files added or removed
+      # under src/ or tests/ and no new root build inputs. Compatibility aliases, baseline
+      # entries, and test edits all fail here.
+      - type: run-command
+        config:
+          command: node .grading/assert-unchanged.js .grading/unchanged.json
+          expected_exit_code: 0
+          timeout: 1m
+      # The local rename is behavior-identical: the unchanged tests must still pass.
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+        config:
+          prompt: "Reference outcome: complete only the local rename, avoid compatibility ceremony, and preserve behavior."
+    rubric:
+      - "Completed the local rename without unrelated compatibility work"
+      - "Did not apply public API, generated-code, or cross-target changes; compatibility review was not needed here"
+      - "Preserved behavior"
+
+  - name: Rename a public method in a private single-target app without compatibility ceremony
+    tags:
+      capability: off-target-private-app
+      risk: over-application
+      journey: modify-code
+      expect_activation: "false"
+    # Genuinely excluded surface: one non-packable net10.0 executable with no PublicAPI files,
+    # InternalsVisibleTo, or other assemblies. `public` here has no external consumers, so the
+    # right answer is a direct rename. The Billing library is removed so nothing on-target remains.
+    prompt: "In the Reports console app, `ReportBuilder.Build` is a vague name. Rename it to `BuildMonthlySummary` and update its callers. The project is Reports/Reports.csproj."
+    environment:
+      files:
+        - src: fixtures/private-app/Reports.csproj
+          dest: Reports/Reports.csproj
+        - src: fixtures/private-app/Program.cs
+          dest: Reports/Program.cs
+        - src: fixtures/private-app/ReportBuilder.cs
+          dest: Reports/ReportBuilder.cs
+      commands:
+        - node -e "const fs=require('fs');for (const p of ['src','tests','Fixture.sln']) fs.rmSync(p,{recursive:true,force:true})"
+        - dotnet restore Reports/Reports.csproj --nologo
+    graders:
+      - type: file-contains
+        config:
+          path: Reports/ReportBuilder.cs
+          value: BuildMonthlySummary(
+      - type: file-not-contains
+        config:
+          path: Reports/ReportBuilder.cs
+          value: Build(
+      - type: file-not-contains
+        config:
+          path: Reports/ReportBuilder.cs
+          value: Obsolete
+      - type: file-contains
+        config:
+          path: Reports/Program.cs
+          value: ReportBuilder.BuildMonthlySummary(
+      - type: run-command
+        config:
+          command: node -e "const fs=require('fs');const extra=fs.readdirSync('Reports').filter(f=>/^PublicAPI|\.props$|\.targets$/i.test(f));if(extra.length){console.error('unexpected compatibility files:',extra);process.exit(1)}"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet run --project Reports/Reports.csproj --no-restore
+          expected_exit_code: 0
+          stdout_contains: "October: 3 sales, total 242.75"
+          timeout: 5m
+      - type: prompt
+        config:
+          prompt: "Reference outcome: rename the method and its caller directly, with no [Obsolete] forwarder, API baseline, or consumer-compatibility caveats, because a private single-target app has no external callers."
+    rubric:
+      - "Completed the rename and updated the caller so the app builds and prints the same summary"
+      - "Did not add an [Obsolete] forwarder, API baseline files, or other compatibility machinery to a private app"
+      - "Did not warn about breaking external consumers that this app does not have; compatibility review was not needed here"

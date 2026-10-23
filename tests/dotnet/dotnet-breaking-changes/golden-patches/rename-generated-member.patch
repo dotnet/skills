@@ -1,0 +1,50 @@
+diff --git a/src/Billing/Coupons.cs b/src/Billing/Coupons.cs
+index 79ceb96..3398ff6 100644
+--- a/src/Billing/Coupons.cs
++++ b/src/Billing/Coupons.cs
+@@ -3,6 +3,9 @@ namespace Billing;
+ /// <summary>Hand-authored part of the <c>Coupons</c> partial type.</summary>
+ public partial class Coupons
+ {
+-    public decimal Redeem(string code, decimal amount)
++    public decimal Apply(string code, decimal amount)
+         => amount - (amount * RateFor(code));
++
++    [Obsolete("Use Apply instead.")]
++    public decimal Redeem(string code, decimal amount) => Apply(code, amount);
+ }
+diff --git a/src/Billing/Coupons.g.cs.template b/src/Billing/Coupons.g.cs.template
+index d247c33..0497888 100644
+--- a/src/Billing/Coupons.g.cs.template
++++ b/src/Billing/Coupons.g.cs.template
+@@ -10,5 +10,5 @@ public partial class Coupons
+         _ => 0.00m,
+     };
+ 
+-    public decimal RedeemDefault(decimal amount) => Redeem("SAVE10", amount);
++    public decimal RedeemDefault(decimal amount) => Apply("SAVE10", amount);
+ }
+diff --git a/src/Billing/PublicAPI.Unshipped.txt b/src/Billing/PublicAPI.Unshipped.txt
+index 7dc5c58..6e106bf 100644
+--- a/src/Billing/PublicAPI.Unshipped.txt
++++ b/src/Billing/PublicAPI.Unshipped.txt
+@@ -1 +1,2 @@
+ #nullable enable
++Billing.Coupons.Apply(string! code, decimal amount) -> decimal
+diff --git a/tests/Billing.Tests/BillingTests.cs b/tests/Billing.Tests/BillingTests.cs
+index 039ee93..48bd04b 100644
+--- a/tests/Billing.Tests/BillingTests.cs
++++ b/tests/Billing.Tests/BillingTests.cs
+@@ -107,9 +107,10 @@ public class BillingTests
+     public void Coupons_Redeem_AppliesRate()
+     {
+         var coupons = new Coupons();
++        Assert.Equal(90m, coupons.Apply("SAVE10", 100m));
++        Assert.Equal(95m, coupons.Apply("SAVE05", 100m));
++        Assert.Equal(100m, coupons.Apply("UNKNOWN", 100m));
+         Assert.Equal(90m, coupons.Redeem("SAVE10", 100m));
+-        Assert.Equal(95m, coupons.Redeem("SAVE05", 100m));
+-        Assert.Equal(100m, coupons.Redeem("UNKNOWN", 100m));
+     }
+ 
+     [Fact]

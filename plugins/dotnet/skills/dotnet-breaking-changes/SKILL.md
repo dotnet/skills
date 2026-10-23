@@ -1,0 +1,138 @@
+---
+name: dotnet-breaking-changes
+description: >
+  Use before changing .NET/C# code whose callers you do not control: a NuGet library, or a repo with
+  PublicAPI.Shipped/Unshipped.txt, ApiCompat or package validation, multiple TargetFrameworks,
+  InternalsVisibleTo, or partial/generated (.g.cs) types. Green builds and tests miss silent breaks
+  from optional parameters, parameter names, interface members, sealing, const values,
+  nullability, and #if branches.
+  USE FOR: "without breaking existing callers"; adding an optional parameter, overload, or
+  interface member; renaming a public method, parameter, or alias; changing a signature,
+  nullability, const/default value, or attribute; adding a target framework; renaming an internal
+  used by a friend assembly; fixing RS0016/RS0017 or ApiCompat errors; "is this PR breaking?".
+  DO NOT USE FOR: a console app, web app, or other executable whose callers all live in the same
+  project (renaming its public members is a plain refactor);
+  renaming a local or private member; formatting; framework/SDK/NuGet upgrades (use dotnet-upgrade).
+license: MIT
+---
+
+# .NET breaking changes: the contract is wider than the file
+
+When you edit .NET code, the observable contract is usually **larger than the snippet in front of you**.
+A change that compiles and keeps tests green can still break a downstream consumer, another target
+framework, a friend assembly, or regenerate away on the next build. This applies to a feature or a bug
+fix as much as a refactor, and to **additions** — a new public member, overload, or target framework — as
+much as removals: added surface is a permanent contract obligation, and added behavior on a multi-targeted
+or partial type must stay correct on every target and survive the next regeneration. (For the
+behavior-preserving refactoring *process*, use the `csharp-refactoring` skill; this skill is the
+compatibility knowledge it — and any other change — taps into.)
+
+## Inspect first — find which surfaces this repo actually has
+
+The most valuable move is to **look before you leap**: find which hidden surfaces exist here, then check
+only those. Don't recite these or assume — the markers present dictate the plan; markers absent tell you a
+surface is not in play.
+
+```bash
+# Public-API gate (which one? they are NOT interchangeable)
+git ls-files "**/PublicAPI.Shipped.txt" "**/PublicAPI.Unshipped.txt"                 # PublicApiAnalyzers
+grep -rl "EnablePackageValidation\|ApiCompat" --include=*.props --include=*.targets --include=*.csproj .
+# Multi-targeting and conditional code
+grep -rl "<TargetFrameworks>" --include=*.csproj --include=*.props . ; grep -rn "#if " --include=*.cs .
+# Generated / partial code
+git ls-files "*.g.cs" "*.generated.cs" ; grep -rln "partial class\|partial record\|partial struct" --include=*.cs .
+# Friend assemblies
+grep -rn "InternalsVisibleTo" --include=*.cs --include=*.csproj --include=*.props .
+```
+
+Then read only the reference(s) for the surfaces you actually found.
+
+## The hidden surfaces (depth in references/)
+
+Public API (1) is the **default** surface to check on any library edit; the other three are
+**conditional** — pursue them only when the inspect-first markers above show they are in play.
+
+1. **Public API.** Renaming/moving/removing/re-signing a public member — or changing nullability, a
+   generic constraint, or a trimming/AOT attribute — is a breaking change a green test run will not catch.
+   Repos gate this **two non-interchangeable ways**: source-level (`PublicApiAnalyzers` + `PublicAPI.*.txt`,
+   which you maintain) and binary/package-level (`ApiCompat` / `<EnablePackageValidation>`). Respect the
+   gate that exists; if none exists, review the surface by hand and flag it — do **not** bolt on analyzer
+   infrastructure as a side effect. Move a public type via a `[TypeForwardedTo]` forwarder; a *rename*
+   needs an `[Obsolete]` shim, not a forwarder. See `references/public-api.md`.
+
+2. **Multi-targeting and `#if`.** Code that multi-targets (`<TargetFrameworks>`) or compiles conditionally
+   (`#if NET8_0_OR_GREATER`, platform/CoreCLR/Mono/NativeAOT branches) can build for the target your editor
+   shows and break one it never invoked. Inspect every branch — including inactive ones — preserve
+   intentional divergence, and re-gate each TFM/RID. See `references/multi-targeting.md`.
+
+3. **Source-generated and partial code.** A type is often `partial` across several files, and part may be
+   **generated** (source generators, Razor, `*.g.cs`). Include every partial declaration; treat generated
+   files as derived and change the generator input/template unless the repo checks the output in as source.
+   See `references/source-generation.md`.
+
+4. **InternalsVisibleTo.** `internal` is not private across a solution: test and friend assemblies bind to
+   internals (and, when strong-named, to a public key). An internal rename/move/removal can break a
+   consumer with no reference in the declaring project. A friend built outside this repo cannot be
+   updated, so keep the old internal name as an `[Obsolete]` forwarder. See `references/internals-visible-to.md`.
+
+## Decisions a green build will not make for you
+
+Each row below compiles every caller and passes every test, yet breaks a consumer. Do not stop at a
+green build or test run. Use the safe shape instead.
+
+| Tempting change | Why it breaks | Safe shape |
+|-----------------|---------------|------------|
+| Add an optional parameter to a shipped method (`Foo(a)` → `Foo(a, b = null)`) | **Binary break**: the old signature is gone, so already-compiled consumers throw `MissingMethodException` until they recompile | Keep `Foo(a)` unchanged and add a new overload `Foo(a, b)`; record only the new overload |
+| Fix RS0017 by editing or deleting a line in `PublicAPI.Shipped.txt` | Shipped lines are the released contract; rewriting one hides the break the gate exists to report | Leave shipped lines alone. Restore the shipped member and record new surface in `PublicAPI.Unshipped.txt` |
+| Add a member to a shipped public interface | Every existing implementer, including ones in other packages, stops compiling | Add a default interface implementation (requires runtime support: not on `netstandard2.0` or .NET Framework targets), or add a new interface. A default member is callable only through the interface, so also add a public member on any concrete type that must expose it, and record both |
+| Rename a shipped member | Source and binary break | Add the new name, keep the old one as an `[Obsolete]` forwarder, and record only the new member |
+| Rename a parameter of a shipped member | Callers passing it by name (`raw: x`) stop compiling and late-bound/`dynamic` callers fail; positional callers in this repo hide it. PublicAPI analyzers report it as RS0016 + RS0017 | Keep the shipped name — no overload can carry a different name for the same signature. Leave it unchanged and explain |
+| Seal a class, make a member non-virtual, or narrow a parameter's nullability | Derived types, overrides, or nullable callers break | Treat as a breaking change; escalate rather than edit |
+| Change a `const` value or an optional parameter's default | The old value is compiled into callers and persists until they recompile | Preserve the shipped constant/default; introduce a separately named member (which may be `static readonly`) or a new overload for new behavior. Replacing an existing `const` with `static readonly` is itself source-breaking |
+| Change a value under `#if` for one target | Only consumers of that target see it; tests edited to match will not catch it | Treat as a behavior change for that target and call it out |
+
+When asked **"is this a breaking change?"** or to review a diff, make no edits unless asked and answer
+in this shape, scaled to the diff:
+
+1. One verdict line first (e.g. "Do not merge as-is: N changes break consumers").
+2. One numbered item per consumer-visible change: what changed, **binary** (already-compiled
+   consumers fail), **source** (consumers fail to recompile), or **behavioral** (same signature,
+   different result, possibly on only one target), who breaks, and the safe shape. A behavioral
+   claim needs a concrete input whose old and new results differ; if unsure, probe both versions
+   with a one-line program — framework parsers already tolerate much (e.g. `bool.TryParse` ignores
+   surrounding whitespace), and a no-op rewrite is not a break. Say when the diff edits a test to match.
+3. One line naming the internal-only edits that are safe.
+
+Cover only surfaces the diff touches; do not add trimming, AOT, or tooling commentary it does not raise.
+
+## Verify before reporting
+
+Build and test **every** target framework (`dotnet test -f <tfm>` for each), not only the default. If
+the project sets `EnablePackageValidation`, run `dotnet pack` — package validation runs only after
+`Pack`, never on build. Report exactly which commands ran and their result.
+
+## Stop and escalate (do not silently proceed)
+
+- The requested change is **already in place** — e.g. the "duplicated" code already delegates to one
+  implementation, or the overload already exists. Say so and change nothing; do not invent a
+  refactor to have something to show.
+- A **public/shipped API** would change and you cannot verify compatibility — no shim/forwarder path and
+  no PublicApiAnalyzers/ApiCompat/package-validation gate to catch a break.
+- The edit changes an **observable annotation** (nullability, `[DynamicallyAccessedMembers]`,
+  `[RequiresUnreferencedCode]`, generic constraints) on a public member.
+- The change can be made consistent across **some but not all** target frameworks or platforms.
+- The only way to apply it is editing **generated output** that the next build will overwrite.
+
+## Reference files
+
+Load a reference only for a surface the inspect-first step actually found:
+
+- **[references/public-api.md](references/public-api.md)** — the two API gates and why they are not
+  interchangeable, nullable/trimming/AOT as observable API, `[Obsolete]` shims and type-forwarders,
+  suppression baselines.
+- **[references/multi-targeting.md](references/multi-targeting.md)** — TFMs, `#if` and platform symbols,
+  RIDs, and how to inspect and re-gate every target.
+- **[references/source-generation.md](references/source-generation.md)** — partial types, generated output
+  vs checked-in source, editing the generator input. (See also `dotnet-msbuild/including-generated-files`.)
+- **[references/internals-visible-to.md](references/internals-visible-to.md)** — friend/test assemblies
+  and strong-name keys.

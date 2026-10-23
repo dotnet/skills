@@ -779,7 +779,23 @@ def check_fixtures(spec: str, doc: dict, tracked: set[str]) -> None:
 
 def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
     base = os.path.dirname(spec)
+    suite_environment = doc.get("environment")
+    suite_destinations = {
+        entry.get("dest")
+        for entry in environment_file_entries(suite_environment)
+        if isinstance(entry, dict)
+    }
     for stim in doc.get("stimuli") or []:
+        duplicates = sorted(
+            entry.get("dest")
+            for entry in environment_file_entries(stim.get("environment"))
+            if isinstance(entry, dict) and entry.get("dest") in suite_destinations
+        )
+        if duplicates and not os.path.basename(base).startswith("agent."):
+            errors.append(
+                f"{spec}: '{stim.get('name')}' redeclares suite environment file "
+                f"destination(s) {duplicates}; Vally rejects duplicate file entries "
+                "and loads none of the eval's stimuli")
         grader_types = {g.get("type") for g in (stim.get("graders") or [])
                         if isinstance(g, dict)}
         if (stim.get("golden_patch")
@@ -790,8 +806,9 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
                 "but no golden_trajectory to provide the reference response")
         if (stim.get("golden_trajectory")
                 and not stim.get("golden_patch")
-                and (stim.get("environment") or {}).get("files")
-                and stimulus_requires_patch(spec, stim)):
+                and (environment_file_entries(suite_environment)
+                     or environment_file_entries(stim.get("environment")))
+                and stimulus_requires_patch(spec, stim, suite_environment)):
             missing_workspace_change_references.append(
                 f"{spec}: {stim.get('name')!r}")
 
@@ -807,7 +824,9 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
                         oversized_inline_references.append(
                             f"{spec}: {stim.get('name')!r}")
                 elif isinstance(reference["inline"], str):
-                    check_patch_applies(spec, stim, patch_text=reference["inline"])
+                    check_patch_applies(
+                        spec, stim, patch_text=reference["inline"],
+                        suite_environment=suite_environment)
                 continue
             if not reference.get("path"):
                 continue
@@ -851,7 +870,8 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
                     nested_response_references.append(
                         f"{spec}: {stim.get('name')!r} -> {source}")
             elif key == "golden_patch":
-                check_patch_applies(spec, stim, resolved)
+                check_patch_applies(
+                    spec, stim, resolved, suite_environment=suite_environment)
 
 
 def sanitize_image_ref(reference: str) -> str:
@@ -1350,9 +1370,24 @@ def check_required_vally_inputs(spec: str, doc: dict) -> None:
                 "lowercase kebab-case")
 
 
-def materialize_declared_files(spec: str, stim: dict, workspace: str) -> None:
-    """Copy fixture inputs to the same destination layout used by Vally."""
-    entries = (stim.get("environment") or {}).get("files") or []
+def environment_file_entries(environment) -> list:
+    if not isinstance(environment, dict):
+        return []
+    entries = environment.get("files") or []
+    return entries if isinstance(entries, list) else []
+
+
+def materialize_declared_files(
+        spec: str, stim: dict, workspace: str, suite_environment=None) -> None:
+    """Copy fixture inputs to the same destination layout used by Vally.
+
+    Vally merges suite-level `environment.files` into every stimulus workspace,
+    so suite entries are materialized before the stimulus's own entries.
+    """
+    entries = (
+        environment_file_entries(suite_environment)
+        + environment_file_entries(stim.get("environment"))
+    )
     base = os.path.dirname(spec)
     for entry in entries:
         source = repository_source_path(base, entry["src"])
@@ -1435,7 +1470,8 @@ def grader_passes_on_fixture(grader: dict, workspace: str) -> bool | None:
     return negate
 
 
-def stimulus_requires_patch(spec: str, stim: dict) -> bool:
+def stimulus_requires_patch(
+        spec: str, stim: dict, suite_environment=None) -> bool:
     """Return whether the expected workspace differs from the declared fixture."""
     graders = stim.get("graders") or []
     for grader in graders:
@@ -1452,7 +1488,7 @@ def stimulus_requires_patch(spec: str, stim: dict) -> bool:
 
     try:
         with tempfile.TemporaryDirectory(prefix="eval-fixture-baseline-") as workspace:
-            materialize_declared_files(spec, stim, workspace)
+            materialize_declared_files(spec, stim, workspace, suite_environment)
             return any(
                 grader_passes_on_fixture(grader, workspace) is not True
                 for grader in file_graders
@@ -1463,15 +1499,18 @@ def stimulus_requires_patch(spec: str, stim: dict) -> bool:
 
 def check_patch_applies(
         spec: str, stim: dict, patch: str | None = None,
-        *, patch_text: str | None = None) -> None:
+        *, patch_text: str | None = None, suite_environment=None) -> None:
     """Materialize declared fixture inputs and prove the golden patch applies."""
-    entries = (stim.get("environment") or {}).get("files") or []
+    entries = (
+        environment_file_entries(suite_environment)
+        + environment_file_entries(stim.get("environment"))
+    )
     if not entries:
         return  # Command-generated workspaces cannot be reconstructed statically.
 
     try:
         with tempfile.TemporaryDirectory(prefix="eval-golden-patch-") as workspace:
-            materialize_declared_files(spec, stim, workspace)
+            materialize_declared_files(spec, stim, workspace, suite_environment)
             subprocess.run(
                 ["git", "init", "-q"], cwd=workspace, capture_output=True,
                 text=True, check=True)

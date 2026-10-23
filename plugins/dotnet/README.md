@@ -22,6 +22,7 @@ Prerequisites:
 - [csharp-expert](skills/csharp-expert/SKILL.md)
 - [csharp-refactoring](skills/csharp-refactoring/SKILL.md)
 - [msbuild](skills/msbuild/SKILL.md) — routed MSBuild diagnosis, performance, and authoring guidance
+- [dotnet-breaking-changes](skills/dotnet-breaking-changes/SKILL.md)
 - [setup-local-sdk](skills/setup-local-sdk/SKILL.md)
 
 ### MSBuild entry and specialist skills
