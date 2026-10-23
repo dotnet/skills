@@ -164,19 +164,45 @@ function aggregateSkill(records) {
   const models = [...new Set(records.map(record => record.model).filter(Boolean))].sort();
   const judgeModels = [...new Set(records.map(record => record.judgeModel).filter(Boolean))].sort();
   const flakyDimensions = [];
-  const stableDimensionStatuses = [];
-  for (const [dimension, dimensionRecords] of groupBy(
-    records,
-    record => `${record.model ?? 'unknown'}\u0000${record.judgeModel ?? 'unknown'}`,
-  )) {
-    const dimensionStatuses = [...new Set(
-      dimensionRecords.map(record => classify(record.skill)),
-    )].sort();
-    if (dimensionStatuses.length > 1) {
-      const [model, judgeModel] = dimension.split('\u0000');
-      flakyDimensions.push({ model, judgeModel, statuses: dimensionStatuses });
-    } else if (dimensionStatuses.length === 1) {
-      stableDimensionStatuses.push(dimensionStatuses[0]);
+  const revisionStatuses = [];
+  const recordsWithRevision = records.filter(record => revisionId(record) !== null);
+  const variabilityComparable = recordsWithRevision.length === records.length;
+  let modelSensitive = false;
+
+  if (variabilityComparable) {
+    for (const [revision, revisionRecords] of groupBy(
+      recordsWithRevision,
+      record => revisionId(record),
+    )) {
+      const stableDimensionStatuses = [];
+      const statusesForRevision = [...new Set(
+        revisionRecords.map(record => classify(record.skill)),
+      )].sort();
+      revisionStatuses.push({ revision, statuses: statusesForRevision });
+
+      for (const [dimension, dimensionRecords] of groupBy(
+        revisionRecords,
+        record => `${record.model ?? 'unknown'}\u0000${record.judgeModel ?? 'unknown'}`,
+      )) {
+        const dimensionStatuses = [...new Set(
+          dimensionRecords.map(record => classify(record.skill)),
+        )].sort();
+        if (dimensionStatuses.length > 1) {
+          const [model, judgeModel] = dimension.split('\u0000');
+          flakyDimensions.push({
+            revision,
+            model,
+            judgeModel,
+            statuses: dimensionStatuses,
+          });
+        } else if (dimensionStatuses.length === 1) {
+          stableDimensionStatuses.push(dimensionStatuses[0]);
+        }
+      }
+
+      if (new Set(stableDimensionStatuses).size > 1) {
+        modelSensitive = true;
+      }
     }
   }
 
@@ -205,9 +231,9 @@ function aggregateSkill(records) {
     statuses,
     flaky: flakyDimensions.length > 0,
     flakyDimensions,
-    modelSensitive:
-      flakyDimensions.length === 0
-      && new Set(stableDimensionStatuses).size > 1,
+    revisionStatuses,
+    variabilityComparability: variabilityComparable ? 'known' : 'unknown',
+    modelSensitive: flakyDimensions.length === 0 && modelSensitive,
     consistentlyPassing:
       publishedResults >= 2
       && publishedConclusiveResults === publishedResults
@@ -218,6 +244,12 @@ function aggregateSkill(records) {
       && differentiatedResults === publishedResults
       && publishedConclusiveResults === publishedResults,
   };
+}
+
+function revisionId(record) {
+  const commit = record?.commit;
+  const id = typeof commit === 'string' ? commit : commit?.id;
+  return typeof id === 'string' && id.trim() ? id.trim() : null;
 }
 
 function collectRecords(entries, startMs, endMs) {

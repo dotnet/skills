@@ -37,12 +37,19 @@ function skill(overrides = {}) {
   };
 }
 
-function entry(date, skillValue, model = 'executor', judgeModel = 'judge') {
+function entry(
+  date,
+  skillValue,
+  model = 'executor',
+  judgeModel = 'judge',
+  commit = { id: 'commit-a' },
+) {
   return {
     plugin: 'plugin',
     date: Date.parse(date),
     model,
     judgeModel,
+    commit,
     skills: [skillValue],
   };
 }
@@ -360,6 +367,110 @@ test('stable outcome differences across models are model sensitivity, not flakin
   const result = report.current.plugins[0].skills[0];
   assert.equal(result.flaky, false);
   assert.equal(result.modelSensitive, true);
+});
+
+test('outcome changes across revisions are trends, not flakiness', () => {
+  const report = buildReport({
+    dashboard: {
+      entries: [
+        entry(
+          '2026-10-17T00:00:00Z',
+          skill(),
+          'executor',
+          'judge',
+          { id: 'commit-a' },
+        ),
+        entry(
+          '2026-10-18T00:00:00Z',
+          skill({
+            preference: {
+              ...skill().preference,
+              direction: 'tie',
+              pValue: 1,
+              practicalPassed: false,
+            },
+          }),
+          'executor',
+          'judge',
+          { id: 'commit-b' },
+        ),
+      ],
+    },
+    workflowRuns: [],
+    windowEnd: '2026-10-21T17:00:00Z',
+  });
+
+  const result = report.current.plugins[0].skills[0];
+  assert.equal(result.flaky, false);
+  assert.equal(result.modelSensitive, false);
+  assert.equal(result.variabilityComparability, 'known');
+  assert.deepEqual(result.revisionStatuses, [
+    { revision: 'commit-a', statuses: ['differentiated'] },
+    { revision: 'commit-b', statuses: ['no-change'] },
+  ]);
+});
+
+test('model differences across revisions are not model sensitivity', () => {
+  const report = buildReport({
+    dashboard: {
+      entries: [
+        entry(
+          '2026-10-17T00:00:00Z',
+          skill(),
+          'executor-a',
+          'judge',
+          { id: 'commit-a' },
+        ),
+        entry(
+          '2026-10-18T00:00:00Z',
+          skill({
+            preference: {
+              ...skill().preference,
+              direction: 'tie',
+              pValue: 1,
+              practicalPassed: false,
+            },
+          }),
+          'executor-b',
+          'judge',
+          { id: 'commit-b' },
+        ),
+      ],
+    },
+    workflowRuns: [],
+    windowEnd: '2026-10-21T17:00:00Z',
+  });
+
+  const result = report.current.plugins[0].skills[0];
+  assert.equal(result.flaky, false);
+  assert.equal(result.modelSensitive, false);
+  assert.equal(result.variabilityComparability, 'known');
+});
+
+test('missing revision evidence leaves variability comparability unknown', () => {
+  const report = buildReport({
+    dashboard: {
+      entries: [
+        entry('2026-10-17T00:00:00Z', skill(), 'executor', 'judge', null),
+        entry('2026-10-18T00:00:00Z', skill({
+          preference: {
+            ...skill().preference,
+            direction: 'tie',
+            pValue: 1,
+            practicalPassed: false,
+          },
+        }), 'executor', 'judge', null),
+      ],
+    },
+    workflowRuns: [],
+    windowEnd: '2026-10-21T17:00:00Z',
+  });
+
+  const result = report.current.plugins[0].skills[0];
+  assert.equal(result.flaky, false);
+  assert.equal(result.modelSensitive, false);
+  assert.equal(result.variabilityComparability, 'unknown');
+  assert.deepEqual(result.revisionStatuses, []);
 });
 
 test('week keys use the ISO week year', () => {

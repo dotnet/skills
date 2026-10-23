@@ -350,9 +350,11 @@ malformed, or internally inconsistent, call `noop` with the exact limitation.
   call preference loss an objective completion regression.
 - Report retained native objective completion regression separately. It
   overrides preference evidence and cannot count as differentiation.
-- Treat changes for the same skill, executor model, and judge model as
-  flakiness. Treat stable differences across model or judge dimensions as model
-  sensitivity, not flakiness.
+- Compare repeated outcomes and model or judge differences only within the same
+  evaluated revision. Treat cross-revision changes as trends, not flakiness or
+  model sensitivity. When revision evidence is missing and
+  `variabilityComparability` is `unknown`, state that limitation instead of
+  inferring either signal.
 - Report AI Credits as unavailable when `aiCredits.available` is false. Include
   token telemetry as supporting resource evidence, but never estimate AI Credits
   or dollar spend.
