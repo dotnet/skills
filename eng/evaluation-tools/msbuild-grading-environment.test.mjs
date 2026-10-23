@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { applyEnvironment, gradeInDisposableWorkspace, loadEvalSpec } from "@microsoft/vally";
+import { applyEnvironment, gradeInDisposableWorkspace, gradeTrajectory, loadEvalSpec } from "@microsoft/vally";
 import { fixtureInputs } from "../../tests/dotnet/msbuild/graders/check-contracts.mjs";
 
 const suite = fileURLToPath(new URL("../../tests/dotnet/msbuild/", import.meta.url));
@@ -15,6 +15,23 @@ test("trusted grading baseline matches every supplied source, package, and SDK p
   assert.equal(baseline.sdkPolicy, readFileSync(join(suite, "fixtures", "global.json"), "utf8"));
   for (const [scenario, expected] of Object.entries(baseline.scenarios)) {
     assert.deepEqual(fixtureInputs(join(suite, "fixtures", scenario)), expected);
+  }
+});
+
+test("self-contained performance advisories reject unnecessary reference and workspace work", async () => {
+  for (const capability of ["dependency-wait-attribution", "comparable-build-measurements", "supported-performance-claim"]) {
+    const stimulus = spec.stimuli.find((item) => item.tags.capability === capability);
+    const grader = stimulus.graders.find((item) => item.type === "tool-calls");
+    assert.ok(grader, `${capability}: missing work-budget grader`);
+    const grade = (events) => gradeTrajectory({ stimulus, events }, [grader], { stimulus });
+    assert.equal((await grade([{ type: "skill_activation", data: { name: "msbuild" } }])).passed, true);
+    for (const toolName of ["view", "bash", "powershell", "glob", "rg", "grep", "task"]) {
+      const events = [
+        { type: "tool_call", data: { toolCallId: toolName, toolName, arguments: {} } },
+        { type: "tool_result", data: { toolCallId: toolName, toolName, result: "ok" } },
+      ];
+      assert.equal((await grade(events)).passed, false, `${capability}: unnecessary ${toolName} passed`);
+    }
   }
 });
 

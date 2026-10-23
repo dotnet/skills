@@ -6,10 +6,11 @@ license: MIT
 
 # MSBuild troubleshooting
 
-This is the entry skill. Choose **troubleshooting**, **performance**, or **authoring review**, then
-read only the reference that resolves the next unknown, not every link in the selected lane.
-The references retain the original MSBuild guidance, with correctness fixes; they are not
-separate skills to activate.
+For a self-contained timing or timeline question, use the performance decision table below
+and answer directly. Do not open references, discover a checkout, or run commands when the
+supplied evidence settles the question.
+Otherwise choose **troubleshooting**, **performance**, or **authoring review**, then read only
+the reference that resolves the next unknown. References are not separate skills to activate.
 
 ## Start with the task and evidence
 
@@ -48,13 +49,24 @@ Do not turn a targeted failure investigation into solution-wide authoring cleanu
 **Goal:** measure the reported scenario, identify its bottleneck, change one cause, and compare
 equivalent builds without losing required behavior.
 
-For a self-contained timing question, assess the supplied evidence and give the smallest useful
-answer; do not discover a checkout or load a diagnostic workflow just to assess a claim.
-Compare the **old and new setting values**, holding the command, restore policy, input/output
-starting state, configuration, and instrumentation constant. Do not substitute restore versus
-no-restore for an unspecified setting. Accept adequately controlled measurements within their
-reported scope; identify confounds otherwise. Stop after the assessment/plan when only advice
-was requested.
+For advisory questions covered by this table, give a verdict, the decisive evidence, and a
+ranked next-measurement plan only where evidence is missing. Stop there; do not load references
+or start a diagnostic workflow to restate supplied facts.
+
+| Supplied evidence | Decision | Smallest useful follow-up |
+| --- | --- | --- |
+| Parallel target totals include overlapping dependency waits | Do not treat cumulative wait as exclusive work, CPU utilization, or a reason to remove required references or disable parallelism. | Confirm the critical path from project-instance timestamps. Inspect the actual slow task and its compiler/analyzer/generator or I/O detail, including whether it reruns unnecessarily. Measure resource contention before proposing node-budget changes. |
+| Before/after commands, restore policy, or input/output states differ | Reject attribution to the setting: the comparison is confounded. | **A = old setting; B = new setting; identical command and workload.** Keep the setting unnamed if it was not supplied. Restore-on versus restore-off, or Rebuild versus no-op, measures a different change and cannot replace this A/B test. |
+| Repeated successful runs have matched conditions and required outputs | Accept the observed improvement for that workload; compute the reduction from comparable summaries and report the spread. | Qualify sample size and deployment scope without inventing failures, hidden confounds, or statistical limitations. Other workloads or a checkout are not prerequisites for reporting the supplied observation. |
+
+For a proposed experiment, keep the SDK, machine, configuration, restore policy, and
+instrumentation equivalent. Replay the same input edit from equivalent starting outputs for
+each arm; alternate and repeat matched pairs to report variation. Change only the setting,
+compare the reported workload, and verify required outputs and diagnostics. The original
+confounded difference is not an effect size the experiment must reproduce. Do not substitute
+a different workload or require a matrix of cold, changed-input, and no-op builds.
+
+When actual investigation or optimization is requested:
 
 1. Reuse matching measurements. If they are missing, establish the relevant baseline before
    editing configuration; do not time a failed build as a successful baseline.
@@ -120,7 +132,9 @@ with required present/absent, preserving the intended import order when both exi
 
 ## Completion
 
-Return the selected task, the cause/bottleneck or authoring decision, supporting evidence,
-and the minimal change made or proposed. State when no change is needed. Give the exact
-verification and result, distinguishing successful, failed, and not-run checks; performance work
-also needs comparable measurements and uncertainty. Keep the response proportional to the task.
+For advice only, return the verdict, decisive evidence, and any necessary next measurement;
+do not manufacture a verification section or claim new measurements.
+For repository work, return the cause/bottleneck or authoring decision, supporting evidence,
+and the minimal change made or proposed. State when no change is needed. Give exact successful,
+failed, and not-run checks; performance changes also need comparable measurements and
+uncertainty. Keep the response proportional to the task.

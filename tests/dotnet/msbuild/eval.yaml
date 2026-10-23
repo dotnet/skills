@@ -118,6 +118,10 @@ stimuli:
       off parallelism? Explain what the evidence supports and what to measure next.
       This is an advisory question; no checkout is available.
     graders:
+      - &advisory-work-budget
+        type: tool-calls
+        config:
+          disallowed: [view, glob, rg, grep, bash, powershell, task]
       - type: prompt
     rubric:
       - Explained that overlapping cumulative dependency waits can exceed elapsed time and do not establish exclusive task cost or CPU utilization.
@@ -137,6 +141,7 @@ stimuli:
       Both succeeded. Is the claim justified? Give a minimal measurement plan;
       don't change settings, purge caches, or stop shared build servers.
     graders:
+      - *advisory-work-budget
       - type: prompt
     rubric:
       - Rejected the claimed speedup because forced work, restore policy, and input state differ between the measurements.
@@ -172,6 +177,7 @@ stimuli:
               setting under comparison. Three runs per setting do not establish the
               same benefit for other workloads, hosts, or cache states.
     graders:
+      - *advisory-work-budget
       - type: prompt
     rubric:
       - Recognized that the supplied controls and matching outputs support an observed improvement for this workload.
