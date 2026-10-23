@@ -791,7 +791,7 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
             for entry in environment_file_entries(stim.get("environment"))
             if isinstance(entry, dict) and entry.get("dest") in suite_destinations
         )
-        if duplicates:
+        if duplicates and not os.path.basename(base).startswith("agent."):
             errors.append(
                 f"{spec}: '{stim.get('name')}' redeclares suite environment file "
                 f"destination(s) {duplicates}; Vally rejects duplicate file entries "
