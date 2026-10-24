@@ -29,7 +29,7 @@ stimuli:
       - type: tool-calls
         config:
           disallowed:
-            - '^(?:execute|bash|Bash|run_shell_command|powershell|pwsh|shell|local_shell|edit|Edit|Write|write|write_file|create|apply_patch|web_search|web_fetch)$'
+            - '^(?:execute|bash|Bash|run_shell_command|powershell|pwsh|shell|local_shell|edit|Edit|Write|write|write_file|create|apply_patch|web_search|web_fetch|replace|multiedit|patch_text)$'
     rubric:
       - Explains why successful compilation alone may miss an ineffective parameter or promise and suggests checking the specific observable behavior.
       - Uses the exact package and documented context without demanding that every vendor sample be compiled, requiring Copilot use, or inventing a failed readiness criterion.
@@ -58,7 +58,7 @@ stimuli:
       - type: tool-calls
         config:
           disallowed:
-            - '^(?:execute|bash|Bash|run_shell_command|powershell|pwsh|shell|local_shell|edit|Edit|Write|write|write_file|create|apply_patch|web_search|web_fetch)$'
+            - '^(?:execute|bash|Bash|run_shell_command|powershell|pwsh|shell|local_shell|edit|Edit|Write|write|write_file|create|apply_patch|web_search|web_fetch|replace|multiedit|patch_text)$'
     rubric:
       - Treats full-data serialization as a potentially intentional pattern, not proof of a defect, excessive cost, or a missing budget.
       - Identifies concrete evidence such as call frequency, actual payload bytes and the affected interaction while explaining the limits of allocation and copying attribution.

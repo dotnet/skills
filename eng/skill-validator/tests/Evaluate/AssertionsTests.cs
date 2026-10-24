@@ -462,12 +462,18 @@ public class EvaluateConstraintsTests
     [DataRow("apply_patch", false)]
     [DataRow("web_search", false)]
     [DataRow("web_fetch", false)]
+    [DataRow("replace", false)]
+    [DataRow("multiedit", false)]
+    [DataRow("patch_text", false)]
     [DataRow("view", true)]
     [DataRow("read_file", true)]
     [DataRow("read_bash", true)]
     [DataRow("bash_status", true)]
     [DataRow("edit_pr_review_comment", true)]
     [DataRow("web_fetch_metadata", true)]
+    [DataRow("replace_status", true)]
+    [DataRow("multiedit_status", true)]
+    [DataRow("patch_text_status", true)]
     public void ReadinessAdviceGuardsMatchExactToolNames(string tool, bool expectedPass)
     {
         foreach (var scenario in ReadReadinessAdviceScenarios())

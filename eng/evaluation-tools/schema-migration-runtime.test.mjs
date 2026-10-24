@@ -97,10 +97,11 @@ test("readiness advice guards reject exact write and execution names without sub
     "execute", "bash", "Bash", "run_shell_command", "powershell", "pwsh",
     "shell", "local_shell", "edit", "Edit", "Write", "write", "write_file",
     "create", "apply_patch", "web_search", "web_fetch",
+    "replace", "multiedit", "patch_text",
   ];
   const allowedNameControls = [
     "view", "read_file", "read_bash", "bash_status", "edit_pr_review_comment",
-    "web_fetch_metadata",
+    "web_fetch_metadata", "replace_status", "multiedit_status", "patch_text_status",
   ];
   for (const item of advice) {
     const guards = item.graders.filter((grader) => grader.type === "tool-calls");
