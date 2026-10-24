@@ -1504,7 +1504,7 @@ The failing workflow run reports the same validation error on each attempt.
 None found.
 
 ---
-<sub>🔍 [Investigation Run #77](https://github.com/dotnet/skills/actions/runs/999) · Dispatched by health check · {correlation}</sub>"""
+<sub>🔍 [Investigation Run #999](https://github.com/dotnet/skills/actions/runs/999) · Dispatched by health check · {correlation}</sub>"""
 
         accepted = run_investigation_publisher(self, valid_body)
         self.assertEqual(accepted["errors"], [])
@@ -1512,6 +1512,19 @@ None found.
             [call["type"] for call in accepted["calls"]],
             ["comment"],
         )
+
+        sequence_number_footer = run_investigation_publisher(
+            self,
+            valid_body.replace(
+                "Investigation Run #999",
+                "Investigation Run #77",
+            ),
+        )
+        self.assertEqual(
+            sequence_number_footer["errors"],
+            ["Investigation comment identity fields are invalid"],
+        )
+        self.assertEqual(sequence_number_footer["calls"], [])
 
         incomplete = run_investigation_publisher(
             self,
