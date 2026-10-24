@@ -265,6 +265,22 @@ judge noise by construction. Schema version 4 therefore retains the comparison
 under `excludedScenarioEvidence` and `scenarios[]`, but excludes it from the
 sign test and net win.
 
+Use the native stimulus `tags` mapping so stock Vally 0.18 accepts the spec:
+
+```yaml
+tags:
+  expect_activation: "false"
+```
+
+The shared skill/native-agent reader and quality gate retain historical top-level
+Boolean `expect_activation: false` support. Canonical `"false"` and `"true"` are
+the recommended authoring values. Main's case-insensitive false spellings
+(`false`, `no`, `off`) declare dormancy; other strings do not declare a false
+guard. Non-string values and contradictory actual old/new declarations fail
+explicitly instead of silently dropping a contract. The zero-dependency
+adapter supports block and flow mappings with literal keys. Aliased `tags`
+mappings, escaped/tagged/anchored keys, and YAML merges fail explicitly.
+
 The same scenario becomes an isolated-arm activation contract. Unexpected
 target-skill activation blocks a pass with
 `stateReason.code = activation_contract_failed`. Plugin-arm activation is

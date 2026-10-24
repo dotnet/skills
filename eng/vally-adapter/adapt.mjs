@@ -261,10 +261,10 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     }
     return t;
   };
-  const isFalsey = (v) => {
-    const withoutComment = v.trim().replace(/\s+#.*$/, "");
-    return /^(?:false|no|off)$/i.test(unquote(withoutComment));
-  };
+  const isFalsey = (v) =>
+    /^(?:false|False|FALSE|no|No|NO|off|Off|OFF)(?:\s+#.*)?$/.test(v.trim());
+  const isTruthy = (v) =>
+    /^(?:true|True|TRUE|yes|Yes|YES|on|On|ON)(?:\s+#.*)?$/.test(v.trim());
   const stripYamlComment = (value) => {
     let quote = null;
     let escaped = false;
@@ -336,30 +336,53 @@ function readNonActivationStimuli(evalFile, repoRoot) {
 
   let itemDashIndent = null; // indent of each stimulus item's leading dash
   let keyIndent = null; // column where an item's mapping keys begin
-  let tagsIndent = null;
-  let inTagsBlock = false;
   let curName = null;
-  let curNonActivation = false;
+  let curLegacyActivation = null;
+  let curTaggedActivation = null;
+  let inTags = false;
+  let tagIndent = null;
   const flush = () => {
-    if (curName != null && curNonActivation) result.add(curName);
+    if (curLegacyActivation !== null && curTaggedActivation !== null &&
+        curLegacyActivation !== curTaggedActivation) {
+      throw new Error(`conflicting expect_activation metadata for ${curName} in ${evalFile}`);
+    }
+    if (curName != null && (curLegacyActivation === false || curTaggedActivation === false)) {
+      result.add(curName);
+    }
     curName = null;
-    curNonActivation = false;
+    curLegacyActivation = null;
+    curTaggedActivation = null;
+    inTags = false;
+    tagIndent = null;
   };
-  const applyKey = (key, val) => {
-    if (key === "name" && curName === null) curName = unquote(val);
-    // Legacy direct metadata remains readable for old stored evals.
-    else if (key === "expect_activation") curNonActivation = isFalsey(val);
-  };
-  const applyTagKey = (key, val) => {
-    if (key === "expect_activation") curNonActivation = isFalsey(val);
+  const applyTagEntry = (entry) => {
+    const kv = /^\s*("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:]+)\s*:\s?(.*?)\s*$/.exec(entry);
+    const key = kv?.[1].trim();
+    if (key === "<<" || /^[!&*?]/.test(entry.trim()) ||
+        (key?.startsWith('"') && key.includes("\\"))) {
+      throw new Error(`unsupported tags key for ${curName} in ${evalFile}; use literal keys without merges`);
+    }
+    if (!kv || unquote(key) !== "expect_activation") return;
+    const raw = stripYamlComment(kv[2]).trim();
+    let value;
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      value = JSON.parse(raw);
+    } else if (raw.startsWith("'") && raw.endsWith("'")) {
+      value = raw.slice(1, -1).replaceAll("''", "'");
+    } else if (/^(?:false|False|FALSE|no|No|NO|off|Off|OFF|true|True|TRUE|yes|Yes|YES|on|On|ON|null|Null|NULL|~)$/.test(raw) ||
+        /^(?:[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?|[-+]?\.inf|\.nan)$/i.test(raw) ||
+        /^[!&*{[|>]/.test(raw) || raw === "") {
+      throw new Error(`tags.expect_activation must be a string for ${curName} in ${evalFile}`);
+    } else {
+      value = raw;
+    }
+    const word = value.toLowerCase();
+    curTaggedActivation = /^(?:false|no|off)$/.test(word) ? false : word === "true" ? true : null;
   };
   const applyTags = (value) => {
     const entries = flowMappingEntries(value);
     if (!entries) return false;
-    for (const entry of entries) {
-      const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
-      if (kv) applyTagKey(kv[1], kv[2]);
-    }
+    for (const entry of entries) applyTagEntry(entry);
     return true;
   };
   const applyTagsValue = (value) => {
@@ -376,11 +399,24 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     }
     return true;
   };
+  const applyKey = (key, val) => {
+    if (key === "name" && curName === null) curName = unquote(val);
+    else if (key === "expect_activation") {
+      curLegacyActivation = isFalsey(val) ? false : isTruthy(val) ? true : null;
+    } else if (key === "tags") {
+      if (applyTagsValue(val)) return;
+      if (val.trim() === "" || val.trim().startsWith("#")) {
+        inTags = true;
+      } else {
+        throw new Error(`unsupported tags mapping for ${curName} in ${evalFile}; use a block or flow mapping`);
+      }
+    }
+  };
   // Skip a block scalar's body: every following line that is blank or indented
   // deeper than the owning key, so prompt text can't be misread as keys.
-  const skipBlockScalar = (val) => {
+  const skipBlockScalar = (val, ownerIndent = keyIndent) => {
     if (!/^[|>]/.test(val.trim())) return;
-    while (i + 1 < lines.length && (lines[i + 1].trim() === "" || indentOf(lines[i + 1]) > keyIndent)) {
+    while (i + 1 < lines.length && (lines[i + 1].trim() === "" || indentOf(lines[i + 1]) > ownerIndent)) {
       i++;
     }
   };
@@ -395,23 +431,16 @@ function readNonActivationStimuli(evalFile, repoRoot) {
       itemDashIndent = ind;
       const rest = dash[2];
       keyIndent = line.length - rest.length;
-      tagsIndent = null;
-      inTagsBlock = false;
       const flowEntries = flowMappingEntries(rest);
       if (flowEntries) {
         for (const entry of flowEntries) {
-          const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
-          if (kv?.[1] === "tags") applyTagsValue(kv[2]);
-          else if (kv) applyKey(kv[1], kv[2]);
+          const kv = /^\s*([A-Za-z0-9_]+)\s*:\s?(.*?)\s*$/.exec(entry);
+          if (kv) applyKey(kv[1], kv[2]);
         }
       } else {
-        const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(rest);
+        const kv = /^([A-Za-z0-9_]+)\s*:\s?(.*)$/.exec(rest);
         if (kv) {
-          if (kv[1] === "tags") {
-            inTagsBlock = !applyTagsValue(kv[2]);
-          } else {
-            applyKey(kv[1], kv[2]);
-          }
+          applyKey(kv[1], kv[2]);
           skipBlockScalar(kv[2]);
         }
       }
@@ -421,22 +450,25 @@ function readNonActivationStimuli(evalFile, repoRoot) {
       flush();
       break;
     }
+    if (inTags && ind > keyIndent) {
+      tagIndent ??= ind;
+      if (ind === tagIndent) {
+        const entry = line.slice(ind);
+        applyTagEntry(entry);
+        const kv = /^[A-Za-z0-9_]+:\s?(.*)$/.exec(entry);
+        if (kv) skipBlockScalar(kv[1], ind);
+      }
+      continue;
+    }
+    inTags = false;
 
     // Only mapping keys at the item's key column belong to the stimulus itself;
     // deeper lines (grader entries, block-scalar bodies) are ignored.
     if (keyIndent !== null && ind === keyIndent) {
-      const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(line.slice(keyIndent));
+      const kv = /^([A-Za-z0-9_]+)\s*:\s?(.*)$/.exec(line.slice(keyIndent));
       if (kv) {
-        inTagsBlock = kv[1] === "tags" && !applyTagsValue(kv[2]);
-        tagsIndent = null;
-        if (kv[1] !== "tags") applyKey(kv[1], kv[2]);
+        applyKey(kv[1], kv[2]);
         skipBlockScalar(kv[2]);
-      }
-    } else if (inTagsBlock && keyIndent !== null && ind > keyIndent) {
-      tagsIndent ??= ind;
-      if (ind === tagsIndent) {
-        const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(line.slice(tagsIndent));
-        if (kv) applyTagKey(kv[1], kv[2]);
       }
     }
   }

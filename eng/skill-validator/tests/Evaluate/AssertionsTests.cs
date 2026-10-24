@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using SkillValidator.Evaluate;
 using SkillValidator.Shared;
+using YamlDotNet.RepresentationModel;
 
 namespace SkillValidator.Tests;
 
@@ -310,6 +311,23 @@ public class FileNotContainsAssertionTests : IDisposable
 [TestClass]
 public class EvaluateConstraintsTests
 {
+    private static IReadOnlyList<EvalScenario> ReadReadinessAdviceScenarios()
+    {
+        var yaml = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "readiness.eval.yaml"));
+        var stream = new YamlStream();
+        stream.Load(new StringReader(yaml));
+        var root = (YamlMappingNode)stream.Documents[0].RootNode;
+        var stimuli = (YamlSequenceNode)root.Children[new YamlScalarNode("stimuli")];
+        // Other stimuli use Vally-only object/program graders; exercise the shared advice cases.
+        root.Children[new YamlScalarNode("stimuli")] = new YamlSequenceNode(stimuli.Children.Take(2));
+        using var writer = new StringWriter();
+        stream.Save(writer);
+        var config = EvalSchema.ParseEvalConfigFlexible(writer.ToString());
+        Assert.IsNotNull(config);
+        Assert.AreEqual(2, config.Scenarios.Count);
+        return config.Scenarios;
+    }
+
     private static RunMetrics MakeMetrics(
         int tokenEstimate = 1000,
         int toolCallCount = 3,
@@ -424,6 +442,125 @@ public class EvaluateConstraintsTests
             MakeMetrics());
         Assert.IsFalse(results[0].Passed);
         Assert.Contains("'create_file' was used but should not be", results[0].Message);
+    }
+
+    [TestMethod]
+    [DataRow("execute", false)]
+    [DataRow("bash", false)]
+    [DataRow("Bash", false)]
+    [DataRow("run_shell_command", false)]
+    [DataRow("powershell", false)]
+    [DataRow("pwsh", false)]
+    [DataRow("shell", false)]
+    [DataRow("local_shell", false)]
+    [DataRow("edit", false)]
+    [DataRow("Edit", false)]
+    [DataRow("Write", false)]
+    [DataRow("write", false)]
+    [DataRow("write_file", false)]
+    [DataRow("create", false)]
+    [DataRow("apply_patch", false)]
+    [DataRow("web_search", false)]
+    [DataRow("web_fetch", false)]
+    [DataRow("replace", false)]
+    [DataRow("multiedit", false)]
+    [DataRow("patch_text", false)]
+    [DataRow("view", true)]
+    [DataRow("read_file", true)]
+    [DataRow("read_bash", true)]
+    [DataRow("bash_status", true)]
+    [DataRow("edit_pr_review_comment", true)]
+    [DataRow("web_fetch_metadata", true)]
+    [DataRow("replace_status", true)]
+    [DataRow("multiedit_status", true)]
+    [DataRow("patch_text_status", true)]
+    public void ReadinessAdviceGuardsMatchExactToolNames(string tool, bool expectedPass)
+    {
+        foreach (var scenario in ReadReadinessAdviceScenarios())
+        {
+            var result = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
+                scenario, MakeMetrics(toolCallBreakdown: new() { [tool] = 1 })));
+            Assert.AreEqual(expectedPass, result.Passed, $"{scenario.Name}: {tool}");
+            Assert.IsNotNull(result.Assertion.Pattern);
+        }
+    }
+
+    [TestMethod]
+    public void ReadinessAdviceGuardsAllowNoToolCalls()
+    {
+        foreach (var scenario in ReadReadinessAdviceScenarios())
+        {
+            var result = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
+                scenario, MakeMetrics(toolCallBreakdown: [])));
+            Assert.IsTrue(result.Passed);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("bash", "read_bash", false)]
+    [DataRow("^bash$", "read_bash", true)]
+    [DataRow("^bash$", "Bash", true)]
+    [DataRow("^Bash$", "Bash", false)]
+    public void NativeToolNamePatternsPreserveSubstringAndCaseSemantics(
+        string pattern, string tool, bool expectedPass)
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible($$"""
+            stimuli:
+              - name: Native pattern
+                prompt: Give advice.
+                graders:
+                  - type: tool-calls
+                    config:
+                      disallowed: ['{{pattern}}']
+            """);
+        Assert.IsNotNull(config);
+        var result = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
+            config.Scenarios[0], MakeMetrics(toolCallBreakdown: new() { [tool] = 1 })));
+        Assert.AreEqual(expectedPass, result.Passed);
+    }
+
+    [TestMethod]
+    [DataRow("bash", true)]
+    [DataRow("read_bash", false)]
+    public void NativeRequiredToolNamePatternIsNotTreatedAsALiteral(string tool, bool expectedPass)
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible("""
+            stimuli:
+              - name: Native required pattern
+                prompt: Explain the result.
+                graders:
+                  - type: tool-calls
+                    config:
+                      required: ['^bash$']
+            """);
+        Assert.IsNotNull(config);
+        var result = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
+            config.Scenarios[0], MakeMetrics(toolCallBreakdown: new() { [tool] = 1 })));
+        Assert.AreEqual(expectedPass, result.Passed);
+    }
+
+    [TestMethod]
+    [DataRow("reject_tools", "bash", "read_bash", true)]
+    [DataRow("reject_tools", "^bash$", "bash", true)]
+    [DataRow("reject_tools", "^bash$", "^bash$", false)]
+    [DataRow("reject_tools", "(", "(", false)]
+    [DataRow("expect_tools", "bash", "read_bash", false)]
+    [DataRow("expect_tools", "^bash$", "bash", false)]
+    [DataRow("expect_tools", "^bash$", "^bash$", true)]
+    [DataRow("expect_tools", "(", "(", true)]
+    public void LegacyToolNamesRemainLiteral(string constraint, string name, string tool, bool expectedPass)
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible($$"""
+            scenarios:
+              - name: Legacy exact name
+                prompt: Give advice.
+                {{constraint}}: ['{{name}}']
+            """);
+        Assert.IsNotNull(config);
+        var result = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
+            config.Scenarios[0], MakeMetrics(toolCallBreakdown: new() { [tool] = 1 })));
+        Assert.AreEqual(expectedPass, result.Passed);
+        Assert.IsNull(result.Assertion.Pattern);
     }
 
     [TestMethod]

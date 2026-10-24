@@ -1689,13 +1689,21 @@ def stimulus_expects_activation(stimulus: dict) -> bool:
     tags = stimulus.get("tags")
     if isinstance(tags, dict) and "expect_activation" in tags:
         value = tags["expect_activation"]
-        if isinstance(value, str) and value.lower() in {"true", "false"}:
-            return value.lower() == "true"
+        if isinstance(value, str):
+            if value.lower() not in {"true", "false", "no", "off"}:
+                return stimulus.get("expect_activation") is not False
+            expected = value.lower() == "true"
+            if isinstance(stimulus.get("expect_activation"), bool) and (
+                    expected != stimulus["expect_activation"]):
+                errors.append(
+                    f"stimulus '{stimulus.get('name')}' has conflicting "
+                    "expect_activation metadata")
+            return expected
         errors.append(
             f"stimulus '{stimulus.get('name')}' has tags.expect_activation={value!r}; "
             "use the quoted string \"true\" or \"false\"")
         return True
-    # Read the legacy extension so the gate gives a focused migration error.
+    # Read the legacy extension so historical Boolean contracts retain their meaning.
     return stimulus.get("expect_activation") is not False
 
 
@@ -1824,9 +1832,10 @@ def eval_evidence_counts(doc: dict) -> tuple[int, int, int, int]:
     """(preference stimuli, dormancy stimuli, runs, preference paired runs).
 
     The preference gate gives each non-dormancy stimulus one vote. Explicit
-    `tags.expect_activation: "false"` stimuli are activation-contract evidence
-    and do not enter preference inference. `defaults.runs` measures reliability
-    within a stimulus and does not
+    String-valued `tags.expect_activation: "false"` (or historical top-level
+    `expect_activation: false`) stimuli are activation-contract evidence and do
+    not enter preference inference. `defaults.runs` (or its deprecated
+    `config.runs` alias) measures reliability within a stimulus and does not
     increase the cross-task sample size.
     """
     stimuli = [stimulus for stimulus in (doc.get("stimuli") or [])

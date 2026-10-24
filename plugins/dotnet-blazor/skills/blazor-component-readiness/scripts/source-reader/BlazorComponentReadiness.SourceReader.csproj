@@ -1,0 +1,39 @@
+<Project>
+  <PropertyGroup>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <ImportDirectoryPackagesProps>false</ImportDirectoryPackagesProps>
+  </PropertyGroup>
+  <Import Project="$(MSBuildSDKsPath)/Microsoft.NET.Sdk/Sdk/Sdk.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>13.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>BlazorComponentReadiness.SourceReader</AssemblyName>
+    <Version>1.0.0</Version>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**</DefaultItemExcludes>
+    <RoslynCompilerDirectory>$(MSBuildSDKsPath)/../Roslyn/bincore</RoslynCompilerDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../validator/BlazorComponentReadiness.Validator.csproj" />
+    <Reference Include="Microsoft.CodeAnalysis">
+      <HintPath>$(RoslynCompilerDirectory)/Microsoft.CodeAnalysis.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp">
+      <HintPath>$(RoslynCompilerDirectory)/Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <Import Project="$(MSBuildSDKsPath)/Microsoft.NET.Sdk/Sdk/Sdk.targets" />
+  <Target Name="VerifyNoPackageReferences" BeforeTargets="PrepareForBuild">
+    <Error Condition="'@(PackageReference)' != ''" Text="The source reader must use SDK parser assemblies, not packages." />
+  </Target>
+  <Target Name="VerifySdkParser" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(RoslynCompilerDirectory)/Microsoft.CodeAnalysis.dll') Or !Exists('$(RoslynCompilerDirectory)/Microsoft.CodeAnalysis.CSharp.dll')"
+           Text="The active .NET 11 SDK must include both Roslyn parser assemblies; do not download replacements." />
+  </Target>
+</Project>
