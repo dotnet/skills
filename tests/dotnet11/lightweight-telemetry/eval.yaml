@@ -247,6 +247,7 @@ stimuli:
 
   - name: Cross-service tracing request stays out of scope
     tags:
+      expect_activation: "false"
       capability: tracing-boundary
       risk: incorrect-skill-activation
       journey: route-distributed-tracing
@@ -254,7 +255,6 @@ stimuli:
       My .NET 11 service needs distributed tracing across several microservices,
       with spans, context propagation, and a Jaeger backend so I can follow one
       request end to end. How should I set that up?
-    expect_activation: false
     graders:
       - type: output-matches
         config:
@@ -268,6 +268,7 @@ stimuli:
 
   - name: Cloud ingestion request stays out of scope
     tags:
+      expect_activation: "false"
       capability: cloud-ingestion-boundary
       risk: incorrect-skill-activation
       journey: route-hosted-telemetry
@@ -275,7 +276,6 @@ stimuli:
       I want my .NET 11 app's telemetry to land in Application Insights so my team
       gets hosted dashboards, retention, and alerting without running anything
       ourselves. What should I use?
-    expect_activation: false
     graders:
       - type: output-matches
         config:
@@ -289,6 +289,7 @@ stimuli:
 
   - name: Log shipping request stays out of scope
     tags:
+      expect_activation: "false"
       capability: logging-boundary
       risk: incorrect-skill-activation
       journey: route-log-shipping
@@ -296,7 +297,6 @@ stimuli:
       I just want my .NET 11 app to ship its existing info/warn/error log lines to
       a central place like Seq or Elasticsearch so I can search them. How do I do
       that?
-    expect_activation: false
     graders:
       - type: output-matches
         config:
