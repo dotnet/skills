@@ -22,6 +22,19 @@
 > the 155-minute evaluation step; expiry is an incomplete measurement, not a
 > native-runner failure. See the current guide for grouped per-target timings.
 
+The evaluation matrix job installs the .NET SDK from the trusted tooling
+checkout's `global.json` for model-invoked tools. Building the trusted validator
+on the separate preparation runner does not install that SDK on matrix runners.
+A missing-SDK refusal is a prerequisite defect, not a measured quality result.
+
+Ordinary Vally readiness stimuli have a 19-minute agent working limit inside
+the unchanged 20-minute hard cap. A clean working-limit stop retains and grades
+partial work; it is not proof of completion. Adapted scenario JSON reports
+`baselineTimedOut`, isolated `timedOut`, and optional `pluginTimedOut`, with
+arm-specific consolidated warnings. A hard timeout with no trajectory remains
+measurement-invalid. These are adapted Vally fields, not new raw native-runner
+timeout semantics.
+
 Executor sessions append the exact scenario workspace to the system context.
 Do not resolve fixture paths against a staged skill's base directory or the
 shared evaluator root. Normal shell pre-tool hooks defer to the SDK's typed

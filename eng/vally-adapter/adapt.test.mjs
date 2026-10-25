@@ -732,6 +732,47 @@ test("scenario results retain post-activation telemetry for isolated and plugin 
   );
 });
 
+test("working-limit cutoffs retain graded outcomes and report each arm without changing validity", () => {
+  const roles = ["baseline", "skilled", "plugin"];
+  for (const stoppedRole of roles) {
+    const maps = Object.fromEntries(roles.map((role) => [
+      `${role}ByStim`,
+      new Map(Array.from({ length: 5 }, (_, index) => [`Scenario ${index + 1}`, [{
+        status: "success",
+        gradeResult: { passed: role !== stoppedRole, score: role === stoppedRole ? 0 : 1 },
+        trajectory: {
+          endReason: role === stoppedRole ? "agent_timeout" : "completed",
+          events: role === "baseline" ? [] : [
+            { type: "skill.invoked", data: { name: IDENTITY.skill } },
+          ],
+          metrics: { wallTimeMs: 1000 },
+        },
+      }]])),
+    ]));
+    const verdict = comparisonToVerdict(
+      reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4]),
+      IDENTITY, { ...maps, hasPlugin: true }, new Set(),
+    );
+    assert.equal(verdict.state, VERDICT_STATES.VALID_PASS);
+    assert.equal(verdict.conclusive, true);
+    for (const scenario of verdict.scenarios) {
+      assert.equal(scenario.baselineTimedOut, stoppedRole === "baseline");
+      assert.equal(scenario.timedOut, stoppedRole === "skilled");
+      assert.equal(scenario.pluginTimedOut, stoppedRole === "plugin");
+      const result = stoppedRole === "baseline" ? scenario.baseline
+        : stoppedRole === "skilled" ? scenario.skilledIsolated : scenario.skilledPlugin;
+      assert.equal(result.judgeResult.overallScore, 0, "partial failure is not promoted to completed work");
+    }
+    const unmatched = reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4]);
+    unmatched.unmatchedBaseline = [{ stimulus: "Hard-deadline null trajectory" }];
+    const invalid = comparisonToVerdict(
+      unmatched, IDENTITY, { ...maps, hasPlugin: true }, new Set(),
+    );
+    assert.equal(invalid.state, VERDICT_STATES.INVALID_INCONCLUSIVE);
+    assert.equal(invalid.conclusive, false);
+  }
+});
+
 test("plugin activation ignores sibling skills when the target stays dormant", () => {
   const targetRecord = {
     gradeResult: { passed: true, score: 1 },

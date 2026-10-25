@@ -267,12 +267,20 @@ function scenarioStats(scenario) {
   };
 }
 
+function timeoutRoles(scenario) {
+  return [
+    [scenario?.baselineTimedOut, "baseline"],
+    [scenario?.timedOut, "isolated"],
+    [scenario?.pluginTimedOut, "plugin"],
+  ].filter(([timedOut]) => timedOut === true).map(([, role]) => role);
+}
+
 function isWeakOrWarningScenario(verdict, scenario) {
   const { netWin } = scenarioStats(scenario);
   const isolatedActivation = targetActivation(verdict, scenario, "isolated");
   const pluginActivation = targetActivation(verdict, scenario, "plugin");
   return netWin <= 0
-    || scenario?.timedOut === true
+    || timeoutRoles(scenario).length > 0
     || (scenario?.skillActivationIsolated?.failedActivationOnlyCompletions ?? 0) > 0
     || (scenario?.skillActivationPlugin?.failedActivationOnlyCompletions ?? 0) > 0
     || (scenario?.expectActivation === false
@@ -300,8 +308,10 @@ function scenarioTable(verdict, weakOnly = false) {
     const eligibility = scenario.preferenceGateEligible === false
       ? "Excluded (activation contract)"
       : "Eligible";
+    const roles = timeoutRoles(scenario);
+    const timeoutNote = roles.length ? ` (timeout: ${roles.join(", ")})` : "";
     rows.push(
-      `| ${icon} ${td(html(scenario.scenarioName))} | ${eligibility} | ${pct(netWin)} | ${pct(magnitude)} | ${wins}/${ties}/${losses} |`,
+      `| ${icon} ${td(html(scenario.scenarioName + timeoutNote))} | ${eligibility} | ${pct(netWin)} | ${pct(magnitude)} | ${wins}/${ties}/${losses} |`,
     );
   }
   return rows;
@@ -419,10 +429,11 @@ function warningParts(verdict) {
       `Activation-only stop: plugin ${countNoun(postActivation.pluginFailures, "failed run")}`,
     );
   }
-  const timeoutCount = (verdict.scenarios ?? []).filter(
-    (scenario) => scenario?.timedOut === true,
-  ).length;
-  if (timeoutCount > 0) warnings.push(countNoun(timeoutCount, "timeout"));
+  const timeouts = (verdict.scenarios ?? []).flatMap(timeoutRoles);
+  for (const role of ["baseline", "isolated", "plugin"]) {
+    const count = timeouts.filter((timedOutRole) => timedOutRole === role).length;
+    if (count > 0) warnings.push(countNoun(count, `${role} timeout`));
+  }
   const recovered = verdict.recoveredErrors?.length ?? 0;
   if (recovered > 0) warnings.push(`${countNoun(recovered, "judge slot")} recovered`);
   const unresolved = verdict.errors?.length ?? 0;
@@ -500,7 +511,7 @@ function nextAction(verdict) {
   if (postActivationStats(verdict).hasFailures) {
     actions.push("Inspect activation-only stops");
   }
-  if ((verdict.scenarios ?? []).some((scenario) => scenario?.timedOut === true)) {
+  if ((verdict.scenarios ?? []).some((scenario) => timeoutRoles(scenario).length > 0)) {
     actions.push("Inspect timeouts");
   }
   if (["Moderate", "High"].includes(verdict.overfittingResult?.severity)) {

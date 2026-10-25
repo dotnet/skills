@@ -5,6 +5,10 @@ defaults:
   timeout: 3m
 stimuli:
   - name: Author a data-loading search component
+    tags:
+      capability: asynchronous-search-results
+      risk: stale-results-and-uncancelled-requests
+      journey: author-data-loading-component
     prompt: |
       Write a Blazor component called ProductSearch that will be used on a catalog browsing page. Here are the service contracts the application already registers in DI:
 
@@ -57,6 +61,10 @@ stimuli:
       - Uses a private field for mutable state — does not mutate [Parameter] properties
       - Debounces search input with Task.Delay + CancellationTokenSource
   - name: Author a multi-step wizard with async validation and shared state
+    tags:
+      capability: validated-wizard-state
+      risk: invalid-navigation-and-lost-state
+      journey: author-multi-step-component
     prompt: |
       Author a set of Blazor components for a checkout wizard with async validation.
       Here are the models and service:
@@ -121,13 +129,21 @@ stimuli:
       - Implements IAsyncDisposable and cancels the CTS in DisposeAsync — pending validations are cancelled when navigating away
       - Parameters are public auto-properties with { get; set; }
   - name: Author a generic data table component
+    tags:
+      capability: typed-table-templates-and-callbacks
+      risk: untyped-row-content-and-events
+      journey: author-generic-component
     prompt: |
       Write a generic Blazor component called DataTable that works with any item type.
       The parent should be able to customize how headers and rows are rendered by passing
       in their own templates. Here's an example of how a consumer would use it:
 
+      In this example, `people` is a `List<Person>`, where `Person` has string
+      properties `Name` and `Email`, and the row-click handler is
+      `void HandleRowClick(Person person)`.
+
       ```razor
-      <DataTable Items="@people" OnRowClick="HandleRowClick">
+      <DataTable TItem="Person" Items="@people" OnRowClick="HandleRowClick">
           <HeaderTemplate>
               <th>Name</th>
               <th>Email</th>
@@ -161,6 +177,10 @@ stimuli:
       - Uses EventCallback<TItem> for OnRowClick
       - Items parameter is IReadOnlyList<TItem> or List<TItem>
   - name: Author a real-time notification badge component
+    tags:
+      capability: notification-subscription-lifecycle
+      risk: stale-notifications-and-leaked-subscriptions
+      journey: author-live-updating-component
     prompt: |
       Write a Blazor component called NotificationBadge. Here are the service contracts:
 
@@ -202,6 +222,10 @@ stimuli:
       - Event handler properly dispatches exceptions to the renderer
       - Polls using Task.Delay in a loop or PeriodicTimer
   - name: Author a sortable list with code-behind pattern
+    tags:
+      capability: separated-sortable-component-logic
+      risk: inconsistent-sort-state-and-component-identity
+      journey: author-code-behind-component
     prompt: |
       Write a Blazor component called SortableList using the code-behind pattern
       (SortableList.razor + SortableList.razor.cs). It should work with any item type.

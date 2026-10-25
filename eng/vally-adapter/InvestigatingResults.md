@@ -23,6 +23,12 @@ package-manifest/eval source links.
 
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 
+Each evaluation matrix job installs the SDK from the trusted tooling checkout's
+`global.json`. The validator preparation job runs on a separate runner; its SDK
+installation does not provide the SDK needed by model-invoked tools. If an arm
+reports a missing .NET SDK, inspect that matrix job's SDK setup and the tool's
+declared prerequisites before treating an early refusal as skill-quality evidence.
+
 The native agent parser stages `stimuli[].environment.files`, not a shared
 suite-level `environment.files` block. Declare required authentication helpers
 and other shared inputs in every stimulus that uses them. A missing
@@ -254,7 +260,9 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `meanScore` / `trials[]` | Compare preference for this stimulus and its per-trial `{ winner, magnitude, score, evidence, errored }` |
 | `expectActivation` | Whether the target should activate; `false` marks an expected-dormancy stimulus |
 | `preferenceGateEligible` / `preferenceGateExclusionReason` | Whether this scenario contributes a preference vote. Explicit dormancy is `false` / `activation_contract_only` |
-| `timedOut` | Whether the skilled run hit its timeout |
+| `timedOut` | Whether any isolated skilled run reached its agent working limit |
+| `baselineTimedOut` | Whether any baseline run reached its agent working limit; does not imply the target improved |
+| `pluginTimedOut` | Whether any whole-plugin run reached its agent working limit (present only when that arm ran) |
 | `agentActivationIsolated` / `agentActivationPlugin` | Agent targets only: exact target activation plus invoked/delegated agent names and event counts |
 | `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass |
 | `skillActivationPlugin` | The same telemetry for the whole-plugin run, filtered to named activation events for the target skill. Sibling-skill invocations do not set `activated` (present only when a plugin variant ran) |
@@ -556,8 +564,25 @@ An intermittent `ENOENT` for `.git/objects/maintenance.lock` while copying an
 eval fixture is a fixture setup race, not model behavior. Disable automatic Git
 maintenance and GC in the fixture repository before its baseline commit.
 
-### 2. Timeouts (`scenario.timedOut == true`, `trajectory.endReason == "agent_timeout"`)
-The agent didn't finish within the eval's `config.timeout`. Either the task is too large for the budget or the skill sent the agent down a slow path. Fixes: raise `config.timeout` in `eval.yaml` if the task legitimately needs more time (genuine code generation or repository exploration commonly needs 6–8 minutes plus headroom above observed successful runs), or tighten the skill so it converges faster.
+### 2. Agent working limits and hard timeouts
+
+`constraints.max_agent_duration` stops agent work cleanly and grades the retained
+partial trajectory (`endReason: "agent_timeout"`). Readiness stimuli use 19
+minutes inside their unchanged 20-minute `defaults.timeout` hard cap. Graders
+still check the actual output; partial work is not proof of task completion.
+The author-component eval retains its three-minute hard cap and has no agent
+working limit.
+
+Inspect `baselineTimedOut`, `timedOut` (isolated), and `pluginTimedOut` and the
+matching session events. Consolidated warnings and scenario rows name every
+affected arm, including a baseline cutoff that could otherwise favor treatment.
+A background helper left running after a final answer is not proof of SDK idle
+loss. A mid-work infrastructure stall can also consume the working budget;
+inspect it rather than attributing every cutoff to skill quality.
+
+A hard `defaults.timeout` failure with a null trajectory is different: it still
+makes the comparison measurement-invalid. Do not recover it by inventing output,
+dropping a pair, widening retries, or declaring incomplete work successful.
 
 ### 3. Activation contract failed (`stateReason.code == "activation_contract_failed"`)
 

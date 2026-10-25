@@ -8,6 +8,8 @@ scoring:
   threshold: 1.0
 stimuli:
   - name: Give documentation-testing advice without a readiness finding
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: documentation-testing-guidance
       risk: unsupported-readiness-findings
@@ -36,6 +38,8 @@ stimuli:
       - Answers the requested how-to question without creating a report, changing scores, executing examples, installing tools, or claiming an operation ran.
 
   - name: Give bounded data-transfer advice without profiling
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: data-transfer-evidence-boundaries
       risk: unsupported-performance-diagnosis
@@ -65,6 +69,8 @@ stimuli:
       - Gives advice without launching profiling, promising a diagnosis, requiring a broad performance dossier, or creating or changing readiness results.
 
   - name: Retain excluded deliverables without inventing defects
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: conditional-deliverable-scoping
       risk: omitted-or-misclassified-requirements
@@ -91,6 +97,8 @@ stimuli:
       - The response distinguishes missing rows from demonstrated product defects.
 
   - name: Apply AI requirements from promoted source deliverables
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: ai-deliverable-applicability
       risk: missed-ai-review-requirements
@@ -148,6 +156,8 @@ stimuli:
       - The complete explicit no-deliverable control remains not applicable for all six rows.
 
   - name: Respect the integration requirement for an in-scope scaffolder
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: scaffolder-integration-assessment
       risk: false-scaffolder-compliance
@@ -173,6 +183,8 @@ stimuli:
       - Absent AI deliverables remain explicitly not applicable rather than omitted or failed.
 
   - name: Distinguish release intent from package facts
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: release-artifact-evidence
       risk: policy-intent-as-execution-proof
@@ -195,6 +207,8 @@ stimuli:
       - type: exit-success
 
   - name: Credit bounded release execution records
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: release-execution-evidence
       risk: overstated-release-verification
@@ -253,6 +267,8 @@ stimuli:
       - The result stays limited to the recorded release and scan scope and does not claim complete authentication or vulnerability closure.
 
   - name: Classify three different evidence boundaries
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: assessment-status-classification
       risk: conflated-evidence-states
@@ -295,6 +311,8 @@ stimuli:
       - type: exit-success
 
   - name: Apply the four status boundaries precisely
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: assessment-status-classification
       risk: conflated-evidence-states
@@ -333,6 +351,8 @@ stimuli:
       - type: exit-success
 
   - name: Separate implementation proof from outcome proxies
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: source-and-outcome-evidence-separation
       risk: behavior-as-implementation-proof
@@ -363,6 +383,8 @@ stimuli:
       - type: exit-success
 
   - name: Enforce release and parameter trust boundaries
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: release-and-parameter-trust-assessment
       risk: privileged-build-and-parameter-mutation
@@ -416,6 +438,8 @@ stimuli:
           dest: fixture/fixture-tool.py
 
   - name: Classify published artifact absence and mechanism applicability
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: artifact-completeness-and-applicability
       risk: softened-artifact-gaps-and-false-applicability
@@ -469,6 +493,8 @@ stimuli:
           dest: fixture/fixture-tool.py
 
   - name: Select only owner-controlled documentation
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: official-documentation-selection
       risk: unofficial-evidence-as-authority
@@ -494,6 +520,8 @@ stimuli:
       - type: exit-success
 
   - name: Use a bounded internal owner record
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: owner-evidence-provenance
       risk: unbounded-owner-evidence-claims
@@ -530,6 +558,8 @@ stimuli:
       - type: exit-success
 
   - name: Assess a package with no public source
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: closed-source-assessment
       risk: unavailable-source-as-product-gap
@@ -564,6 +594,8 @@ stimuli:
       - type: exit-success
 
   - name: Produce one complete component record
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: standalone-component-assessment
       risk: unrequested-package-assessment
@@ -603,6 +635,8 @@ stimuli:
       - type: exit-success
 
   - name: Bind package and component records
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: package-component-record-binding
       risk: conflated-or-mismatched-assessment-scopes
@@ -641,6 +675,8 @@ stimuli:
       - type: exit-success
 
   - name: Preserve supplied candidate identity
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: release-candidate-identity-preservation
       risk: substituted-package-bytes
@@ -677,6 +713,8 @@ stimuli:
       - type: exit-success
 
   - name: Bind signature evidence to the selected package
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: package-signature-evidence-binding
       risk: cross-package-signature-attribution
@@ -724,6 +762,8 @@ stimuli:
       - The response does not claim that a real signature verifier ran.
 
   - name: Complete an isolated two-control library
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: isolated-library-assessment
       risk: incomplete-or-contaminated-library-results
@@ -759,6 +799,8 @@ stimuli:
       - type: exit-success
 
   - name: Keep the generated output factual
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: factual-report-generation
       risk: unsolicited-release-recommendations
@@ -792,6 +834,8 @@ stimuli:
       - type: exit-success
 
   - name: Assess the first packaged UI release
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: distributed-asset-sbom-correspondence
       risk: invented-sbom-omission
@@ -902,6 +946,8 @@ stimuli:
       - Factual completion uses the supported complete package report; no runtime or other unperformed verification is claimed.
 
   - name: Assess the second packaged UI release
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: distributed-asset-sbom-correspondence
       risk: missed-distributed-asset-omission
@@ -931,6 +977,8 @@ stimuli:
       - The evidence establishes actual distributed content, not ownership inferred from a filename or a source-only reference.
 
   - name: Assess the third packaged UI release
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: distributed-asset-sbom-correspondence
       risk: unsupported-asset-identity-verification
@@ -960,6 +1008,8 @@ stimuli:
       - Positive ordinary dependency coverage remains credited and no version, execution result or complete asset verification is invented.
 
   - name: Summarize an existing factual record without recommendations
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: factual-report-reading
       risk: altered-records-and-unsolicited-guidance
@@ -1045,6 +1095,8 @@ stimuli:
       - The recorded trajectory contains no command-bearing, network/browser or subagent tool call; unavailable read-only tooling or unknown/incomplete tool evidence is a harness limitation, and a no-rerun conclusion still requires complete retained results.jsonl/events.jsonl review.
 
   - name: Recommend bounded SBOM and release next steps
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: revision-bound-remediation-guidance
       risk: changed-findings-and-rerun-investigation
@@ -1081,6 +1133,8 @@ stimuli:
       - Canonical artifacts and final workspace inventory are preserved, the scoped companion is written through a recognized editor tool, and the recorded trajectory contains no command-bearing, network/browser or subagent tool call; unavailable or unknown tool evidence is a harness limitation.
 
   - name: Request missing SBOM and release evidence without inventing a fix
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: missing-evidence-guidance
       risk: speculative-remediation
@@ -1117,6 +1171,8 @@ stimuli:
       - The scoped companion is written through a recognized editor tool and the recorded trajectory contains no command-bearing, network/browser or subagent tool call; unavailable or unknown tool evidence is a harness limitation rather than permission to rerun work.
 
   - name: Map row evidence and returned paths precisely
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: row-evidence-and-artifact-mapping
       risk: misattributed-evidence-and-broken-handoffs
@@ -1173,6 +1229,8 @@ stimuli:
       - The returned nested artifact paths resolve to the files actually produced.
 
   - name: Exercise post-initialization child mutations
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: dynamic-child-lifecycle-assessment
       risk: missed-post-render-state-failures
@@ -1202,6 +1260,8 @@ stimuli:
       - type: exit-success
 
   - name: Bound third-party notice completeness
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: third-party-notice-evidence
       risk: unsupported-notice-completeness
@@ -1233,6 +1293,8 @@ stimuli:
       - type: exit-success
 
   - name: Bound embedded signing metadata
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: assembly-signature-evidence
       risk: signing-metadata-as-verification
@@ -1265,6 +1327,8 @@ stimuli:
       - type: exit-success
 
   - name: Bound accountable support ownership
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: support-accountability-evidence
       risk: contact-metadata-as-support-ownership
@@ -1299,6 +1363,8 @@ stimuli:
   # The adapter consumes it after the run; the deterministic
   # graders below independently score the requested off-target behavior.
   - name: Stay dormant for ordinary component authoring
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: scope-boundary-enforcement
       risk: unrequested-readiness-assessment
@@ -1330,6 +1396,8 @@ stimuli:
       - The response directly addresses reusable Blazor component authoring
 
   - name: Stay dormant for application debugging
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: scope-boundary-enforcement
       risk: unrequested-readiness-assessment
@@ -1361,6 +1429,8 @@ stimuli:
       - The response directly addresses the scoped-service disposal failure
 
   - name: Stay dormant for framework pull request review
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: scope-boundary-enforcement
       risk: unrequested-readiness-assessment
@@ -1389,6 +1459,8 @@ stimuli:
       - The response requests or uses the pull request evidence needed for an ordinary code review
 
   - name: Stay dormant for generic package creation
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: scope-boundary-enforcement
       risk: unrequested-readiness-assessment
@@ -1420,6 +1492,8 @@ stimuli:
       - The response directly addresses ordinary NuGet package creation
 
   - name: Assess a local selection component
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: public-parameter-ownership-discovery
       risk: missed-public-parameter-mutation
@@ -1599,6 +1673,8 @@ stimuli:
       - Evidence of a conflicting path is not cancelled by other paths or a paired callback; no runtime success is inferred.
 
   - name: Assess a separate local selection component
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: public-parameter-ownership-discovery
       risk: internal-state-as-parameter-mutation
@@ -1646,6 +1722,8 @@ stimuli:
       - All public parameter declarations and owned source paths satisfy the complete source-level requirement; no runtime success is inferred.
 
   - name: Assess a dock dispatch component
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: outbound-serialization-path-discovery
       risk: alternate-value-path-bypasses-typed-serialization
@@ -1857,6 +1935,8 @@ stimuli:
     - Natural source-grounded explanations and equivalent descriptions of the actual serializer APIs are accepted. No particular
       wording, procedure, tool use or skill activation is rewarded.
   - name: Assess another dock dispatch component
+    constraints:
+      max_agent_duration: 19m
     tags:
       capability: outbound-serialization-path-discovery
       risk: unreachable-raw-code-as-component-gap

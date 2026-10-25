@@ -644,6 +644,25 @@ jobs:
           rm -rf "$RUNNER_TEMP/trusted-validator-src"
           cp -a "$GITHUB_WORKSPACE/_trusted-validator-src" "$RUNNER_TEMP/trusted-validator-src"
 
+      - name: Setup .NET SDK for evaluated tools
+        if: steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: ${{ runner.temp }}/trusted-validator-src/global.json
+
+      - name: Verify .NET SDK for evaluated tools
+        if: steps.find-evals.outputs.has_evals == 'true'
+        working-directory: ${{ runner.temp }}
+        run: |
+          dotnet --list-sdks
+          REQUIRED_SDK=$(jq -er '.sdk.version' "$RUNNER_TEMP/trusted-validator-src/global.json")
+          REQUIRED_MAJOR=${REQUIRED_SDK%%.*}
+          ACTIVE_SDK=$(dotnet --version)
+          if [[ "$ACTIVE_SDK" != "$REQUIRED_MAJOR".* ]]; then
+            echo "::error::Expected active SDK major $REQUIRED_MAJOR for evaluated tools, found $ACTIVE_SDK"
+            exit 1
+          fi
+
       - name: Setup Node.js
         if: steps.find-evals.outputs.has_evals == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

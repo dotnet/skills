@@ -1804,6 +1804,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
         : null,
       observedInAnyRole: observedStimulusNames.has(name),
       timedOut: Boolean(skilled?.timedOut),
+      baselineTimedOut: Boolean(baseline?.timedOut),
       skillActivationIsolated: {
         activated: Boolean(skilled?.activated),
         ...(skilled?.postActivation ?? {}),
@@ -1815,6 +1816,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
       scenario.agentActivationIsolated = { activated: Boolean(skilled?.activated) };
     }
     if (hasPlugin) {
+      scenario.pluginTimedOut = Boolean(plugin?.timedOut);
       scenario.skillActivationPlugin = {
         activated: Boolean(plugin?.activated),
         ...(plugin?.postActivation ?? {}),

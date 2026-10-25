@@ -3,9 +3,36 @@ import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { gradeTrajectory, loadEvalSpec } from "@microsoft/vally";
+import {
+  createDefaultGraderRegistry, gradeTrajectory, loadEvalSpec, validateEvalSpec,
+} from "@microsoft/vally";
 
 const stimulus = { name: "schema migration runtime", prompt: "Exercise the grader." };
+
+test("every readiness stimulus has an effective working limit below the unchanged hard cap", async () => {
+  const path = join("tests", "dotnet-blazor", "blazor-component-readiness", "eval.yaml");
+  const spec = await loadEvalSpec(path);
+  assert.equal(spec.stimuli.length, 40);
+  assert.equal(spec.defaults.timeout, "20m");
+  assert.equal(spec.defaults.runs, 1);
+  for (const item of spec.stimuli) {
+    assert.equal(item.constraints?.max_agent_duration, "19m", item.name);
+  }
+  const validation = validateEvalSpec(spec, {
+    registry: createDefaultGraderRegistry(), evalFilePath: path,
+  });
+  assert.equal(validation.valid, true, JSON.stringify(validation.diagnostics));
+  assert.deepEqual(
+    validation.diagnostics.filter((item) => item.code === "ineffective-constraint"), [],
+  );
+  const author = await loadEvalSpec(
+    join("tests", "dotnet-blazor", "author-component", "eval.yaml"),
+  );
+  assert.equal(author.defaults.timeout, "3m");
+  assert.ok(author.stimuli.every((item) => item.constraints?.max_agent_duration == null));
+  const table = author.stimuli.find((item) => item.name === "Author a generic data table component");
+  assert.match(table.prompt, /<DataTable TItem="Person" Items="@people" OnRowClick="HandleRowClick">/);
+});
 
 function trajectory(events = []) {
   return { stimulus, events };

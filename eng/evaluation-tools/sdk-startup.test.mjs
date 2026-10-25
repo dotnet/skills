@@ -1,7 +1,36 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { CopilotClient } from '@github/copilot-sdk';
 import './sdk-startup.mjs';
+
+test('evaluation matrix provisions the SDK required by evaluated tools from trusted source', () => {
+  const workflow = readFileSync(
+    new URL('../../.github/workflows/evaluation-run.yml', import.meta.url), 'utf8',
+  );
+  const setup = workflow.match(
+    /^      - name: Setup \.NET SDK for evaluated tools\n[\s\S]*?(?=\n      - name:)/m,
+  )?.[0];
+  assert.ok(setup, 'matrix job must install an SDK, independently of prepare-validator');
+  assert.match(setup, /if: steps\.find-evals\.outputs\.has_evals == 'true'/);
+  assert.match(setup, /uses: actions\/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68/);
+  assert.match(
+    setup, /global-json-file: \$\{\{ runner\.temp \}\}\/trusted-validator-src\/global\.json/,
+  );
+  const staging = workflow.indexOf("name: Stage trusted evaluation tooling");
+  assert.ok(
+    staging >= 0 && staging < workflow.indexOf(setup),
+    "trusted SDK declaration must be staged before setup",
+  );
+  const verify = workflow.match(
+    /^      - name: Verify \.NET SDK for evaluated tools\n[\s\S]*?(?=\n      - name:)/m,
+  )?.[0];
+  assert.ok(verify, "verify SDK visibility before starting model trials");
+  assert.match(verify, /working-directory: \$\{\{ runner\.temp \}\}/);
+  assert.match(verify, /dotnet --list-sdks/);
+  assert.match(verify, /ACTIVE_SDK=\$\(dotnet --version\)/);
+  assert.match(verify, /exit 1/);
+});
 
 function deferred() {
   let resolve;
