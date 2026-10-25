@@ -1,5 +1,5 @@
 {
-  "lastUpdate": 1792874557746,
+  "lastUpdate": 1792930263391,
   "repoUrl": "",
   "entries": {
     "Quality": [
@@ -20524,6 +20524,737 @@
             ]
           }
         ]
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-5",
+        "date": 1792930263391,
+        "verdictEvidence": [
+          {
+            "skillName": "process-api-net11",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "unmatched_trajectories",
+              "phase": "comparison_pairing"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win -40.0% (0W/3T/2L over 5 preference-eligible stimulus vote(s), sign test p=0.250), mean preference -11.4% across 7 paired run(s), 2 dormancy stimulus/stimuli excluded from preference, 1 unmatched — inconclusive (unmatched trajectories)",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 5,
+              "wins": 0,
+              "ties": 3,
+              "losses": 2,
+              "discordant": 2,
+              "direction": "worse",
+              "pValue": 0.25,
+              "alpha": 0.05,
+              "netWin": -0.4,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 2
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 2,
+              "satisfied": 2,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [
+                {
+                  "scenarioName": "Non-activation: Running a process on .NET 8",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                },
+                {
+                  "scenarioName": "Non-activation: capture process output on .NET 10",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Auto-teardown child processes on parent exit in .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Deadlock-free full-output read via instance ReadAllText in .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Fire-and-forget process start in .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Non-activation: Running a process on .NET 8",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Non-activation: capture process output on .NET 10",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Run and capture process output in .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Stream tagged process output lines in .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Whitelist inherited handles for child process in .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Auto-teardown child processes on parent exit in .NET 11",
+                "direction": "worse",
+                "rationale": "A satisfies all requested safety requirements with a minimal runnable cross-platform-safe example and the required net11.0 project file. B correctly identifies the API and platform support, but its sample violates the central portability/safety requirement by setting a supported-platform-only property unconditionally. [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
+              },
+              {
+                "scenarioName": "Deadlock-free full-output read via instance ReadAllText in .NET 11",
+                "direction": "worse",
+                "rationale": "Both answers satisfy all four requested API and project-target requirements and give concise usable samples. A is modestly better because its added WaitForExitAsync makes the subsequent ExitCode access reliable and avoids B's inaccurate claim that ReadAllTextAsync itself guarantees process exit. Its extra caveats are also compatible with the requested custom ProcessStartInfo scenario."
+              },
+              {
+                "scenarioName": "Fire-and-forget process start in .NET 11",
+                "direction": "none",
+                "rationale": "Both responses fully satisfy all requested deliverables with valid concise code and relevant explanation. Their minor differences are stylistic and neither supplies a materially better final result."
+              },
+              {
+                "scenarioName": "Non-activation: Running a process on .NET 8",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Non-activation: capture process output on .NET 10",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: tie, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Stream tagged process output lines in .NET 11",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Whitelist inherited handles for child process in .NET 11",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/a6bf43ab61967c30919334986515163ab24d7635/plugins/dotnet11/skills/process-api-net11/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/a6bf43ab61967c30919334986515163ab24d7635/tests/dotnet11/process-api-net11/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/a6bf43ab61967c30919334986515163ab24d7635"
+              }
+            ]
+          },
+          {
+            "skillName": "system-text-json-net11",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_PASS",
+            "stateReason": {
+              "code": "credible_preference_improvement",
+              "phase": "decision"
+            },
+            "passed": true,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +83.3% (5W/1T/0L over 6 preference-eligible stimulus vote(s), sign test p=0.031), mean preference +50.0% across 8 paired run(s), 2 dormancy stimulus/stimuli excluded from preference — credibly better",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 6,
+              "wins": 5,
+              "ties": 1,
+              "losses": 0,
+              "discordant": 5,
+              "direction": "better",
+              "pValue": 0.03125,
+              "alpha": 0.05,
+              "netWin": 0.8333333333333334,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 2
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 2,
+              "satisfied": 2,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [
+                {
+                  "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                },
+                {
+                  "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Probe source-generated metadata without exception control flow",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Serialize with strongly typed metadata without casting",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
+                "direction": "better",
+                "rationale": "B fully satisfies the requested net11.0, built-in System.Text.Json solution and substantiates it with a successful execution. A's output transformation works, but its central implementation is noncompliant because it downgrades the framework and uses a custom policy rather than the requested built-in PascalCase policy."
+              },
+              {
+                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
+                "direction": "better",
+                "rationale": "B fulfills both explicit requirements: it uses the new framework PascalCase policy and validates a net11.0 executable. A provides a working fallback demonstration, but substitutes both a different naming mechanism and a different target framework, missing the core task requirements."
+              },
+              {
+                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
+                "direction": "worse",
+                "rationale": "Both answers directly satisfy the core library-choice requirements and provide usable DefaultContractResolver subclasses. A is modestly stronger technically because its naming strategy converts snake/kebab/space-separated names into PascalCase as well as capitalizing camel-cased names, and it includes a demonstrated result. Its SDK-verification preface is unnecessary, but does not compromise the requested Newtonsoft-only solution."
+              },
+              {
+                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Probe source-generated metadata without exception control flow",
+                "direction": "better",
+                "rationale": "B satisfies all requested details: generic no-throw probing, source-generated resolver configuration, explicit branches, and a successful net11.0 run. A demonstrates the basic behavior correctly but misses the specified generic API and does not run the requested target framework."
+              },
+              {
+                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
+                "direction": "better",
+                "rationale": "B fully and correctly fulfills all requested technical requirements: net11.0 targeting, the new framework PascalCase policy without a custom class, preservation of the supplied lowercase record parameters, and a successful demonstrated output. A produces visually correct JSON only by changing the model and, more seriously, rejects the task's core .NET 11 API and target framework."
+              },
+              {
+                "scenarioName": "Serialize with strongly typed metadata without casting",
+                "direction": "better",
+                "rationale": "Both responses correctly satisfy the technical task and successfully run their examples. B is the better final result because it is more minimal and self-contained for a net11.0 program (including the target framework), while retaining the configured resolver, typed metadata flow, and verified output."
+              },
+              {
+                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/a6bf43ab61967c30919334986515163ab24d7635/plugins/dotnet11/skills/system-text-json-net11/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/a6bf43ab61967c30919334986515163ab24d7635/tests/dotnet11/process-api-net11/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/a6bf43ab61967c30919334986515163ab24d7635"
+              }
+            ]
+          }
+        ],
+        "commit": {
+          "id": "a6bf43ab61967c30919334986515163ab24d7635",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "timestamp": "2026-10-22T17:39:11+00:00",
+          "message": "Merge pull request #1338 from dotnet/dependabot/npm_and_yarn/tests/dotnet-test/agent.test-engineer/fixtures/typescript-vitest-cart/vite-8.3.4",
+          "url": "https://github.com/dotnet/skills/commit/a6bf43ab61967c30919334986515163ab24d7635"
+        },
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Auto-teardown child processes on parent exit in .NET 11 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Auto-teardown child processes on parent exit in .NET 11 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.75,
+            "name": "process-api-net11/Auto-teardown child processes on parent exit in .NET 11 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Deadlock-free full-output read via instance ReadAllText in .NET 11 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Deadlock-free full-output read via instance ReadAllText in .NET 11 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Deadlock-free full-output read via instance ReadAllText in .NET 11 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Fire-and-forget process start in .NET 11 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Fire-and-forget process start in .NET 11 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Fire-and-forget process start in .NET 11 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Non-activation: Running a process on .NET 8 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Non-activation: Running a process on .NET 8 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Non-activation: Running a process on .NET 8 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Non-activation: capture process output on .NET 10 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Non-activation: capture process output on .NET 10 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Non-activation: capture process output on .NET 10 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Run and capture process output in .NET 11 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Run and capture process output in .NET 11 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Stream tagged process output lines in .NET 11 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Stream tagged process output lines in .NET 11 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Stream tagged process output lines in .NET 11 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Whitelist inherited handles for child process in .NET 11 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "process-api-net11/Whitelist inherited handles for child process in .NET 11 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "process-api-net11/Whitelist inherited handles for child process in .NET 11 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.416666507720947,
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.083333492279053,
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.714285850524902,
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.142857074737549,
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.571428298950195,
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality"
+          }
+        ]
       }
     ],
     "Efficiency": [
@@ -35970,6 +36701,493 @@
             "username": "AbhitejJohn"
           }
         }
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-5",
+        "commit": {
+          "id": "a6bf43ab61967c30919334986515163ab24d7635",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "timestamp": "2026-10-22T17:39:11+00:00",
+          "message": "Merge pull request #1338 from dotnet/dependabot/npm_and_yarn/tests/dotnet-test/agent.test-engineer/fixtures/typescript-vitest-cart/vite-8.3.4",
+          "url": "https://github.com/dotnet/skills/commit/a6bf43ab61967c30919334986515163ab24d7635"
+        },
+        "date": 1792930263391,
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 8.0,
+            "name": "process-api-net11/Auto-teardown child processes on parent exit in .NET 11 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 36835.0,
+            "name": "process-api-net11/Auto-teardown child processes on parent exit in .NET 11 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.5,
+            "name": "process-api-net11/Auto-teardown child processes on parent exit in .NET 11 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 37610.0,
+            "name": "process-api-net11/Auto-teardown child processes on parent exit in .NET 11 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.7,
+            "name": "process-api-net11/Auto-teardown child processes on parent exit in .NET 11 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 121857.0,
+            "name": "process-api-net11/Auto-teardown child processes on parent exit in .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.1,
+            "name": "process-api-net11/Deadlock-free full-output read via instance ReadAllText in .NET 11 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 36958.0,
+            "name": "process-api-net11/Deadlock-free full-output read via instance ReadAllText in .NET 11 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.3,
+            "name": "process-api-net11/Deadlock-free full-output read via instance ReadAllText in .NET 11 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 58903.0,
+            "name": "process-api-net11/Deadlock-free full-output read via instance ReadAllText in .NET 11 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 165.8,
+            "name": "process-api-net11/Deadlock-free full-output read via instance ReadAllText in .NET 11 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 870439.0,
+            "name": "process-api-net11/Deadlock-free full-output read via instance ReadAllText in .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 6.9,
+            "name": "process-api-net11/Fire-and-forget process start in .NET 11 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 36689.0,
+            "name": "process-api-net11/Fire-and-forget process start in .NET 11 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.6,
+            "name": "process-api-net11/Fire-and-forget process start in .NET 11 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 37447.0,
+            "name": "process-api-net11/Fire-and-forget process start in .NET 11 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 184.6,
+            "name": "process-api-net11/Fire-and-forget process start in .NET 11 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 701636.0,
+            "name": "process-api-net11/Fire-and-forget process start in .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 4.2,
+            "name": "process-api-net11/Non-activation: Running a process on .NET 8 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 16189.0,
+            "name": "process-api-net11/Non-activation: Running a process on .NET 8 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 4.4,
+            "name": "process-api-net11/Non-activation: Running a process on .NET 8 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 16599.0,
+            "name": "process-api-net11/Non-activation: Running a process on .NET 8 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.0,
+            "name": "process-api-net11/Non-activation: Running a process on .NET 8 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 31182.0,
+            "name": "process-api-net11/Non-activation: Running a process on .NET 8 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 21.6,
+            "name": "process-api-net11/Non-activation: capture process output on .NET 10 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 85761.0,
+            "name": "process-api-net11/Non-activation: capture process output on .NET 10 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 6.9,
+            "name": "process-api-net11/Non-activation: capture process output on .NET 10 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 16739.0,
+            "name": "process-api-net11/Non-activation: capture process output on .NET 10 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 36.4,
+            "name": "process-api-net11/Non-activation: capture process output on .NET 10 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 113863.0,
+            "name": "process-api-net11/Non-activation: capture process output on .NET 10 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 8.9,
+            "name": "process-api-net11/Run and capture process output in .NET 11 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 36859.0,
+            "name": "process-api-net11/Run and capture process output in .NET 11 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 8.0,
+            "name": "process-api-net11/Run and capture process output in .NET 11 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 37539.0,
+            "name": "process-api-net11/Run and capture process output in .NET 11 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.2,
+            "name": "process-api-net11/Stream tagged process output lines in .NET 11 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 57714.0,
+            "name": "process-api-net11/Stream tagged process output lines in .NET 11 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.4,
+            "name": "process-api-net11/Stream tagged process output lines in .NET 11 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 37650.0,
+            "name": "process-api-net11/Stream tagged process output lines in .NET 11 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 168.0,
+            "name": "process-api-net11/Stream tagged process output lines in .NET 11 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 587653.0,
+            "name": "process-api-net11/Stream tagged process output lines in .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.5,
+            "name": "process-api-net11/Whitelist inherited handles for child process in .NET 11 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 36992.0,
+            "name": "process-api-net11/Whitelist inherited handles for child process in .NET 11 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.4,
+            "name": "process-api-net11/Whitelist inherited handles for child process in .NET 11 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 58989.0,
+            "name": "process-api-net11/Whitelist inherited handles for child process in .NET 11 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.8,
+            "name": "process-api-net11/Whitelist inherited handles for child process in .NET 11 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 84068.0,
+            "name": "process-api-net11/Whitelist inherited handles for child process in .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 37.0,
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 160091.0,
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.5,
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 237079.0,
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 43.2,
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 121765.0,
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 31.1,
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 135165.0,
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 30.7,
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 135322.0,
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 22.2,
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 65323.0,
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.1,
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 16552.0,
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.1,
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 16751.0,
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 41.1,
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 118263.0,
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 13.8,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 67124.0,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 13.1,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 67507.0,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 22.4,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 100185.0,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.2,
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 134795.0,
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 37.0,
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 137523.0,
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 30.5,
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 116637.0,
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.8,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 135939.0,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 41.3,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 161874.0,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 30.5,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 83381.0,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.0,
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 158772.0,
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 41.7,
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 185152.0,
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 73.0,
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 216699.0,
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 39.4,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 162773.0,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 47.6,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 163036.0,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 83.2,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 271411.0,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In"
+          }
+        ]
       }
     ],
     "SkillValue": [
@@ -39274,6 +40492,133 @@
             "username": "AbhitejJohn"
           }
         }
+      },
+      {
+        "skills": [
+          {
+            "bothPass": 6,
+            "treatment": {
+              "tokens": 43876.857142857145,
+              "n": 7,
+              "tokensOut": 811.8571428571429,
+              "tokensIn": 43065.0,
+              "timeMs": 10633.42857142857,
+              "cacheRead": 31722.571428571428,
+              "cacheWrite": 11337.57142857143
+            },
+            "activationFired": 6,
+            "treatmentOnlyPass": 1,
+            "baselineOnlyPass": 0,
+            "preference": {
+              "practicalPassed": true,
+              "alpha": 0.05,
+              "ties": 3,
+              "wins": 0,
+              "minCredibleStimuli": 5,
+              "netWin": -0.4,
+              "count": 5,
+              "pValue": 0.25,
+              "conclusive": false,
+              "underpowered": false,
+              "losses": 2,
+              "direction": "worse"
+            },
+            "activationContract": {
+              "count": 2,
+              "evaluated": true,
+              "violated": 0,
+              "passed": true
+            },
+            "treatAvailable": 8,
+            "pairedN": 7,
+            "baseline": {
+              "tokens": 358671.14285714284,
+              "n": 7,
+              "tokensOut": 6899.857142857143,
+              "tokensIn": 351771.28571428574,
+              "timeMs": 88623.57142857143,
+              "cacheRead": 322997.28571428574,
+              "cacheWrite": 28748.571428571428
+            },
+            "baseAvailable": 7,
+            "activationExpected": 6,
+            "baselineFail": 1,
+            "passTotal": 7,
+            "timedOut": false,
+            "hasPassData": true,
+            "bothFail": 0,
+            "skill": "process-api-net11",
+            "treatmentFail": 0
+          },
+          {
+            "bothPass": 3,
+            "treatment": {
+              "tokens": 121401.375,
+              "n": 8,
+              "tokensOut": 1454.75,
+              "tokensIn": 119946.625,
+              "timeMs": 28690.125,
+              "cacheRead": 105569.125,
+              "cacheWrite": 14366.5
+            },
+            "activationFired": 6,
+            "treatmentOnlyPass": 4,
+            "baselineOnlyPass": 0,
+            "preference": {
+              "practicalPassed": true,
+              "alpha": 0.05,
+              "ties": 1,
+              "wins": 5,
+              "minCredibleStimuli": 5,
+              "netWin": 0.8333333333333334,
+              "count": 6,
+              "pValue": 0.03125,
+              "conclusive": true,
+              "underpowered": false,
+              "losses": 0,
+              "direction": "better"
+            },
+            "activationContract": {
+              "count": 2,
+              "evaluated": true,
+              "violated": 0,
+              "passed": true
+            },
+            "treatAvailable": 8,
+            "pairedN": 8,
+            "baseline": {
+              "tokens": 136708.0,
+              "n": 8,
+              "tokensOut": 2873.0,
+              "tokensIn": 133835.0,
+              "timeMs": 43275.875,
+              "cacheRead": 123185.25,
+              "cacheWrite": 10635.0
+            },
+            "baseAvailable": 8,
+            "activationExpected": 6,
+            "baselineFail": 5,
+            "passTotal": 8,
+            "timedOut": false,
+            "hasPassData": true,
+            "bothFail": 1,
+            "skill": "system-text-json-net11",
+            "treatmentFail": 1
+          }
+        ],
+        "model": "claude-opus-5",
+        "judgeModel": "gpt-5.6-terra",
+        "commit": {
+          "id": "a6bf43ab61967c30919334986515163ab24d7635",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "timestamp": "2026-10-22T17:39:11+00:00",
+          "message": "Merge pull request #1338 from dotnet/dependabot/npm_and_yarn/tests/dotnet-test/agent.test-engineer/fixtures/typescript-vitest-cart/vite-8.3.4",
+          "url": "https://github.com/dotnet/skills/commit/a6bf43ab61967c30919334986515163ab24d7635"
+        },
+        "date": 1792930263391
       }
     ]
   },
