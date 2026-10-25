@@ -91,6 +91,24 @@ Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
 
+For the **native-agent-sdk** lane, `session.create` can instead fail with
+`session construction failed: Path outside allowed roots: .../session-state/temp`.
+Inspect `run_results.metrics_json` in the uploaded native `sessions.db` for
+`runner.error` events: aggregate verdicts may replace the exception with
+`1/1 run(s) failed` and classify it as `comparison_judge_error`.
+The SDK passes absolute paths in its filesystem namespace. The native provider
+must map its configured state namespace into each session's private config
+directory for agent and judge/analyzer sessions alike, while retaining the
+scenario-only file allowlist and rejecting model-requested state access.
+Do not fix this by allowing the whole evaluator
+root or shared system temp directory. This is a runner startup failure, not
+a skill-quality regression. The native validator is built from the trusted
+workflow revision, which must itself contain the runner repair. An
+`/evaluate <sha>` issue-comment run uses the default-branch workflow, not the
+PR's runner source. An authorized PR-specific `workflow_dispatch` can select
+the reviewed same-repository branch; verify the workflow SHA, gate-bound target
+SHA, and validator artifact provenance before treating it as a repaired run.
+
 ### Investigation steps
 
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`

@@ -315,8 +315,13 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > removes both aliases from the process and every setup-command or command-grader
 > child environment.
 > The session filesystem provider stores `session-state/*` under the private
-> config directory, resolves relative file-tool paths from the scenario
-> workspace, limits absolute paths to the private evaluator root, and rejects
+> config directory. The SDK also sends absolute state paths rooted at the
+> client's private evaluator directory, such as `session-state/temp`.
+> These virtual paths map to that session's private config directory, never to
+> shared physical state. Agent and judge/analyzer sessions use the same provider
+> factory so both receive this namespace mapping. Relative file-tool paths
+> resolve from the scenario workspace; other absolute paths are limited to its explicitly
+> allowed roots. The provider rejects
 > any reparse-point or symbolic-link component that escapes the selected root.
 > Evaluator clients use a process-private directory under the system temp
 > directory as their SDK filesystem root because the shared client is created
@@ -334,6 +339,9 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > an opened allowed root with OS no-follow semantics, so a path component
 > replaced after validation cannot redirect the operation through a symbolic
 > link or reparse point.
+> Built-in file-tool hooks and read/write permission callbacks reject both
+> relative and absolute SDK state paths; only evaluator-owned filesystem
+> callbacks may use this reserved namespace.
 > Permission requests fail closed: read/write paths use the same containment
 > checks, URL access is denied, shell requests without path or URL metadata
 > are limited to a small exact local-command allowlist, and MCP access is

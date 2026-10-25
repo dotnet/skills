@@ -69,7 +69,7 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
-    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v3";
+    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v4";
     private static readonly HashSet<string> EvaluatorOnlySetupEntries =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -177,7 +177,7 @@ public static class AgentRunner
                     // skill under one private evaluator root; per-session hooks below
                     // further restrict each run to its narrow allowlist.
                     InitialWorkingDirectory = GetEvaluationRoot(),
-                    SessionStatePath = "session-state",
+                    SessionStatePath = GetSessionStatePath(),
                     Conventions = OperatingSystem.IsWindows()
                         ? GitHub.Copilot.Rpc.SessionFsSetProviderConventions.Windows
                         : GitHub.Copilot.Rpc.SessionFsSetProviderConventions.Posix,
@@ -211,6 +211,21 @@ public static class AgentRunner
         Directory.CreateDirectory(root);
         return root;
     }
+
+    internal static string GetSessionStatePath()
+        => Path.Combine(GetEvaluationRoot(), "session-state");
+
+    internal static LocalSessionFsHandler CreateSessionFsHandler(
+        string configDir,
+        string workDir,
+        IEnumerable<string> allowedAbsoluteRoots,
+        bool offlineWorkflow = false)
+        => new(
+            configDir,
+            workDir,
+            allowedAbsoluteRoots,
+            offlineWorkflow,
+            virtualSessionStatePath: GetSessionStatePath());
 
     internal static string CreatePrivateWorkDir(string prefix)
     {
@@ -844,7 +859,7 @@ public static class AgentRunner
             // built-in file tools. Keep state under configDir, resolve relative
             // tool paths under workDir, and permit absolute paths only within
             // this scenario workspace and its explicitly staged skill roots.
-            CreateSessionFsProvider = _ => new LocalSessionFsHandler(
+            CreateSessionFsProvider = _ => CreateSessionFsHandler(
                 configDir,
                 workDir,
                 new[] { workDir }.Concat(additionalAllowedDirs),
@@ -906,7 +921,8 @@ public static class AgentRunner
                     }
 
                     var reqPaths = ExtractPathsFromToolArgs(input);
-                    if (reqPaths.Any(LocalSessionFsHandler.IsSessionStatePath))
+                    if (reqPaths.Any(path =>
+                        LocalSessionFsHandler.IsSessionStatePath(path, GetSessionStatePath())))
                     {
                         return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                         {
@@ -956,7 +972,7 @@ public static class AgentRunner
         GitHub.Copilot.Rpc.PermissionDecision CheckPath(string? path)
         {
             if (string.IsNullOrWhiteSpace(path)
-                || LocalSessionFsHandler.IsSessionStatePath(path)
+                || LocalSessionFsHandler.IsSessionStatePath(path, GetSessionStatePath())
                 || !CheckPermission(
                     path,
                     workDir,

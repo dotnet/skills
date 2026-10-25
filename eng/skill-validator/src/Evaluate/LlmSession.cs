@@ -55,7 +55,7 @@ internal static class LlmSession
                 Content = systemPrompt,
             },
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
-            CreateSessionFsProvider = _ => new LocalSessionFsHandler(
+            CreateSessionFsProvider = _ => AgentRunner.CreateSessionFsHandler(
                 tempConfigDir,
                 workDir,
                 [workDir]),
