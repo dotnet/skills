@@ -111,6 +111,17 @@ SHA, and validator artifact provenance before treating it as a repaired run.
 
 ### Investigation steps
 
+The ordinary Vally comparison phase has a 60-minute watchdog inside the
+155-minute evaluation step. CI passes `adapt.mjs --compare-workers 2` to compare
+at most two targets at once, scheduling larger paired-record sets first.
+The adapter defaults to one worker outside CI and accepts limits from 1 to 3.
+Each target retains its original comparison and bounded recovery sequence, with
+private scratch files and grouped subprocess output labeled by target and duration.
+Result accounting is sorted independently of completion order; completed target
+files remain available if another target stalls. Exit 124 still means an
+incomplete, invalid measurement, not a quality verdict. Do not fix this by
+dropping pairs, relaxing accounting, or blindly extending the enclosing deadlines.
+
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`
 2. **Skim the run's step summary** (the "Full Results" link) for the complete metrics and scenario tables.
 3. **Read `adapter-summary.json` and each `results.json`** (`eval-results/vally-results-*/<plugin>/<skill>/results.json`). The summary proves expected-versus-produced accounting; each skill file gives the compare state and evidence.

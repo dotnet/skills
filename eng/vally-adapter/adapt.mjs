@@ -36,13 +36,14 @@
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
-import { execFileSync } from "node:child_process";
-import { parseArgs } from "node:util";
+import { execFile } from "node:child_process";
+import { parseArgs, promisify } from "node:util";
 import { pathToFileURL } from "node:url";
 
 // True only when this file is the entry point (node adapt.mjs ...), false when
 // imported as a module (e.g. from a test). Gates arg-driven exits and main().
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const execFileAsync = promisify(execFile);
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -70,6 +71,7 @@ const { values: opts } = parseArgs({
     vally: { type: "string", default: "npx @microsoft/vally-cli" },
     model: { type: "string", default: "claude-opus-4.6" },
     "judge-model": { type: "string", default: "claude-opus-4.6" },
+    "compare-workers": { type: "string", default: "1" },
     // Repository root used to resolve each eval's relative path so the adapter
     // can read `expect_activation` annotations. Defaults to the current working
     // directory, which is the repo root during a CI experiment run.
@@ -107,6 +109,8 @@ Options:
                             (default: "npx @microsoft/vally-cli")
   --judge-model <model>     Comparison judge model (default: claude-opus-4.6)
   --model <model>           Agent model, recorded on the verdict (default: claude-opus-4.6)
+  --compare-workers <n>     Concurrent target comparisons, from 1 to 3 (default: 1).
+                            Parallel runs schedule the largest targets first.
   --overfitting <file>      Optional JSON file from 'skill-validator overfitting'
                             (array of {plugin, skill, overfittingResult}). Merged
                             onto each verdict as verdict.overfittingResult.
@@ -1243,7 +1247,7 @@ function transientComparisonSlots(report) {
  * the retry report must describe exactly one trial for the planned stimulus. Any
  * other shape is ambiguous and leaves the original error in place.
  */
-function recoverComparisonSlot(slot, config) {
+async function recoverComparisonSlot(slot, config) {
   const baselineSlot = recordsForComparisonSlot(
     config.baselineRecords,
     slot.stimulusName,
@@ -1326,7 +1330,7 @@ function recoverComparisonSlot(slot, config) {
 
   let retryReport;
   try {
-    retryReport = config.compare(baselineSliceFile, skilledSliceFile, outFile);
+    retryReport = await config.compare(baselineSliceFile, skilledSliceFile, outFile);
   } catch (err) {
     return {
       ok: false,
@@ -1385,7 +1389,7 @@ function recoverComparisonSlot(slot, config) {
  * slots, and leaves every successful judgment frozen. Unresolved slots stay
  * errored so the measurement-validity gate keeps failing the leg.
  */
-function recoverTransientComparisonSlots(primaryReport, config) {
+async function recoverTransientComparisonSlots(primaryReport, config) {
   const compare = config.compare ?? runCompare;
   const maxSlots = config.maxSlots ?? MAX_TARGETED_COMPARISON_SLOTS;
   const slots = transientComparisonSlots(primaryReport);
@@ -1428,7 +1432,7 @@ function recoverTransientComparisonSlots(primaryReport, config) {
     const identityError = identityErrors.get(slot.stimulusName);
     const outcome = identityError
       ? { ok: false, error: identityError }
-      : recoverComparisonSlot(slot, {
+      : await recoverComparisonSlot(slot, {
           ...config,
           compare,
           slotOrdinal: index + 1,
@@ -1509,7 +1513,7 @@ function recoverTransientComparisonSlots(primaryReport, config) {
  * Run `vally compare` in two-run mode over one eval's baseline vs skilled
  * slices and return the parsed comparison record (or null on failure).
  */
-function runCompare(baselineSlice, skilledSlice, outFile) {
+async function runCompare(baselineSlice, skilledSlice, outFile) {
   const { bin, prefix } = splitVallyCommand(opts.vally);
   const args = [
     ...prefix,
@@ -1524,11 +1528,23 @@ function runCompare(baselineSlice, skilledSlice, outFile) {
     outFile,
   ];
   let invocationError;
+  let output = "";
+  const started = Date.now();
   try {
-    execFileSync(bin, args, { stdio: ["ignore", "ignore", "inherit"] });
+    const result = await execFileAsync(bin, args, {
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    output = result.stdout + result.stderr;
   } catch (error) {
     invocationError = error;
+    output = String(error.stdout ?? "") + String(error.stderr ?? "");
   }
+  console.error(
+    `[comparison ${basename(outFile)}] ${Date.now() - started}ms` +
+      (invocationError ? " (nonzero invocation)" : "") +
+      (output ? `\n${output.trimEnd()}` : ""),
+  );
 
   // Vally 0.13 exits nonzero when every comparison trial errors, but it writes
   // the structured comparison report first. That report is exactly what the
@@ -1540,8 +1556,8 @@ function runCompare(baselineSlice, skilledSlice, outFile) {
   return null;
 }
 
-function runCompareWithRetry(baselineSlice, skilledSlice, outFile) {
-  const report = runCompare(baselineSlice, skilledSlice, outFile);
+async function runCompareWithRetry(baselineSlice, skilledSlice, outFile) {
+  const report = await runCompare(baselineSlice, skilledSlice, outFile);
   if (!report) return null;
   const errorCount = report.summary?.erroredCount ?? 0;
   if (errorCount === 0) {
@@ -1560,7 +1576,7 @@ function runCompareWithRetry(baselineSlice, skilledSlice, outFile) {
 
   let retryReport;
   try {
-    retryReport = runCompare(baselineSlice, skilledSlice, `${outFile}.retry`);
+    retryReport = await runCompare(baselineSlice, skilledSlice, `${outFile}.retry`);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     warn(`vally compare retry failed; keeping the original result (${detail})`);
@@ -2294,7 +2310,36 @@ function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEv
 // Main
 // ---------------------------------------------------------------------------
 
-function main() {
+function parseCompareWorkers(value) {
+  const workers = Number(value);
+  if (!Number.isSafeInteger(workers) || workers < 1 || workers > 3) {
+    throw new Error("--compare-workers must be an integer from 1 to 3");
+  }
+  return workers;
+}
+
+async function forEachConcurrent(items, workers, action) {
+  workers = parseCompareWorkers(workers);
+  let next = 0;
+  let failure;
+  await Promise.all(
+    Array.from({ length: Math.min(items.length, workers) }, async () => {
+      while (!failure && next < items.length) {
+        const index = next++;
+        try {
+          await action(items[index]);
+        } catch (error) {
+          failure ??= { error };
+        }
+      }
+    }),
+  );
+  // Drain in-flight work before the caller removes shared scratch files.
+  if (failure) throw failure.error;
+}
+
+async function main() {
+  const comparisonWorkers = parseCompareWorkers(opts["compare-workers"]);
   const runDir = resolve(opts["experiment-dir"]);
   const outputRoot = resolve(opts["output-root"]);
   const baselineFile = join(runDir, opts["baseline-variant"], "results.jsonl");
@@ -2345,8 +2390,17 @@ function main() {
       measurementInvalidEvals.push(evalFile);
     }
   };
+  const pairCount = (evalFile) =>
+    Math.min(
+      baselineByEval.get(evalFile)?.length ?? 0,
+      skilledByEval.get(evalFile)?.length ?? 0,
+    );
+  const scheduledEvals = comparisonWorkers === 1
+    ? allEvals
+    : [...allEvals].sort((left, right) => pairCount(right) - pairCount(left));
+  console.log(`Comparing targets with ${comparisonWorkers} worker(s)`);
   try {
-    for (const evalFile of allEvals) {
+    await forEachConcurrent(scheduledEvals, comparisonWorkers, async (evalFile) => {
       const { skill, plugin, skillPath } = evalIdentity(evalFile);
       const identity = { skill, plugin, skillPath };
       const expectedEval = !expectedManifestProvided || expectedSet.has(normalizeEvalFile(evalFile));
@@ -2371,7 +2425,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       if (skilled.length === 0) {
         const message = `${plugin}/${skill}: skilled variant produced no records`;
@@ -2387,7 +2441,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       if (baseline.length === 0) {
         const message = `${plugin}/${skill}: baseline variant produced no records — cannot compare`;
@@ -2403,7 +2457,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
 
       let nonActivationStimuli;
@@ -2428,29 +2482,30 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
 
-      const baselineSlice = join(workDir, `${plugin}__${skill}__baseline.jsonl`);
-      const skilledSlice = join(workDir, `${plugin}__${skill}__skilled.jsonl`);
-      const compareOut = join(workDir, `${plugin}__${skill}__compare.jsonl`);
+      const evalWorkDir = mkdtempSync(join(workDir, "target-"));
+      const baselineSlice = join(evalWorkDir, `${plugin}__${skill}__baseline.jsonl`);
+      const skilledSlice = join(evalWorkDir, `${plugin}__${skill}__skilled.jsonl`);
+      const compareOut = join(evalWorkDir, `${plugin}__${skill}__compare.jsonl`);
       writeFileSync(baselineSlice, baseline.map((r) => JSON.stringify(r)).join("\n") + "\n");
       writeFileSync(skilledSlice, skilled.map((r) => JSON.stringify(r)).join("\n") + "\n");
 
       let report;
       try {
-        report = runCompareWithRetry(baselineSlice, skilledSlice, compareOut);
+        report = await runCompareWithRetry(baselineSlice, skilledSlice, compareOut);
         if (report) {
           // A slice-level retry re-judges every trial, so a single unlucky judge
           // session can stall twice and strand an otherwise-complete measurement.
           // Re-judge only the still-errored transient slots, one slot at a time,
           // from the executor trajectories already preserved in the slices above.
-          report = recoverTransientComparisonSlots(report, {
+          report = await recoverTransientComparisonSlots(report, {
             baselineRecords: baseline,
             skilledRecords: skilled,
             baselineVariant: opts["baseline-variant"],
             skilledVariant: opts["skilled-variant"],
-            workDir,
+            workDir: evalWorkDir,
             filePrefix: `${plugin}__${skill}`,
           });
         }
@@ -2469,7 +2524,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       if (!report) {
         const message = `${plugin}/${skill}: vally compare produced no comparison record`;
@@ -2485,7 +2540,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       const unmatchedCount =
         (report.unmatchedBaseline?.length ?? 0) + (report.unmatchedTreatment?.length ?? 0);
@@ -2530,7 +2585,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       if (!expectedEval) {
         verdict.state = VERDICT_STATES.INVALID_INCONCLUSIVE;
@@ -2560,10 +2615,13 @@ function main() {
       }
 
       console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
-    }
+    });
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
+  invalidEvals.sort();
+  measurementInvalidEvals.sort();
+  unexpectedEvals.sort();
 
   const incompleteNote = incomplete > 0 ? ` (${incomplete} eval(s) incomplete — see warnings above)` : "";
   mkdirSync(outputRoot, { recursive: true });
@@ -2596,7 +2654,7 @@ function main() {
 // the pure transformation helpers below can be unit-tested in isolation.
 if (isMain) {
   try {
-    main();
+    await main();
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exitCode = 1;
@@ -2628,4 +2686,6 @@ export {
   MIN_CREDIBLE_STIMULI,
   MIN_PRACTICAL_NET_WIN,
   SIGN_TEST_ALPHA,
+  parseCompareWorkers,
+  forEachConcurrent,
 };

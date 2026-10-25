@@ -1165,7 +1165,7 @@ jobs:
           # compare` per skill (in the adapter) to produce the per-skill
           # results.json downstream jobs consume. The adapter auto-detects the
           # `plugin` variant when present. `vally` is on PATH here.
-          # Comparisons are serial and depend on a remote judge. Bound this
+          # Compare at most two targets concurrently, largest first. Bound this
           # phase more tightly than the whole evaluation step so a stalled
           # comparison returns control before the step-level watchdog.
           set +e
@@ -1174,6 +1174,7 @@ jobs:
               --experiment-dir "$RUN_DIR" \
               --output-root "$RESULTS_DIR" \
               --vally "vally" \
+              --compare-workers 2 \
               --repo-root "$GITHUB_WORKSPACE" \
               --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
               --model "$MODEL" \

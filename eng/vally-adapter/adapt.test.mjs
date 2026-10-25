@@ -22,6 +22,8 @@ import {
   MIN_CREDIBLE_STIMULI,
   MIN_PRACTICAL_NET_WIN,
   SIGN_TEST_ALPHA,
+  parseCompareWorkers,
+  forEachConcurrent,
 } from "./adapt.mjs";
 
 const adapterPath = fileURLToPath(new URL("./adapt.mjs", import.meta.url));
@@ -1885,10 +1887,10 @@ function strandSlot(report, stimulusIndex, trialIndex, error) {
   return report;
 }
 
-function withTargetedRecovery(report, compare, overrides = {}) {
+async function withTargetedRecovery(report, compare, overrides = {}) {
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-"));
   try {
-    return recoverTransientComparisonSlots(report, {
+    return await recoverTransientComparisonSlots(report, {
       baselineRecords: executorRecordsFor(report, "baseline"),
       skilledRecords: executorRecordsFor(report, "skilled"),
       workDir,
@@ -1901,11 +1903,11 @@ function withTargetedRecovery(report, compare, overrides = {}) {
   }
 }
 
-test("a transient comparison-judge timeout is recovered from preserved trajectories", () => {
+test("a transient comparison-judge timeout is recovered from preserved trajectories", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const slices = [];
 
-  const recovered = withTargetedRecovery(primary, (baselineSlice, skilledSlice) => {
+  const recovered = await withTargetedRecovery(primary, (baselineSlice, skilledSlice) => {
     slices.push([readFileSync(baselineSlice, "utf8"), readFileSync(skilledSlice, "utf8")]);
     // Vally renumbers a narrowed slice from zero; the adapter must restore the
     // original slot identity rather than trusting the retry's trialIndex.
@@ -1949,14 +1951,14 @@ test("a transient comparison-judge timeout is recovered from preserved trajector
   );
 });
 
-test("a recovered comparison slot produces a conclusive verdict", () => {
+test("a recovered comparison slot produces a conclusive verdict", async () => {
   const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0);
   assert.equal(
     comparisonToVerdict(primary, IDENTITY, EMPTY_ROLES, new Set()).state,
     VERDICT_STATES.INVALID_INCONCLUSIVE,
   );
 
-  const recovered = withTargetedRecovery(primary, () => ({
+  const recovered = await withTargetedRecovery(primary, () => ({
     stimuli: [
       {
         stimulusName: "Scenario 6",
@@ -1970,9 +1972,9 @@ test("a recovered comparison slot produces a conclusive verdict", () => {
   assert.equal(verdict.state, VERDICT_STATES.VALID_PASS);
 });
 
-test("a persistent comparison timeout stays measurement-invalid", () => {
+test("a persistent comparison timeout stays measurement-invalid", async () => {
   const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0);
-  const recovered = withTargetedRecovery(primary, () => ({
+  const recovered = await withTargetedRecovery(primary, () => ({
     stimuli: [
       {
         stimulusName: "Scenario 6",
@@ -2003,9 +2005,9 @@ test("a persistent comparison timeout stays measurement-invalid", () => {
   assert.equal(verdict.stateReason.code, "comparison_judge_error");
 });
 
-test("a failed targeted retry invocation leaves the slot errored", () => {
+test("a failed targeted retry invocation leaves the slot errored", async () => {
   const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0);
-  const recovered = withTargetedRecovery(primary, () => {
+  const recovered = await withTargetedRecovery(primary, () => {
     throw new Error("vally compare exited 1");
   });
 
@@ -2016,14 +2018,14 @@ test("a failed targeted retry invocation leaves the slot errored", () => {
   );
 });
 
-test("a targeted retry report with extra evidence is rejected", () => {
+test("a targeted retry report with extra evidence is rejected", async () => {
   const primary = strandSlot(
     reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]),
     5,
     0,
   );
 
-  const recovered = withTargetedRecovery(primary, () => ({
+  const recovered = await withTargetedRecovery(primary, () => ({
     stimuli: [
       {
         stimulusName: "Scenario 6",
@@ -2047,14 +2049,14 @@ test("a targeted retry report with extra evidence is rejected", () => {
   );
 });
 
-test("a targeted retry trial without judgment fields is rejected", () => {
+test("a targeted retry trial without judgment fields is rejected", async () => {
   const primary = strandSlot(
     reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]),
     5,
     0,
   );
 
-  const recovered = withTargetedRecovery(primary, () => ({
+  const recovered = await withTargetedRecovery(primary, () => ({
     stimuli: [
       {
         stimulusName: "Scenario 6",
@@ -2070,7 +2072,7 @@ test("a targeted retry trial without judgment fields is rejected", () => {
   );
 });
 
-test("targeted recovery never re-judges a permanent judge failure", () => {
+test("targeted recovery never re-judges a permanent judge failure", async () => {
   const primary = strandSlot(reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]), 5, 0, {
     phase: "comparison_judge",
     kind: "permanent",
@@ -2078,7 +2080,7 @@ test("targeted recovery never re-judges a permanent judge failure", () => {
     message: "disabled by your organization",
   });
   let calls = 0;
-  const recovered = withTargetedRecovery(primary, () => {
+  const recovered = await withTargetedRecovery(primary, () => {
     calls++;
     return null;
   });
@@ -2088,12 +2090,12 @@ test("targeted recovery never re-judges a permanent judge failure", () => {
   assert.equal(recovered.retrySummary.targetedRecovery, undefined);
 });
 
-test("targeted recovery never re-judges semantic or activation outcomes", () => {
+test("targeted recovery never re-judges semantic or activation outcomes", async () => {
   // A loss, a tie and a dormancy stimulus are all decided judgments, not judge
   // faults, so no slot is eligible and the report must pass through untouched.
   const decided = reportFromScores([-1, 0, -0.4, 0.4]);
   let calls = 0;
-  const result = withTargetedRecovery(decided, () => {
+  const result = await withTargetedRecovery(decided, () => {
     calls++;
     return null;
   });
@@ -2112,13 +2114,13 @@ test("targeted recovery never re-judges semantic or activation outcomes", () => 
   );
 });
 
-test("too many stranded comparison slots are treated as a systemic failure", () => {
+test("too many stranded comparison slots are treated as a systemic failure", async () => {
   const primary = reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0.4]);
   for (let index = 0; index < MAX_TARGETED_COMPARISON_SLOTS + 1; index++) {
     strandSlot(primary, index, 0);
   }
   let calls = 0;
-  const result = withTargetedRecovery(primary, () => {
+  const result = await withTargetedRecovery(primary, () => {
     calls++;
     return null;
   });
@@ -2132,12 +2134,12 @@ test("too many stranded comparison slots are treated as a systemic failure", () 
   assert.match(result.retrySummary.targetedRecovery.skippedReason, /systemic judge failure/);
 });
 
-test("a missing executor trial fails the comparison identity check", () => {
+test("a missing executor trial fails the comparison identity check", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-missing-"));
   let calls = 0;
   try {
-    const result = recoverTransientComparisonSlots(primary, {
+    const result = await recoverTransientComparisonSlots(primary, {
       // No baseline trajectory survives for the stranded slot, so there is
       // nothing to re-judge. That is a different fault from two trajectories
       // claiming the slot, and it needs its own code to be investigable.
@@ -2166,7 +2168,7 @@ test("a missing executor trial fails the comparison identity check", () => {
   }
 });
 
-test("a slot trajectory is matched through the canonical stimulus accessor", () => {
+test("a slot trajectory is matched through the canonical stimulus accessor", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-canonical-"));
   // Vally records do not all carry a top-level `stimulus`; some expose it only
@@ -2179,7 +2181,7 @@ test("a slot trajectory is matched through the canonical stimulus accessor", () 
       gradeResult: { stimulusName: stimulus },
     }));
   try {
-    const result = recoverTransientComparisonSlots(primary, {
+    const result = await recoverTransientComparisonSlots(primary, {
       baselineRecords: viaGradeResult("baseline"),
       skilledRecords: viaGradeResult("skilled"),
       workDir,
@@ -2194,14 +2196,14 @@ test("a slot trajectory is matched through the canonical stimulus accessor", () 
   }
 });
 
-test("a null trajectory entry never crashes the recovery pass", () => {
+test("a null trajectory entry never crashes the recovery pass", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-null-"));
   // A truncated or partly written trajectory file can yield a null entry. The
   // lookup must step over it: a throw here would abandon every other slot and
   // turn one bad line into a whole-leg failure.
   try {
-    const result = recoverTransientComparisonSlots(primary, {
+    const result = await recoverTransientComparisonSlots(primary, {
       baselineRecords: [null, ...executorRecordsFor(primary, "baseline")],
       skilledRecords: [...executorRecordsFor(primary, "skilled"), null],
       workDir,
@@ -2216,13 +2218,13 @@ test("a null trajectory entry never crashes the recovery pass", () => {
   }
 });
 
-test("an ambiguous slot-to-trajectory mapping is never re-judged", () => {
+test("an ambiguous slot-to-trajectory mapping is never re-judged", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-dup-"));
   let calls = 0;
   try {
     const baselineRecords = executorRecordsFor(primary, "baseline");
-    const result = recoverTransientComparisonSlots(primary, {
+    const result = await recoverTransientComparisonSlots(primary, {
       // Two baseline trajectories claim the same slot: re-judging either one
       // would silently pick a trajectory the first attempt may not have used.
       baselineRecords: [...baselineRecords, executorRecord("baseline", "Scenario 1", 2)],
@@ -2246,7 +2248,7 @@ test("an ambiguous slot-to-trajectory mapping is never re-judged", () => {
   }
 });
 
-test("a duplicate executor identity outside the stranded slot blocks recovery", () => {
+test("a duplicate executor identity outside the stranded slot blocks recovery", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const baselineRecords = executorRecordsFor(primary, "baseline");
   baselineRecords.push({
@@ -2254,7 +2256,7 @@ test("a duplicate executor identity outside the stranded slot blocks recovery", 
   });
   let calls = 0;
 
-  const result = withTargetedRecovery(
+  const result = await withTargetedRecovery(
     primary,
     () => {
       calls++;
@@ -2270,13 +2272,13 @@ test("a duplicate executor identity outside the stranded slot blocks recovery", 
   assert.match(failure.message, /baseline=\[0, 1, 2\] \(0 invalid, 1 duplicate\)/);
 });
 
-test("an errored executor trajectory is never re-judged", () => {
+test("an errored executor trajectory is never re-judged", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const baselineRecords = executorRecordsFor(primary, "baseline");
   baselineRecords.find((record) => record.shardKey.endsWith("::trial-2")).status = "error";
   let calls = 0;
 
-  const result = withTargetedRecovery(
+  const result = await withTargetedRecovery(
     primary,
     () => {
       calls++;
@@ -2298,7 +2300,7 @@ test("an errored executor trajectory is never re-judged", () => {
   );
 });
 
-test("a successful executor record without a trajectory is never re-judged", () => {
+test("a successful executor record without a trajectory is never re-judged", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const baselineRecords = executorRecordsFor(primary, "baseline");
   baselineRecords.find(
@@ -2306,7 +2308,7 @@ test("a successful executor record without a trajectory is never re-judged", () 
   ).trajectory = null;
   let calls = 0;
 
-  const result = withTargetedRecovery(
+  const result = await withTargetedRecovery(
     primary,
     () => {
       calls++;
@@ -2328,7 +2330,7 @@ test("a successful executor record without a trajectory is never re-judged", () 
   );
 });
 
-test("a successful trajectory paired with an errored duplicate is ambiguous", () => {
+test("a successful trajectory paired with an errored duplicate is ambiguous", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const baselineRecords = executorRecordsFor(primary, "baseline");
   const original = baselineRecords.find(
@@ -2337,7 +2339,7 @@ test("a successful trajectory paired with an errored duplicate is ambiguous", ()
   baselineRecords.push({ ...original, status: "error" });
   let calls = 0;
 
-  const result = withTargetedRecovery(
+  const result = await withTargetedRecovery(
     primary,
     () => {
       calls++;
@@ -2353,7 +2355,7 @@ test("a successful trajectory paired with an errored duplicate is ambiguous", ()
   );
 });
 
-test("executor and comparison trial-index set mismatch fails closed", () => {
+test("executor and comparison trial-index set mismatch fails closed", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 1);
   const baselineRecords = executorRecordsFor(primary, "baseline").map((record) => {
     const trialIndex = Number(/::trial-(\d+)$/.exec(record.shardKey)[1]);
@@ -2368,7 +2370,7 @@ test("executor and comparison trial-index set mismatch fails closed", () => {
 
   let calls = 0;
 
-  const result = withTargetedRecovery(
+  const result = await withTargetedRecovery(
     primary,
     () => {
       calls++;
@@ -2388,7 +2390,7 @@ test("executor and comparison trial-index set mismatch fails closed", () => {
   );
 });
 
-test("executor records with invalid trial identities fail closed", () => {
+test("executor records with invalid trial identities fail closed", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 1);
   const baselineRecords = executorRecordsFor(primary, "baseline");
   baselineRecords.push({
@@ -2397,7 +2399,7 @@ test("executor records with invalid trial identities fail closed", () => {
   });
   let calls = 0;
 
-  const result = withTargetedRecovery(
+  const result = await withTargetedRecovery(
     primary,
     () => {
       calls++;
@@ -2413,7 +2415,7 @@ test("executor records with invalid trial identities fail closed", () => {
   assert.match(failure.message, /baseline=\[0, 1, 2\] \(1 invalid, 0 duplicate\)/);
 });
 
-test("targeted recovery uses the canonical stimulus identity", () => {
+test("targeted recovery uses the canonical stimulus identity", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const baselineRecords = executorRecordsFor(primary, "baseline");
   const skilledRecords = executorRecordsFor(primary, "skilled");
@@ -2423,7 +2425,7 @@ test("targeted recovery uses the canonical stimulus identity", () => {
   }
   let calls = 0;
 
-  const recovered = withTargetedRecovery(primary, () => {
+  const recovered = await withTargetedRecovery(primary, () => {
     calls++;
     return {
       stimuli: [{
@@ -2437,7 +2439,7 @@ test("targeted recovery uses the canonical stimulus identity", () => {
   assert.equal(recovered.summary.erroredCount, 0);
 });
 
-test("targeted recovery accepts source-file variant identity when records omit variant", () => {
+test("targeted recovery accepts source-file variant identity when records omit variant", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const baselineRecords = executorRecordsFor(primary, "baseline");
   const skilledRecords = executorRecordsFor(primary, "skilled");
@@ -2446,7 +2448,7 @@ test("targeted recovery accepts source-file variant identity when records omit v
   }
   let calls = 0;
 
-  const recovered = withTargetedRecovery(primary, () => {
+  const recovered = await withTargetedRecovery(primary, () => {
     calls++;
     return {
       stimuli: [{
@@ -2460,12 +2462,12 @@ test("targeted recovery accepts source-file variant identity when records omit v
   assert.equal(recovered.summary.erroredCount, 0);
 });
 
-test("an empty executor arm fails the comparison identity check", () => {
+test("an empty executor arm fails the comparison identity check", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-missing-"));
   let calls = 0;
   try {
-    const result = recoverTransientComparisonSlots(primary, {
+    const result = await recoverTransientComparisonSlots(primary, {
       baselineRecords: [],
       skilledRecords: executorRecordsFor(primary, "skilled"),
       workDir,
@@ -2487,14 +2489,14 @@ test("an empty executor arm fails the comparison identity check", () => {
   }
 });
 
-test("a targeted variant mismatch is never re-judged", () => {
+test("a targeted variant mismatch is never re-judged", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const skilledRecords = executorRecordsFor(primary, "skilled");
   skilledRecords.find((record) => record.shardKey.endsWith("::trial-2")).variant = "baseline";
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-variant-"));
   let calls = 0;
   try {
-    const result = recoverTransientComparisonSlots(primary, {
+    const result = await recoverTransientComparisonSlots(primary, {
       baselineRecords: executorRecordsFor(primary, "baseline"),
       skilledRecords,
       workDir,
@@ -2515,7 +2517,7 @@ test("a targeted variant mismatch is never re-judged", () => {
   }
 });
 
-test("a sibling source-file variant mismatch blocks targeted recovery", () => {
+test("a sibling source-file variant mismatch blocks targeted recovery", async () => {
   const primary = strandSlot(reportFromRepeatedScores([0.4, 0.4, 0.4]), 0, 2);
   const baselineRecords = executorRecordsFor(primary, "baseline");
   const skilledRecords = executorRecordsFor(primary, "skilled");
@@ -2526,7 +2528,7 @@ test("a sibling source-file variant mismatch blocks targeted recovery", () => {
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-sibling-variant-"));
   let calls = 0;
   try {
-    const result = recoverTransientComparisonSlots(primary, {
+    const result = await recoverTransientComparisonSlots(primary, {
       baselineRecords,
       skilledRecords,
       workDir,
@@ -2548,7 +2550,7 @@ test("a sibling source-file variant mismatch blocks targeted recovery", () => {
   }
 });
 
-test("targeted recovery uses complete preserved evidence after the coarse retry crashes", () => {
+test("targeted recovery uses complete preserved evidence after the coarse retry crashes", async () => {
   const retryCrash = {
     phase: "comparison_judge",
     kind: "unknown",
@@ -2567,7 +2569,7 @@ test("targeted recovery uses complete preserved evidence after the coarse retry 
   };
   let calls = 0;
 
-  const recovered = withTargetedRecovery(primary, () => {
+  const recovered = await withTargetedRecovery(primary, () => {
     calls++;
     return {
       stimuli: [{
@@ -2582,7 +2584,7 @@ test("targeted recovery uses complete preserved evidence after the coarse retry 
   assert.equal(recovered.retrySummary.targetedRecovery.recoveredSlotCount, 1);
 });
 
-test("targeted recovery after a coarse retry crash requires matching source identity", () => {
+test("targeted recovery after a coarse retry crash requires matching source identity", async () => {
   const retryCrash = {
     phase: "comparison_judge",
     kind: "unknown",
@@ -2598,7 +2600,7 @@ test("targeted recovery after a coarse retry crash requires matching source iden
   const workDir = mkdtempSync(join(tmpdir(), "vally-targeted-crash-missing-"));
   let calls = 0;
   try {
-    const result = recoverTransientComparisonSlots(primary, {
+    const result = await recoverTransientComparisonSlots(primary, {
       baselineRecords: [],
       skilledRecords: executorRecordsFor(primary, "skilled"),
       workDir,
@@ -2618,4 +2620,238 @@ test("targeted recovery after a coarse retry crash requires matching source iden
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
+});
+
+test("comparison worker limits reject unbounded or fractional concurrency", () => {
+  for (const value of ["1", "2", "3"]) {
+    assert.equal(parseCompareWorkers(value), Number(value));
+  }
+  for (const value of ["0", "-1", "4", "1.5", "Infinity", "invalid"]) {
+    assert.throws(() => parseCompareWorkers(value), /integer from 1 to 3/);
+  }
+});
+
+test("the comparison pool covers every target without exceeding its limit", async () => {
+  let active = 0;
+  let peak = 0;
+  const completed = [];
+  await forEachConcurrent([0, 1, 2, 3, 4], 2, async (item) => {
+    peak = Math.max(peak, ++active);
+    await new Promise(setImmediate);
+    completed.push(item);
+    active--;
+  });
+  assert.equal(peak, 2);
+  assert.equal(active, 0);
+  assert.deepEqual(completed.sort(), [0, 1, 2, 3, 4]);
+});
+
+test("a fatal pool error drains active work before scratch cleanup and stops new work", async () => {
+  const failure = new Error("fatal output failure");
+  const started = [];
+  let release;
+  let drained = false;
+  const blocked = new Promise((resolve) => { release = resolve; });
+  const pending = forEachConcurrent([0, 1, 2], 2, async (item) => {
+    started.push(item);
+    if (item === 0) throw failure;
+    await blocked;
+    drained = true;
+  });
+  const rejection = assert.rejects(pending, (error) => {
+    assert.equal(drained, true);
+    return error === failure;
+  });
+  await new Promise(setImmediate);
+  assert.equal(drained, false);
+  assert.deepEqual(started, [0, 1]);
+  release();
+  await rejection;
+});
+
+function runConcurrentAdapter(root, workers, targets) {
+  mkdirSync(root, { recursive: true });
+  const runDir = join(root, "experiment");
+  const outputRoot = join(root, "output");
+  const expectedPath = join(root, "expected.txt");
+  const configPath = join(root, "fake-config.json");
+  const eventsPath = join(root, "fake-events.jsonl");
+  const scriptPath = join(root, "parallel-vally.mjs");
+  const evalFiles = targets.map(({ name }) => `tests/dotnet-test/${name}/eval.yaml`);
+  const config = {};
+  const records = { baseline: [], skilled: [] };
+  for (const [index, target] of targets.entries()) {
+    const file = evalFiles[index];
+    const report = target.report ?? reportFromScores(Array(target.count).fill(0.4));
+    config[file] = { ...target, report };
+    const specPath = join(root, file);
+    mkdirSync(dirname(specPath), { recursive: true });
+    writeFileSync(specPath, "stimuli: []\n");
+    if (target.missing) continue;
+    for (const variant of ["baseline", "skilled"]) {
+      records[variant].push(...executorRecordsFor(report, variant).map((record) => ({
+        ...record,
+        experiment: { evalFile: file },
+        shardKey: record.shardKey.replace(evalFile, file),
+      })));
+    }
+  }
+  for (const variant of ["baseline", "skilled"]) {
+    writeJsonl(join(runDir, variant, "results.jsonl"), records[variant]);
+  }
+  writeFileSync(expectedPath, `${evalFiles.join("\n")}\n`);
+  writeFileSync(configPath, JSON.stringify(config));
+  writeFileSync(scriptPath, `
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+const [configPath, eventsPath, command, ...args] = process.argv.slice(2);
+if (command !== "compare") process.exit(2);
+const baselinePath = args[args.indexOf("--baseline") + 1];
+const output = args[args.indexOf("--output") + 1];
+const records = readFileSync(baselinePath, "utf8").trim().split("\\n").map(JSON.parse);
+const file = records[0].experiment.evalFile;
+const target = JSON.parse(readFileSync(configPath, "utf8"))[file];
+const attempt = output.endsWith(".retry") ? "retry" : output.includes("__slot") ? "targeted" : "initial";
+const event = (type) => appendFileSync(eventsPath, JSON.stringify({ type, name: target.name, attempt }) + "\\n");
+event("start");
+await new Promise((resolve) => setTimeout(resolve, target.delay ?? 10));
+console.log("stdout " + target.name);
+console.error("stderr " + target.name);
+if (!target.fail) {
+  const report = target.reports?.[attempt] ?? target.report;
+  writeFileSync(output, JSON.stringify(report) + "\\n");
+}
+event("end");
+if (target.fail) process.exit(3);
+`);
+  const result = spawnSync(process.execPath, [
+    adapterPath,
+    "--experiment-dir", runDir,
+    "--output-root", outputRoot,
+    "--repo-root", root,
+    "--expected-evals", expectedPath,
+    "--compare-workers", String(workers),
+    "--vally", `"${process.execPath}" "${scriptPath}" "${configPath}" "${eventsPath}"`,
+  ], { encoding: "utf8", timeout: 30_000 });
+  assert.equal(result.status, 0, processOutput(result));
+  const summaryText = readFileSync(join(outputRoot, "adapter-summary.json"), "utf8");
+  return {
+    result,
+    summaryText,
+    summary: JSON.parse(summaryText),
+    outputs: targets.map(({ name }) => {
+      const result = JSON.parse(readFileSync(join(outputRoot, "dotnet-test", name, "results.json"), "utf8"));
+      delete result.timestamp;
+      return result;
+    }),
+    events: existsSync(eventsPath)
+      ? readFileSync(eventsPath, "utf8").trim().split("\n").map(JSON.parse)
+      : [],
+  };
+}
+
+function assertChildConcurrency(events, limit) {
+  let active = 0;
+  let peak = 0;
+  for (const { type } of events) {
+    active += type === "start" ? 1 : -1;
+    assert.ok(active >= 0 && active <= limit);
+    peak = Math.max(peak, active);
+  }
+  assert.equal(active, 0);
+  return peak;
+}
+
+test("parallel compare subprocesses schedule largest first and preserve serial result payloads", () => {
+  withTempDir((root) => {
+    const targets = [
+      { name: "alpha", count: 1, delay: 80 },
+      { name: "beta", count: 5, delay: 80 },
+      { name: "gamma", count: 3, delay: 80 },
+    ];
+    const serial = runConcurrentAdapter(join(root, "serial"), 1, targets);
+    const parallel = runConcurrentAdapter(join(root, "parallel"), 2, targets);
+    assert.equal(assertChildConcurrency(serial.events, 1), 1);
+    assert.equal(assertChildConcurrency(parallel.events, 2), 2);
+    assert.deepEqual(
+      parallel.events.filter(({ type }) => type === "start").slice(0, 2)
+        .map(({ name }) => name).sort(),
+      ["beta", "gamma"],
+    );
+    assert.notEqual(parallel.events.find(({ type }) => type === "end").name, "alpha");
+    assert.equal(parallel.events.filter(({ type }) => type === "start").length, 3);
+    assert.deepEqual(parallel.outputs, serial.outputs);
+    assert.equal(parallel.summaryText, serial.summaryText);
+    for (const { name } of targets) {
+      assert.match(parallel.result.stderr, new RegExp(`stdout ${name}\\nstderr ${name}`));
+    }
+  });
+});
+
+test("one failed or unmatched parallel comparison does not hide other targets or missing evals", () => {
+  withTempDir((root) => {
+    const unmatched = reportFromScores(Array(5).fill(0.4));
+    unmatched.unmatchedTreatment = ["Missing baseline (trial 0)"];
+    const run = runConcurrentAdapter(root, 2, [
+      { name: "z-good", count: 5 },
+      { name: "a-unmatched", report: unmatched },
+      { name: "b-throws", count: 1, fail: true },
+      { name: "c-missing", count: 2, missing: true },
+    ]);
+    assertChildConcurrency(run.events, 2);
+    assert.equal(run.summary.writtenResultCount, 4);
+    assert.equal(run.summary.measurementInvalidEvalCount, 3);
+    assert.equal(run.summary.missingEvalCount, 1);
+    assert.deepEqual(run.summary.invalidEvals, [
+      "tests/dotnet-test/a-unmatched/eval.yaml",
+      "tests/dotnet-test/b-throws/eval.yaml",
+      "tests/dotnet-test/c-missing/eval.yaml",
+    ]);
+    assert.equal(run.outputs[0].verdicts[0].state, VERDICT_STATES.VALID_PASS);
+    assert.equal(run.outputs[1].verdicts[0].stateReason.code, "unmatched_trajectories");
+    assert.equal(run.outputs[2].verdicts[0].stateReason.code, "comparison_invocation_failed");
+    assert.equal(run.outputs[3].verdicts[0].stateReason.code, "missing_baseline_and_skilled_records");
+    assert.equal(run.events.filter(({ type }) => type === "start").length, 3);
+  });
+});
+
+test("parallel coarse and targeted retries remain bounded and freeze successful judgments", () => {
+  withTempDir((root) => {
+    const markError = (report) => {
+      const trial = report.stimuli[0].trials[0];
+      trial.errored = true;
+      trial.evidence = JUDGE_TIMEOUT_EVIDENCE;
+      trial.score = 0;
+      trial.winner = "tie";
+      report.summary.erroredCount = 1;
+      report.summary.trialCount--;
+      return report;
+    };
+    const run = runConcurrentAdapter(root, 2, [
+      {
+        name: "recover",
+        count: 5,
+        reports: {
+          initial: markError(reportFromScores(Array(5).fill(0.4))),
+          retry: markError(reportFromScores(Array(5).fill(-0.4))),
+          targeted: reportFromScores([1]),
+        },
+      },
+      { name: "healthy", count: 5 },
+    ]);
+    assertChildConcurrency(run.events, 2);
+    assert.equal(run.summary.measurementInvalidEvalCount, 0);
+    assert.equal(run.outputs[0].verdicts[0].wins, 5);
+    assert.equal(run.outputs[0].verdicts[0].losses, 0);
+    assert.equal(run.outputs[0].verdicts[0].recoveredErrors.length, 1);
+    assert.equal(run.outputs[0].verdicts[0].recoveredErrors[0].targetedRecovery, true);
+    assert.deepEqual(
+      run.events.filter(({ type, name }) => type === "start" && name === "recover")
+        .map(({ attempt }) => attempt),
+      ["initial", "retry", "targeted"],
+    );
+    assert.equal(
+      run.events.filter(({ type, name }) => type === "start" && name === "healthy").length,
+      1,
+    );
+  });
 });

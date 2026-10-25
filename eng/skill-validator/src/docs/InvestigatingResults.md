@@ -15,6 +15,12 @@
 > tool-call failures. Adaptation invalidates a scenario only for terminal
 > evidence: an explicit execution error, a missing or timed-out required arm, a
 > failed run, or a missing pairwise result.
+>
+> Ordinary Vally target comparisons run at most two at once in CI
+> (`adapt.mjs --compare-workers 2`), largest targets first, with unchanged judge
+> calls and validity gates. The 60-minute comparison watchdog remains inside
+> the 155-minute evaluation step; expiry is an incomplete measurement, not a
+> native-runner failure. See the current guide for grouped per-target timings.
 
 Executor sessions append the exact scenario workspace to the system context.
 Do not resolve fixture paths against a staged skill's base directory or the
