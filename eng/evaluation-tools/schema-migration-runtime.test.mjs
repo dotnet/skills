@@ -139,6 +139,33 @@ test("testing dormancy contracts reach Vally as quoted string tags", async () =>
   }
 });
 
+test("retained-regression output grading uses portable case-insensitive syntax", async () => {
+  const spec = await loadEvalSpec(
+    join("tests", "dotnet-test", "code-testing", "eval.yaml"),
+  );
+  const item = spec.stimuli.find(
+    (entry) => entry.name ===
+      "Retain a correct failing regression when production violates its contract",
+  );
+  assert.ok(item);
+  const grader = item.graders.find((entry) => entry.type === "output-matches");
+  assert.ok(grader);
+  assert.doesNotMatch(grader.config.pattern, /\(\?[ims-]+:/,
+    "Scoped flag groups are not supported by the CI Node runtime");
+
+  for (const [output, passed] of [
+    ["PRODUCTION has the wrong boundary.", true],
+    ["This contradicts the documented rule.", true],
+    ["This CONTRADICTS the documented rule.", true],
+    ["The tests are green.", false],
+  ]) {
+    const result = await gradeTrajectory(
+      { ...trajectory(), output }, [grader], { stimulus },
+    );
+    assert.equal(result.passed, passed, output);
+  }
+});
+
 test("skill-invocation required list affects trajectory results", async () => {
   const required = {
     type: "skill-invocation",

@@ -150,7 +150,7 @@ stimuli:
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
-        config: {pattern: "(?i)(production|implementation|product).*(defect|wrong|>|boundary)|(?i:contradict)"}
+        config: {pattern: "(?i)(production|implementation|product).*(defect|wrong|>|boundary)|contradict"}
       - type: prompt
     rubric:
       - Identifies the production boundary defect and accurately reports the expected test failure.
