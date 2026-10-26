@@ -1,0 +1,33 @@
+diff --git a/Directory.Build.props b/Directory.Build.props
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -3,4 +3,9 @@
+     <TargetFramework>net8.0</TargetFramework>
+     <Nullable>enable</Nullable>
+   </PropertyGroup>
++  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
++    <EnableMSTestRunner>true</EnableMSTestRunner>
++    <OutputType>Exe</OutputType>
++    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
++  </PropertyGroup>
+ </Project>
+diff --git a/Alpha.Tests/Alpha.Tests.csproj b/Alpha.Tests/Alpha.Tests.csproj
+--- a/Alpha.Tests/Alpha.Tests.csproj
++++ b/Alpha.Tests/Alpha.Tests.csproj
+@@ -4,5 +4,6 @@
+     <PackageReference Include="MSTest.TestFramework" Version="3.8.0" />
+     <PackageReference Include="MSTest.TestAdapter" Version="3.8.0" />
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
++    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="1.6.0" />
+   </ItemGroup>
+ </Project>
+diff --git a/Beta.Tests/Beta.Tests.csproj b/Beta.Tests/Beta.Tests.csproj
+--- a/Beta.Tests/Beta.Tests.csproj
++++ b/Beta.Tests/Beta.Tests.csproj
+@@ -4,5 +4,6 @@
+     <PackageReference Include="MSTest.TestFramework" Version="3.8.0" />
+     <PackageReference Include="MSTest.TestAdapter" Version="3.8.0" />
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
++    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="1.6.0" />
+   </ItemGroup>
+ </Project>

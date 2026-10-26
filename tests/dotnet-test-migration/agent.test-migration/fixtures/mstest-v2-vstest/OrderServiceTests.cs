@@ -15,9 +15,9 @@ public class OrderServiceTests
         Assert.AreEqual(2, order.Quantity);
     }
 
-    [TestMethod]
-    [DataRow(0)]
-    [DataRow(-1)]
+    [DataTestMethod]
+    [DataRow(0, DisplayName = "invalid-zero")]
+    [DataRow(-1, DisplayName = "invalid-negative")]
     public void CreateOrder_InvalidQuantity_Throws(int quantity)
     {
         var service = new OrderService();

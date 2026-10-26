@@ -1,0 +1,15 @@
+diff --git a/work/test_limit.py b/work/test_limit.py
+new file mode 100644
+--- /dev/null
++++ b/work/test_limit.py
+@@ -0,0 +1,10 @@
++import unittest
++from limit import allowed
++
++
++class LimitTests(unittest.TestCase):
++    def test_exact_threshold_is_allowed(self):
++        self.assertTrue(allowed(10))
++
++    def test_above_threshold_is_allowed(self):
++        self.assertTrue(allowed(11))

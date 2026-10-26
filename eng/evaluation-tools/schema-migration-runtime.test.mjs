@@ -87,6 +87,58 @@ test("tool-calls required and disallowed lists affect trajectory results", async
   assert.equal((await grade(disallowed, completedToolCall("bash"))).passed, false);
 });
 
+for (const [plugin, skill, rejectEdits] of [
+  ["dotnet-test-migration", "agent.test-migration", true],
+  ["dotnet-test-migration", "migrate-mstest-v3-to-v4", true],
+  ["dotnet-test-migration", "migrate-vstest-to-mtp", true],
+  ["dotnet-test", "code-testing", false],
+]) {
+  test(`${plugin}/${skill} preserves inspection-only tool restrictions`, async () => {
+    const spec = await loadEvalSpec(join("tests", plugin, skill, "eval.yaml"));
+    const item = spec.stimuli[0];
+    assert.equal(item.constraints, undefined);
+    const graders = item.graders.filter((grader) => grader.type === "tool-calls");
+    assert.ok(graders.length > 0, "Inspection requires a tool-calls grader");
+
+    const editTools = ["edit", "create", "apply_patch"];
+    const disallowed = [
+      "bash", "powershell", "execute", "shell", "run_shell_command",
+      "local_shell", "run_in_terminal", "run_command", "terminal", "task", "agent",
+      ...(rejectEdits ? editTools : []),
+    ];
+    for (const tool of disallowed) {
+      const results = await Promise.all(
+        graders.map((grader) => grade(grader, completedToolCall(tool))),
+      );
+      assert.ok(results.some((result) => !result.passed), `Allowed ${tool}`);
+    }
+    for (const tool of ["view", "glob", "rg", ...(rejectEdits ? [] : editTools)]) {
+      for (const grader of graders) {
+        assert.equal((await grade(grader, completedToolCall(tool))).passed, true,
+          `Unexpectedly rejected ${tool}`);
+      }
+    }
+  });
+}
+
+test("testing dormancy contracts reach Vally as quoted string tags", async () => {
+  for (const [plugin, skill, name] of [
+    ["dotnet-test-migration", "migrate-vstest-to-mtp",
+      "Leave a healthy already-native MTP project dormant and unchanged"],
+    ["dotnet-test", "code-testing",
+      "Retain a correct failing regression when production violates its contract"],
+  ]) {
+    const spec = await loadEvalSpec(join("tests", plugin, skill, "eval.yaml"));
+    const item = spec.stimuli.find((entry) => entry.name === name);
+    assert.ok(item, `Missing dormancy stimulus: ${name}`);
+    assert.equal(item.expect_activation, undefined);
+    assert.equal(item.tags.expect_activation, "false");
+    assert.ok(item.tags.capability);
+    assert.ok(item.tags.risk);
+    assert.ok(item.tags.journey);
+  }
+});
+
 test("skill-invocation required list affects trajectory results", async () => {
   const required = {
     type: "skill-invocation",

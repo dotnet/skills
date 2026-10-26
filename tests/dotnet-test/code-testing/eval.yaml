@@ -25,6 +25,254 @@ environment:
     - src: ../graders/authenticated_artifacts.py
       dest: .eval/authenticated_artifacts.py
 stimuli:
+  - name: Leave already-correct tests unchanged during a repair request
+    tags: {capability: repair-already-correct-tests, risk: unnecessary-test-rewrite, journey: investigate-reported-test-failure}
+    prompt: |
+      I suspect NoopRepair/test_amounts.py still needs repair after the module
+      was renamed. Inspect the files and fix anything that is actually broken.
+      Keep the existing test intent, production behavior and unrelated files
+      intact; do not modernize the suite. Do not execute tests or shell commands
+      for this review; report what the file inspection establishes.
+    environment:
+      files:
+        - src: fixtures/repair-noop
+          dest: NoopRepair
+        - src: fixtures/operation-repair/unrelated.txt
+          dest: unrelated.txt
+        - src: ../../dotnet-test-migration/graders/migration_evidence.py
+          dest: .eval/migration_evidence.py
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: code-testing-repair-noop
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No repair was needed: test_amounts.py already imports amounts.
+              I left the source and unrelated files unchanged after inspecting
+              the import and assertions. I did not execute tests or shell commands.
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, powershell, execute, shell, run_shell_command, local_shell, run_in_terminal, run_command, terminal, task, agent]
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,subprocess,sys;p=pathlib.Path('.eval/migration_evidence.py');data=p.read_bytes();assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='5d406aa064f92dfb0f2c861f178f42e91b067ecfe7c3f30cf5ea335e578d026a','Evaluator code changed';sys.argv=[str(p),*sys.argv[1:]];code=compile(data,str(p),'exec');exec(code,{'__name__':'__main__','__file__':str(p)});subprocess.run([sys.executable,'-B','-m','unittest','-v'],cwd='NoopRepair',check=True);exec(code,{'__name__':'__main__','__file__':str(p)})" preserve --root . --workspace
+            --file 3251dbf18617cd67c47707cb9bd1611dbac212ff0ee9814a75b8ce1f34b85aad:NoopRepair/amounts.py
+            --file 2f9d898323917f0f5014dc669e4fbe874e9c54f57c0bf53333a06b310489d8bc:NoopRepair/test_amounts.py
+            --file 66c24b2a4601b9533524546566bcbab0f7b51afdf1a56f9742e82e409f54dcae:unrelated.txt
+            --file e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7:.eval/authenticated_artifacts.py
+            --file 5d406aa064f92dfb0f2c861f178f42e91b067ecfe7c3f30cf5ea335e578d026a:.eval/migration_evidence.py
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config: {pattern: '(?i)no (?:repair|changes?|fix)(?: (?:was|were|is|are))? (?:needed|required)|already (?:correct|imports|uses)|unchanged'}
+      - type: tool-calls
+        config:
+          disallowed:
+            - name: '(?i)(?:^|[.:])(?:bash|powershell|execute|shell|run_shell_command|local_shell|run_in_terminal|run_command|terminal|task|agent)$'
+      - type: prompt
+    rubric:
+      - Recognizes that the existing import and tests are already correct instead of forcing a repair.
+      - Preserves all source files, unrelated files, staged evaluator resources and the complete workspace file set.
+      - Reports inspection-only findings without claiming tests were executed or passed.
+
+  - name: Repair an existing test import without widening the edit scope
+    tags: {capability: existing-test-repair, risk: append-only-or-production-edit, journey: repair-focused-tests}
+    prompt: |
+      The unittest in work/test_total.py no longer imports after the module was
+      renamed to amounts.py. Fix the existing test and run it. Do not change
+      production code or unrelated files, and do not create a compatibility module.
+      The project command is python -m unittest -v, run from the work directory.
+    environment:
+      files:
+        - src: fixtures/operation-repair
+          dest: work
+        - src: graders/operation_contract.py
+          dest: .eval/operation_contract.py
+    golden_patch:
+      path: references/operation-repair.patch
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;p=pathlib.Path('.eval/operation_contract.py');data=p.read_bytes();assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a','Evaluator code changed';sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})" repair --workspace .
+            --support-file .eval/operation_contract.py=c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a
+            --support-file .eval/authenticated_artifacts.py=e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7
+            --file amounts.py=3251dbf18617cd67c47707cb9bd1611dbac212ff0ee9814a75b8ce1f34b85aad
+            --file test_total.py=70d913860bf0a07524c7d101d144b293a036eb92b55f3db3e2533ba2f4e69a6c
+            --file unrelated.txt=66c24b2a4601b9533524546566bcbab0f7b51afdf1a56f9742e82e409f54dcae
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Repairs the existing test rather than treating all prior test content as immutable or adding a shim.
+      - Only the renamed import changes; the original test assertion, production and unrelated bytes remain unchanged before and after execution.
+      - Keeps the focused task proportional without a mandatory multi-agent pipeline.
+
+  - name: Retain a correct failing regression when production violates its contract
+    tags: {capability: regression-preservation, risk: weakening-test-for-green, journey: diagnose-product-defect, expect_activation: "false"}
+    prompt: |
+      The documented rule is that values of 10 or greater are allowed.
+      Run work/test_limit.py and determine whether the test or implementation
+      is wrong. This is diagnosis only: do not edit any files or make the
+      assertion match a product defect.
+    environment:
+      files:
+        - src: fixtures/product-regression
+          dest: work
+        - src: graders/operation_contract.py
+          dest: .eval/operation_contract.py
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: retained-product-regression
+        agent: {name: reference, version: "1.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              The regression correctly fails at 10. Production uses > 10,
+              contradicting the inclusive documented boundary. I retained the
+              assertion and left every file unchanged; a product fix needs authorization.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;p=pathlib.Path('.eval/operation_contract.py');data=p.read_bytes();assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a','Evaluator code changed';sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})" regression --workspace .
+            --support-file .eval/operation_contract.py=c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a
+            --support-file .eval/authenticated_artifacts.py=e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7
+            --file limit.py=9e8adcd45da1f45c2c3ce1d8fab533ea9f2d950eb7ee191cd15e8de6cb89d1b3
+            --file test_limit.py=4fd2f2ac45151b3b58e952c912c7b357ab312801f6fc20c300abdf0e959a0685
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config: {pattern: "(?i)(production|implementation|product).*(defect|wrong|>|boundary)|(?i:contradict)"}
+      - type: prompt
+    rubric:
+      - Identifies the production boundary defect and accurately reports the expected test failure.
+      - Does not weaken, delete, skip, or invert the regression and does not edit the implementation.
+
+  - name: Add an inclusive-boundary regression without hiding a product defect
+    tags: {capability: valid-red-regression, risk: adapting-oracle-to-broken-product, journey: add-contract-regression}
+    prompt: |
+      Add unittest regressions for the documented rule in work/limit.py:
+      10 and the value immediately above it must both be allowed.
+      Run the tests. Do not change production, and retain a correct new
+      regression even if it exposes a product defect; report that outcome.
+      Leave the existing test file unchanged.
+    environment:
+      files:
+        - src: fixtures/product-regression/limit.py
+          dest: work/limit.py
+        - src: fixtures/existing_limit_tests.py
+          dest: work/test_existing.py
+        - src: graders/operation_contract.py
+          dest: .eval/operation_contract.py
+    golden_patch:
+      path: references/product-regression.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: newly-authored-product-regression
+        agent: {name: reference, version: "1.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Added both unittest regressions. The case at 10 correctly fails:
+              production uses > 10 rather than the documented inclusive boundary.
+              The above-boundary case passes. I retained the failing assertion
+              and did not change production; the tests are not all green.
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;p=pathlib.Path('.eval/operation_contract.py');data=p.read_bytes();assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a','Evaluator code changed';sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})" new-regression --workspace .
+            --support-file .eval/operation_contract.py=c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a
+            --support-file .eval/authenticated_artifacts.py=e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7
+            --file limit.py=9e8adcd45da1f45c2c3ce1d8fab533ea9f2d950eb7ee191cd15e8de6cb89d1b3
+            --file test_existing.py=a3fd3149c0e0bbd3e97332a5e8c5ea1a4c44f48742cbacaeeb079c448a1ce72b
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config: {pattern: "(production|implementation|product).*(defect|wrong|>|boundary)"}
+      - type: prompt
+    rubric:
+      - Adds the requested boundary regressions and retains the genuine failing assertion rather than weakening it for a green result.
+      - Reports the production defect and real failure without making an unauthorized product edit.
+      - Tests pass with a correct inclusive implementation and reject an implementation that excludes the value immediately above the boundary.
+
+  - name: Repair and extend Rust inline tests without rewriting runtime code
+    tags: {capability: rust-inline-repair, risk: mixed-role-file-rejection, journey: test-rust-boundary}
+    prompt: |
+      Shipping is free at subtotals of 50 or above. Fix the stale assertion
+      in work/src/lib.rs and add a test for a subtotal just below the boundary.
+      Keep the tests inline, leave runtime code unchanged, and run cargo test offline.
+    environment:
+      files:
+        - src: fixtures/rust-inline
+          dest: work
+        - src: graders/operation_contract.py
+          dest: .eval/operation_contract.py
+    golden_patch:
+      path: references/rust-inline.patch
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;p=pathlib.Path('.eval/operation_contract.py');data=p.read_bytes();assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a','Evaluator code changed';sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})" rust --workspace .
+            --support-file .eval/operation_contract.py=c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a
+            --support-file .eval/authenticated_artifacts.py=e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7
+            --file Cargo.toml=19d72898ca89ad2801b322e979815ff165c43bbce653513049f4f1b064575375
+            --file src/lib.rs=0f1fbe0e1d30fc10107863526042f3cc0065a4ed9301192bf0289450099a8d2f
+            --runtime-sha256 9ed3cd4127992a8c0f0562807f143108f8cc3e35a1f4580a63b92985b3a6d343
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Repairs and extends the existing cfg-test region instead of rejecting the mixed-role source file.
+      - Runtime code and manifest stay unchanged while the boundary cases pass and detect an exclusive-boundary defect.
+
+  - name: Test Go HTTP and filesystem behavior with owned local resources
+    tags: {capability: hermetic-http-tests, risk: banning-required-local-resources, journey: test-download-contract}
+    prompt: |
+      Add tests under work for Download: a successful HTTP response must write
+      the complete body, and a non-success status must return an error without
+      creating the destination. Use an owned local HTTP server and temporary
+      output directory with cleanup, no external service or fixed port.
+      Do not edit production. Run the tests offline.
+    environment:
+      files:
+        - src: fixtures/go-http
+          dest: work
+        - src: graders/operation_contract.py
+          dest: .eval/operation_contract.py
+        - src: graders/go_server_lifetime.go
+          dest: .eval/go_server_lifetime.go
+    golden_patch:
+      path: references/go-http.patch
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;p=pathlib.Path('.eval/operation_contract.py');data=p.read_bytes();assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a','Evaluator code changed';sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})" go --workspace .
+            --support-file .eval/operation_contract.py=c49efc63ff776fa3759f15227979f96e7b250dc7d3e30ef2d5f596d2d684ee1a
+            --support-file .eval/authenticated_artifacts.py=e1f80ddf5efca29aa82174dafd3130df9ec19572f34b6aeff7a9ed184faad8b7
+            --support-file .eval/go_server_lifetime.go=d184f4010143de218de7d4707533fe66acd9bd3b649a47c24d52639f07643650
+            --file client.go=d8944b09cbf0dafaf2b4dbaae04b1de3cd3503b0fee59f6dea05cb92a9e0975a
+            --file go.mod=24ec381a2da550fff2e2a9e9ea7926acd70bd8a37aa99c438d7071b3a0913801
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Exercises actual HTTP and file behavior using owned ephemeral resources and cleanup rather than refusing these resources or mocking away the requested boundary.
+      - Assertions reject both altered response bodies and silently accepted error statuses.
+      - Production code and module configuration remain unchanged.
+
   - name: Generate a project-wide pytest suite across multiple modules
     prompt: |
       Generate a comprehensive pytest suite for the entire project under

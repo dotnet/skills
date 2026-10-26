@@ -14,7 +14,7 @@ PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 ## When to use this plugin
 
 - **Run tests** *(.NET only)* — execute SDK-style projects with `dotnet test`, or preserve a classic project's checked-in MSBuild + VSTest/MSTest command
-- **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
+- **Generate and repair tests** *(polyglot)* — use a proportional workflow, with optional delegation for substantial independent work
 - **Migrate tests** *(.NET only)* — see the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin (MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit → MSTest, VSTest → Microsoft.Testing.Platform)
 - **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
 - **Validate changed behavior** *(polyglot)* — bind regression/feature detection evidence to exact revisions, without mistaking static predictions or build failures for proof
@@ -22,6 +22,45 @@ PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 - **Measure coverage** *(.NET only)* — collect code coverage, compute CRAP scores, and surface risk hotspots
 
 ## Skills
+
+### Capability boundaries by language and runner
+
+The matrix describes the shipped guidance, not a claim that every combination
+has equivalent evaluation evidence. "Repository command" means the general
+testing workflow uses the project's existing toolchain; it is not support from
+the .NET-specific `run-tests` skill. Static source pairing is not executed
+coverage or proof that an assertion detects a defect.
+
+| Language / runner | Generate and repair | Execute | Analyze tests / static pairing | Collect coverage / CRAP | Refactor testability | Framework migration |
+|---|---|---|---|---|---|---|
+| SDK-style .NET: MSTest, xUnit, NUnit, TUnit | Guided | `run-tests`, detected VSTest or MTP mode | Guided / Roslyn or tree-sitter | .NET workflow | Explicit .NET opt-in | Separate migration plugin; supported paths only |
+| Classic .NET / Visual Studio runners | Preserve project items and existing framework | Existing Windows MSBuild + VSTest/MSTest command | Guided / static pairing | Existing compatible reports; no SDK package injection | Explicit opt-in, repository rules apply | Assess framework/toolchain compatibility first |
+| Python: pytest, unittest | Guided | Repository command | Language references / tree-sitter | Native coverage tool; no .NET collection promise | No dedicated workflow | Not provided |
+| JS/TS: Jest, Vitest, Mocha, Jasmine, node:test | Guided | Repository command | Language references / tree-sitter | Native coverage tool | No dedicated workflow | Not provided |
+| Go / Rust | Guided, including Go colocated tests and Rust test regions | `go test` / `cargo test` from repository configuration | Language references / tree-sitter | Native coverage tool | No dedicated workflow | Not provided |
+| Java, Kotlin, Ruby, Swift, PowerShell, C++ | Per-language guidance | Repository command and required native toolchain | Language references / tree-sitter; parser capabilities vary | Native coverage tool | No dedicated workflow | Not provided |
+
+Read-only analysis can work without a runnable application. Generation and
+execution require the actual language runtime, framework, and dependencies.
+Local HTTP servers and temporary files are valid when they exercise requested
+behavior and have bounded, owned lifetimes; they are not external services.
+Any unavailable language parser or runner must be reported as a prerequisite
+or coverage limitation, never as zero tests or successful execution.
+
+The Go HTTP eval checks server lifetimes in a separate, instrumented replay copy,
+not by searching for one cleanup call. An authenticated standard-library Go AST
+probe registers verification at test/subtest entry, tracks every server listener,
+and checks that destinations use freshly created temporary directories removed by
+the end of user cleanup. This accepts cleanup registered before resource creation.
+Direct closes, deferred callbacks, subtest owners and helpers accepting `testing.TB` are supported;
+factory helpers without a standard testing-owner parameter are reported as
+unsupported by this fixture probe. This calibration does not modify delivered tests
+or expose a new public analysis tool.
+Single-function table-driven tests are accepted: coverage is established by the
+HTTP/body/destination mutations, not a minimum test-function count.
+Operation graders authenticate the full workspace and staged supporting inputs
+both before and after execution; permitted edits and generated outputs remain
+restricted to the operation's `work` directory.
 
 ### Test execution
 
@@ -37,6 +76,7 @@ PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 | **code-testing** | Implicit entry skill for generating, repairing, and strengthening tests; broad work delegates to `test-engineer` |
 | **scaffold-dotnet-test-project** *(.NET)* | Create a missing test project or repair its project/solution/filter wiring |
 | **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects, including MSTest 3.x/4.x APIs |
+| **find-untested-sources** | Static source-to-test pairing using Roslyn for C# or tree-sitter for multiple languages; does not measure behavioral or line coverage |
 
 ### Test migration
 
@@ -229,6 +269,28 @@ work that benefits from separate context.
 > has no such gate, but delegation remains optional.
 
 ## Prerequisites
+
+### Plugin and host composition
+
+Install both `dotnet-test` and `dotnet-test-migration` for the composed migration
+workflow. A single-skill install does not automatically supply sibling skills,
+references, agents, or their tools. Check the actual host catalog before
+delegating; if a dependency is absent, explain the limitation and use an
+available inline path only when it can satisfy the request. Do not claim an
+unavailable helper or handoff ran.
+
+Copilot hosts that load `.agent.md` can expose the agents above. Codex plugin
+installs expose skills, not these agents or static handoffs. Other hosts must
+use their own discovered capabilities; installing a compatibility manifest is
+not proof of equivalent delegation. Reference-only skills are covered through
+their consumers, not independent invocation tests.
+
+The static analyzers have separate prerequisites: Python and the parser
+package for tree-sitter, a file-based-app-capable .NET SDK and restored Roslyn
+dependencies for the C# helper, and PowerShell for coverage scripts. Use the
+versions and flags declared by the shipped helper, provision dependencies
+explicitly, and preserve offline/no-install requests. Build/restore logs are
+not an analyzer's JSON output; capture the built analyzer process separately.
 
 ### For polyglot skills and agents
 
