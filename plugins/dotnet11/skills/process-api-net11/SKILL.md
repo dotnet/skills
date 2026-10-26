@@ -62,6 +62,8 @@ Choose the smallest orchestration model that meets the actual concurrency and li
 
 ## Choosing an API
 
+**Do not redirect an inherited stream merely to use a new capture API.**
+
 | Need | Prefer |
 |------|--------|
 | Start, capture bounded text output, and wait for exit | `RunAndCaptureText[Async]`, including its `ProcessStartInfo` overloads for custom configuration |
