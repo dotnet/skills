@@ -259,6 +259,23 @@ test("assert-friend-consumer-migrated: a using-static call passes", () =>
       assert.equal(friendConsumer(root), 0);
     }));
 
+test("assert-friend-consumer-migrated: an interpolated CalculateDiscount call passes", () =>
+  withFriendConsumer(migratedFriendConsumer.replace(
+    "Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));",
+    'Assert.Equal("90.00", $"{PricingMath.CalculateDiscount(100m, 0.10m):F2}");'),
+  root => {
+    assert.equal(friendConsumer(root), 0);
+  }));
+
+test("assert-friend-consumer-migrated: an interpolated ApplyDiscount call still fails", () =>
+  withFriendConsumer(migratedFriendConsumer.replace(
+    "Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));",
+    `var legacy = $"{PricingMath.ApplyDiscount(100m, 0.10m):F2}";
+        Assert.Equal("90.00", $"{PricingMath.CalculateDiscount(100m, 0.10m):F2}");`),
+  root => {
+    assert.equal(friendConsumer(root), 1);
+  }));
+
 test("assert-friend-consumer-migrated: adding a new-name test without migrating the original fails", () =>
   withFriendConsumer(migratedFriendConsumer
     .replace("PricingMath.CalculateDiscount(100m, 0.10m)", "PricingMath.ApplyDiscount(100m, 0.10m)") +
@@ -644,6 +661,24 @@ test("assert-single-parser: duplicated parsing in another file or alias spelling
   assert.equal(singleParser({
     "src/Billing/AppSettingsHelper.cs": documentedForwarder.replace("=> AppSettingsHelper.ParseBoolSetting(raw, fallback)", "=> Boolean.TryParse(raw, out var b) ? b : fallback"),
   }), 1);
+});
+
+test("assert-single-parser: independent Parse implementations still fail", () => {
+  const duplicated = documentedForwarder
+    .replace(
+      "public static int ReadInt(string? raw, int fallback) => AppSettingsHelper.ParseIntSetting(raw, fallback);",
+      "public static int ReadInt(string? raw, int fallback) { try { return int.Parse(raw!); } catch { return fallback; } }")
+    .replace(
+      "public static bool ReadBool(string? raw, bool fallback) => AppSettingsHelper.ParseBoolSetting(raw, fallback);",
+      "public static bool ReadBool(string? raw, bool fallback) { try { return bool.Parse(raw!); } catch { return fallback; } }");
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": duplicated }), 1);
+  const decoy = `static class Decoy
+{
+    static int ReadInt(string? raw, int fallback) => AppSettingsHelper.ParseIntSetting(raw, fallback);
+    static bool ReadBool(string? raw, bool fallback) => AppSettingsHelper.ParseBoolSetting(raw, fallback);
+}
+`;
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": decoy + duplicated }), 1);
 });
 
 test("assert-single-parser: build output is ignored", () => {
