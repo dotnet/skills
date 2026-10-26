@@ -234,6 +234,31 @@ test("assert-friend-consumer-migrated: an expression-bodied migrated consumer pa
     assert.equal(friendConsumer(root), 0);
   }));
 
+test("assert-friend-consumer-migrated: a method-group binding passes", () =>
+  withFriendConsumer(migratedFriendConsumer.replace(
+    "Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));",
+    `Func<decimal, decimal, decimal> calculate = PricingMath.CalculateDiscount;
+        Assert.Equal(90m, calculate(100m, 0.10m));`),
+  root => {
+    assert.equal(friendConsumer(root), 0);
+  }));
+
+test("assert-friend-consumer-migrated: a PricingMath type alias passes", () =>
+  withFriendConsumer(
+    "using PM = Billing.PricingMath;\n" +
+    migratedFriendConsumer.replace("PricingMath.CalculateDiscount", "PM.CalculateDiscount"),
+    root => {
+      assert.equal(friendConsumer(root), 0);
+    }));
+
+test("assert-friend-consumer-migrated: a using-static call passes", () =>
+  withFriendConsumer(
+    "using static Billing.PricingMath;\n" +
+    migratedFriendConsumer.replace("PricingMath.CalculateDiscount", "CalculateDiscount"),
+    root => {
+      assert.equal(friendConsumer(root), 0);
+    }));
+
 test("assert-friend-consumer-migrated: adding a new-name test without migrating the original fails", () =>
   withFriendConsumer(migratedFriendConsumer
     .replace("PricingMath.CalculateDiscount(100m, 0.10m)", "PricingMath.ApplyDiscount(100m, 0.10m)") +

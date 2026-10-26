@@ -39,22 +39,41 @@ function methodBodies(source) {
   return methods;
 }
 
+function pricingMathReferences(source) {
+  const masked = mask(source);
+  const aliases = [...masked.matchAll(
+    /\busing\s+([A-Za-z_]\w*)\s*=\s*(?:global\s*::\s*)?(?:Billing\s*\.\s*)?PricingMath\s*;/g)]
+    .map(match => match[1]);
+  const hasStaticImport =
+    /\busing\s+static\s+(?:global\s*::\s*)?(?:Billing\s*\.\s*)?PricingMath\s*;/.test(masked);
+  return { aliases, hasStaticImport };
+}
+
+function referencesMember(method, member, { aliases, hasStaticImport }) {
+  const qualifiers = ['PricingMath', ...aliases]
+    .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+  if (new RegExp(`\\b(?:${qualifiers})\\s*\\.\\s*${member}\\b`).test(method.body)) {
+    return true;
+  }
+  return hasStaticImport && new RegExp(`\\b${member}\\b`).test(method.body);
+}
+
 function check(source) {
   const methods = methodBodies(source);
-  const callsCalculate = method =>
-    /\bPricingMath\s*\.\s*CalculateDiscount\s*\(/.test(method.body);
-  const callsApply = method =>
-    /\bPricingMath\s*\.\s*ApplyDiscount\s*\(/.test(method.body);
+  const references = pricingMathReferences(source);
+  const usesCalculate = method => referencesMember(method, 'CalculateDiscount', references);
+  const usesApply = method => referencesMember(method, 'ApplyDiscount', references);
   const original = methods.find(method => method.name === originalTest);
 
   if (original) {
-    if (!callsCalculate(original)) {
-      return `${originalTest} still does not call PricingMath.CalculateDiscount`;
+    if (!usesCalculate(original)) {
+      return `${originalTest} still does not use PricingMath.CalculateDiscount`;
     }
-    if (callsApply(original)) {
-      return `${originalTest} still calls PricingMath.ApplyDiscount`;
+    if (usesApply(original)) {
+      return `${originalTest} still uses PricingMath.ApplyDiscount`;
     }
-  } else if (!methods.some(callsCalculate)) {
+  } else if (!methods.some(usesCalculate)) {
     return 'could not find a migrated test consumer of PricingMath.CalculateDiscount';
   }
   return null;
@@ -76,4 +95,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { methodBodies, check };
+module.exports = { methodBodies, pricingMathReferences, referencesMember, check };

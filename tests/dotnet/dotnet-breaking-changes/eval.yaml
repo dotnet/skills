@@ -432,12 +432,9 @@ stimuli:
         config:
           path: src/Billing/Pricing.cs
           value: CalculateDiscount(
-      - type: file-contains
-        config:
-          path: tests/Billing.Tests/BillingTests.cs
-          value: PricingMath.CalculateDiscount(
-      # Inspect only the fixture's original consumer. A separate regression test may legitimately
-      # call the retained ApplyDiscount shim to prove compatibility for external friends.
+      # Inspect the fixture's original consumer structurally. Direct calls, method-group bindings,
+      # type aliases, and using-static calls are valid migrations. A separate regression test may
+      # legitimately call the retained ApplyDiscount shim to prove compatibility for external friends.
       - type: run-command
         config:
           command: node .grading/assert-friend-consumer-migrated.js tests/Billing.Tests/BillingTests.cs
