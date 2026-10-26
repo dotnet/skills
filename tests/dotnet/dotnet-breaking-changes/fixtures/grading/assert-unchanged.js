@@ -23,11 +23,12 @@ const hash = p => {
   const text = content(p);
   return text === null ? null : crypto.createHash('sha256').update(text).digest('hex');
 };
-const skip = new Set(['bin', 'obj', 'TestResults']);
+const skip = new Set(['bin', 'obj']);
+const testResultArtifact = /^tests\/[^/]+\/TestResults\/.*(?:\.trx|\.coverage|coverage\.(?:cobertura\.)?(?:xml|json)|lcov\.info)$/i;
 const walk = d => !fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: true })
   .flatMap(e => e.isDirectory()
     ? (skip.has(e.name) ? [] : walk(`${d}/${e.name}`))
-    : [`${d}/${e.name}`]);
+    : (testResultArtifact.test(`${d}/${e.name}`) ? [] : [`${d}/${e.name}`]));
 
 const changed = Object.keys(manifest.files)
   .filter(p => !fs.existsSync(p) || hash(p) !== manifest.files[p]);

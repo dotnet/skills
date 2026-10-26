@@ -53,10 +53,17 @@ test("assert-unchanged: harness assets and build output are ignored", () => with
   write(root, ".grading/extra.txt", "harness");
   write(root, "src/Billing/obj/project.assets.json", "{}");
   write(root, "tests/Billing.Tests/bin/Debug/out.txt", "x");
+  write(root, "tests/Billing.Tests/TestResults/results.trx", "results");
+  write(root, "tests/Billing.Tests/TestResults/coverage.cobertura.xml", "<coverage />");
   assert.equal(unchanged(root), 0);
 }));
 
-for (const file of ["src/Billing/GraderChecks/Unexpected.cs", "tests/Billing.Tests/GraderChecks/Checks.cs"]) {
+for (const file of [
+  "src/Billing/GraderChecks/Unexpected.cs",
+  "tests/Billing.Tests/GraderChecks/Checks.cs",
+  "src/Billing/TestResults/Extra.cs",
+  "tests/Billing.Tests/TestResults/Extra.cs",
+]) {
   test(`assert-unchanged: undeclared ${file} fails`, () => withWorkspace(root => {
     write(root, file, "class C {}");
     assert.equal(unchanged(root), 1);
