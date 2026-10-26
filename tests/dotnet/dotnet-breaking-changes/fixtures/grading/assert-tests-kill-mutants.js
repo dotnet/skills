@@ -149,7 +149,7 @@ function parameterNames(header) {
 // solution's API baseline still matches; `$1`, `$2`, ... in `body` become its parameter names.
 function replaceDeclarations(src, declaration, replacement, body) {
   const masked = mask(src);
-  const matcher = declaration.replace(/\\bstring|\bstring\b/g, '(?:string|String|System\\.String)');
+  const matcher = declaration.replace(/\\bstring|\bstring\b/g, '\\b(?:string|String|(?:global\\s*::\\s*)?System\\s*\\.\\s*String)');
   const re = new RegExp(matcher, 'g');
   const spans = [];
   for (let m; (m = re.exec(masked));) {
