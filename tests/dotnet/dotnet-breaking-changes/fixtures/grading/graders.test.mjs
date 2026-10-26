@@ -173,6 +173,42 @@ test("assert-unchanged: the rename plus a test edit, added file, or deleted file
   }
 });
 
+function withPrivateAppRename(fn) {
+  const root = mkdtempSync(join(tmpdir(), "bc-private-rename-"));
+  try {
+    for (const file of ["Reports.csproj", "Program.cs", "ReportBuilder.cs"]) {
+      mkdirSync(join(root, "Reports"), { recursive: true });
+      cpSync(join(suite, "fixtures", "private-app", file), join(root, "Reports", file));
+    }
+    mkdirSync(join(root, ".grading"));
+    cpSync(join(grading, "assert-unchanged.js"), join(root, ".grading", "assert-unchanged.js"));
+    cpSync(join(grading, "unchanged-private-app-rename.json"), join(root, ".grading", "unchanged.json"));
+    fn(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const renamePrivateApp = root => {
+  for (const file of ["Reports/Program.cs", "Reports/ReportBuilder.cs"]) {
+    write(root, file, readFileSync(join(root, file), "utf8").replace(/\bBuild\b/g, "BuildMonthlySummary"));
+  }
+};
+
+test("assert-unchanged: the private-app method rename passes", () =>
+  withPrivateAppRename(root => {
+    renamePrivateApp(root);
+    assert.equal(unchanged(root), 0);
+  }));
+
+test("assert-unchanged: the private-app rename plus hard-coded total fails", () =>
+  withPrivateAppRename(root => {
+    renamePrivateApp(root);
+    write(root, "Reports/ReportBuilder.cs",
+      readFileSync(join(root, "Reports/ReportBuilder.cs"), "utf8").replace("sales.Sum()", "242.75m"));
+    assert.equal(unchanged(root), 1);
+  }));
+
 const migratedFriendConsumer = `
 using Xunit;
 

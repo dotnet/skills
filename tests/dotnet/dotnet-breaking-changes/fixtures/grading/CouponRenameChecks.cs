@@ -14,6 +14,7 @@ public class CouponRenameChecks
     public void CouponTypeAndSignaturesRemainPublic()
     {
         Assert.True(typeof(Coupons).IsPublic);
+        Assert.False(typeof(Coupons).IsSealed);
         AssertPublicInstanceMethod(
             nameof(Coupons.Redeem),
             typeof(decimal),

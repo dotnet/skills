@@ -737,7 +737,20 @@ stimuli:
       commands:
         - node -e "const fs=require('fs');for (const p of ['src','tests','Fixture.sln']) fs.rmSync(p,{recursive:true,force:true})"
         - dotnet restore Reports/Reports.csproj --nologo
+    grading_environment:
+      files:
+        - src: fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: fixtures/grading/unchanged-private-app-rename.json
+          dest: .grading/unchanged.json
     graders:
+      # The three-file app may differ only by the requested Build -> BuildMonthlySummary rename.
+      # This rejects hard-coded output, changed sales logic, compatibility shims, and extra files.
+      - type: run-command
+        config:
+          command: node .grading/assert-unchanged.js .grading/unchanged.json
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: Reports/ReportBuilder.cs
