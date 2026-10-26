@@ -2997,11 +2997,23 @@ esac
         )
         self.assertFalse(
             any(
-                step.get("uses", "").startswith(
-                    ("actions/cache", "actions/setup-dotnet")
-                )
+                step.get("uses", "").startswith("actions/cache")
                 for step in steps
             )
+        )
+        sdk_setups = [
+            step for step in steps
+            if step.get("uses", "").startswith("actions/setup-dotnet@")
+        ]
+        self.assertEqual(len(sdk_setups), 1)
+        self.assertEqual(
+            sdk_setups[0]["name"], "Setup .NET SDK for evaluated tools"
+        )
+        self.assertEqual(
+            sdk_setups[0]["with"],
+            {
+                "global-json-file": "${{ runner.temp }}/trusted-validator-src/global.json",
+            },
         )
         self.assertFalse(
             any("dotnet publish" in step.get("run", "") for step in steps)
