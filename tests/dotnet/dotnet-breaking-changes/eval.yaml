@@ -419,6 +419,10 @@ stimuli:
       files:
         - src: fixtures/grading/FriendRenameChecks.cs
           dest: tests/Billing.Tests/GraderChecks/FriendRenameChecks.cs
+        - src: fixtures/grading/assert-friend-consumer-migrated.js
+          dest: .grading/assert-friend-consumer-migrated.js
+        - src: fixtures/grading/assert-tests-kill-mutants.js
+          dest: .grading/assert-tests-kill-mutants.js
     graders:
       # Grader-owned expected discounts; the agent edits BillingTests.cs for the rename, so
       # its assertion alone cannot prove the results are unchanged. The checks also call
@@ -432,10 +436,12 @@ stimuli:
         config:
           path: tests/Billing.Tests/BillingTests.cs
           value: PricingMath.CalculateDiscount(
-      - type: file-not-contains
+      # Inspect only the fixture's original consumer. A separate regression test may legitimately
+      # call the retained ApplyDiscount shim to prove compatibility for external friends.
+      - type: run-command
         config:
-          path: tests/Billing.Tests/BillingTests.cs
-          value: PricingMath.ApplyDiscount(
+          command: node .grading/assert-friend-consumer-migrated.js tests/Billing.Tests/BillingTests.cs
+          expected_exit_code: 0
       - type: file-contains
         config:
           path: src/Billing/AssemblyInfo.cs

@@ -35,6 +35,10 @@ function run(root, ...args) {
 }
 
 const unchanged = root => run(root, ".grading/assert-unchanged.js", ".grading/unchanged.json");
+const friendConsumer = root => run(
+  root,
+  join(grading, "assert-friend-consumer-migrated.js"),
+  "tests/Billing.Tests/BillingTests.cs");
 
 function withWorkspace(fn) {
   const root = workspace();
@@ -168,6 +172,63 @@ test("assert-unchanged: the rename plus a test edit, added file, or deleted file
     });
   }
 });
+
+const migratedFriendConsumer = `
+using Xunit;
+
+public class BillingTests
+{
+    [Fact]
+    public void PricingMath_AppliesDiscountForFriendAssembly()
+    {
+        Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));
+    }
+}
+`;
+
+function withFriendConsumer(source, fn) {
+  const root = mkdtempSync(join(tmpdir(), "bc-friend-consumer-"));
+  try {
+    write(root, "tests/Billing.Tests/BillingTests.cs", source);
+    fn(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test("assert-friend-consumer-migrated: migrated original consumer passes", () =>
+  withFriendConsumer(migratedFriendConsumer, root => {
+    assert.equal(friendConsumer(root), 0);
+  }));
+
+test("assert-friend-consumer-migrated: a separate legacy-shim regression test passes", () =>
+  withFriendConsumer(`${migratedFriendConsumer}
+public class CompatibilityTests
+{
+    [Fact]
+    public void ApplyDiscount_RemainsCallable()
+        => Assert.Equal(90m, PricingMath.ApplyDiscount(100m, 0.10m));
+}
+`, root => {
+    assert.equal(friendConsumer(root), 0);
+  }));
+
+test("assert-friend-consumer-migrated: adding a new-name test without migrating the original fails", () =>
+  withFriendConsumer(migratedFriendConsumer
+    .replace("PricingMath.CalculateDiscount(100m, 0.10m)", "PricingMath.ApplyDiscount(100m, 0.10m)") +
+    "\npublic class NewNameTests { [Fact] public void NewName() => PricingMath.CalculateDiscount(1m, 0m); }\n",
+  root => {
+    assert.equal(friendConsumer(root), 1);
+  }));
+
+test("assert-friend-consumer-migrated: comments and strings do not fake migration", () =>
+  withFriendConsumer(migratedFriendConsumer
+    .replace("Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));",
+      'var text = "PricingMath.CalculateDiscount("; // PricingMath.CalculateDiscount(\\n' +
+      "        Assert.Equal(90m, PricingMath.ApplyDiscount(100m, 0.10m));"),
+  root => {
+    assert.equal(friendConsumer(root), 1);
+  }));
 
 // assert-tests-kill-mutants: declaration-level mutation.
 const killMutants = createRequire(import.meta.url)("./assert-tests-kill-mutants.js");
