@@ -590,14 +590,10 @@ stimuli:
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
-      # Implementation and API shape are already checked structurally above. Keep the final-answer
-      # requirement deterministic so a trajectory judge cannot contradict the resulting workspace.
-      - type: output-matches
+      # Executable graders above enforce the implementation; judge only the explanation here.
+      - type: prompt
         config:
-          pattern: '(?i)MissingMethodException'
-      - type: output-matches
-        config:
-          pattern: '(?i)(already[- ]compiled|existing (consumer|caller|binar)|binary compat)'
+          prompt: "Assess only the compatibility explanation in the final response, not workspace correctness. Require an explanation that preserving the existing two-parameter method avoids breaking already-compiled consumers when adding provider support. Accept equivalent wording without requiring MissingMethodException or any other exact term; an unexplained claim that the change is safe is insufficient."
     rubric:
       - "Kept the shipped two-parameter ParseIntSetting signature and added the IFormatProvider capability as a new overload rather than an optional parameter on the shipped method"
       - "Recorded only the new overload in PublicAPI.Unshipped.txt and left the shipped baseline untouched"
