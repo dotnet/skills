@@ -153,6 +153,8 @@ def main():
     formatted_mutations = 0
     combined_cases = 0
     combined_mutations = 0
+    concatenated_cases = 0
+    concatenated_mutations = 0
     length_mutations = 0
 
     def reject_length_only(output, stdout, stderr, stimulus_index):
@@ -169,6 +171,14 @@ def main():
                 raise AssertionError(f"Length-only output was accepted: {value}")
         return 2
 
+    named_tuple = outputs[2].replace(
+        "(string StandardOutput, string StandardError) output",
+        "(string stdout, string stderr) output",
+    ).replace("output.StandardOutput", "output.stdout").replace("output.StandardError", "output.stderr")
+    renamed_tuple = named_tuple.replace(
+        "(string stdout, string stderr) output",
+        "(string text, string errors) captured",
+    ).replace("output.stdout", "captured.text").replace("output.stderr", "captured.errors")
     capture_forms = (
         (outputs[0], "output.StandardOutput", "output.StandardError"),
         (outputs[2], "output.StandardOutput", "output.StandardError"),
@@ -179,11 +189,23 @@ def main():
         ),
         (deconstructed, "stdout", "stderr"),
         (deconstructed.replace("(string stdout, string stderr)", "var (stdout, stderr)"), "stdout", "stderr"),
+        (named_tuple, "output.stdout", "output.stderr"),
+        (renamed_tuple, "captured.text", "captured.errors"),
+        (
+            renamed_tuple.replace("await process.ReadAllTextAsync()", "process.ReadAllText()"),
+            "captured.text",
+            "captured.errors",
+        ),
     )
     for stimulus_index in (0, 2):
         for output, stdout, stderr in capture_forms:
             if stimulus_index == 2 and output == outputs[0]:
                 continue
+            reference = copy.deepcopy(stimuli[stimulus_index]["golden_trajectory"]["inline"])
+            reference["steps"][-1]["message"] = output
+            gate["check_trajectory_output_graders"](str(spec), stimuli[stimulus_index], reference, "capture form")
+            if gate["errors"]:
+                raise AssertionError("\n".join(gate["errors"]))
             length_mutations += reject_length_only(output, stdout, stderr, stimulus_index)
             for interpolated in (True, False):
                 if interpolated:
@@ -236,6 +258,36 @@ def main():
                     if gate["vally_regex_found"](pattern, mutated):
                         raise AssertionError("Combined output accepted a missing or repeated stream.")
                     combined_mutations += 1
+            for reversed_arguments in (False, True):
+                first, second = (stderr, stdout) if reversed_arguments else (stdout, stderr)
+                for labeled in (False, True):
+                    if labeled:
+                        first_label, second_label = ("stderr", "stdout") if reversed_arguments else ("stdout", "stderr")
+                        expression = f'"{first_label}: " + {first} + "\\n{second_label}: " + {second}'
+                    else:
+                        expression = f"{first} + {second}"
+                    concatenated_write = f"Console.WriteLine({expression});"
+                    concatenated = output.replace(f"Console.Out.Write({stdout});", concatenated_write).replace(
+                        f"Console.Error.Write({stderr});", ""
+                    )
+                    if concatenated_write not in concatenated:
+                        raise AssertionError("Concatenated-output regression did not replace the writes.")
+                    reference = copy.deepcopy(stimuli[stimulus_index]["golden_trajectory"]["inline"])
+                    reference["steps"][-1]["message"] = concatenated
+                    gate["check_trajectory_output_graders"](
+                        str(spec), stimuli[stimulus_index], reference, "concatenated output"
+                    )
+                    if gate["errors"]:
+                        raise AssertionError("\n".join(gate["errors"]))
+                    concatenated_cases += 1
+                    length_mutations += reject_length_only(concatenated, stdout, stderr, stimulus_index)
+                    for value, other, grader_index in ((stdout, stderr, 3), (stderr, stdout, 4)):
+                        for replacement in ('""', other):
+                            mutated = concatenated.replace(concatenated_write, concatenated_write.replace(value, replacement))
+                            pattern = stimuli[stimulus_index]["graders"][grader_index]["config"]["pattern"]
+                            if gate["vally_regex_found"](pattern, mutated):
+                                raise AssertionError("Concatenated output accepted a missing or repeated stream.")
+                            concatenated_mutations += 1
     if gate["errors"]:
         raise AssertionError("\n".join(gate["errors"]))
 
@@ -252,6 +304,8 @@ def main():
     print(f"PASS: all {formatted_mutations} formatted-output mutations fail the intended grader.")
     print(f"PASS: all {combined_cases} combined-write alternatives satisfy their deterministic output graders.")
     print(f"PASS: all {combined_mutations} combined-write mutations fail the intended grader.")
+    print(f"PASS: all {concatenated_cases} concatenated-output alternatives satisfy their deterministic output graders.")
+    print(f"PASS: all {concatenated_mutations} concatenated-output mutations fail the intended grader.")
     print(f"PASS: all {length_mutations} length-only output mutations fail the intended grader.")
     print("PASS: inheritance grader permits prose explaining the unsafe default.")
 
