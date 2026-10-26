@@ -41,6 +41,8 @@ Inspect the project's actual `TargetFramework` or `TargetFrameworks` before intr
 
 When starting a process with the APIs or `ProcessStartInfo` features described in this skill, keep `UseShellExecute` at its default value of `false`. Leave the property unset rather than explicitly assigning `false`: when the application never sets it, the AOT compiler can eliminate the unused shell-execution code.
 
+Do not manually copy the parent's environment variables: `ProcessStartInfo.Environment` and `EnvironmentVariables` already initialize from them automatically. Apply only the child-specific changes.
+
 The nullability of static `Process.Start` depends on the launch mode:
 
 | Launch mode | Return value and handling |
