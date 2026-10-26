@@ -98,6 +98,23 @@ trial root, and recursive SDK compile globs must not include their C# utilities.
 Verify it builds without supplying the task's solution; do not compensate
 for missing setup by increasing limits or accepting unmatched trajectories.
 
+### Verification servers left attached
+
+An executor can emit a final response but still hit its hard deadline if it
+leaves a verification server attached. Check the native command history for
+`dotnet run` in async mode, its shell ID, and a matching stop call, targeted kill,
+or confirmed shell exit before the final response. In a
+project-creation trial, the build and route checks finished successfully and
+the assistant answered, but its server remained running until the 20-minute
+abort; the resulting trajectory was null. The baseline and plugin arms
+stopped their verification servers and completed normally.
+
+For tasks that request a finished project rather than an ongoing preview,
+state the server-cleanup requirement equally in every arm's task prompt.
+Stop only the task's verification server, not shared SDK build servers.
+Do not detach the helper, extend the deadline, or accept the unmatched pair.
+Prompt compliance still needs verification in the next real evaluation.
+
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate

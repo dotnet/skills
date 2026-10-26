@@ -78,6 +78,25 @@ test("prerendering tasks scaffold a per-page Server app outside staged skill sou
   assert.equal(validation.valid, true, JSON.stringify(validation.diagnostics));
 });
 
+test("project-creation tasks require verification-server cleanup without changing their limits", async () => {
+  const path = join("tests", "dotnet-blazor", "create-blazor-project", "eval.yaml");
+  const spec = await loadEvalSpec(path);
+  assert.equal(spec.stimuli.length, 3);
+  assert.equal(spec.defaults.timeout, "20m");
+  for (const item of spec.stimuli) {
+    assert.match(
+      item.prompt,
+      /If you start a development server to verify the app, stop only that server before\s+your final response\. Do not leave it running or detach it\./,
+      item.name,
+    );
+    assert.equal(item.constraints?.max_agent_duration, undefined, item.name);
+  }
+  const validation = validateEvalSpec(spec, {
+    registry: createDefaultGraderRegistry(), evalFilePath: path,
+  });
+  assert.equal(validation.valid, true, JSON.stringify(validation.diagnostics));
+});
+
 function completedToolCall(toolName) {
   return [
     {
