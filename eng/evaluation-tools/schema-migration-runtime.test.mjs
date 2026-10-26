@@ -34,6 +34,29 @@ test("every readiness stimulus has an effective working limit below the unchange
   assert.match(table.prompt, /<DataTable TItem="Person" Items="@people" OnRowClick="HandleRowClick">/);
 });
 
+test("only the affected Ignite UI advisory stimulus has a working limit", async () => {
+  const path = join("tests", "dotnet-blazor", "use-igniteui-blazor", "eval.yaml");
+  const spec = await loadEvalSpec(path);
+  assert.equal(spec.stimuli.length, 11);
+  assert.equal(spec.defaults.timeout, "10m");
+  assert.equal(spec.defaults.runs, 5);
+  const affected = "Decide whether to pass module types to AddIgniteUIBlazor";
+  for (const item of spec.stimuli) {
+    assert.equal(
+      item.constraints?.max_agent_duration,
+      item.name === affected ? "9m" : undefined,
+      item.name,
+    );
+  }
+  const validation = validateEvalSpec(spec, {
+    registry: createDefaultGraderRegistry(), evalFilePath: path,
+  });
+  assert.equal(validation.valid, true, JSON.stringify(validation.diagnostics));
+  assert.deepEqual(
+    validation.diagnostics.filter((item) => item.code === "ineffective-constraint"), [],
+  );
+});
+
 function trajectory(events = []) {
   return { stimulus, events };
 }

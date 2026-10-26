@@ -2864,6 +2864,77 @@ esac
                 {"demo--shard-default", "demo--shard-heavy"},
             )
 
+    def test_blazor_execution_shards_partition_the_complete_trial_plan(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = workflow_step_script(
+            caller, "discover", "function Get-PluginShardEntries"
+        )
+        start = discover_script.index("function Get-EvalExecutionShard")
+        end = discover_script.index('if ("$env:GATE_PR_NUMBER"', start)
+        script = (
+            "$ErrorActionPreference = 'Stop'\n"
+            + discover_script[start:end]
+            + f"\n$root = '{str(REPO_ROOT).replace(chr(39), chr(39) * 2)}'\n"
+            + "$entries = @(Get-PluginShardEntries -plugin dotnet-blazor -contentRoot $root)\n"
+            + "ConvertTo-Json -InputObject @($entries) -Compress\n"
+        )
+        result = subprocess.run(
+            ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertEqual(
+            {entry["name"] for entry in entries},
+            {
+                "dotnet-blazor--shard-default",
+                "dotnet-blazor--shard-igniteui",
+                "dotnet-blazor--shard-readiness",
+            },
+        )
+        expected = {
+            path.parent.name
+            for path in (REPO_ROOT / "tests" / "dotnet-blazor").glob("*/eval.yaml")
+            if not path.parent.name.startswith("agent.")
+        }
+        observed = []
+        slot_counts = {}
+        for entry in entries:
+            self.assertEqual(entry["target_kind"], "skill")
+            skills = [Path(segment).name for segment in entry["skills_path"].split()]
+            observed.extend(skills)
+            slots = 0
+            for skill in skills:
+                spec = yaml.safe_load(
+                    (REPO_ROOT / "tests" / "dotnet-blazor" / skill / "eval.yaml")
+                    .read_text(encoding="utf-8")
+                )
+                slots += 3 * sum(
+                    stimulus.get("runs", spec["defaults"].get("runs", 1))
+                    for stimulus in spec["stimuli"]
+                )
+            slot_counts[entry["name"]] = slots
+        self.assertEqual(set(observed), expected)
+        self.assertEqual(len(observed), len(expected), "No target may run twice")
+        self.assertEqual(len(expected), 11)
+        self.assertEqual(slot_counts, {
+            "dotnet-blazor--shard-default": 81,
+            "dotnet-blazor--shard-igniteui": 165,
+            "dotnet-blazor--shard-readiness": 120,
+        })
+        self.assertEqual(sum(slot_counts.values()), 366)
+
+        runner = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        job = runner["jobs"]["vally-evaluate"]
+        self.assertEqual(job["strategy"]["max-parallel"], 4)
+        self.assertEqual(job["timeout-minutes"], 180)
+        evaluation = next(
+            step for step in job["steps"] if step.get("name") == "Run vally evaluations"
+        )
+        self.assertEqual(evaluation["timeout-minutes"], 155)
+        self.assertIn("--workers 5", evaluation["run"])
+        self.assertIn("--compare-workers 2", evaluation["run"])
+
     def test_manual_eval_quality_uses_main_as_comparison_base(self) -> None:
         workflow = yaml.safe_load(EVAL_QUALITY_WORKFLOW.read_text(encoding="utf-8"))
         script = workflow_step_script(

@@ -35,6 +35,13 @@ arm-specific consolidated warnings. A hard timeout with no trajectory remains
 measurement-invalid. These are adapted Vally fields, not new raw native-runner
 timeout semantics.
 
+Blazor's existing execution-shard metadata separates ordinary readiness (120
+executions), Ignite UI (165), and the nine smaller targets (81). No cases, runs,
+models, worker caps, or hard deadlines are removed or increased. Only the
+Ignite UI module-registration advisory stimulus also has a nine-minute working
+limit inside its ten-minute hard cap; a retained partial remains a cutoff, not
+proof that a background helper finished. Native-agent execution is unchanged.
+
 Executor sessions append the exact scenario workspace to the system context.
 Do not resolve fixture paths against a staged skill's base directory or the
 shared evaluator root. Normal shell pre-tool hooks defer to the SDK's typed

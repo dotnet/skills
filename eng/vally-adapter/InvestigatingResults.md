@@ -120,6 +120,14 @@ SHA, and validator artifact provenance before treating it as a repaired run.
 The ordinary Vally comparison phase has a 60-minute watchdog inside the
 155-minute evaluation step. CI passes `adapt.mjs --compare-workers 2` to compare
 at most two targets at once, scheduling larger paired-record sets first.
+Blazor's top-level `tags.executionShard` metadata separates readiness (120
+three-arm executions) and Ignite UI (165) from the nine smaller targets (81),
+using the existing discovery/filtering and per-shard artifact accounting.
+Each model still runs all 366 slots exactly once; the default profile now has
+six ordinary legs and the two unchanged native-agent legs. The four-job cap,
+five generation workers, hard deadlines, and comparison watchdog are unchanged.
+Sharding prevents the suites from consuming one shared generation budget; it
+does not guarantee completion or justify retrying an incomplete shard.
 The adapter defaults to one worker outside CI and accepts limits from 1 to 3.
 Each target retains its original comparison and bounded recovery sequence, with
 private scratch files and grouped subprocess output labeled by target and duration.
@@ -572,6 +580,14 @@ minutes inside their unchanged 20-minute `defaults.timeout` hard cap. Graders
 still check the actual output; partial work is not proof of task completion.
 The author-component eval retains its three-minute hard cap and has no agent
 working limit.
+
+The Ignite UI module-registration advisory stimulus alone has a nine-minute
+working limit inside its unchanged ten-minute hard cap, across all five runs
+and all arms. This preserves a gradeable partial trajectory if a helper remains
+running; it does not fix or excuse that helper, establish normal completion,
+or authorize treating a final answer as an idle event. Other Ignite UI stimuli
+have no new working limit. Inspect the same arm-specific cutoff fields and
+native histories before interpreting any preference result.
 
 Inspect `baselineTimedOut`, `timedOut` (isolated), and `pluginTimedOut` and the
 matching session events. Consolidated warnings and scenario rows name every
