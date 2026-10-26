@@ -92,7 +92,7 @@ ignoring the request.
 | Fix RS0017 by editing or deleting a line in `PublicAPI.Shipped.txt` | Shipped lines are the released contract; rewriting one hides the break the gate exists to report | Leave shipped lines alone. Restore the shipped member and record new surface in `PublicAPI.Unshipped.txt` |
 | Add a member to a shipped public interface | Every existing implementer, including ones in other packages, stops compiling | Add a default interface implementation (requires runtime support: not on `netstandard2.0` or .NET Framework targets), or add a new interface. A default member is callable only through the interface, so also add a public member on any concrete type that must expose it, and record both |
 | Rename a shipped member | Source and binary break | Add the new name, keep the old one as an `[Obsolete]` forwarder, and record only the new member |
-| Rename a parameter of a shipped member | Callers passing it by name (`raw: x`) stop compiling and late-bound/`dynamic` callers fail; positional callers in this repo hide it. PublicAPI analyzers report it as RS0016 + RS0017 | Keep the shipped name — no overload can carry a different name for the same signature. Leave it unchanged and explain |
+| Rename a parameter of a shipped member | Callers passing it by name (`raw: x`) stop compiling and late-bound/`dynamic` callers fail; positional callers in this repo hide it. PublicAPI analyzers report it as RS0016 + RS0017 | Keep the shipped name — no overload can carry a different name for the same signature. Leave it unchanged and edit nothing else; you may offer (not make) a clearer XML `<param>` doc, or the rename at the next major version |
 | Seal a class, make a member non-virtual, or narrow a parameter's nullability | Derived types, overrides, or nullable callers break | Treat as a breaking change; escalate rather than edit |
 | Change a `const` value or an optional parameter's default | The old value is compiled into callers and persists until they recompile | Preserve the shipped constant/default; introduce a separately named member (which may be `static readonly`) or a new overload for new behavior. Replacing an existing `const` with `static readonly` is itself source-breaking |
 | Change a value under `#if` for one target | Only consumers of that target see it; tests edited to match will not catch it | Treat as a behavior change for that target and call it out |
@@ -103,11 +103,14 @@ in this shape, scaled to the diff:
 1. One verdict line first (e.g. "Do not merge as-is: N changes break consumers").
 2. One numbered item per consumer-visible change: what changed, **binary** (already-compiled
    consumers fail), **source** (consumers fail to recompile), or **behavioral** (same signature,
-   different result, possibly on only one target), who breaks, and the safe shape. A behavioral
-   claim needs a concrete input whose old and new results differ; if unsure, probe both versions
-   with a one-line program — framework parsers already tolerate much (e.g. `bool.TryParse` ignores
-   surrounding whitespace), and a no-op rewrite is not a break. Say when the diff edits a test to match.
-3. One line naming the internal-only edits that are safe.
+   different result, possibly on only one target), who breaks, **why CI stayed green** (a shipped
+   API line rewritten, a test edited to match, or a change the analyzer does not track, such as
+   `sealed` or a private `const`), and the safe shape. State each as fact or not at all: a
+   behavioral claim needs a concrete input whose old and new results differ; if unsure, probe both
+   versions with a one-line program — framework parsers already tolerate much (e.g. `bool.TryParse`
+   ignores surrounding whitespace), and a no-op rewrite is not a break.
+3. One closing "Not breaking:" line covering every remaining hunk with its reason (internal-only
+   edits, probed no-ops), instead of side notes inside the numbered items.
 
 Cover only surfaces the diff touches; do not add trimming, AOT, or tooling commentary it does not raise.
 
@@ -122,6 +125,12 @@ the project sets `EnablePackageValidation`, run `dotnet pack` — package valida
 - The requested change is **already in place** — e.g. the "duplicated" code already delegates to one
   implementation, or the overload already exists. Say so and change nothing; do not invent a
   refactor to have something to show.
+
+When you change nothing (the request is already done or has no safe shape), a bare "no" looks like
+ignoring the request. Make the final answer show the work, in this order: "No files changed." and why;
+the evidence that decided it (the shipped `PublicAPI.Shipped.txt` line, or the call that already
+delegates, with its file); who would break, or where the single implementation already lives; what the
+user *can* do instead, if anything; and the validation you ran.
 - A **public/shipped API** would change and you cannot verify compatibility — no shim/forwarder path and
   no PublicApiAnalyzers/ApiCompat/package-validation gate to catch a break.
 - The edit changes an **observable annotation** (nullability, `[DynamicallyAccessedMembers]`,
