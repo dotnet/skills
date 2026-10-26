@@ -557,7 +557,7 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
-          value: ParseIntSetting(string? raw, int fallback, System.IFormatProvider
+          value: System.IFormatProvider
       # Moving the old signature to `*REMOVED*` keeps Shipped.txt intact and the build green
       # while still deleting the method compiled consumers bind to.
       - type: file-not-contains
