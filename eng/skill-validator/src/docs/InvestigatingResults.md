@@ -48,6 +48,18 @@ behavior against the corrected executor.
 > the Copilot CLI's no-authentication setup block. Unrelated service and
 > configuration failures remain terminal.
 
+> Before token selection or evaluation starts, the workflow serially warms up
+> first-use state for every .NET SDK installed on the runner. This prevents
+> parallel fixture setup from racing in the .NET CLI's first-use
+> `NuGet-Migrations` initialization. `dotnet --list-sdks` returning no versions
+> fails the job with `dotnet --list-sdks reported no installed SDKs`. A warm-up
+> that does not create the SDK-specific sentinel fails with
+> `First-use sentinel missing for .NET SDK <version> after warm-up`. Both are
+> evaluation-infrastructure failures that occur before model sessions and
+> result artifacts exist; do not classify them as skill regressions. Diagnose
+> the runner's SDK installation or .NET CLI first-use state, then rerun the
+> evaluation without changing the skill.
+
 > PR session replay publishing is auxiliary. A missing or invalid
 > `SKILLS_DATA_TOKEN`, or one that cannot authenticate for a non-mutating
 > `git push --dry-run` to `dotnet/skills-data`, is detected before replay
