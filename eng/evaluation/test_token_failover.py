@@ -2964,27 +2964,24 @@ esac
             run_script,
         )
         self.assertIn(
-            'The result set is incomplete or contains an unexpected eval.',
+            'echo "::error::Failed to generate the required plugin variant for $PLUGIN"',
             run_script,
         )
+        self.assertNotIn("running baseline+skilled only", run_script)
         self.assertEqual(
             run_script.count(
                 '--expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt"'
             ),
-            2,
+            3,
         )
+        self.assertIn('--experiment-file "$EXPERIMENT_FILE"', run_script)
+        self.assertIn("validate-results.mjs", run_script)
+        self.assertIn("--require-plugin", run_script)
         self.assertIn(
-            'if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]',
+            'export VALLY_RUNTIME_ROOT="$RUNNER_TEMP/evaluation-tools/node_modules/@microsoft/vally"',
             run_script,
         )
-        self.assertIn(
-            '-not -path "$RESULTS_DIR/_agent-timeout-retry/*"',
-            run_script,
-        )
-        self.assertIn("s.expectedManifestProvided === true", run_script)
-        self.assertIn("s.unexpectedEvalCount === 0", run_script)
-        self.assertIn("s.measurementInvalidEvalCount === 0", run_script)
-        self.assertNotIn("s.invalidEvalCount === 0", run_script)
+        self.assertNotIn("EXPECTED_EVAL_COUNT", run_script)
         self.assertIn(
             "Vally comparison watchdog expired after 60 minutes",
             run_script,
@@ -3098,6 +3095,36 @@ esac
             ),
             2,
         )
+
+    def test_adapter_test_job_installs_the_pinned_runtime(self) -> None:
+        workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        for event in ("pull_request", "push"):
+            self.assertEqual(
+                triggers[event]["paths"].count("eng/run-skill-evals.sh"),
+                1,
+            )
+            self.assertEqual(
+                triggers[event]["paths"].count("eng/evaluation-tools/**"),
+                1,
+            )
+        steps = workflow["jobs"]["vally-adapter"]["steps"]
+        names = [step.get("name") for step in steps]
+        self.assertLess(
+            names.index("Install pinned Vally runtime"),
+            names.index("Run adapter fault-injection and report tests"),
+        )
+        install = next(
+            step["run"] for step in steps
+            if step.get("name") == "Install pinned Vally runtime"
+        )
+        self.assertIn("npm ci", install)
+        self.assertIn("--prefix eng/evaluation-tools", install)
+        adapter_tests = next(
+            step["run"] for step in steps
+            if step.get("name") == "Run adapter fault-injection and report tests"
+        )
+        self.assertIn("node --test eng/vally-adapter/*.test.mjs", adapter_tests)
 
     def test_discovery_creates_first_class_agent_matrix_entries(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
@@ -3680,24 +3707,16 @@ class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
         self.assertIn("--scenario-overhead-seconds 300", script)
 
     def test_recursive_collectors_exclude_the_retry_tree(self) -> None:
-        # Scan the whole workflow: the produced-result count and the per-skill
-        # summary loop live in different steps, and both walk RESULTS_DIR.
+        # The shared result validator and summary renderer are separate
+        # collectors; both must ignore raw timeout-retry evidence.
         workflow_text = WORKFLOW.read_text(encoding="utf-8")
-        finds = [
-            line
-            for line in workflow_text.splitlines()
-            if "find " in line and "-name results.json" in line
-        ]
-        # The AGENT_RAW_DIR probe runs before the retry directory can exist.
-        scoped = [
-            line
-            for line in finds
-            if "$RESULTS_DIR" in line and f'"$RESULTS_DIR/{self.RETRY_DIR}"' not in line
-        ]
-        self.assertGreaterEqual(len(scoped), 2)
-        for line in scoped:
-            with self.subTest(line=line.strip()):
-                self.assertIn(f'-not -path "$RESULTS_DIR/{self.RETRY_DIR}/*"', line)
+        self.assertIn("validate-results.mjs", workflow_text)
+        validator = (
+            REPO_ROOT / "eng" / "evaluation-tools" / "validate-results.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn(f'"{self.RETRY_DIR}"', validator)
+        self.assertIn('"_executor-retry"', validator)
+        self.assertIn('"_agent-evaluation"', validator)
 
         caller = CALLER_WORKFLOW.read_text(encoding="utf-8")
         self.assertIn(

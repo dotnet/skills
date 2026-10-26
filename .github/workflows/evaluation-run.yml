@@ -874,10 +874,6 @@ jobs:
           DISPATCH_SKILL: ${{ inputs.skill }}
           MODEL: ${{ steps.eval-models.outputs.model }}
           JUDGE_MODEL: ${{ steps.eval-models.outputs.judge-model }}
-          EXPECTED_EVAL_COUNT: ${{ steps.find-evals.outputs.count }}
-          # ENTRY_MODEL is kept only to gate the static-experiment sed fallback
-          # below (cross-family leg that failed plugin-variant generation).
-          ENTRY_MODEL: ${{ matrix.entry.model }}
         run: |
           set -f
           if [ ! -r "$RUNNER_TEMP/evaluation-copilot-token" ]; then
@@ -887,6 +883,7 @@ jobs:
           GITHUB_TOKEN=$(cat "$RUNNER_TEMP/evaluation-copilot-token")
           rm -f "$RUNNER_TEMP/evaluation-copilot-token"
           export GITHUB_TOKEN
+          export VALLY_RUNTIME_ROOT="$RUNNER_TEMP/evaluation-tools/node_modules/@microsoft/vally"
 
           if [ "$TARGET_KIND" = "agent" ] || [ "$TARGET_KIND" = "workflow" ]; then
             # Current Vally has no custom-agent registration field: its public
@@ -1037,9 +1034,8 @@ jobs:
           # statically: vally's environment.skills has no glob and each entry must
           # be a directory with a SKILL.md. Since this leg is scoped to a single
           # plugin, generate a per-leg experiment that appends a `plugin` variant
-          # enumerating plugins/$PLUGIN/skills/*. Fall back to the static
-          # baseline+skilled experiment if generation fails (Plugin columns are
-          # then simply absent — the dashboard degrades gracefully).
+          # enumerating plugins/$PLUGIN/skills/*. Plugin-arm evidence is required,
+          # so fail before spending model calls if generation fails.
           #
           # The generated file MUST live at the content root ($GITHUB_WORKSPACE),
           # alongside the base experiment: vally resolves an experiment's relative
@@ -1047,29 +1043,17 @@ jobs:
           # FILE's own directory, not the process CWD. Writing it under
           # $RESULTS_DIR would make `tests/*/.../eval.yaml` resolve to zero files
           # ("eval patterns matched zero files") and drop every eval silently.
-          EXPERIMENT_FILE="dotnet-skills.experiment.yaml"
-          if GEN=$(node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/gen-experiment.mjs" \
+          GEN=$(node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/gen-experiment.mjs" \
                 --plugin "$PLUGIN" \
                 --base dotnet-skills.experiment.yaml \
                 --model "$MODEL" \
                 --judge-model "$JUDGE_MODEL" \
-                --out "$GITHUB_WORKSPACE/_experiment.$PLUGIN.plugin.yaml"); then
-            EXPERIMENT_FILE="$GEN"
-            echo "Using generated experiment with plugin variant: $EXPERIMENT_FILE"
-          else
-            echo "::warning::Failed to generate plugin variant for $PLUGIN; running baseline+skilled only"
-            if [ -n "$ENTRY_MODEL" ]; then
-              # The cross-family leg fell back to the STATIC experiment file, so
-              # inject the executor/judge here too — otherwise transcripts would
-              # be produced by the default model while labeled as $MODEL. The ids
-              # are allowlist-validated upstream, and `model:`/`judge_model:`
-              # appear only in the `overrides:` block, so a line rewrite is safe.
-              sed -i -E \
-                -e "s|^([[:space:]]*)model:[[:space:]].*$|\1model: $MODEL|" \
-                -e "s|^([[:space:]]*)judge_model:[[:space:]].*$|\1judge_model: $JUDGE_MODEL|" \
-                dotnet-skills.experiment.yaml
-            fi
-          fi
+                --out "$GITHUB_WORKSPACE/_experiment.$PLUGIN.plugin.yaml") || {
+            echo "::error::Failed to generate the required plugin variant for $PLUGIN"
+            exit 1
+          }
+          EXPERIMENT_FILE="$GEN"
+          echo "Using generated experiment with plugin variant: $EXPERIMENT_FILE"
 
           VALLY_LOG="$RUNNER_TEMP/vally-$PLUGIN.log"
           set +e
@@ -1172,10 +1156,12 @@ jobs:
           timeout --signal=TERM --kill-after=30s 60m \
             node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt.mjs" \
               --experiment-dir "$RUN_DIR" \
+              --experiment-file "$EXPERIMENT_FILE" \
               --output-root "$RESULTS_DIR" \
               --vally "vally" \
               --repo-root "$GITHUB_WORKSPACE" \
               --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
+              --require-plugin \
               --model "$MODEL" \
               --judge-model "$JUDGE_MODEL" \
               "${OVERFIT_ARGS[@]}"
@@ -1191,47 +1177,10 @@ jobs:
 
           fi
 
-          # Surface how many verdicts were produced. Raw evaluator trees are
-          # excluded: only the adapted schema-v5 results are authoritative, and
-          # the timeout-retry tree holds a second raw copy of one scenario.
-          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$RESULTS_DIR/_experiment/*" -not -path "$RESULTS_DIR/_agent-evaluation/*" -not -path "$RESULTS_DIR/_agent-timeout-retry/*" | wc -l | tr -d ' ')
-          echo "Produced $PRODUCED of $EXPECTED_EVAL_COUNT expected target verdict(s) for $PLUGIN"
-          if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]; then
-            echo "::error::vally produced $PRODUCED result file(s), but the pre-run manifest required $EXPECTED_EVAL_COUNT. The result set is incomplete or contains an unexpected eval."
-            exit 1
-          fi
-          ADAPTER_SUMMARY="$RESULTS_DIR/adapter-summary.json"
-          # measurementInvalidEvalCount counts evals whose evidence is unusable,
-          # which is what the two recovery passes above exist to prevent: a slot
-          # recovered from preserved evidence is a real measurement, so this count
-          # legitimately reaches zero after recovery. A slot that stayed errored is
-          # still counted and still fails here. Diagnostic errorCount is not part
-          # of this gate: it records annotations that do not invalidate a verdict.
-          if [ ! -f "$ADAPTER_SUMMARY" ] || ! node -e "
-            const s = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
-            const expected = Number(process.argv[2]);
-            const ok = s.expectedManifestProvided === true
-              && s.expectedEvalCount === expected
-              && s.writtenResultCount === expected
-              && s.unexpectedEvalCount === 0
-              && s.measurementInvalidEvalCount === 0;
-            if (!ok) {
-              console.error(JSON.stringify(s));
-              process.exit(1);
-            }
-          " "$ADAPTER_SUMMARY" "$EXPECTED_EVAL_COUNT"; then
-            echo "::error::Adapter result accounting did not reconcile exactly with the pre-run eval manifest."
-            exit 1
-          fi
-          node -e "
-            const s = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
-            console.log('Result accounting: expected=' + s.expectedEvalCount
-              + ', written=' + s.writtenResultCount
-              + ', invalid=' + s.invalidEvalCount
-              + ', measurement-invalid=' + s.measurementInvalidEvalCount
-              + ', manifest-missing=' + s.missingEvalCount
-              + ', unexpected=' + s.unexpectedEvalCount);
-          " "$ADAPTER_SUMMARY"
+          node "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/validate-results.mjs" \
+            --results-dir "$RESULTS_DIR" \
+            --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
+            --adapter-summary "$RESULTS_DIR/adapter-summary.json"
 
       - name: Remove selected Copilot token
         if: always()

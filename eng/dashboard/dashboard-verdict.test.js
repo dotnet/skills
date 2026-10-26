@@ -37,3 +37,15 @@ test('retained legacy evidence without a diagnosis uses the generic label', () =
     { label: 'Not proven improved', cls: 'neutral' },
   );
 });
+
+test('deterministic failures take priority over preference and retain invalid precedence', () => {
+  const stateReason = { code: 'deterministic_contract_failed' };
+  assert.deepEqual(
+    forVerdict({ state: 'VALID_NO_CHANGE', stateReason, preferenceRegressed: true }),
+    { label: 'Deterministic checks failed', cls: 'fail' },
+  );
+  assert.deepEqual(
+    forVerdict({ state: 'INVALID_INCONCLUSIVE', stateReason }),
+    { label: 'Invalid or underpowered', cls: 'warning' },
+  );
+});

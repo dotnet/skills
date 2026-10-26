@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createHash } from "node:crypto";
 
 import {
   comparisonToVerdict,
@@ -33,22 +34,24 @@ function writeJsonl(path, records) {
   writeFileSync(path, `${records.map((record) => JSON.stringify(record)).join("\n")}\n`);
 }
 
-function createExperimentWithVariants(root, variants) {
+function createExperimentWithVariants(root, variants, trialCount = 5) {
   const runDir = join(root, "experiment");
-  const record = {
-    type: "trial-result",
-    experiment: { evalFile },
-    status: "success",
-    stimulus: "Scenario",
-  };
   for (const variant of variants) {
-    writeJsonl(join(runDir, variant, "results.jsonl"), [{ ...record, variant }]);
+    writeJsonl(join(runDir, variant, "results.jsonl"), Array.from({ length: trialCount }, (_, index) => ({
+      type: "trial-result",
+      experiment: { evalFile },
+      status: "success",
+      stimulus: `Scenario ${index + 1}`,
+      shardKey: `${variant}::${evalFile}::Scenario ${index + 1}::trial-0`,
+      trajectory: { endReason: "completed", events: [] },
+      variant,
+    })));
   }
   return runDir;
 }
 
-function createExperiment(root) {
-  return createExperimentWithVariants(root, ["baseline", "skilled"]);
+function createExperiment(root, trialCount) {
+  return createExperimentWithVariants(root, ["baseline", "skilled"], trialCount);
 }
 
 function createBaselineOnlyExperiment(root) {
@@ -168,12 +171,21 @@ function runAdapter(
   expectedEvalFiles = [evalFile],
   experimentFactory = createExperiment,
   repoRoot,
+  configure,
 ) {
-  const runDir = experimentFactory(root);
+  const runDir = experimentFactory(root, trialCount);
   const outputRoot = join(root, "output");
   const expectedEvalsPath = join(root, "expected-evals.txt");
   writeFileSync(expectedEvalsPath, `${expectedEvalFiles.join("\n")}\n`);
   const fakeVally = createFakeVally(root, mode, trialCount);
+  if (!repoRoot) {
+    repoRoot = join(root, "repo");
+    const specPath = join(repoRoot, evalFile);
+    mkdirSync(dirname(specPath), { recursive: true });
+    writeFileSync(specPath, `name: adapter-fixture\nstimuli:\n${Array.from(
+      { length: trialCount }, (_, index) => `  - name: Scenario ${index + 1}\n    prompt: Test the adapter.\n`,
+    ).join("")}`);
+  }
   const args = [
     adapterPath,
     "--experiment-dir",
@@ -185,7 +197,18 @@ function runAdapter(
     "--expected-evals",
     expectedEvalsPath,
   ];
-  if (repoRoot) args.push("--repo-root", repoRoot);
+  args.push("--repo-root", repoRoot);
+  configure?.({ runDir, repoRoot, args });
+  if (existsSync(join(repoRoot, evalFile))) {
+    const evalHash = createHash("sha256").update(readFileSync(join(repoRoot, evalFile))).digest("hex").slice(0, 16);
+    for (const variant of ["baseline", "skilled", "plugin"]) {
+      const path = join(runDir, variant, "results.jsonl");
+      if (!existsSync(path)) continue;
+      const records = readFileSync(path, "utf8").trim().split("\n").map(JSON.parse);
+      for (const record of records) record.experiment.evalHash ??= evalHash;
+      writeJsonl(path, records);
+    }
+  }
   const result = spawnSync(process.execPath, args, { encoding: "utf8" });
   const verdictPath = join(
     outputRoot,
@@ -217,6 +240,78 @@ function withTempDir(action) {
 function processOutput(result) {
   return `${result.stdout}\n${result.stderr}`;
 }
+
+test("CLI preserves suite context and the original parameter overrides", () => {
+  withTempDir((root) => {
+    const { result, verdict } = runAdapter(
+      root, "clean", 5, [evalFile], createExperiment, undefined,
+      ({ runDir, repoRoot, args }) => {
+        writeFileSync(join(repoRoot, ".vally.yaml"), "params:\n  WORD: default\n");
+        const specPath = join(repoRoot, evalFile);
+        const content = readFileSync(specPath, "utf8").replaceAll("Test the adapter.", "${WORD}");
+        writeFileSync(specPath, content);
+        const evalHash = createHash("sha256")
+          .update(content + "\0" + JSON.stringify({ WORD: "ready" })).digest("hex").slice(0, 16);
+        for (const variant of ["baseline", "skilled"]) {
+          const path = join(runDir, variant, "results.jsonl");
+          const records = readFileSync(path, "utf8").trim().split("\n").map(JSON.parse);
+          for (const record of records) record.experiment.evalHash = evalHash;
+          writeJsonl(path, records);
+        }
+        args.push("--param", "WORD=ready");
+      },
+    );
+    assert.equal(result.status, 0, processOutput(result));
+    assert.equal(verdict.state, "VALID_PASS");
+    assert.equal(verdict.deterministicContract.valid, true);
+  });
+});
+
+test("CLI cannot pass when preference wins but a declared deterministic check fails", () => {
+  withTempDir((root) => {
+    const { result, verdict } = runAdapter(
+      root, "clean", 5, [evalFile], createExperiment, undefined,
+      ({ runDir, repoRoot }) => {
+        const specPath = join(repoRoot, evalFile);
+        writeFileSync(specPath, readFileSync(specPath, "utf8").replaceAll(
+          "    prompt: Test the adapter.\n",
+          "    prompt: Test the adapter.\n    graders:\n      - type: exit-success\n",
+        ));
+        for (const variant of ["baseline", "skilled"]) {
+          const path = join(runDir, variant, "results.jsonl");
+          const records = readFileSync(path, "utf8").trim().split("\n").map(JSON.parse);
+          for (const record of records) {
+            record.gradeResult = { details: [{
+              name: "exit-success", graderType: "exit-success",
+              passed: variant === "baseline", evidence: "Explicit deterministic result",
+            }] };
+          }
+          writeJsonl(path, records);
+        }
+      },
+    );
+    assert.equal(result.status, 0, processOutput(result));
+    assert.equal(verdict.signTest.wins, 5);
+    assert.equal(verdict.deterministicContract.valid, true);
+    assert.equal(verdict.deterministicContract.failures.length, 5);
+    assert.equal(verdict.passed, false);
+    assert.equal(verdict.stateReason.code, "deterministic_contract_failed");
+  });
+});
+
+test("CLI rejects missing required plugin evidence despite positive preference", () => {
+  withTempDir((root) => {
+    const { result, verdict, outputRoot } = runAdapter(
+      root, "clean", 5, [evalFile], createExperiment, undefined,
+      ({ args }) => args.push("--require-plugin"),
+    );
+    assert.equal(result.status, 0, processOutput(result));
+    assert.equal(verdict.passed, false);
+    assert.equal(verdict.stateReason.code, "deterministic_evidence_invalid");
+    const summary = JSON.parse(readFileSync(join(outputRoot, "adapter-summary.json"), "utf8"));
+    assert.equal(summary.measurementInvalidEvalCount, 1);
+  });
+});
 
 test("retries a transient comparison error once", () => {
   withTempDir((root) => {

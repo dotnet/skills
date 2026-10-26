@@ -430,7 +430,9 @@ python eng/eval-quality/check_eval_quality.py
 
 ### Running tests locally
 
-Prerequisites: Node.js 20+ and the [GitHub CLI](https://cli.github.com) signed in (`gh auth login`). The script checks these and tells you what's missing, so just run it:
+Prerequisites: Node.js 22+ and the [GitHub CLI](https://cli.github.com) signed in
+(`gh auth login`). The wrapper installs the pinned evaluation tools from
+`eng/evaluation-tools/package-lock.json` when they are missing:
 
 ```bash
 # Run tests for a single skill
@@ -453,7 +455,7 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
 ./eng/run-skill-evals.sh
 ```
 
-Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`, and the raw experiment output goes to `./eval-results/_experiment/`. Model and judge model come from the `overrides:` block in `dotnet-skills.experiment.yaml`.
+Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`, and the raw experiment output goes to `./eval-results/_experiment/`. Model and judge model come from the `overrides:` block in `dotnet-skills.experiment.yaml`. Each plugin runs once with baseline, isolated-skill, and whole-plugin arms. The wrapper validates all fresh results against the exact eval manifest and does not retry trials.
 
 > [!WARNING]
 > LLM evaluations are noisy. Runs-per-stimulus is deliberately **not** set in

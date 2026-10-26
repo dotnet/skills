@@ -222,11 +222,14 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   # Check if any changed files are in infrastructure paths. The native
   # custom-agent lane executes eng/skill-validator/src, so those source
-  # changes are evaluation infrastructure changes.
+  # changes are evaluation infrastructure changes. The pinned evaluation
+  # runtime/helpers and local wrapper also affect measurement behavior.
   $hasInfraChanges = $changedFiles |
     Where-Object {
       ($_ -match '^eng/vally-adapter/') -or
       ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+      ($_ -match '^eng/evaluation-tools/') -or
+      ($_ -match '^eng/run-skill-evals\.sh$') -or
       ($_ -match '^eng/skill-validator/src/') -or
       ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
       $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'

@@ -4,6 +4,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -13,6 +14,7 @@ import yaml
 from test_token_failover import BASH
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 
 
 class WorkflowTargetsTests(unittest.TestCase):
@@ -139,6 +141,62 @@ class WorkflowTargetsTests(unittest.TestCase):
                                  {"agentic-workflows/alpha/aw.yml", "agentic-workflows/beta/aw.yml"})
                 self.assertEqual(len(entries), 4)
                 self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
+
+    def test_evaluation_tool_changes_are_infrastructure_changes(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        changed_paths = (
+            "eng/evaluation-tools/package.json",
+            "eng/evaluation-tools/package-lock.json",
+            "eng/evaluation-tools/validate-results.mjs",
+            "eng/run-skill-evals.sh",
+        )
+        for relative in changed_paths:
+            with self.subTest(relative=relative):
+                changed = self.root / relative
+                changed.parent.mkdir(parents=True, exist_ok=True)
+                changed.write_text("changed infrastructure\n", encoding="utf-8")
+                head = self.commit_fixture(f"Change {relative}")
+                result = self.run_script(
+                    "& .\\eng\\evaluation\\find-targets.ps1",
+                    GATE_PR_NUMBER="1",
+                    GATE_BASE_SHA=base,
+                    GATE_HEAD_SHA=head,
+                    EVAL_EVENT_NAME="workflow_dispatch",
+                    INPUT_PLUGIN="",
+                )
+                base = head
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("is_infra=true", self.output.read_text(encoding="utf-8"))
+
+    def test_pr_status_and_discovery_filters_cover_local_evaluation_tooling(self):
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        status_scripts = [
+            next(step["run"] for step in workflow["jobs"][job]["steps"]
+                 if step.get("id") == "discover")
+            for job in ("pr-status", "fork-pr-status")
+        ]
+        discovery = (REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1").read_text(
+            encoding="utf-8")
+        required_patterns = (
+            r"^eng/evaluation-tools/",
+            r"^eng/run-skill-evals\.sh$",
+        )
+        changed_paths = (
+            "eng/evaluation-tools/package.json",
+            "eng/evaluation-tools/package-lock.json",
+            "eng/evaluation-tools/validate-results.mjs",
+            "eng/run-skill-evals.sh",
+        )
+        for pattern in required_patterns:
+            self.assertIn(pattern, discovery)
+            for script in status_scripts:
+                self.assertIn(pattern, script)
+        for changed_path in changed_paths:
+            self.assertTrue(
+                any(re.search(pattern, changed_path) for pattern in required_patterns),
+                changed_path,
+            )
 
     def test_missing_spec_unknown_package_and_traversal_fail_closed(self):
         for selected in ("missing", "../alpha", "alpha/.."):

@@ -26,6 +26,9 @@
     if (verdict && verdict.state === 'INVALID_INCONCLUSIVE') {
       return { label: 'Invalid or underpowered', cls: 'warning' };
     }
+    if (reasonCode === 'deterministic_contract_failed') {
+      return { label: 'Deterministic checks failed', cls: 'fail' };
+    }
     if (reasonCode === 'activation_contract_failed' ||
         (verdict && verdict.activationContract && verdict.activationContract.passed === false)) {
       return { label: 'Activation contract failed', cls: 'fail' };

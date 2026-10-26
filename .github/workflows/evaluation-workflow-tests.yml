@@ -19,6 +19,7 @@ on:
       - ".github/workflows/*.lock.yml"
       - ".github/scripts/**"
       - "eng/evaluation-tools/**"
+      - "eng/run-skill-evals.sh"
       - "eng/evaluation/test_token_failover.py"
       - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
@@ -48,6 +49,7 @@ on:
       - ".github/workflows/*.lock.yml"
       - ".github/scripts/**"
       - "eng/evaluation-tools/**"
+      - "eng/run-skill-evals.sh"
       - "eng/evaluation/test_token_failover.py"
       - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
@@ -77,6 +79,14 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
+
+      - name: Install pinned Vally runtime
+        run: |
+          printf '' > "$RUNNER_TEMP/evaluation.npmrc"
+          npm ci \
+            --prefix eng/evaluation-tools \
+            --userconfig "$RUNNER_TEMP/evaluation.npmrc" \
+            --registry https://registry.npmjs.org/
 
       - name: Run adapter fault-injection and report tests
         run: node --test eng/vally-adapter/*.test.mjs eng/dashboard/*.test.js

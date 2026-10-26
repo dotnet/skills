@@ -190,7 +190,8 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `state` | One of `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or `INVALID_INCONCLUSIVE` |
 | `stateReason` | Machine-readable `{ code, phase }`. Use this field for automation; do not parse `reason` |
 | `noChangeDiagnosis` | Canonical subtype for a `VALID_NO_CHANGE` preference result: `all_ties`, `mixed`, directional `*_tie_limited` / `*_unproven`, or `*_sparse`; renderers consume this key so PR and dashboard labels stay aligned |
-| `passed` | **The gate.** `true` only when `conclusive`, at least 5 preference-eligible distinct stimuli were counted, `signTest.pValue <= 0.05`, `netWin >= 0.20`, and `activationContract.passed == true` |
+| `passed` | **The gate.** `true` only when `conclusive`, at least 5 preference-eligible distinct stimuli were counted, `signTest.pValue <= 0.05`, `netWin >= 0.20`, `activationContract.passed == true`, and the skill's deterministic contract passes |
+| `deterministicContract` | Skill-lane prerequisite: `valid`, tri-state `passed`, per-arm `trials[].checks`, isolated `failures`, and identity/execution `errors`. Missing, skipped or errored evidence is unknown, never a pass |
 | `netWin` | `(wins − losses) / preference-eligible stimulus votes` — the effect size the gate reads. Magnitude-free, so an identical eligible W/T/L record always yields an identical preference verdict |
 | `practicalSignificance` | `{ netWin, minimum, passed }`. The absolute directional effect must reach 20%; this blocks sparse records such as `5W/95T/0L` |
 | `signTest` | `{ wins, ties, losses, discordant, direction, pValue, alpha }` — exact one-sided binomial tail over discordant stimulus votes. **This is what decides.** Ties cannot support a win, so they hold `discordant` down |
@@ -570,12 +571,59 @@ transition is only a candidate. `VALID_REGRESSION` additionally requires
 conclusive paired confirmation at `p <= 0.05`, at least a 20% objective net
 loss, and correction across multiple tested completion scenarios.
 
-Official Vally `GraderResult` records expose broad `kind` taxonomy, not the
-eval spec's grader `type`; `kind: "code"` does not prove deterministic
-task-completion semantics. Evals also do not yet declare which graders are
-completion invariants, and compare JSONL exposes only aggregate booleans.
-Therefore the state remains reserved and the aggregate transition remains
-report-only.
+### Deterministic contract prerequisite
+
+Current skill evaluations load the exact eval spec through the pinned Vally
+runtime, including parameter expansion and the effective experiment/variant
+defaults supplied by `--experiment-file`. Standalone adaptation without that
+option uses the eval's own defaults and parameter file. Local and CI runners
+pass their actual generated experiment configuration. The adapter then matches
+each allowlisted built-in deterministic declaration to its
+top-level raw `gradeResult.details` entry. Vally 0.18 preserves declaration order
+and stamps `graderType` and authored `configuredName`. The adapter checks the
+full detail count, declaration index, registered type, configured name and
+runtime-derived display name. Repeated types and truncated display names are
+not unique keys; the declaration index remains part of the identity.
+The persisted experiment `evalHash` must match the source and resolved params.
+With an experiment configuration, `configHash` must also match the effective
+variant plan, so old evidence cannot validate a changed command or configuration.
+The adapter loads suite parameters and named environments from the same
+`.vally.yaml` context as the experiment. Pass every original `--param KEY=VALUE`
+override to the adapter too; otherwise a different parameter plan is invalid.
+
+The adapter requires every declared stimulus and run in the baseline, isolated,
+and required plugin arms. Trial identity comes from the persisted `shardKey`,
+not array position; comparison slots must reconcile with those executor slots.
+An execution failure, timeout, missing trial, duplicate,
+wrong arm, absent detail, non-boolean result, or grader error makes the contract
+invalid. `stateReason.code` is `deterministic_evidence_invalid`; inspect
+`deterministicContract.errors` before changing skill content. An unreadable or
+invalid spec/runtime produces `deterministic_spec_invalid` (or
+`eval_spec_unreadable`).
+
+When evidence is complete but an isolated check fails, the verdict is
+`VALID_NO_CHANGE` with `deterministic_contract_failed`, regardless of positive
+preference or low preference sample count. Inspect
+`deterministicContract.failures[].checks` for the declaration and evidence.
+Baseline and plugin failures remain diagnostic; they do not block a healthy
+isolated arm when execution completed and the grader results are valid.
+An executor timeout is incomplete execution, not a completed grader failure,
+even if Vally persists the trial with `status: "success"`. It invalidates any
+required arm, including evals without deterministic declarations. This is an
+intentional skill-lane validity rule; native-agent completion policy is unchanged.
+Missing or errored evidence in any required arm also invalidates
+the measurement. LLM results, aggregate scores, weights and thresholds cannot
+override an explicit deterministic failure.
+An unreviewed grader type invalidates the spec instead of silently becoming
+an unenforced check.
+
+This prerequisite covers declared tool, output, file, command and other
+allowlisted deterministic checks. It does not classify them as objective
+completion invariants or introduce a single-trial statistical regression rule.
+`VALID_REGRESSION` remains reserved in the skill lane pending the completion
+selection, confirmation and multiple-comparison policy above. Historical
+results without this contract have not been regraded. The native agent lane
+retains its separate completion policy.
 
 ### Comparison slot identity
 

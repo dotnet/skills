@@ -311,8 +311,14 @@ twelve independent test cases.
 For one model and target's baseline-versus-isolated comparison:
 
 1. Require complete and well-formed result identity.
+   Skill runs also require complete deterministic grader evidence from the pinned
+   Vally runtime and the parsed eval spec. Missing, errored or mismatched details
+   invalidate the measurement.
 2. Require every explicit dormancy activation contract to pass. This objective
    routing result remains definitive even when preference is underpowered.
+   Every allowlisted deterministic check in the isolated skill arm must also
+   pass. A failed check blocks improvement even if the preference judge favors
+   the skill; this is a contract failure, not a statistical completion regression.
 3. Require at least five preference-eligible distinct stimuli.
 4. Collapse repeated runs to one W/T/L direction per preference-eligible stimulus.
 5. Remove ties for the exact one-sided sign test.
@@ -348,7 +354,9 @@ exceptions.
 flowchart TD
     A["Comparison report"] --> B{"Identity, accounting, and judge health valid?"}
     B -- No --> X["INVALID_INCONCLUSIVE<br/>fix measurement first"]
-    B -- Yes --> AC{"Dormancy activation contract passes?"}
+    B -- Yes --> DC{"Isolated deterministic checks pass?"}
+    DC -- No --> DF["VALID_NO_CHANGE<br/>deterministic contract failed"]
+    DC -- Yes --> AC{"Dormancy activation contract passes?"}
     AC -- No --> CF["VALID_NO_CHANGE<br/>activation contract failed"]
     AC -- Yes --> C{"At least 5 preference-eligible stimuli?"}
     C -- No --> X
@@ -363,18 +371,21 @@ flowchart TD
     G -- No --> I["Report not proven improved"]
 ```
 
-`VALID_REGRESSION` is reserved. It will require a trusted mapping from an
+For skill evaluations, `VALID_REGRESSION` remains reserved. It will require a trusted mapping from an
 explicit deterministic grader declaration in the eval spec to that grader's
-result in both arms. Vally 0.13 raw results do not provide that stable
-spec-to-result identity. The current aggregate pass signal can mix static and
-LLM graders, so it cannot safely prove objective completion regression.
+result in both arms, explicit completion invariants, and a calibrated regression
+policy. The current aggregate pass signal can mix static and LLM graders, so it
+cannot safely prove objective completion regression. Vally 0.18 per-grader
+identity now supports the separate `deterministicContract` pass prerequisite;
+it does not enable that deferred statistical regression policy.
 
 ## Verdicts shown on pull requests
 
 | State | PR label | Meaning | Merge effect |
 | --- | --- | --- | --- |
-| `VALID_PASS` | Improved | Complete, adequately powered, statistically significant, at least a 20% task-level net win, and all explicit dormancy contracts passed | Passes the result |
+| `VALID_PASS` | Improved | Complete, adequately powered, statistically significant, at least a 20% task-level net win, with passing deterministic checks and explicit dormancy contracts | Passes the result |
 | `VALID_NO_CHANGE` with `activation_contract_failed` | Activation contract failed | Preference evidence may be positive, but the isolated target skill activated on an explicit dormancy case | Blocks a pass and reports the routing defect |
+| `VALID_NO_CHANGE` with `deterministic_contract_failed` | Deterministic checks failed | At least one declared, allowlisted deterministic check failed in the isolated skill arm | Blocks a pass, including when preference is underpowered |
 | `VALID_NO_CHANGE` | Cause-specific no-clear-winner label | Measurement is valid, but the evidence is all ties, mixed, directional but unproven, or credible but below the practical floor | Does not claim improvement; directs investigation to the actual evidence shape |
 | `VALID_NO_CHANGE` with reverse preference | Preference loss, report-only | The comparison judge credibly preferred baseline | Diagnostic only; it is not objective completion proof |
 | `INVALID_INCONCLUSIVE` | Invalid or underpowered | Result identity, accounting, judge health, or task breadth is not trustworthy | Fails closed; repair or rerun |
@@ -444,7 +455,7 @@ exactly five stimuli, one tie or one loss prevents a pass.
 | Overfit | Does the skill appear tailored to eval wording or fixture details? | High improvement with `Overfit = 0.57` | Generalize the skill and test with unseen prompts. It is not a statistical gate. |
 | Tokens, turns, and wall time | What resource cost did the skill add? | Same quality with 2x wall time | Use as optimization evidence after correctness is established. |
 | Tool behavior | Did the skill use expected tools and avoid unsafe ones? | A research skill answers without opening its required source | Add deterministic tool-use graders where possible. |
-| Objective completion transitions | Did deterministic completion move baseline-only, skilled-only, both, or neither? | `baselineOnly = 1` | Telemetry only until grader identity is trustworthy. |
+| Objective completion transitions | Did deterministic completion move baseline-only, skilled-only, both, or neither? | `baselineOnly = 1` | Telemetry only; the statistical completion-regression policy remains deferred. |
 
 ## Real failures and what fixed them
 
@@ -635,7 +646,8 @@ changes.
 3. **Require statistical and practical evidence.** A pass needs `p <= 0.05`
    and at least a 20% net win over all stimuli.
 4. **Separate preference from completion.** LLM comparison losses are
-   diagnostic; deterministic objective regressions need stronger identity.
+   diagnostic. Isolated deterministic failures block improvement, but objective
+   regressions still need a separate calibrated policy.
 5. **Preserve exact identity.** Commit, model, skill, variant, stimulus, and
    trial index must remain traceable from request through report.
 6. **Fix the correct layer.** Repair judge and workflow faults as measurement

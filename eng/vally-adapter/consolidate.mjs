@@ -362,6 +362,7 @@ function resultLabel(verdict) {
   }
   if (verdictState(verdict) === STATE.PASS) return "✅ Improved";
   if (isObjectiveRegression(verdict)) return "🔻 Objective regression";
+  if (verdict.stateReason?.code === "deterministic_contract_failed") return "⛔ Deterministic checks failed";
   if (hasActivationContractFailure(verdict)) return "⛔ Activation contract failed";
   if (isPreferenceRegression(verdict)) return "📉 Preference loss (report only)";
   if (verdictState(verdict) === STATE.NO_CHANGE) {
@@ -443,6 +444,12 @@ function hasActionableWarning(verdict) {
 function nextAction(verdict) {
   const state = verdictState(verdict);
   const reasonCode = verdict.stateReason?.code ?? "";
+  if (reasonCode === "deterministic_contract_failed") {
+    return "Inspect deterministicContract.failures and fix the listed isolated-arm checks before claiming improvement.";
+  }
+  if (reasonCode === "deterministic_evidence_invalid" || reasonCode === "deterministic_spec_invalid") {
+    return "Restore complete, successful per-grader evidence from the pinned runtime and the exact eval spec.";
+  }
   if (state === STATE.INVALID) {
     if (verdict.underpowered === true) {
       return "Predeclare more independent, discriminating stimuli; repeated runs do not add power.";
@@ -679,7 +686,8 @@ if (verdicts.length === 0) {
 
   lines.push("<details><summary>ℹ️ How to read this report</summary>");
   lines.push("");
-  lines.push("- **✅ Improved** — the result passed both the statistical gate and the 20% practical net-win floor.");
+  lines.push("- **✅ Improved** — the result passed the statistical gate, the 20% practical net-win floor, and the applicable activation and deterministic contracts.");
+  lines.push("- **⛔ Deterministic checks failed** — complete isolated-arm evidence contains a failed deterministic check; preference cannot override it.");
   lines.push("- **➖ No clear winner** — the result is valid but did not pass both gates. The label distinguishes all ties, mixed evidence, directional but unproven evidence, and credible effects below the practical floor.");
   lines.push("- **⚠️ Invalid / underpowered** — the gate withheld a quality verdict. Fix the measurement before judging the target.");
   lines.push("- **⛔ Activation contract failed** — the isolated target activated on an explicit dormancy scenario. Dormancy preference is excluded, but this routing failure still blocks a pass.");

@@ -38,11 +38,13 @@ import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { parseArgs } from "node:util";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { deterministicContract, loadDeterministicSpec, reconcileDeterministicComparison } from "./deterministic-results.mjs";
 
 // True only when this file is the entry point (node adapt.mjs ...), false when
 // imported as a module (e.g. from a test). Gates arg-driven exits and main().
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const defaultVallyCommand = `"${process.execPath}" "${fileURLToPath(new URL("../evaluation-tools/vally.mjs", import.meta.url))}"`;
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -58,6 +60,8 @@ const { values: opts } = parseArgs({
   args: isMain ? process.argv.slice(2) : [],
   options: {
     "experiment-dir": { type: "string" },
+    "experiment-file": { type: "string" },
+    param: { type: "string", multiple: true, default: [] },
     "output-root": { type: "string", default: "eval-results" },
     "baseline-variant": { type: "string", default: "baseline" },
     "skilled-variant": { type: "string", default: "skilled" },
@@ -65,9 +69,10 @@ const { values: opts } = parseArgs({
     // exists, so runs without a plugin variant (e.g. local single-skill
     // iteration) still produce baseline + skilled results.
     "plugin-variant": { type: "string", default: "plugin" },
+    "require-plugin": { type: "boolean", default: false },
     // The vally CLI invocation used to run `compare` (may be multi-token, e.g.
     // "npx @microsoft/vally-cli" or "node /path/to/dist/index.js").
-    vally: { type: "string", default: "npx @microsoft/vally-cli" },
+    vally: { type: "string", default: defaultVallyCommand },
     model: { type: "string", default: "claude-opus-4.6" },
     "judge-model": { type: "string", default: "claude-opus-4.6" },
     // Repository root used to resolve each eval's relative path so the adapter
@@ -98,13 +103,16 @@ eval (baseline vs skilled), and writes the per-skill results.json each verdict.
 Options:
   --experiment-dir <dir>    Timestamped 'vally experiment run' output directory
                             (contains <variant>/results.jsonl).
+  --experiment-file <file> Effective experiment config, including variant defaults.
+  --param <key=value>       Original experiment parameter override (repeatable).
   --output-root <dir>       Root for per-eval results.json (written to
                             <root>/<plugin>/<skill>/results.json). Default: eval-results
   --baseline-variant <name> Variant treated as the skill-free control (default: baseline)
   --skilled-variant <name>  Variant treated as the skilled run (default: skilled)
   --plugin-variant <name>   Whole-plugin variant, if present (default: plugin)
+  --require-plugin         Require complete plugin-arm evidence as well.
   --vally "<cmd>"           vally CLI invocation for 'compare'
-                            (default: "npx @microsoft/vally-cli")
+                            (default: the repository-pinned evaluation entry point)
   --judge-model <model>     Comparison judge model (default: claude-opus-4.6)
   --model <model>           Agent model, recorded on the verdict (default: claude-opus-4.6)
   --overfitting <file>      Optional JSON file from 'skill-validator overfitting'
@@ -1588,7 +1596,8 @@ function pct(x) {
   return `${(x * 100).toFixed(1)}%`;
 }
 
-function comparisonToVerdict(report, identity, roles, nonActivationStims, targetKind = "skill") {
+function comparisonToVerdict(report, identity, roles, nonActivationStims, targetKind = "skill", deterministic = null) {
+  if (deterministic) deterministic = reconcileDeterministicComparison(deterministic, report);
   const s = report.summary;
   const unmatchedBaseline = report.unmatchedBaseline ?? [];
   const unmatchedTreatment = report.unmatchedTreatment ?? [];
@@ -1626,7 +1635,8 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     s.erroredCount === 0 &&
     unmatchedTrialCount === 0 &&
     summaryAgrees &&
-    identityErrors.length === 0;
+    identityErrors.length === 0 &&
+    deterministic?.valid !== false;
 
   // Collapse repeated runs to one vote per stimulus. A stimulus votes in the
   // direction supported by more of its successful runs; an even split or all
@@ -1893,7 +1903,8 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     scenarios: activationContractScenarios,
     unmatchedDormancyStimuli,
   };
-  const passed = preferencePassed && activationContract.passed;
+  const passed = preferencePassed && activationContract.passed
+    && deterministic?.passed !== false;
 
   const sweep = directions.length > 0 && wins === directions.length;
   // The sign test conditions on discordant (non-tie) stimulus votes, so this —
@@ -1905,12 +1916,16 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
   const credibility =
     s.erroredCount > 0
       ? "inconclusive (comparison errors)"
+      : deterministic?.valid === false
+        ? "inconclusive (missing, errored or mismatched deterministic evidence)"
       : unmatchedTrialCount > 0
         ? "inconclusive (unmatched trajectories)"
         : !summaryAgrees
           ? `inconclusive (compare report inconsistent: summary says ${s.trialCount} trial(s) ` +
             `${s.wins}W/${s.ties}T/${s.losses}L, trials show ${trialDirections.length} ` +
             `${trialWins}W/${trialTies}T/${trialLosses}L)`
+          : deterministic?.passed === false
+            ? `deterministic contract failed (${deterministic.failures.length} isolated trial(s))`
           : !activationContract.passed
             ? `activation contract failed (${activationContract.violated} explicit dormancy ` +
               `scenario(s) activated the isolated target skill)`
@@ -1983,11 +1998,16 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     stateReason =
       identityErrors.length > 0
         ? { code: identityErrors[0].code, phase: "comparison_pairing" }
+        : deterministic?.valid === false
+          ? { code: "deterministic_evidence_invalid", phase: "grading" }
         : unresolvedErrors.length > 0
           ? { code: "comparison_judge_error", phase: "comparison_judge" }
           : unmatchedTrialCount > 0
             ? { code: "unmatched_trajectories", phase: "comparison_pairing" }
             : { code: "comparison_summary_mismatch", phase: "adapter" };
+  } else if (deterministic?.passed === false) {
+    state = VERDICT_STATES.VALID_NO_CHANGE;
+    stateReason = { code: "deterministic_contract_failed", phase: "grading" };
   } else if (!activationContract.passed) {
     state = VERDICT_STATES.VALID_NO_CHANGE;
     stateReason = { code: "activation_contract_failed", phase: "activation" };
@@ -2085,6 +2105,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     excludedScenarioEvidence,
     activationContract,
     completionTransitions,
+    ...(deterministic ? { deterministicContract: deterministic } : {}),
     comparisonAttempts: report.retrySummary ?? {
       attempts: 1,
       retriedSlots: 0,
@@ -2093,7 +2114,12 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
       recoveredErrors: [],
       persistentErrors: [],
     },
-    errors: [...identityErrors, ...unresolvedErrors],
+    errors: [
+      ...identityErrors, ...unresolvedErrors,
+      ...(deterministic?.errors ?? []).map((error) => ({
+        ...error, code: "deterministic_evidence_invalid", phase: "grading", kind: "permanent",
+      })),
+    ],
     recoveredErrors,
     scenarios,
     reason,
@@ -2262,7 +2288,7 @@ function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEv
 // Main
 // ---------------------------------------------------------------------------
 
-function main() {
+async function main() {
   const runDir = resolve(opts["experiment-dir"]);
   const outputRoot = resolve(opts["output-root"]);
   const baselineFile = join(runDir, opts["baseline-variant"], "results.jsonl");
@@ -2271,8 +2297,8 @@ function main() {
 
   const baselineRecords = existsSync(baselineFile) ? loadJsonlFile(baselineFile) : [];
   const skilledRecords = existsSync(skilledFile) ? loadJsonlFile(skilledFile) : [];
-  const hasPlugin = existsSync(pluginFile);
-  const pluginRecords = hasPlugin ? loadJsonlFile(pluginFile) : [];
+  const hasPlugin = existsSync(pluginFile) || opts["require-plugin"];
+  const pluginRecords = existsSync(pluginFile) ? loadJsonlFile(pluginFile) : [];
   console.log(
     `Loaded ${baselineRecords.length} baseline + ${skilledRecords.length} skilled` +
       `${hasPlugin ? ` + ${pluginRecords.length} plugin` : " (no plugin variant)"} outcomes from ${runDir}`,
@@ -2290,7 +2316,7 @@ function main() {
   const expectedManifestProvided = Boolean(opts["expected-evals"]);
   const expectedEvals = loadExpectedEvalFiles(opts["expected-evals"]);
   const expectedSet = new Set(expectedEvals);
-  const observedEvals = [...new Set([...baselineByEval.keys(), ...skilledByEval.keys()])].map(
+  const observedEvals = [...new Set([...baselineByEval.keys(), ...skilledByEval.keys(), ...pluginByEval.keys()])].map(
     normalizeEvalFile,
   );
   const observedSet = new Set(observedEvals);
@@ -2375,15 +2401,22 @@ function main() {
       }
 
       let nonActivationStimuli;
+      let deterministicSpec;
       try {
         nonActivationStimuli = readNonActivationStimuli(evalFile, opts["repo-root"]);
+        deterministicSpec = await loadDeterministicSpec(evalFile, opts["repo-root"], opts["experiment-file"], opts.param);
+        const effectiveSpec = deterministicSpec.variants
+          ? deterministicSpec.variants.get(opts["skilled-variant"])
+          : deterministicSpec;
+        if (!effectiveSpec) throw new Error("Effective experiment has no isolated variant");
+        nonActivationStimuli = effectiveSpec.nonActivationStimuli;
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         const message = `${plugin}/${skill}: ${detail}`;
         warn(message);
         const verdict = invalidVerdict(
           identity,
-          { code: "eval_spec_unreadable", phase: "adapter", kind: "permanent" },
+          { code: error.code === "eval_spec_unreadable" ? "eval_spec_unreadable" : "deterministic_spec_invalid", phase: "adapter", kind: "permanent" },
           message,
           {
             baselineRecords: baseline.length,
@@ -2465,10 +2498,10 @@ function main() {
         baselineByStim: groupByStimulus(baseline),
         skilledByStim: groupByStimulus(skilled),
         pluginByStim: hasPlugin ? groupByStimulus(pluginRecs) : null,
-        hasPlugin: hasPlugin && pluginRecs.length > 0,
+        hasPlugin,
       };
       if (hasPlugin && pluginRecs.length === 0) {
-        warn(`${plugin}/${skill}: plugin variant produced no records — Plugin columns omitted for this skill`);
+        warn(`${plugin}/${skill}: required plugin variant produced no records — measurement invalid`);
       }
 
       let verdict;
@@ -2478,6 +2511,12 @@ function main() {
           identity,
           roles,
           nonActivationStimuli,
+          "skill",
+          deterministicContract(deterministicSpec, roles, {
+            baseline: opts["baseline-variant"],
+            skilled: opts["skilled-variant"],
+            plugin: opts["plugin-variant"],
+          }),
         );
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
@@ -2564,7 +2603,7 @@ function main() {
 // the pure transformation helpers below can be unit-tested in isolation.
 if (isMain) {
   try {
-    main();
+    await main();
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exitCode = 1;

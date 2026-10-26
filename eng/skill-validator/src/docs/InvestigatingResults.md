@@ -88,6 +88,14 @@ behavior against the corrected executor.
 > schema. Malformed or unsupported inputs make consolidation return a nonzero
 > exit code, even when it can still write a partial diagnostic summary.
 
+> Current skill-lane results also carry `deterministicContract`. The adapter
+> matches pinned Vally 0.18 per-grader details to the parsed declarations.
+> Missing or errored evidence makes the measurement invalid; a completed
+> isolated-arm deterministic failure blocks improvement with
+> `deterministic_contract_failed`. This prerequisite is not the deferred
+> statistical objective-completion regression gate. See the current Vally
+> investigation guide for trial, arm and grader identity requirements.
+
 This guide is intended primarily for AI agents investigating skill evaluation failures, though humans will find it useful too. It documents the `results.json` schema, common failure patterns, and recommended fixes.
 
 ## Workflow-package evaluation

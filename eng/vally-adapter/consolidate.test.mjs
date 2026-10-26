@@ -15,6 +15,19 @@ import { spawnSync } from "node:child_process";
 
 const script = join(dirname(fileURLToPath(import.meta.url)), "consolidate.mjs");
 
+test("deterministic failures are not labeled as unproven preference or underpowering", () => {
+  const markdown = render([{
+    skillName: "deterministic-failure",
+    state: "VALID_NO_CHANGE",
+    stateReason: { code: "deterministic_contract_failed" },
+    passed: false, underpowered: true, preferenceRegressed: true,
+    scenarios: [],
+  }]);
+  assert.match(markdown, /Deterministic checks failed/);
+  assert.match(markdown, /deterministicContract.failures/);
+  assert.doesNotMatch(markdown, /\| ⚠️ Underpowered \|/);
+});
+
 test("workflow reports distinguish offline proposal evidence from publication", () => {
   const markdown = render([{
     skillName: "demo", skillKind: "workflow", state: "VALID_NO_CHANGE",
