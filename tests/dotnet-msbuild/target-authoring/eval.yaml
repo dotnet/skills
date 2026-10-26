@@ -277,8 +277,8 @@ stimuli:
     prompt: >-
       Read dormancy/perf-summary.txt for IncrementalTuning.csproj. The project
       has no custom targets. What should we optimize to reduce its build time?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: boundary-compilation-performance
       risk: medium
       journey: decline-off-target

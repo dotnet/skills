@@ -50,6 +50,10 @@ stimuli:
         - src: fixtures/vstest-mstest/OrderServiceTests.cs
           dest: OrderServiceTests.cs
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - bash
       - type: output-matches
         config:
           pattern: dotnet test
@@ -67,9 +71,6 @@ stimuli:
     rubric:
       - Executes the configured test project through its compatible runner
       - Reports passed, failed, and skipped test counts from the completed run
-    constraints:
-      expect_tools:
-        - bash
   - name: Select one target framework in a multi-targeted project
     tags:
       capability: select-one-target-framework-in-a-multi-targeted-project
@@ -80,6 +81,13 @@ stimuli:
       Give me the exact `dotnet test` command that runs only net9.0. Do not run
       anything.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: dotnet test
@@ -90,12 +98,6 @@ stimuli:
     rubric:
       - Gives one runnable command that executes only the requested target framework
       - Does not run or modify the project
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Exclude slow integration tests on VSTest MSTest
     tags:
       capability: filter-vstest-select-exclude
@@ -131,6 +133,14 @@ stimuli:
       `Slow`. Give me one exact `dotnet test` command. Do not run anything or
       change the tests.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - powershell
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: --filter
@@ -149,13 +159,6 @@ stimuli:
       - Combines the positive and negated conditions with the AND operator
       - Does not split the request into two test runs or propose source changes
       - Keeps the filter as one quoted command-line argument so the shell does not interpret the AND operator
-    constraints:
-      reject_tools:
-        - bash
-        - powershell
-        - edit
-        - create
-
   - name: Exclude a TUnit category with treenode-filter
     tags:
       capability: filter-tunit-exclude-category
@@ -190,6 +193,14 @@ stimuli:
       command that runs the suite but excludes every test marked with the
       `Slow` category. Do not run anything or change the tests.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - powershell
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: (?m)^[ \t]*dotnet[ \t]+(?:run[ \t]+--[ \t]+|test[ \t]+(?:--[ \t]+)?)--treenode-filter\b
@@ -206,13 +217,6 @@ stimuli:
       - Appends the negated Slow category selector to the test-name segment
       - Uses dotnet run with the application-argument delimiter, bridged dotnet test with the delimiter, or native-MTP dotnet test with direct arguments
       - Does not propose editing test attributes
-    constraints:
-      reject_tools:
-        - bash
-        - powershell
-        - edit
-        - create
-
   - name: MTP project on SDK 9 must use -- separator for args
     tags:
       capability: mtp-sdk9-separator
@@ -256,6 +260,12 @@ stimuli:
         - src: fixtures/mtp-mstest-sdk9/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: dotnet test
@@ -273,11 +283,6 @@ stimuli:
       - Recognizes that SDK 9 requires MTP arguments after the '--' separator
       - "Places --crashdump after the '--' separator: 'dotnet test -- --crashdump'"
       - Does not use the VSTest-style '--blame' or '--blame-crash' options for this MTP project
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Filter one NUnit class on VSTest
     tags:
       capability: filter-one-nunit-class-on-vstest
@@ -289,6 +294,12 @@ stimuli:
       `dotnet test` command that runs `ReportExporterTests` but not
       `ReportGeneratorTests`. Do not run anything.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: --filter
@@ -299,11 +310,6 @@ stimuli:
     rubric:
       - Gives one runnable command that selects the requested NUnit class and excludes the similarly named class
       - The command matches the project's configured test platform without running or modifying it
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Generate TRX from a VSTest project
     tags:
       capability: generate-trx-from-a-vstest-project
@@ -314,6 +320,12 @@ stimuli:
       MSTest.TestAdapter, with no MTP runner or bridge properties. Give me the
       exact command to run its tests and write a TRX report. Do not run it.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: dotnet test
@@ -327,11 +339,6 @@ stimuli:
     rubric:
       - Gives one runnable command that produces the requested TRX report for the configured project
       - Does not mix command syntax from a different test platform or execute the command
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Collect a hang dump on an MTP project (SDK 10)
     tags:
       capability: collect-a-hang-dump-on-an-mtp-project-sdk-10
@@ -350,6 +357,12 @@ stimuli:
         - src: fixtures/mtp-mstest-sdk10/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: dotnet test
@@ -369,11 +382,6 @@ stimuli:
     rubric:
       - Gives one runnable command that collects a hang dump after the requested timeout
       - The command matches the configured native test mode and does not mix syntax from another platform
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Enable a diagnostic log for a VSTest project
     tags:
       capability: enable-a-diagnostic-log-for-a-vstest-project
@@ -384,6 +392,12 @@ stimuli:
       with no MTP runner signals. Give me the exact `dotnet test` command that
       writes a diagnostic log to `artifacts/vstest.log`. Do not run anything.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*(?:-d|--diag)\s+["'']?artifacts[/\\]vstest\.log["'']?(?:\s|$)'
@@ -397,11 +411,6 @@ stimuli:
     rubric:
       - Gives one exact command that writes diagnostic output to the requested path
       - The command matches the stated test platform and is not executed
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Enable diagnostic logs for a native MTP project
     tags:
       capability: enable-diagnostic-logs-for-a-native-mtp-project
@@ -413,6 +422,12 @@ stimuli:
       that enables diagnostic logging and writes the logs under
       `artifacts/diagnostics`. Do not run anything.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*--project\s+["'']?Tests\.csproj["'']?(?:\s|$))[^\r\n]*$'
@@ -435,11 +450,6 @@ stimuli:
     rubric:
       - Gives one exact command that enables diagnostics under the requested directory
       - The command matches native test mode and is not executed
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Filter xUnit v3 tests by class on MTP
     tags:
       capability: filter-xunit-v3-tests-by-class-on-mtp
@@ -458,6 +468,12 @@ stimuli:
         - src: fixtures/mtp-xunit-v3/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*\s--\s+--filter-class(?:\s|$))(?=[^\r\n]*ShoppingCartTests)[^\r\n]*$
@@ -468,11 +484,6 @@ stimuli:
     rubric:
       - Gives one runnable command that selects only the requested xUnit class
       - The command matches the project's framework, platform, and SDK mode without being executed
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Filter xUnit v3 tests by trait on MTP
     tags:
       capability: filter-xunit-v3-tests-by-trait-on-mtp
@@ -491,6 +502,12 @@ stimuli:
         - src: fixtures/mtp-xunit-v3/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--\s+--filter-trait\s+["'']?Category=Integration["'']?(?:\s|$)'
@@ -501,11 +518,6 @@ stimuli:
     rubric:
       - Gives one runnable command that selects only tests carrying the requested xUnit trait
       - The command matches the project's framework, platform, and SDK mode without being executed
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Filter xUnit v3 tests by class pattern and trait using query filter language
     tags:
       capability: filter-xunit-v3-tests-by-class-pattern-and-trait-using-query-filter-language
@@ -525,6 +537,12 @@ stimuli:
         - src: fixtures/mtp-xunit-v3/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--\s+--filter-query(?:\s|$)
@@ -536,11 +554,6 @@ stimuli:
       - The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests
       - Gives one runnable command matching the project's framework, platform, and SDK mode
       - Does not build or run the project
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Filter TUnit tests by class using treenode-filter
     tags:
       capability: filter-tunit-tests-by-class-using-treenode-filter
@@ -556,6 +569,12 @@ stimuli:
         - src: fixtures/mtp-tunit/NotificationTests.cs
           dest: NotificationTests.cs
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+run(?=[^\r\n]*--project\s+["'']?TestProject\.csproj["'']?(?:\s|$))(?=[^\r\n]*\s--\s+--treenode-filter\s+["'']?[^"''\r\n]*SmsNotificationTests)[^\r\n]*$'
@@ -569,11 +588,6 @@ stimuli:
     rubric:
       - Gives the executable fallback command that selects only the requested TUnit class
       - The command matches the framework's supported runner and filter behavior without being executed
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Combine multiple filter criteria on VSTest MSTest
     tags:
       capability: combine-multiple-filter-criteria-on-vstest-mstest
@@ -590,6 +604,12 @@ stimuli:
         - src: fixtures/vstest-mstest/OrderServiceTests.cs
           dest: OrderServiceTests.cs
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*--filter(?:\s|=|:))(?=[^\r\n]*TestCategory=Unit)(?=[^\r\n]*OrderServiceTests)(?=[^\r\n]*&)[^\r\n]*$'
@@ -607,11 +627,6 @@ stimuli:
       - Does not suggest running all tests and post-filtering results
       - Gives one runnable command whose filter selects only tests satisfying both requested conditions
       - Does not build or run the project
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: MTP project on SDK 10 passes args directly
     tags:
       capability: mtp-project-on-sdk-10-passes-args-directly
@@ -629,6 +644,12 @@ stimuli:
         - src: fixtures/mtp-mstest-sdk10/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: dotnet test
@@ -645,11 +666,6 @@ stimuli:
     rubric:
       - Gives one runnable command that produces the requested TRX report
       - The command matches the configured native test mode without mixing syntax from another platform
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Run one VSTest invocation without rebuilding
     tags:
       capability: run-one-vstest-invocation-without-rebuilding
@@ -659,6 +675,12 @@ stimuli:
       Give me the exact command for one normal SDK-style VSTest run that skips
       rebuilding. This is not a watch or hot-reload loop. Do not run anything.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--no-build(?:\s|$)
@@ -673,11 +695,6 @@ stimuli:
       - Treats the request as a one-time command and does not propose a persistent edit/re-run loop
       - Gives one runnable command that skips rebuilding for the current project or solution
       - Does not execute the command
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Filter NUnit tests on an SDK 9 MTP bridge
     tags:
       capability: filter-nunit-tests-on-an-sdk-9-mtp-bridge
@@ -689,6 +706,12 @@ stimuli:
       exact dotnet test command that runs only Category=Integration. Do not run
       anything.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--\s+--filter\s+["'']?TestCategory=Integration["'']?(?:\s|$)'
@@ -699,11 +722,6 @@ stimuli:
     rubric:
       - Gives one runnable command that selects only the requested NUnit category
       - The command matches the stated runner and SDK mode without being executed
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Collect coverage with VSTest
     tags:
       capability: collect-coverage-with-vstest
@@ -713,6 +731,12 @@ stimuli:
       Give me the exact command to run the SDK-style VSTest project at
       `Tests.csproj` and collect code coverage. Do not run anything.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*(?<![A-Za-z0-9_.-])Tests\.csproj(?![A-Za-z0-9_.-]))(?![^\r\n]*\s--(?:\s|$))[^\r\n]*--collect(?:\s+|:)["'']Code Coverage["''](?:\s|$)'
@@ -723,11 +747,6 @@ stimuli:
     rubric:
       - Gives one runnable command that collects code coverage for the stated platform
       - Does not mix syntax from another test platform or execute the command
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Collect coverage on an SDK 9 MTP bridge
     tags:
       capability: collect-coverage-on-an-sdk-9-mtp-bridge
@@ -738,6 +757,12 @@ stimuli:
       TestingPlatformDotnetTestSupport=true with OutputType=Exe. Give me the
       exact dotnet test command that collects code coverage. Do not run anything.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--\s+--coverage(?:\s|$)
@@ -748,11 +773,6 @@ stimuli:
     rubric:
       - Gives one runnable command that collects code coverage through the configured bridge
       - Does not mix syntax from another test platform or execute the command
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Detect test platform from Directory.Build.props
     tags:
       capability: detect-test-platform-from-directory-build-props
@@ -772,6 +792,10 @@ stimuli:
         - src: ./fixtures/detect-test-platform-from-directory-build-props/ServiceTests.cs
           dest: ServiceTests.cs
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - bash
       - type: output-matches
         config:
           pattern: (MTP|Microsoft\.Testing\.Platform|TestingPlatformDotnetTestSupport)
@@ -792,9 +816,6 @@ stimuli:
     rubric:
       - Gives one runnable command that selects only the requested category using the project's effective imported configuration
       - The command matches the framework, platform, and SDK mode
-    constraints:
-      expect_tools:
-        - bash
   - name: Use the repository unit-test entry point
     tags:
       capability: use-the-repository-unit-test-entry-point
@@ -815,6 +836,12 @@ stimuli:
         - src: fixtures/repository-overlay/overlay.md
           dest: .agents/skill-overlays/dotnet-test/run-tests.md
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: '(?i)pwsh\s+\.?[/\\]eng[/\\]test\.ps1\s+-Suite\s+Unit\s+-NoRestore'
@@ -826,11 +853,6 @@ stimuli:
       - Gives one runnable command that uses the repository's supported test entry point
       - Selects only the unit suite and disables package restore
       - Does not execute the command or substitute a generic runner
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Reject a stale repository test binding
     tags:
       capability: reject-a-stale-repository-test-binding
@@ -849,6 +871,13 @@ stimuli:
         - src: fixtures/repository-overlay/stale-overlay.md
           dest: .agents/skill-overlays/dotnet-test/run-tests.md
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: (?i)(binding-revision|revision).*(mismatch|unsupported|expected|doesn't match|does not match|differs from|\bnot\b)
@@ -860,12 +889,6 @@ stimuli:
       - Identifies that the repository overlay targets an unsupported binding revision
       - Does not apply or recommend the stale overlay's obsolete command
       - Gives a safe next step without claiming that the stale repository binding is valid
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Keep MTP coverage arguments behind the separator in SDK 10 VSTest mode
     prompt: |
       Give me the exact `dotnet test` command to collect Microsoft CodeCoverage
@@ -909,6 +932,12 @@ stimuli:
               separator and produce
               TestResults/coverage/raw/coverage.cobertura.xml.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (?i)VSTest mode
@@ -924,8 +953,3 @@ stimuli:
       - Used the project path positionally instead of using the native-MTP --project selector
       - Kept dotnet test options such as --results-directory before the separator
       - Passed --coverage, --coverage-output-format cobertura, and --coverage-output after the separator
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create

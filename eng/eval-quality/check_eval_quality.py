@@ -38,10 +38,10 @@ FAILS on unambiguous bugs:
      `prompt:`/`environment:`/`graders:` block silently overwrites the scenario
      it lands in, turning it into a clone of another. Scenario counts still look
      right, which is why only the parser can catch it.
- 10. A spec declaring the deprecated top-level `config:` alias. Vally 0.14
-     reports it as deprecated, and its loader throws when a spec later adds
-     `defaults:` beside it. Require the current `defaults:` spelling so the
-     repository has one settings schema.
+ 10. A spec declaring the removed top-level `config:` alias. Current Vally
+     rejects it, and older loaders also throw when a spec adds `defaults:`
+     beside it. Require the current `defaults:` spelling so the repository has
+     one settings schema.
  11. Duplicate stimulus names. Vally pairs comparison trajectories by stimulus
      name and trial index, so names are slot identity, not display text.
  12. Stimulus-level `timeout`. Vally only reads the suite-level
@@ -86,6 +86,8 @@ Usage:  python eng/eval-quality/check_eval_quality.py [--strict] [--all]
 from __future__ import annotations
 
 import argparse
+import copy
+import functools
 import glob
 import json
 import math
@@ -382,6 +384,204 @@ def is_execution_shard_metadata_only_change(
     return (
         _without_execution_shard_metadata(base.stdout)
         == _without_execution_shard_metadata(current)
+    )
+
+
+def _plugin_skill_names(spec: str) -> list[str]:
+    """Return every skill name available to a plugin eval."""
+    parts = spec.replace("\\", "/").split("/")
+    if len(parts) < 3 or parts[0] != "tests":
+        return []
+    skill_root = os.path.join("plugins", parts[1], "skills")
+    if not os.path.isdir(skill_root):
+        return []
+    return sorted(
+        entry for entry in os.listdir(skill_root)
+        if os.path.isfile(os.path.join(skill_root, entry, "SKILL.md")))
+
+
+def _normalize_vally_schema_migration(doc: dict, spec: str) -> dict:
+    """Canonicalize removed Vally forms to their supported equivalents."""
+    normalized = copy.deepcopy(doc)
+    plugin_skills = _plugin_skill_names(spec)
+    if "config" in normalized and "defaults" not in normalized:
+        normalized["defaults"] = normalized.pop("config")
+
+    for stimulus in normalized.get("stimuli") or []:
+        if not isinstance(stimulus, dict):
+            continue
+        tags = stimulus.setdefault("tags", {})
+        if not isinstance(tags, dict):
+            continue
+        for key in ("expect_activation", "deny_shell"):
+            if key in stimulus:
+                tags[key] = str(stimulus.pop(key)).lower()
+
+        for grader in stimulus.get("graders") or []:
+            if not isinstance(grader, dict) or grader.get("type") not in (
+                    "output-matches", "output-not-matches"):
+                continue
+            config = grader.get("config")
+            if isinstance(config, dict) and isinstance(config.get("pattern"), str):
+                config["pattern"] = _normalize_vally_regex_migration(config["pattern"])
+
+        constraints = stimulus.get("constraints")
+        if isinstance(constraints, dict):
+            constraints = dict(constraints)
+            stimulus["constraints"] = constraints
+            grader_fields: dict[str, dict[str, object]] = {}
+            for alias, grader_type, field in (
+                    ("expect_tools", "tool-calls", "required"),
+                    ("reject_tools", "tool-calls", "disallowed"),
+                    ("expect_skills", "skill-invocation", "required"),
+                    ("reject_skills", "skill-invocation", "disallowed")):
+                if alias in constraints:
+                    grader_fields.setdefault(grader_type, {})[field] = constraints.pop(alias)
+            if not constraints:
+                stimulus.pop("constraints", None)
+            if grader_fields:
+                migrated = [
+                    {"type": grader_type, "config": config}
+                    for grader_type, config in grader_fields.items()
+                ]
+                stimulus["graders"] = migrated + list(stimulus.get("graders") or [])
+        for grader in stimulus.get("graders") or []:
+            if not isinstance(grader, dict) or grader.get("type") != "skill-invocation":
+                continue
+            config = grader.get("config")
+            disallowed = config.get("disallowed") if isinstance(config, dict) else None
+            if disallowed == ["*"] or (
+                    plugin_skills
+                    and isinstance(disallowed, list)
+                    and sorted(disallowed) == plugin_skills):
+                config["disallowed"] = ["__all_plugin_skills__"]
+    return normalized
+
+
+LEGACY_FILTER_METHOD_REGEX = (
+    r"""(?i)--filter-method\s+(?<quote>["'])?(?:\*Checkout_AppliesCoupon\*?|"""
+    r"""(?:[\w.]+\.)?CheckoutTests\.Checkout_AppliesCoupon)"""
+    r"""(?(quote)\k<quote>)(?=\s|$)""")
+VALLY_FILTER_METHOD_REGEX = (
+    r"""(?i)--filter-method\s+(?<quote>["'])?(?:\*Checkout_AppliesCoupon\*?|"""
+    r"""(?:[\w.]+\.)?CheckoutTests\.Checkout_AppliesCoupon)"""
+    r"""\k<quote>(?=\s|$)""")
+LEGACY_HOT_RELOAD_ENV_REGEX = (
+    r"""(?is)(?:(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b.{0,500}"""
+    r"""TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["']?1["']?(?!\d)|"""
+    r"""(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?(?:`?(?:\$env:|export\s+|set\s+)?"""
+    r"""TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["']?1["']?).{0,500}"""
+    r"""^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b|"""
+    r"""(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?"""
+    r"""TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["']?1["']?\s+`?dotnet\s+run\b)""")
+VALLY_HOT_RELOAD_ENV_REGEX = LEGACY_HOT_RELOAD_ENV_REGEX.replace(
+    "(?is)(?:(?m)", "(?ims)(?:", 1).replace("|(?m)", "|")
+VALLY_REGEX_MIGRATIONS = {
+    LEGACY_FILTER_METHOD_REGEX: VALLY_FILTER_METHOD_REGEX,
+    LEGACY_HOT_RELOAD_ENV_REGEX: VALLY_HOT_RELOAD_ENV_REGEX,
+}
+
+
+def _normalize_vally_regex_migration(pattern: str) -> str:
+    """Canonicalize the reviewed Vally 0.18 JavaScript regex migrations."""
+    return VALLY_REGEX_MIGRATIONS.get(pattern, pattern)
+
+
+def _has_legacy_vally_regexes(doc: object) -> bool:
+    """Return whether an eval uses regex constructs rejected by JavaScript RegExp."""
+    if not isinstance(doc, dict):
+        return False
+    for stimulus in doc.get("stimuli") or []:
+        if not isinstance(stimulus, dict):
+            continue
+        for grader in stimulus.get("graders") or []:
+            if not isinstance(grader, dict) or grader.get("type") not in (
+                    "output-matches", "output-not-matches"):
+                continue
+            config = grader.get("config")
+            pattern = config.get("pattern") if isinstance(config, dict) else None
+            if not isinstance(pattern, str):
+                continue
+            if pattern in VALLY_REGEX_MIGRATIONS:
+                return True
+    return False
+
+
+def _has_removed_vally_aliases(doc: object) -> bool:
+    """Return whether a parsed eval still contains aliases removed by Vally."""
+    if not isinstance(doc, dict):
+        return False
+    if "config" in doc:
+        return True
+    for stimulus in doc.get("stimuli") or []:
+        if not isinstance(stimulus, dict):
+            continue
+        if "expect_activation" in stimulus or "deny_shell" in stimulus:
+            return True
+        constraints = stimulus.get("constraints")
+        if isinstance(constraints, dict) and any(
+                key in constraints for key in (
+                    "expect_tools", "reject_tools",
+                    "expect_skills", "reject_skills")):
+            return True
+    return False
+
+
+def _has_unsupported_skill_wildcard(doc: object) -> bool:
+    """Return whether a skill grader relies on unsupported wildcard matching."""
+    if not isinstance(doc, dict):
+        return False
+    for stimulus in doc.get("stimuli") or []:
+        if not isinstance(stimulus, dict):
+            continue
+        for grader in stimulus.get("graders") or []:
+            if not isinstance(grader, dict) or grader.get("type") != "skill-invocation":
+                continue
+            config = grader.get("config")
+            if isinstance(config, dict) and config.get("disallowed") == ["*"]:
+                return True
+    return False
+
+
+def is_vally_schema_migration_only_change(
+        spec: str, base_ref: str, changed_paths: set[str]) -> bool:
+    """Return true when an eval changed only to replace removed Vally forms."""
+    suite_prefix = spec.rsplit("/", 1)[0] + "/"
+    affected = {
+        path for path in changed_paths
+        if path == spec or path.startswith(suite_prefix)
+    }
+    if affected != {spec}:
+        return False
+
+    try:
+        base = subprocess.run(
+            ["git", "show", f"{base_ref}:{spec}"],
+            capture_output=True, text=True, encoding="utf-8", errors="strict")
+        with open(spec, encoding="utf-8") as current_file:
+            current = current_file.read()
+        if base.returncode != 0:
+            return False
+        base_doc = yaml.load(base.stdout, NoDuplicateKeys) or {}
+        current_doc = yaml.load(current, NoDuplicateKeys) or {}
+    except (FileNotFoundError, OSError, yaml.YAMLError):
+        return False
+
+    base_has_legacy = (
+        _has_removed_vally_aliases(base_doc)
+        or _has_legacy_vally_regexes(base_doc)
+        or _has_unsupported_skill_wildcard(base_doc)
+    )
+    current_has_legacy = (
+        _has_removed_vally_aliases(current_doc)
+        or _has_legacy_vally_regexes(current_doc)
+        or _has_unsupported_skill_wildcard(current_doc)
+    )
+    return (
+        base_has_legacy
+        and not current_has_legacy
+        and _normalize_vally_schema_migration(base_doc, spec)
+        == _normalize_vally_schema_migration(current_doc, spec)
     )
 
 
@@ -910,8 +1110,8 @@ def _validate_atif_trajectory(document, path: str = "", *, embedded: bool = Fals
             seen.add(trajectory_id)
 
 
-def vally_regex_found(pattern: str, output: str) -> bool:
-    """Match Vally's leading inline-flag convention for JavaScript regexes."""
+def vally_regex_parts(pattern: str) -> tuple[str, int]:
+    """Parse Vally's leading flags and reject constructs JavaScript cannot compile."""
     flags = 0
     inline = re.match(r"^\(\?([ims]+)\)", pattern)
     if inline:
@@ -925,7 +1125,73 @@ def vally_regex_found(pattern: str, output: str) -> bool:
         if "s" in names:
             flags |= re.DOTALL
         pattern = pattern[inline.end():]
-    return re.search(pattern, output, flags) is not None
+    if re.search(r"(?<!\\)\(\?[ims]+\)", pattern):
+        raise re.error(
+            "inline regex flags must appear once at the start for JavaScript RegExp")
+    if re.search(r"(?<!\\)\(\?\(", pattern):
+        raise re.error("conditional groups are not supported by JavaScript RegExp")
+    return pattern, flags
+
+
+JAVASCRIPT_REGEX_SCRIPT = r"""
+const fs = require("fs");
+const { pattern, flags, output } = JSON.parse(fs.readFileSync(0, "utf8"));
+try {
+  const regex = new RegExp(pattern, flags);
+  process.stdout.write(output === null ? "true" : String(regex.test(output)));
+} catch (error) {
+  process.stderr.write(error instanceof Error ? error.message : String(error));
+  process.exitCode = 2;
+}
+"""
+
+
+def _javascript_regex_flags(flags: int) -> str:
+    result = ""
+    if flags & re.IGNORECASE:
+        result += "i"
+    if flags & re.MULTILINE:
+        result += "m"
+    if flags & re.DOTALL:
+        result += "s"
+    return result
+
+
+def _javascript_regex_test(pattern: str, flags: int, output: str | None) -> bool:
+    try:
+        result = subprocess.run(
+            ["node", "-e", JAVASCRIPT_REGEX_SCRIPT],
+            input=json.dumps({
+                "pattern": pattern,
+                "flags": _javascript_regex_flags(flags),
+                "output": output,
+            }),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=5)
+    except FileNotFoundError as exc:
+        raise re.error(
+            "Node.js is required to validate Vally JavaScript regexes") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise re.error("JavaScript regex validation timed out") from exc
+    if result.returncode != 0:
+        raise re.error(result.stderr.strip() or "JavaScript RegExp rejected the pattern")
+    return result.stdout == "true"
+
+
+@functools.lru_cache(maxsize=None)
+def validate_vally_regex(pattern: str) -> tuple[str, int]:
+    """Compile a Vally output regex with JavaScript RegExp."""
+    javascript_pattern, flags = vally_regex_parts(pattern)
+    _javascript_regex_test(javascript_pattern, flags, None)
+    return javascript_pattern, flags
+
+
+def vally_regex_found(pattern: str, output: str) -> bool:
+    """Match an output regex with the JavaScript semantics used by Vally."""
+    javascript_pattern, flags = validate_vally_regex(pattern)
+    return _javascript_regex_test(javascript_pattern, flags, output)
 
 
 def is_simple_curated_response(document: dict) -> bool:
@@ -1324,6 +1590,13 @@ def check_graders(spec: str, doc: dict) -> None:
                     errors.append(
                         f"{spec}: '{stim.get('name')}' grader[{i}] ({g.get('type')}) is "
                         f"missing config.{need}; it silently omits that assertion")
+            if g.get("type") in ("output-matches", "output-not-matches"):
+                try:
+                    validate_vally_regex(str(cfg.get("pattern", "")))
+                except re.error as exc:
+                    errors.append(
+                        f"{spec}: '{stim.get('name')}' grader[{i}] has invalid "
+                        f"JavaScript regex syntax: {exc}")
             command = cfg.get("command")
             args = cfg.get("args")
             if (g.get("type") == "run-command"
@@ -1338,16 +1611,15 @@ def check_graders(spec: str, doc: dict) -> None:
 def check_spec_shape(spec: str, doc: dict, raw: str) -> None:
     """Reject spec shapes Vally refuses or silently ignores.
 
-    `config:` is a deprecated alias for `defaults:`. Vally 0.14 warns when it
-    loads the alias, and the loader throws if a later edit adds `defaults:`
-    beside it. Requiring `defaults:` removes both failure modes and gives authors
-    one settings schema.
+    `config:` was a deprecated alias for `defaults:` and current Vally rejects
+    it. Older loaders also throw if a later edit adds `defaults:` beside it.
+    Requiring `defaults:` removes both failure modes and gives authors one
+    settings schema.
     """
     if re.search(r"^config:", raw, re.M):
         errors.append(
             f"{spec}: declares the deprecated top-level 'config:' alias. Rename it to "
-            f"'defaults:' and preserve its settings; vally 0.14 warns on the alias and "
-            f"rejects a spec that later carries both keys")
+            f"'defaults:' and preserve its settings; current Vally rejects the alias")
     for stimulus in doc.get("stimuli") or []:
         if not isinstance(stimulus, dict):
             continue
@@ -1412,26 +1684,53 @@ def check_stimulus_names(spec: str, doc: dict) -> None:
         seen.add(name)
 
 
+def stimulus_expects_activation(stimulus: dict) -> bool:
+    """Read repository activation metadata from Vally-supported string tags."""
+    tags = stimulus.get("tags")
+    if isinstance(tags, dict) and "expect_activation" in tags:
+        value = tags["expect_activation"]
+        if isinstance(value, str) and value.lower() in {"true", "false"}:
+            return value.lower() == "true"
+        errors.append(
+            f"stimulus '{stimulus.get('name')}' has tags.expect_activation={value!r}; "
+            "use the quoted string \"true\" or \"false\"")
+        return True
+    # Read the legacy extension so the gate gives a focused migration error.
+    return stimulus.get("expect_activation") is not False
+
+
+def rejected_skills(stimulus: dict) -> list[str] | str:
+    constraints = stimulus.get("constraints")
+    legacy = constraints.get("reject_skills") if isinstance(constraints, dict) else None
+    if legacy:
+        return legacy
+    for grader in stimulus.get("graders") or []:
+        if not isinstance(grader, dict) or grader.get("type") != "skill-invocation":
+            continue
+        config = grader.get("config")
+        if isinstance(config, dict) and config.get("disallowed"):
+            return config["disallowed"]
+    return []
+
+
 def check_skill_constraints(spec: str, doc: dict) -> None:
     for stim in doc.get("stimuli") or []:
         if not isinstance(stim, dict):
             continue
-        constraints = stim.get("constraints")
-        rejected = constraints.get("reject_skills") if isinstance(constraints, dict) else []
-        rejected = rejected or []
+        rejected = rejected_skills(stim)
         has_wildcard = rejected == "*" or (
             isinstance(rejected, list) and "*" in rejected)
-        if stim.get("expect_activation") is False and rejected:
+        if not stimulus_expects_activation(stim) and rejected:
             errors.append(
                 f"{spec}: dormancy guard '{stim.get('name')}' also sets reject_skills; that can "
                 f"remove the target skill from the skilled arm and make the comparison identical "
-                f"to baseline. Use expect_activation: false alone")
+                f'to baseline. Use tags.expect_activation: "false" alone')
         elif has_wildcard:
             errors.append(
                 f"{spec}: stimulus '{stim.get('name')}' sets reject_skills: ['*']; that prevents "
                 f"the skilled arm from using the target skill. Remove the wildcard. For an "
-                f"off-target routing case, use expect_activation: false and an anti-hijack rubric")
-        if stim.get("expect_activation") is not False:
+                f'off-target routing case, use tags.expect_activation: "false" and an anti-hijack rubric')
+        if stimulus_expects_activation(stim):
             continue
         name = stim.get("name")
         rubric = " ".join(str(r) for r in (stim.get("rubric") or [])).lower()
@@ -1525,14 +1824,14 @@ def eval_evidence_counts(doc: dict) -> tuple[int, int, int, int]:
     """(preference stimuli, dormancy stimuli, runs, preference paired runs).
 
     The preference gate gives each non-dormancy stimulus one vote. Explicit
-    `expect_activation: false` stimuli are activation-contract evidence and do
-    not enter preference inference. `defaults.runs` (or its deprecated
-    `config.runs` alias) measures reliability within a stimulus and does not
+    `tags.expect_activation: "false"` stimuli are activation-contract evidence
+    and do not enter preference inference. `defaults.runs` measures reliability
+    within a stimulus and does not
     increase the cross-task sample size.
     """
     stimuli = [stimulus for stimulus in (doc.get("stimuli") or [])
                if isinstance(stimulus, dict)]
-    dormancy = sum(stimulus.get("expect_activation") is False
+    dormancy = sum(not stimulus_expects_activation(stimulus)
                    for stimulus in stimuli)
     preference = len(stimuli) - dormancy
     settings = doc.get("defaults") or doc.get("config") or {}
@@ -1927,8 +2226,12 @@ def main() -> int:
         and not (
             base_ref
             and changed_paths is not None
-            and is_execution_shard_metadata_only_change(
-                spec, base_ref, changed_paths)
+            and (
+                is_execution_shard_metadata_only_change(
+                    spec, base_ref, changed_paths)
+                or is_vally_schema_migration_only_change(
+                    spec, base_ref, changed_paths)
+            )
         )
     ]
     for spec in checked_specs:

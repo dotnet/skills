@@ -303,8 +303,8 @@ stimuli:
       every build when client.schema is unchanged, and dotnet clean leaves
       Client.g.cs behind. How should the target be authored so no-op builds skip
       it and clean removes its output?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-target-authoring
       risk: routing
       journey: boundary-condition
@@ -336,8 +336,8 @@ stimuli:
       Our Kubernetes Deployment exposes /healthz on port 8080. Add an HTTP
       readiness probe with a five-second initial delay and a ten-second period.
       What should the container spec contain?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-kubernetes
       risk: routing
       journey: boundary-condition
