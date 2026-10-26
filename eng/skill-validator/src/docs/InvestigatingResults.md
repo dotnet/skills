@@ -47,6 +47,13 @@ target. Retained successful working-limit partials remain gradeable, and
 optional plugin diagnostics are unchanged. This checks observed records, not
 whether entirely absent stimulus/trial slots were generated.
 
+Generic Blazor consumer examples should provide their item type, collection,
+and callback signature. A sortable-list trial built with an explicit item type
+but reverted it to match an implicit example and timed out debugging callback
+inference. Clarifying the shared consumer leaves the component implementation,
+graders, rubrics, task count, and existing three-minute hard cap unchanged;
+successful model-free compilation is not proof of future executor completion.
+
 Blazor's existing execution-shard metadata separates ordinary readiness (120
 executions), Ignite UI (165), and the nine smaller targets (81). No cases, runs,
 models, worker caps, or hard deadlines are removed or increased. Only the

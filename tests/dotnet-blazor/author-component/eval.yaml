@@ -233,11 +233,21 @@ stimuli:
       Here's an example of how a consumer would use it:
 
       ```razor
-      <SortableList Items="@tasks" OnOrderChanged="HandleReorder">
+      <SortableList TItem="TaskItem" Items="@tasks" OnOrderChanged="HandleReorder">
           <ItemTemplate>
               <span>@context.Title</span>
           </ItemTemplate>
       </SortableList>
+
+      @code {
+          private record TaskItem(string Title);
+          private List<TaskItem> tasks = new() { new("A"), new("B"), new("C") };
+
+          private void HandleReorder(IEnumerable<TaskItem> newOrder)
+          {
+              tasks = newOrder.ToList();
+          }
+      }
       ```
 
       Each item should have "Move Up" and "Move Down" buttons. After each reorder,

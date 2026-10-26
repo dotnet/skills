@@ -34,6 +34,26 @@ test("every readiness stimulus has an effective working limit below the unchange
   assert.match(table.prompt, /<DataTable TItem="Person" Items="@people" OnRowClick="HandleRowClick">/);
 });
 
+test("sortable code-behind consumer supplies its generic and parent types", async () => {
+  const path = join("tests", "dotnet-blazor", "author-component", "eval.yaml");
+  const spec = await loadEvalSpec(path);
+  assert.equal(spec.stimuli.length, 5);
+  assert.equal(spec.defaults.timeout, "3m");
+  assert.ok(spec.stimuli.every((item) => item.constraints?.max_agent_duration == null));
+  const sortable = spec.stimuli.find(
+    (item) => item.name === "Author a sortable list with code-behind pattern",
+  );
+  assert.match(sortable.prompt, /<SortableList TItem="TaskItem" Items="@tasks" OnOrderChanged="HandleReorder">/);
+  assert.match(sortable.prompt, /private record TaskItem\(string Title\)/);
+  assert.match(sortable.prompt, /private List<TaskItem> tasks/);
+  assert.match(sortable.prompt, /private void HandleReorder\(IEnumerable<TaskItem> newOrder\)/);
+  assert.match(sortable.prompt, /tasks = newOrder\.ToList\(\);/);
+  const validation = validateEvalSpec(spec, {
+    registry: createDefaultGraderRegistry(), evalFilePath: path,
+  });
+  assert.equal(validation.valid, true, JSON.stringify(validation.diagnostics));
+});
+
 test("only the affected Ignite UI advisory stimulus has a working limit", async () => {
   const path = join("tests", "dotnet-blazor", "use-igniteui-blazor", "eval.yaml");
   const spec = await loadEvalSpec(path);

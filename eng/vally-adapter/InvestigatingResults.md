@@ -141,6 +141,21 @@ completion. Optional plugin-arm diagnostics retain their existing semantics.
 This guard checks observed input records; it does not establish that an
 entirely absent stimulus/trial slot was generated.
 
+### Generic consumer examples can trigger unrelated inference work
+
+Check whether a generated generic component builds with an explicit item type
+before attributing every timeout to its implementation. In the sortable-list
+trial, the baseline built successfully with `TItem="TaskItem"` twice, then
+reverted it to match the prompt's implicit consumer and exhausted its budget
+debugging `CS1503` on `EventCallback`. A controlled replay of the recorded
+component reproduced the error; adding only the explicit item type fixed it.
+
+Give the shared consumer example its item type, collection, and callback
+signature, without supplying the component implementation. Keep graders,
+rubrics, task counts, and deadlines unchanged. This removes an unrelated
+consumer ambiguity, not the code-behind/state/callback task being measured;
+future model completion still requires a real evaluation.
+
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate
