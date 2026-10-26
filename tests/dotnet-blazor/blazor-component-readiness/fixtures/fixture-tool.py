@@ -1554,10 +1554,13 @@ def check_guidance_trajectory(trajectory, mode):
         name = call.get("toolName")
         arguments = call.get("arguments")
         guidance_check(isinstance(name, str), "tool-call evidence unavailable")
-        if GUIDANCE_READ_TOOL.search(name):
+        # Builtin skill loaders read instructions; subsequent tools still need effect checks.
+        if name in {"skill", "functions.skill"} or GUIDANCE_READ_TOOL.search(name):
             continue
         guidance_check(GUIDANCE_WRITE_TOOL.search(name), f"unproven tool effect: {name}")
         guidance_check(mode == "recommendations", "factual-only request used a write tool")
+        if GUIDANCE_PATCH_TOOL.search(name) and isinstance(arguments, str):
+            arguments = {"patch": arguments}
         guidance_check(isinstance(arguments, dict), "write tool arguments unavailable")
         if GUIDANCE_PATCH_TOOL.search(name):
             patch = next((arguments[key] for key in ("patch", "input") if key in arguments), None)
@@ -1703,6 +1706,8 @@ There is no certification or guarantee of acceptance.
             outside.unlink()
         check(lambda: trace(trajectory(reads), "factual"))
         check(lambda: trace(trajectory([("host.read_document", {"path": GUIDANCE_REPORT})]), "factual"))
+        for loader in ("skill", "functions.skill"):
+            check(lambda: trace(trajectory(reads + [(loader, {"skill": "blazor-component-readiness"})]), "factual"))
         for name, arguments in (
             ("bash", {"command": "Get-Content report"}),
             ("functions.powershell", {"command": "Get-Content report"}),
@@ -1739,6 +1744,8 @@ There is no certification or guarantee of acceptance.
             ("functions.edit_file", {"file_path": GUIDANCE_PATH, "content": "guidance"}),
             ("apply_patch", {"patch": "*** Begin Patch\n*** Add File: out/decision-guidance.md\n+guidance\n*** End Patch\n"}),
             ("patch_text", {"patch": "*** Begin Patch\n*** Update File: out/decision-guidance.md\n@@\n-old\n+new\n*** End Patch\n"}),
+            ("apply_patch", "*** Begin Patch\n*** Add File: out/decision-guidance.md\n+guidance\n*** End Patch\n"),
+            ("functions.apply_patch", "*** Begin Patch\n*** Update File: out/decision-guidance.md\n@@\n-old\n+new\n*** End Patch\n"),
         ]
         for write in writes:
             check(lambda: trace(trajectory(reads + [write])))
@@ -1763,6 +1770,24 @@ There is no certification or guarantee of acceptance.
         })])), "exactly one target")
         check(lambda: trace(trajectory(reads + [("apply_patch", {"patch": "*** Begin Patch\n*** End Patch\n"})])),
               "exactly one target")
+        for patch, error in (
+            ("*** Begin Patch\n*** Add File: outside.md\n+x\n*** End Patch\n", "outside guidance"),
+            ("*** Begin Patch\n*** Delete File: out/decision-guidance.md\n*** End Patch\n", "delete or move"),
+            ("*** Begin Patch\n*** Update File: out/decision-guidance.md\n*** Move to: outside.md\n"
+             "@@\n-old\n+new\n*** End Patch\n", "exactly one target"),
+            ("*** Begin Patch\n*** Add File: out/decision-guidance.md\n+x\n"
+             "*** Add File: outside.md\n+x\n*** End Patch\n", "exactly one target"),
+            ("*** Begin Patch\n*** End Patch\n", "exactly one target"),
+        ):
+            check(lambda: trace(trajectory(reads + [("apply_patch", patch)])), error)
+        check(lambda: trace(trajectory(reads + [("skill", {"skill": "blazor-component-readiness"}),
+                                                ("bash", {"command": "dotnet build"})])),
+              "unproven tool effect")
+        for name in ("skill_execute", "skill.run", "namespace.skill"):
+            check(lambda: trace(trajectory(reads + [(name, {})])),
+                  "unproven tool effect")
+        check(lambda: trace(trajectory(reads + [("create", "out/decision-guidance.md")])),
+              "write tool arguments unavailable")
         check(lambda: trace(trajectory(reads + [("unknown_local_tool", {})])),
               "unproven tool effect")
         check(lambda: trace(trajectory(reads + [("bash", {"command": "dotnet build"})])),

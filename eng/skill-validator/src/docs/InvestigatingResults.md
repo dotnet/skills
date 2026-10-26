@@ -54,6 +54,16 @@ inference. Clarifying the shared consumer leaves the component implementation,
 graders, rubrics, task count, and existing three-minute hard cap unchanged;
 successful model-free compilation is not proof of future executor completion.
 
+Readiness guidance program graders distinguish instruction loading from probe
+execution. A builtin `skill` call does not execute its suggested tools, and
+native `apply_patch` arguments may be a freeform patch string. Both freeform
+and structured patches receive the same single-target, add/update-only checks.
+Unknown tools, incomplete tool evidence, disallowed execution/network/delegation,
+factual writes, and outside-target writes remain rejected. Successful trace
+classification does not establish artifact preservation or guidance correctness;
+inspect those separate checks before interpreting an old grader failure as a
+model-quality result. A model-free trace replay is not a rescored evaluation.
+
 Blazor's existing execution-shard metadata separates ordinary readiness (120
 executions), Ignite UI (165), and the nine smaller targets (81). No cases, runs,
 models, worker caps, or hard deadlines are removed or increased. Only the

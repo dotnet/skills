@@ -156,6 +156,23 @@ rubrics, task counts, and deadlines unchanged. This removes an unrelated
 consumer ambiguity, not the code-behind/state/callback task being measured;
 future model completion still requires a real evaluation.
 
+### Guidance grader tool-shape compatibility
+
+An executor can complete successfully while its program grader rejects the
+recorded tool representation. Inspect the raw calls before interpreting
+`unproven tool effect: skill` or `write tool arguments unavailable` as a quality
+failure. Builtin `skill` calls load instructions, not the commands they describe;
+subsequent tool effects still require independent checks. Native `apply_patch`
+calls can carry the patch as a freeform string instead of a structured
+`patch`/`input` field. The guidance grader accepts both representations and
+applies the same single-target, add/update-only path checks.
+
+Unknown tools, incomplete call/result evidence, shell/network/subagent calls,
+factual-mode writes, and writes outside the guidance target remain rejected.
+Passing trace classification does not establish preserved artifact bytes or
+correct guidance content: those are checked separately. Do not turn an old
+trace replay into a rescored model result or relax the retained-input contract.
+
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate
