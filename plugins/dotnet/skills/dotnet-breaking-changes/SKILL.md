@@ -86,6 +86,11 @@ final answer in one or two sentences: what you did instead, and which consumer i
 (e.g. "already-compiled callers would throw `MissingMethodException`"). A silent substitution reads as
 ignoring the request.
 
+Treat that substitution as one atomic deliverable: implement the safe shape, preserve the old contract
+and shipped baseline, test both old and new entry points, and explain the compatibility reason. After the
+last edit, inspect the diff or reopen the implementation file before claiming success. A green test run
+does not prove a failed patch applied when the unchanged fixture already passes those tests.
+
 | Tempting change | Why it breaks | Safe shape |
 |-----------------|---------------|------------|
 | Add an optional parameter to a shipped method (`Foo(a)` → `Foo(a, b = null)`) | **Binary break**: the old signature is gone, so already-compiled consumers throw `MissingMethodException` until they recompile | Keep `Foo(a)` unchanged and add a new overload `Foo(a, b)`; record only the new overload |

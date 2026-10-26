@@ -536,6 +536,18 @@ stimuli:
       journey: add-feature
     golden_patch:
       path: golden-patches/add-format-provider-overload.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "dotnet-breaking-changes-format-provider-overload"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Added a separate IFormatProvider overload and kept the shipped two-parameter method unchanged. Adding the optional parameter in place would remove the binary signature that existing assemblies call, so already-compiled consumers would throw MissingMethodException until they recompile.
+
+              Updated only PublicAPI.Unshipped.txt for the new overload and validated both the existing and provider-aware entry points on every target framework.
     # Phrased as users phrase it; the binary-compatibility constraint is left for the agent to notice.
     prompt: "Some callers need culture-specific number parsing. Add an optional `IFormatProvider` parameter to `AppSettingsHelper.ParseIntSetting` so they can pass one. The solution is at Fixture.sln."
     grading_environment:
@@ -578,7 +590,14 @@ stimuli:
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
-      - type: prompt
+      # Implementation and API shape are already checked structurally above. Keep the final-answer
+      # requirement deterministic so a trajectory judge cannot contradict the resulting workspace.
+      - type: output-matches
+        config:
+          pattern: '(?i)MissingMethodException'
+      - type: output-matches
+        config:
+          pattern: '(?i)(already[- ]compiled|existing (consumer|caller|binar)|binary compat)'
     rubric:
       - "Kept the shipped two-parameter ParseIntSetting signature and added the IFormatProvider capability as a new overload rather than an optional parameter on the shipped method"
       - "Recorded only the new overload in PublicAPI.Unshipped.txt and left the shipped baseline untouched"
