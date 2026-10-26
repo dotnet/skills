@@ -10,6 +10,11 @@ defaults:
 # its normal NuGet restore cache or network access; stimuli do not install tools.
 environment:
   files:
+    # Keeps bin/ and obj/ out of the captured workspace diff. Without it each arm's diff was
+    # ~240 build-output files (~155 KB), the pairwise judge exhausted its evidence budget before
+    # reaching the 1-3 changed sources, and it defaulted to position-swap ties (run 40030980323).
+    - src: fixture.gitignore
+      dest: .gitignore
     - src: global.json
       dest: global.json
     - src: Fixture.sln
@@ -41,14 +46,19 @@ environment:
   commands:
     - dotnet restore Fixture.sln --nologo
 stimuli:
-  - name: Answer a public-API question before consolidating duplicated parsing
+  - name: Fold a shipped duplicate type into its twin without removing it
     tags:
       capability: public-surface-audit
       risk: silent-api-removal
       journey: modify-code
     golden_patch:
       path: golden-patches/share-parsing.patch
-    prompt: "This Billing library ships as a NuGet package. `AppSettingsHelper` and `ConfigReader` repeat the same int and bool parsing. Use one shared implementation without breaking existing callers or changing results. The solution is at Fixture.sln."
+    # Stated as users state it. The previous prompt said "ships as a NuGet package ... without
+    # breaking existing callers", so both arms delegated and tied at 10/10 on every grader.
+    # Deleting ConfigReader trips RS0017, and the natural "fix" is to delete its shipped baseline
+    # lines, after which every in-repo build and test is green. Only treating the shipped baseline
+    # as released surface keeps ConfigReader callable.
+    prompt: "`ConfigReader` duplicates the int and bool parsing in `AppSettingsHelper`. Fold it into `AppSettingsHelper` so there is a single implementation, and update this repository's callers. The solution is at Fixture.sln."
     # Grader-only downstream consumer: staged after the agent finishes, so migrating or
     # deleting in-repo callers and tests cannot hide a removed or re-signatured shipped member.
     grading_environment:
@@ -111,9 +121,9 @@ stimuli:
           timeout: 5m
       - type: prompt
     rubric:
-      - "Correctly identified AppSettingsHelper and ConfigReader as shipped public surface"
-      - "Consolidated the implementation without removing or changing either existing public contract"
-      - "Preserved parsing behavior"
+      - "Recognized from the shipped API baseline that ConfigReader is released public surface, kept it callable with its existing signatures (for example as an [Obsolete] forwarder), and told the user why it was not deleted"
+      - "Left a single parsing implementation and moved this repository's callers to AppSettingsHelper"
+      - "Preserved parsing behavior and left PublicAPI.Shipped.txt unchanged"
 
   - name: Leave already-shared parsing alone when asked to consolidate it
     tags:
@@ -274,7 +284,10 @@ stimuli:
       journey: modify-generated-source
     golden_patch:
       path: golden-patches/rename-generated-member.patch
-    prompt: "The public `Coupons.Redeem` name in this package is too generic. Add `Apply` as the preferred name and update this repository without breaking existing consumers. The solution is at Fixture.sln."
+    # Stated as users state it. "Add Apply as the preferred name ... without breaking existing
+    # consumers" handed both arms the shim, and Claude tied at 10/10. Noticing that Redeem is
+    # shipped, and that the generated part must follow the template, is the skill's job.
+    prompt: "The public `Coupons.Redeem` name is too generic. Rename it to `Apply` and update this repository. The solution is at Fixture.sln."
     grading_environment:
       files:
         - src: fixtures/grading/CouponRenameChecks.cs

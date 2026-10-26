@@ -80,6 +80,12 @@ Public API (1) is the **default** surface to check on any library edit; the othe
 Each row below compiles every caller and passes every test, yet breaks a consumer. Do not stop at a
 green build or test run. Use the safe shape instead.
 
+When the safe shape departs from the literal request — an overload instead of the requested optional
+parameter, a forwarder kept instead of a deleted or renamed member, or no change at all — say so in your
+final answer in one or two sentences: what you did instead, and which consumer it would have broken
+(e.g. "already-compiled callers would throw `MissingMethodException`"). A silent substitution reads as
+ignoring the request.
+
 | Tempting change | Why it breaks | Safe shape |
 |-----------------|---------------|------------|
 | Add an optional parameter to a shipped method (`Foo(a)` → `Foo(a, b = null)`) | **Binary break**: the old signature is gone, so already-compiled consumers throw `MissingMethodException` until they recompile | Keep `Foo(a)` unchanged and add a new overload `Foo(a, b)`; record only the new overload |
