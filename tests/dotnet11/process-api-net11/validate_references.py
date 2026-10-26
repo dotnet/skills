@@ -1,5 +1,6 @@
 import copy
 import pathlib
+import re
 import runpy
 
 import yaml
@@ -152,6 +153,22 @@ def main():
     formatted_mutations = 0
     combined_cases = 0
     combined_mutations = 0
+    length_mutations = 0
+
+    def reject_length_only(output, stdout, stderr, stimulus_index):
+        for value, grader_index in ((stdout, 3), (stderr, 4)):
+            mutated = re.sub(
+                r"Console\.[^;]+;",
+                lambda match: match[0].replace(value, f"{value}.Length"),
+                output,
+            )
+            if mutated == output:
+                raise AssertionError(f"Length-only mutation did not change a write: {value}")
+            pattern = stimuli[stimulus_index]["graders"][grader_index]["config"]["pattern"]
+            if gate["vally_regex_found"](pattern, mutated):
+                raise AssertionError(f"Length-only output was accepted: {value}")
+        return 2
+
     capture_forms = (
         (outputs[0], "output.StandardOutput", "output.StandardError"),
         (outputs[2], "output.StandardOutput", "output.StandardError"),
@@ -167,6 +184,7 @@ def main():
         for output, stdout, stderr in capture_forms:
             if stimulus_index == 2 and output == outputs[0]:
                 continue
+            length_mutations += reject_length_only(output, stdout, stderr, stimulus_index)
             for interpolated in (True, False):
                 if interpolated:
                     stdout_write = f'Console.Out.WriteLine($"stdout: {{{stdout}}}");'
@@ -185,6 +203,7 @@ def main():
                 reference["steps"][-1]["message"] = formatted
                 gate["check_trajectory_output_graders"](str(spec), stimuli[stimulus_index], reference, "formatted output")
                 formatted_cases += 1
+                length_mutations += reject_length_only(formatted, stdout, stderr, stimulus_index)
                 for replacement in ("", repeated_stdout):
                     mutated = formatted.replace(stderr_write, replacement)
                     pattern = stimuli[stimulus_index]["graders"][4]["config"]["pattern"]
@@ -203,6 +222,7 @@ def main():
                 reference["steps"][-1]["message"] = combined
                 gate["check_trajectory_output_graders"](str(spec), stimuli[stimulus_index], reference, "combined output")
                 combined_cases += 1
+                length_mutations += reject_length_only(combined, stdout, stderr, stimulus_index)
                 broken_writes = (
                     (combined_write.replace(stderr, stdout), 4),
                     (combined_write.replace(stdout, stderr), 3),
@@ -232,6 +252,7 @@ def main():
     print(f"PASS: all {formatted_mutations} formatted-output mutations fail the intended grader.")
     print(f"PASS: all {combined_cases} combined-write alternatives satisfy their deterministic output graders.")
     print(f"PASS: all {combined_mutations} combined-write mutations fail the intended grader.")
+    print(f"PASS: all {length_mutations} length-only output mutations fail the intended grader.")
     print("PASS: inheritance grader permits prose explaining the unsafe default.")
 
 
