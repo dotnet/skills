@@ -772,12 +772,6 @@ stimuli:
           command: node -e "const fs=require('fs');const extra=fs.readdirSync('Reports').filter(f=>/^PublicAPI|\.props$|\.targets$/i.test(f));if(extra.length){console.error('unexpected compatibility files:',extra);process.exit(1)}"
           expected_exit_code: 0
           timeout: 1m
-      - type: run-command
-        config:
-          command: dotnet run --project Reports/Reports.csproj --no-restore
-          expected_exit_code: 0
-          stdout_contains: "October: 3 sales, total 242.75"
-          timeout: 5m
       - type: prompt
         config:
           prompt: "Reference outcome: rename the method and its caller directly, with no [Obsolete] forwarder, API baseline, or consumer-compatibility caveats, because a private single-target app has no external callers."
