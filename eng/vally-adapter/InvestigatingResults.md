@@ -115,6 +115,32 @@ Stop only the task's verification server, not shared SDK build servers.
 Do not detach the helper, extend the deadline, or accept the unmatched pair.
 Prompt compliance still needs verification in the next real evaluation.
 
+### Both comparison arms lost the same executor result
+
+A comparison can report zero errors and zero unmatched trajectories when both
+baseline and isolated trials failed for the same stimulus: Vally can omit both
+null trajectories before pairing. The remaining votes do not constitute a
+complete measurement, even if their summary agrees or they look underpowered.
+Inspect the original `trial-result` records, not just the comparison summary.
+
+Before invoking comparison, the adapter requires every observed baseline and
+isolated record to have `status: "success"` and a non-null trajectory. Otherwise
+it writes `INVALID_INCONCLUSIVE` with
+`stateReason.code: "executor_records_incomplete"` and
+`stateReason.phase: "executor"`,
+without spending judge calls on the incomplete input. The diagnostic names the
+affected variants, stimuli, and trial indices;
+`accounting.incompleteBaselineRecords` and
+`accounting.incompleteSkilledRecords` count the rejected records. Inspect their
+original `error` fields and native events for the underlying failure. This is a
+measurement-invalid target in `adapter-summary.json`, not a power warning.
+
+Successful retained working-limit records (`endReason: "agent_timeout"`) remain
+eligible for grading and comparison; they are partial work, not proof of
+completion. Optional plugin-arm diagnostics retain their existing semantics.
+This guard checks observed input records; it does not establish that an
+entirely absent stimulus/trial slot was generated.
+
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate

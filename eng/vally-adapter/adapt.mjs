@@ -2462,6 +2462,40 @@ async function main() {
         return;
       }
 
+      // Compare can drop matching null trajectories from both arms before pairing.
+      const incompleteBaseline = baseline.filter((record) => !isCompleteExecutorRecord(record));
+      const incompleteSkilled = skilled.filter((record) => !isCompleteExecutorRecord(record));
+      if (incompleteBaseline.length > 0 || incompleteSkilled.length > 0) {
+        const details = [
+          ...incompleteBaseline.map((record) => ({ variant: opts["baseline-variant"], record })),
+          ...incompleteSkilled.map((record) => ({ variant: opts["skilled-variant"], record })),
+        ].map(({ variant, record }) =>
+          `${variant}: ${JSON.stringify(stimulusOf(record))} ` +
+          `(trial ${recordTrialIndex(record) ?? "unknown"}, status=${record.status ?? "missing"}, ` +
+          `trajectory=${record.trajectory == null ? "missing" : "present"})`
+        ).join("; ");
+        const message = `${plugin}/${skill}: incomplete executor records prevent comparison: ${details}`;
+        warn(message);
+        const verdict = invalidVerdict(
+          identity,
+          { code: "executor_records_incomplete", phase: "executor" },
+          message,
+          {
+            baselineRecords: baseline.length,
+            skilledRecords: skilled.length,
+            pluginRecords: pluginRecs.length,
+            incompleteBaselineRecords: incompleteBaseline.length,
+            incompleteSkilledRecords: incompleteSkilled.length,
+          },
+        );
+        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+        console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
+        recordInvalidEval(evalFile, verdict);
+        written++;
+        incomplete++;
+        return;
+      }
+
       let nonActivationStimuli;
       try {
         nonActivationStimuli = readNonActivationStimuli(evalFile, opts["repo-root"]);

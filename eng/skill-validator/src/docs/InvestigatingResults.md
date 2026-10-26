@@ -35,6 +35,18 @@ arm-specific consolidated warnings. A hard timeout with no trajectory remains
 measurement-invalid. These are adapted Vally fields, not new raw native-runner
 timeout semantics.
 
+Ordinary Vally adaptation also rejects observed baseline or isolated records
+whose status is not `success` or whose trajectory is null or missing, before
+comparison. This includes matching failures that Vally would otherwise omit
+from both arms without reporting an unmatched pair. The adapted verdict has
+`stateReason.code: "executor_records_incomplete"` and
+`stateReason.phase: "executor"`;
+`accounting.incompleteBaselineRecords` and `accounting.incompleteSkilledRecords`
+identify the rejected input counts. No comparison judge is invoked for that
+target. Retained successful working-limit partials remain gradeable, and
+optional plugin diagnostics are unchanged. This checks observed records, not
+whether entirely absent stimulus/trial slots were generated.
+
 Blazor's existing execution-shard metadata separates ordinary readiness (120
 executions), Ignite UI (165), and the nine smaller targets (81). No cases, runs,
 models, worker caps, or hard deadlines are removed or increased. Only the

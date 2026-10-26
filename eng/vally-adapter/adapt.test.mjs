@@ -42,6 +42,7 @@ function createExperimentWithVariants(root, variants) {
     experiment: { evalFile },
     status: "success",
     stimulus: "Scenario",
+    trajectory: { endReason: "completed", events: [], metrics: {} },
   };
   for (const variant of variants) {
     writeJsonl(join(runDir, variant, "results.jsonl"), [{ ...record, variant }]);
@@ -64,6 +65,23 @@ function createSkilledOnlyExperiment(root) {
 function createEmptyExperiment(root) {
   const runDir = join(root, "experiment");
   mkdirSync(runDir, { recursive: true });
+  return runDir;
+}
+
+function createFiveStimulusExperiment(root, transform = (record) => record) {
+  const runDir = join(root, "experiment");
+  for (const variant of ["baseline", "skilled", "plugin"]) {
+    const records = Array.from({ length: 5 }, (_, index) => transform({
+      type: "trial-result",
+      experiment: { evalFile },
+      status: "success",
+      variant,
+      stimulus: `Scenario ${index + 1}`,
+      shardKey: `${evalFile}::${variant}::Scenario ${index + 1}::trial-0`,
+      trajectory: { endReason: "completed", events: [], metrics: {} },
+    }, index));
+    writeJsonl(join(runDir, variant, "results.jsonl"), records);
+  }
   return runDir;
 }
 
@@ -519,6 +537,104 @@ test("marks either missing comparison arm as measurement-invalid", () => {
       assert.deepEqual(summary.measurementInvalidEvals, [evalFile]);
     });
   }
+});
+
+test("incomplete executor records cannot disappear into an underpowered comparison", () => {
+  const cases = [
+    {
+      variants: ["baseline", "skilled"],
+      outcome: { status: "error", trajectory: null, error: "Hard executor deadline" },
+    },
+    {
+      variants: ["baseline"],
+      outcome: { status: "error", trajectory: {}, error: "Trial did not succeed" },
+    },
+    {
+      variants: ["skilled"],
+      outcome: { status: "success", trajectory: null },
+    },
+    {
+      variants: ["baseline"],
+      outcome: { status: "success", trajectory: undefined },
+    },
+    {
+      variants: ["skilled"],
+      outcome: { status: "cancelled", trajectory: {} },
+    },
+  ];
+  for (const { variants, outcome } of cases) {
+    withTempDir((root) => {
+      const experimentFactory = (dir) => createFiveStimulusExperiment(
+        dir,
+        (record, index) => index === 4 && variants.includes(record.variant)
+          ? { ...record, ...outcome }
+          : record,
+      );
+      const { result, compareCount, verdict, outputRoot } = runAdapter(
+        root, "clean", 4, [evalFile], experimentFactory,
+      );
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(compareCount, undefined, "Do not judge a known-incomplete input");
+      assert.equal(verdict.state, VERDICT_STATES.INVALID_INCONCLUSIVE);
+      assert.equal(verdict.stateReason.code, "executor_records_incomplete");
+      assert.equal(verdict.stateReason.phase, "executor");
+      assert.equal(verdict.conclusive, false);
+      assert.equal(verdict.underpowered, false);
+      assert.equal(verdict.comparisonAttempts.attempts, 0);
+      assert.equal(verdict.accounting.baselineRecords, 5);
+      assert.equal(verdict.accounting.skilledRecords, 5);
+      assert.equal(verdict.accounting.pluginRecords, 5);
+      assert.equal(verdict.accounting.incompleteBaselineRecords, Number(variants.includes("baseline")));
+      assert.equal(verdict.accounting.incompleteSkilledRecords, Number(variants.includes("skilled")));
+      assert.match(verdict.reason, /Scenario 5/);
+      for (const variant of variants) assert.match(verdict.reason, new RegExp(variant));
+      const summary = JSON.parse(readFileSync(join(outputRoot, "adapter-summary.json"), "utf8"));
+      assert.equal(summary.measurementInvalidEvalCount, 1);
+      assert.deepEqual(summary.measurementInvalidEvals, [evalFile]);
+    });
+  }
+});
+
+test("complete retained working-limit records still reach comparison", () => {
+  for (const variant of ["baseline", "skilled"]) {
+    withTempDir((root) => {
+      const experimentFactory = (dir) => createFiveStimulusExperiment(
+        dir,
+        (record, index) => index === 4 && record.variant === variant
+          ? { ...record, trajectory: { ...record.trajectory, endReason: "agent_timeout", output: "" } }
+          : record,
+      );
+      const { result, compareCount, verdict, outputRoot } = runAdapter(
+        root, "clean", 5, [evalFile], experimentFactory,
+      );
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(compareCount, 1);
+      assert.equal(verdict.conclusive, true);
+      const scenario = verdict.scenarios.find((item) => item.scenarioName === "Scenario 5");
+      assert.equal(variant === "baseline" ? scenario.baselineTimedOut : scenario.timedOut, true);
+      const summary = JSON.parse(readFileSync(join(outputRoot, "adapter-summary.json"), "utf8"));
+      assert.equal(summary.measurementInvalidEvalCount, 0);
+    });
+  }
+});
+
+test("optional plugin errors do not invalidate complete primary comparison inputs", () => {
+  withTempDir((root) => {
+    const experimentFactory = (dir) => createFiveStimulusExperiment(
+      dir,
+      (record, index) => index === 4 && record.variant === "plugin"
+        ? { ...record, status: "error", trajectory: null }
+        : record,
+    );
+    const { result, compareCount, verdict, outputRoot } = runAdapter(
+      root, "clean", 5, [evalFile], experimentFactory,
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(compareCount, 1);
+    assert.equal(verdict.conclusive, true);
+    const summary = JSON.parse(readFileSync(join(outputRoot, "adapter-summary.json"), "utf8"));
+    assert.equal(summary.measurementInvalidEvalCount, 0);
+  });
 });
 
 // --- the gate itself --------------------------------------------------------
