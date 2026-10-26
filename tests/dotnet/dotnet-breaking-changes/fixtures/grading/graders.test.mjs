@@ -333,7 +333,9 @@ test("assert-friend-consumer-migrated: comments and strings do not fake migratio
 const killMutants = createRequire(import.meta.url)("./assert-tests-kill-mutants.js");
 const hexSpec = JSON.parse(readFileSync(join(grading, "mutants", "hex", "no-hex.json"), "utf8"));
 const platformSpec = name => JSON.parse(readFileSync(join(grading, "mutants", "platform", `${name}.json`), "utf8"));
-const mutate = (src, spec) => spec.replace.reduce((text, r) => killMutants.replaceDeclarations(text, r.declaration, r.with, r.body).text, src);
+const mutate = (src, spec) => spec.replace.reduce(
+  (text, r) => killMutants.replaceDeclarations(text, r.declaration, r.with, r.body, r.type).text,
+  src);
 
 const goldenHex = `namespace Billing;
 public static class AppSettingsHelper
@@ -413,6 +415,25 @@ test("assert-tests-kill-mutants: calls and commented-out declarations are not mu
   assert.match(out, /#if NET8_0\n        return "platform:net8";/);
   assert.match(out, /private static string Label/);
   assert.doesNotMatch(out, /Pick\(\)/);
+});
+
+test("assert-tests-kill-mutants: platform mutations ignore same-named members on other types", () => {
+  const src = `public static class PlatformInfo
+{
+    public static string Current() => Tag();
+    public static string Tag() => "net8";
+}
+
+public class Helper
+{
+    public string Read() => this.Tag();
+    public string Tag() => "helper";
+}`;
+  const out = mutate(src, platformSpec("tag-always-net10"));
+  assert.match(out, /public static string Tag\(\) => "net10";/);
+  assert.match(out, /public static string Current\(\)\n    \{/);
+  assert.match(out, /public string Read\(\) => this\.Tag\(\);/);
+  assert.match(out, /public string Tag\(\) => "helper";/);
 });
 
 test("assert-tests-kill-mutants: platform mutants replace every #if-split Tag() and pin Current()", () => {

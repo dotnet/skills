@@ -143,16 +143,39 @@ function parameterNames(header) {
   return parts.map(p => /@?(\w+)\s*$/.exec(p.split('=')[0].trim())?.[0] ?? '');
 }
 
-// Replace every declaration matching `declaration` in `src`; returns { text, count }.
+function typeSpans(masked, type) {
+  if (!type) return [[0, masked.length]];
+  const escaped = type.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const declaration = new RegExp(
+    `\\b(?:class|struct|interface|record(?:\\s+(?:class|struct))?)\\s+${escaped}\\b[^;{]*\\{`, 'g');
+  const spans = [];
+  for (let match; (match = declaration.exec(masked));) {
+    const start = match.index + match[0].length - 1;
+    let depth = 0;
+    for (let i = start; i < masked.length; i++) {
+      if (masked[i] === '{') depth++;
+      else if (masked[i] === '}' && --depth === 0) {
+        spans.push([start, i + 1]);
+        declaration.lastIndex = i + 1;
+        break;
+      }
+    }
+  }
+  return spans;
+}
+
+// Replace every declaration matching `declaration` inside `declaringType`; returns { text, count }.
 // With `replacement`, the whole declaration is replaced. With `body`, only the body is replaced
 // and the agent's own header (modifiers, parameter names, defaults) is kept, so a correct
 // solution's API baseline still matches; `$1`, `$2`, ... in `body` become its parameter names.
-function replaceDeclarations(src, declaration, replacement, body) {
+function replaceDeclarations(src, declaration, replacement, body, declaringType) {
   const masked = mask(src);
+  const scopes = typeSpans(masked, declaringType);
   const matcher = declaration.replace(/\\bstring|\bstring\b/g, '\\b(?:string|String|(?:global\\s*::\\s*)?System\\s*\\.\\s*String)');
   const re = new RegExp(matcher, 'g');
   const spans = [];
   for (let m; (m = re.exec(masked));) {
+    if (!scopes.some(([start, end]) => m.index > start && m.index < end)) continue;
     const headerEnd = m.index + m[0].length;
     const end = bodyEnd(masked, headerEnd);
     if (end < 0) throw new Error(`could not find the body of '${m[0]}'`);
@@ -185,11 +208,11 @@ function csFiles(dir) {
 // Apply a mutant spec to the workspace at `root`; throws when a declaration is not found.
 function applyMutant(root, spec) {
   const files = csFiles(path.join(root, 'src'));
-  for (const { declaration, with: replacement, body } of spec.replace) {
+  for (const { type, declaration, with: replacement, body } of spec.replace) {
     let total = 0;
     for (const f of files) {
       const src = fs.readFileSync(f, 'utf8');
-      const { text, count } = replaceDeclarations(src, declaration, replacement, body);
+      const { text, count } = replaceDeclarations(src, declaration, replacement, body, type);
       if (count) { fs.writeFileSync(f, text); total += count; }
     }
     if (!total) throw new Error(`no declaration matching /${declaration}/ under src/`);
