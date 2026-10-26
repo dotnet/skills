@@ -405,12 +405,12 @@ stimuli:
     # finds only the in-repo test consumer (run 39998662353: both arms passed every grader and the
     # judge split on a test-method rename), so only enumerating the friends reveals a consumer
     # that this change cannot update and whose compiled binding to ApplyDiscount must survive.
+    # The friend is appended by command, not staged as a stimulus file: a stimulus files list is
+    # merged with the suite list by Vally, but older eval-quality checkers read it as a replacement
+    # and then cannot apply the golden patch to the suite-level Pricing.cs.
     environment:
-      files:
-        - src: fixtures/external-friend/AssemblyInfo.cs
-          dest: fixtures/external-friend/AssemblyInfo.cs
       commands:
-        - node -e "const fs=require('fs');fs.copyFileSync('fixtures/external-friend/AssemblyInfo.cs','src/Billing/AssemblyInfo.cs');fs.rmSync('fixtures',{recursive:true})"
+        - node -e "const fs=require('fs');const p='src/Billing/AssemblyInfo.cs';const s=fs.readFileSync(p,'utf8');const t=s.split('\n').find(l=>l.includes('Billing.Tests'));fs.writeFileSync(p,s+'// Billing.Plugins is built and released from the separate billing-plugins repository against the published Billing package; it is not part of this solution.\n'+t.replace('Billing.Tests','Billing.Plugins')+'\n')"
     grading_environment:
       files:
         - src: fixtures/grading/FriendRenameChecks.cs
