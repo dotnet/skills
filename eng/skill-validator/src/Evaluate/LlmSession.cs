@@ -58,7 +58,7 @@ internal static class LlmSession
             CreateSessionFsProvider = _ => AgentRunner.CreateSessionFsHandler(
                 tempConfigDir,
                 workDir,
-                [workDir]),
+                [workDir, AgentRunner.GetClientSessionStateRoot()]),
             OnPermissionRequest = onPermissionRequest ?? ((_, _) => Task.FromResult(PermissionDecision.UserNotAvailable())),
         });
 

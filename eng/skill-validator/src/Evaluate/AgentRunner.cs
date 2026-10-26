@@ -177,7 +177,7 @@ public static class AgentRunner
                     // skill under one private evaluator root; per-session hooks below
                     // further restrict each run to its narrow allowlist.
                     InitialWorkingDirectory = GetEvaluationRoot(),
-                    SessionStatePath = GetSessionStatePath(),
+                    SessionStatePath = GetClientSessionStateRoot(),
                     Conventions = OperatingSystem.IsWindows()
                         ? GitHub.Copilot.Rpc.SessionFsSetProviderConventions.Windows
                         : GitHub.Copilot.Rpc.SessionFsSetProviderConventions.Posix,
@@ -212,20 +212,29 @@ public static class AgentRunner
         return root;
     }
 
+    internal static string GetClientSessionStateRoot()
+    {
+        var root = Path.Combine(GetEvaluationRoot(), "session-state");
+        Directory.CreateDirectory(root);
+        return root;
+    }
+
     internal static string GetSessionStatePath()
-        => Path.Combine(GetEvaluationRoot(), "session-state");
+        => GetClientSessionStateRoot();
 
     internal static LocalSessionFsHandler CreateSessionFsHandler(
         string configDir,
         string workDir,
         IEnumerable<string> allowedAbsoluteRoots,
-        bool offlineWorkflow = false)
+        bool offlineWorkflow = false,
+        IEnumerable<string>? writableAbsoluteRoots = null)
         => new(
             configDir,
             workDir,
             allowedAbsoluteRoots,
             offlineWorkflow,
-            virtualSessionStatePath: GetSessionStatePath());
+            virtualSessionStatePath: GetClientSessionStateRoot(),
+            writableAbsoluteRoots: writableAbsoluteRoots);
 
     internal static string CreatePrivateWorkDir(string prefix)
     {
@@ -856,14 +865,16 @@ public static class AgentRunner
             CustomAgents = customAgents,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             // The SDK uses one SessionFsProvider for both session-state I/O and
-            // built-in file tools. Keep state under configDir, resolve relative
-            // tool paths under workDir, and permit absolute paths only within
+            // built-in file tools. Keep relative state under configDir, allow the
+            // client's absolute session-state temp path, resolve relative tool
+            // paths under workDir, and permit other absolute paths only within
             // this scenario workspace and its explicitly staged skill roots.
             CreateSessionFsProvider = _ => CreateSessionFsHandler(
                 configDir,
                 workDir,
-                new[] { workDir }.Concat(additionalAllowedDirs),
-                offlineWorkflow),
+                new[] { workDir, GetClientSessionStateRoot() }.Concat(additionalAllowedDirs),
+                offlineWorkflow,
+                writableAbsoluteRoots: [GetClientSessionStateRoot()]),
             OnPermissionRequest = (request, invocation) =>
             {
                 if (denyShell && request is PermissionRequestShell)

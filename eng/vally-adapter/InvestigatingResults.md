@@ -177,8 +177,8 @@ trace replay into a rescored model result or relax the retained-input contract.
 
 `Cannot set session filesystem provider while sessions are active` can indicate
 an SDK startup race, not a skill or judge failure. In SDK 1.0.11, 1.0.13, and 1.0.14, concurrent
-startup calls can create multiple transports, and session creation can use a
-connection before its filesystem provider is ready. The trusted
+startup calls can create multiple transports. These versions and SDK 1.0.15 allow
+session creation to use a connection before its filesystem provider is ready. The trusted
 `eng/evaluation-tools/vally.mjs` launcher loads a version-checked startup guard.
 It shares startup per client and waits for readiness before creating or resuming
 sessions. It does not reduce trial concurrency or suppress startup failures.

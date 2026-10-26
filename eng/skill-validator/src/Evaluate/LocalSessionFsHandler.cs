@@ -17,6 +17,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     private readonly string? _virtualStateRoot;
     private readonly string _workspaceRoot;
     private readonly string[] _allowedAbsoluteRoots;
+    private readonly string[] _writableAbsoluteRoots;
     private readonly bool _offlineWorkflow;
     // The SDK can report "timeout while waiting for mutex to become available"
     // when multiple session-state writes race on the same JSONL file, so serialize
@@ -29,20 +30,28 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         string workspaceRoot,
         IEnumerable<string> allowedAbsoluteRoots,
         bool offlineWorkflow = false,
-        string? virtualSessionStatePath = null)
+        string? virtualSessionStatePath = null,
+        IEnumerable<string>? writableAbsoluteRoots = null)
     {
         _stateRoot = NormalizeRoot(stateRoot);
         _virtualStateRoot = virtualSessionStatePath is null ? null : NormalizeRoot(virtualSessionStatePath);
         _workspaceRoot = NormalizeRoot(workspaceRoot);
         _offlineWorkflow = offlineWorkflow;
+        var pathComparer = OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
         _allowedAbsoluteRoots = allowedAbsoluteRoots
             .Select(NormalizeRoot)
-            .Distinct(OperatingSystem.IsWindows()
-                ? StringComparer.OrdinalIgnoreCase
-                : StringComparer.Ordinal)
+            .Distinct(pathComparer)
+            .ToArray();
+        _writableAbsoluteRoots = (writableAbsoluteRoots ?? [])
+            .Select(NormalizeRoot)
+            .Distinct(pathComparer)
             .ToArray();
         if (_allowedAbsoluteRoots.Length == 0)
             throw new ArgumentException("At least one absolute-path root is required.", nameof(allowedAbsoluteRoots));
+        if (_writableAbsoluteRoots.Any(root => !_allowedAbsoluteRoots.Contains(root, pathComparer)))
+            throw new ArgumentException("Writable roots must also be allowed absolute-path roots.", nameof(writableAbsoluteRoots));
         Directory.CreateDirectory(_stateRoot);
         Directory.CreateDirectory(_workspaceRoot);
     }
@@ -87,12 +96,21 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
 
     private void EnsureWritable(ResolvedPath resolved)
     {
-        if (_offlineWorkflow && resolved.Root != _stateRoot
+        if (_offlineWorkflow && !IsEvaluatorStateRoot(resolved.Root)
             && !IsWorkflowProposalPath(resolved.FullPath, _workspaceRoot))
         {
             throw new UnauthorizedAccessException(
                 "Offline workflow inputs and resources are read-only; only result.json may be written.");
         }
+    }
+
+    private bool IsEvaluatorStateRoot(string root)
+    {
+        var comparer = OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
+        return comparer.Equals(root, _stateRoot)
+            || _writableAbsoluteRoots.Contains(root, comparer);
     }
 
     /// <summary>Resolve an SDK-provided path to an absolute local path, guarding against traversal.</summary>
@@ -227,7 +245,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     protected override Task MakeDirectoryAsync(string path, bool recursive, int? mode, CancellationToken cancellationToken)
     {
         var resolved = ResolvePathInfo(path);
-        if (_offlineWorkflow && resolved.Root != _stateRoot)
+        if (_offlineWorkflow && !IsEvaluatorStateRoot(resolved.Root))
         {
             if (Directory.Exists(resolved.FullPath))
                 return Task.CompletedTask;
