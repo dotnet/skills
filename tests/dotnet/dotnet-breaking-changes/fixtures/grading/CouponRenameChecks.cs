@@ -1,3 +1,4 @@
+using System.Reflection;
 using Billing;
 using Xunit;
 
@@ -5,9 +6,30 @@ namespace Billing.GraderChecks;
 
 // Staged only for grading. Binding Redeem to its exact shipped delegate type compiles like a
 // consumer built against the shipped package, so adding a parameter (even an optional one)
-// or removing Redeem fails here even when in-repo callers were updated to match.
+// or removing Redeem fails here even when in-repo callers were updated to match. Reflection
+// also rejects members made internal but still visible to the friend test assembly.
 public class CouponRenameChecks
 {
+    [Fact]
+    public void CouponTypeAndSignaturesRemainPublic()
+    {
+        Assert.True(typeof(Coupons).IsPublic);
+        AssertPublicInstanceMethod(
+            nameof(Coupons.Redeem),
+            typeof(decimal),
+            typeof(string),
+            typeof(decimal));
+        AssertPublicInstanceMethod(
+            nameof(Coupons.Apply),
+            typeof(decimal),
+            typeof(string),
+            typeof(decimal));
+        AssertPublicInstanceMethod(
+            nameof(Coupons.RedeemDefault),
+            typeof(decimal),
+            typeof(decimal));
+    }
+
     [Fact]
     public void RedeemKeepsShippedSignatureAndMatchesApply()
     {
@@ -24,5 +46,21 @@ public class CouponRenameChecks
         }
 
         Assert.Equal(90m, coupons.RedeemDefault(100m));
+    }
+
+    private static void AssertPublicInstanceMethod(
+        string name,
+        Type returnType,
+        params Type[] parameterTypes)
+    {
+        var method = typeof(Coupons).GetMethod(
+            name,
+            BindingFlags.Public | BindingFlags.Instance,
+            binder: null,
+            types: parameterTypes,
+            modifiers: null);
+
+        Assert.NotNull(method);
+        Assert.Equal(returnType, method.ReturnType);
     }
 }
