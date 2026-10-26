@@ -52,7 +52,11 @@ The `!` assertions in the executable examples below apply only with shell execut
 
 ## Choosing Synchronous or Asynchronous APIs
 
-For simple CLI operations that don't need cancellation or async scalability, prefer the synchronous overload. Use asynchronous overloads when cancellation, responsiveness, or scalability requires avoiding a blocked calling thread, and await them directly.
+When modernizing existing code, preserve its synchronous or asynchronous calling model unless a concrete requirement justifies changing it. Do not propagate `async` through callers merely to use a new Process API. For synchronous CLI operations, prefer synchronous overloads, including their timeout parameters. Use asynchronous overloads when responsiveness, scalability, or caller-provided cancellation requires avoiding a blocked calling thread; preserve asynchronous callers and await these overloads directly.
+
+**Concurrent pipe draining does not require asynchronous orchestration.** Synchronous `ReadAllLines`, `ReadAllText`, `ReadAllBytes`, and `RunAndCaptureText` service stdout and stderr together internally and support timeouts. Streaming output, enforcing a timeout, or managing multiple processes is not by itself a reason to introduce asynchronous reader tasks or change method signatures.
+
+Choose the smallest orchestration model that meets the actual concurrency and lifetime requirements. A synchronous loop drains only the process being enumerated: another process that can produce output while that loop runs still needs its own active reader. For example, keep a recorder's existing event-based readers running while synchronously consuming a tracee's output; do not replace the recorder's readers merely for API uniformity. If the calling thread must also service another handshake or feed stdin while draining output, preserve the necessary concurrency rather than serializing those operations.
 
 **Never use `.Wait()`, `.Result`, or `.GetAwaiter().GetResult()` to synchronously block on an asynchronous process operation: sync-over-async can deadlock and blocks the calling thread.** Do not call synchronous process-wait methods from asynchronous code either.
 
