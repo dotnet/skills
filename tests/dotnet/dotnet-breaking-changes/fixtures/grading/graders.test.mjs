@@ -213,6 +213,27 @@ public class CompatibilityTests
     assert.equal(friendConsumer(root), 0);
   }));
 
+test("assert-friend-consumer-migrated: a renamed migrated consumer passes", () =>
+  withFriendConsumer(
+    migratedFriendConsumer.replace(
+      "PricingMath_AppliesDiscountForFriendAssembly",
+      "PricingMath_CalculateDiscountForFriendAssembly"),
+    root => {
+      assert.equal(friendConsumer(root), 0);
+    }));
+
+test("assert-friend-consumer-migrated: an expression-bodied migrated consumer passes", () =>
+  withFriendConsumer(migratedFriendConsumer.replace(
+    `public void PricingMath_AppliesDiscountForFriendAssembly()
+    {
+        Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));
+    }`,
+    `public void PricingMath_CalculateDiscountForFriendAssembly()
+        => Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));`),
+  root => {
+    assert.equal(friendConsumer(root), 0);
+  }));
+
 test("assert-friend-consumer-migrated: adding a new-name test without migrating the original fails", () =>
   withFriendConsumer(migratedFriendConsumer
     .replace("PricingMath.CalculateDiscount(100m, 0.10m)", "PricingMath.ApplyDiscount(100m, 0.10m)") +

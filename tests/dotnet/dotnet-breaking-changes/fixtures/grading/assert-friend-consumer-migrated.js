@@ -6,32 +6,56 @@ const { mask } = require('./assert-tests-kill-mutants.js');
 
 const originalTest = 'PricingMath_AppliesDiscountForFriendAssembly';
 
-function methodBody(source, methodName) {
+function methodBodies(source) {
   const masked = mask(source);
-  const escaped = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const declaration = new RegExp(`\\bvoid\\s+${escaped}\\s*\\([^)]*\\)\\s*\\{`, 'g');
-  const match = declaration.exec(masked);
-  if (!match) return null;
+  const declaration = /\bvoid\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*(\{|=>)/g;
+  const methods = [];
+  for (let match; (match = declaration.exec(masked));) {
+    const bodyStart = match.index + match[0].length - match[2].length;
+    if (match[2] === '{') {
+      let depth = 0;
+      for (let i = bodyStart; i < masked.length; i++) {
+        if (masked[i] === '{') depth++;
+        else if (masked[i] === '}' && --depth === 0) {
+          methods.push({ name: match[1], body: masked.slice(bodyStart + 1, i) });
+          declaration.lastIndex = i + 1;
+          break;
+        }
+      }
+      continue;
+    }
 
-  const open = masked.indexOf('{', match.index);
-  let depth = 0;
-  for (let i = open; i < masked.length; i++) {
-    if (masked[i] === '{') depth++;
-    else if (masked[i] === '}' && --depth === 0) return masked.slice(open + 1, i);
+    let depth = 0;
+    for (let i = bodyStart + 2; i < masked.length; i++) {
+      if ('([{'.includes(masked[i])) depth++;
+      else if (')]}'.includes(masked[i])) depth--;
+      else if (masked[i] === ';' && depth === 0) {
+        methods.push({ name: match[1], body: masked.slice(bodyStart + 2, i) });
+        declaration.lastIndex = i + 1;
+        break;
+      }
+    }
   }
-  return null;
+  return methods;
 }
 
 function check(source) {
-  const body = methodBody(source, originalTest);
-  if (body === null) {
-    return `could not find the original ${originalTest} test method`;
-  }
-  if (!/\bPricingMath\s*\.\s*CalculateDiscount\s*\(/.test(body)) {
-    return `${originalTest} still does not call PricingMath.CalculateDiscount`;
-  }
-  if (/\bPricingMath\s*\.\s*ApplyDiscount\s*\(/.test(body)) {
-    return `${originalTest} still calls PricingMath.ApplyDiscount`;
+  const methods = methodBodies(source);
+  const callsCalculate = method =>
+    /\bPricingMath\s*\.\s*CalculateDiscount\s*\(/.test(method.body);
+  const callsApply = method =>
+    /\bPricingMath\s*\.\s*ApplyDiscount\s*\(/.test(method.body);
+  const original = methods.find(method => method.name === originalTest);
+
+  if (original) {
+    if (!callsCalculate(original)) {
+      return `${originalTest} still does not call PricingMath.CalculateDiscount`;
+    }
+    if (callsApply(original)) {
+      return `${originalTest} still calls PricingMath.ApplyDiscount`;
+    }
+  } else if (!methods.some(callsCalculate)) {
+    return 'could not find a migrated test consumer of PricingMath.CalculateDiscount';
   }
   return null;
 }
@@ -52,4 +76,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { methodBody, check };
+module.exports = { methodBodies, check };
