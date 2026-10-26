@@ -10,6 +10,10 @@ defaults:
 # another MSTest setup variant or repeated run.
 stimuli:
   - name: Suggest hot reload for failing test in MTP project (SDK 9)
+    tags:
+      capability: configure-sdk9-hot-reload
+      risk: incorrect-host-setup
+      journey: establish-persistent-test-loop
     prompt: I have a failing test in ProcessPayment_NegativeAmount_ThrowsException and want a host to stay running and
       automatically rerun it after each edit. Show me how to set up MTP hot reload for that loop, but do not run or
       modify anything.
@@ -43,6 +47,10 @@ stimuli:
       - Explains how the host remains active and reacts to subsequent edits
       - Does not execute or modify the project for this advisory request
   - name: Suggest hot reload for failing test in MTP project (SDK 10)
+    tags:
+      capability: configure-sdk10-hot-reload
+      risk: incorrect-host-setup
+      journey: establish-persistent-test-loop
     prompt: My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want a host to keep running and rerun it
       after every edit. Show me how to set up MTP hot reload for this test project, but do not run or modify anything.
     environment:
@@ -75,6 +83,10 @@ stimuli:
       - Clearly explains the supported host experience and its user-visible limitation
       - Does not execute or modify the project for this advisory request
   - name: Enable hot reload when package already installed
+    tags:
+      capability: enable-existing-hot-reload-package
+      risk: duplicate-package-install
+      journey: activate-existing-test-host
     prompt: I have a test project with some failing tests. I see Microsoft.Testing.Extensions.HotReload is already in the
       project. Show me how to start a long-lived host that automatically reruns tests after each edit, but do not run or
       modify anything.
@@ -108,6 +120,10 @@ stimuli:
       - Does not tell the user to reinstall a dependency already present in the project
       - Explains what happens after the host starts
   - name: Suggest launchSettings.json configuration for hot reload
+    tags:
+      capability: configure-launch-profile
+      risk: invalid-environment-configuration
+      journey: configure-ide-test-host
     prompt: I want to set up hot reload for my test project so it's always enabled when I run from the command line. I don't
       want to set the environment variable every time.
     environment:
@@ -134,6 +150,10 @@ stimuli:
       - Includes any missing project prerequisite needed for that configuration to work
       - Explains why the setting persists across runs
   - name: Use dotnet run not dotnet test for hot reload
+    tags:
+      capability: choose-persistent-host-command
+      risk: one-shot-test-command
+      journey: start-hot-reload-loop
     prompt: I installed the hot reload package and set the environment variable. Should I use 'dotnet test' or 'dotnet run'
       to benefit from hot reload? Answer with the command, but do not run or modify anything.
     environment:
@@ -159,7 +179,12 @@ stimuli:
       - Selects the command that starts the persistent host rather than a one-time test invocation
       - Briefly explains the supported host experience without running or modifying anything
   - name: "Negative: VSTest project cannot use MTP hot reload"
-    prompt: I have some failing tests and want to use hot reload to iterate faster. Can you set it up for me?
+    tags:
+      capability: reject-vstest-hot-reload-setup
+      risk: unsupported-platform-mutation
+      journey: assess-hot-reload-eligibility
+    prompt: I have some failing tests and want to use hot reload to iterate faster. Check whether this project supports
+      MTP hot reload and tell me how to proceed, but do not run or modify anything.
     environment:
       files:
         - src: ./fixtures/negative-vstest-project-cannot-use-mtp-hot-reload/TestProject.csproj
@@ -169,8 +194,6 @@ stimuli:
     graders:
       - type: tool-calls
         config:
-          required:
-            - bash
           disallowed:
             - edit
             - create
@@ -195,6 +218,10 @@ stimuli:
       - Does not modify the project or apply settings that cannot work with its current platform
       - Gives valid next options without starting an unrequested migration
   - name: Run specific failing test with hot reload filter
+    tags:
+      capability: filter-mstest-hot-reload-host
+      risk: unbounded-test-reruns
+      journey: focus-persistent-test-loop
     prompt: I only want to hot-reload iterate on the ProcessPayment_NegativeAmount_ThrowsException test. Give me the
       command that filters to just that test while using hot reload, but do not run or modify anything.
     environment:
@@ -227,6 +254,10 @@ stimuli:
       - Gives one runnable command that starts the persistent host and limits reruns to the requested test
       - Includes the activation prerequisite without executing or modifying the project
   - name: Filter an xUnit v3 hot-reload host to one test
+    tags:
+      capability: filter-xunit3-hot-reload-host
+      risk: invalid-framework-filter
+      journey: focus-persistent-test-loop
     prompt: |
       The hot-reload package is installed and
       TESTINGPLATFORM_HOTRELOAD_ENABLED=1 is already set for this xUnit v3
@@ -260,6 +291,10 @@ stimuli:
       - Uses a filter accepted by the configured framework
       - Does not execute or modify the project
   - name: Restart the host after an unsupported hot reload edit
+    tags:
+      capability: recover-from-unsupported-edit
+      risk: stale-test-host
+      journey: recover-persistent-test-loop
     prompt: |
       The MTP hot-reload host is already running with:
       dotnet run --project TestProject.csproj -- --filter "FullyQualifiedName~Validate_MissingAtSign_ReturnsFalse"
@@ -268,7 +303,7 @@ stimuli:
       console reports an unsupported edit while the tests no longer update. Can
       hot reload apply this change, and what should I do next? Preserve that
       targeted loop after recovery and include a watch-managed fallback for
-      future unsupported edits.
+      future unsupported edits. Do not run commands or modify the project.
     environment:
       files:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj
@@ -278,6 +313,12 @@ stimuli:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/global.json
           dest: global.json
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (?is)(unsupported (edit|change)|rude edit|(edit|change).{0,40}not supported)
@@ -310,6 +351,10 @@ stimuli:
       - Preserves existing setup and does not reinstall present dependencies
 
   - name: Enable a configured host that does not react to edits
+    tags:
+      capability: diagnose-inactive-hot-reload-host
+      risk: silent-nonreactive-host
+      journey: repair-persistent-test-loop
     prompt: |
       My test project already references the hot-reload extension. I started it
       with `dotnet run --project TestProject.csproj`, and the console stays
@@ -347,13 +392,16 @@ stimuli:
       - Gives a valid way to set the activation setting before restarting the existing persistent host
       - Preserves the already installed dependency and the requested no-mutation workflow
   - name: Decline Test Explorer hot reload integration
+    tags:
+      capability: reject-test-explorer-integration
+      risk: unsupported-ide-workflow
+      journey: select-supported-hot-reload-loop
+      expect_activation: "false"
     prompt: |
       I only want Visual Studio Code Test Explorer to automatically rerun the
       affected tests after every source edit. Is that an editor feature, and
       can it be enabled without using or configuring an MTP console host?
       Do not modify the project.
-    tags:
-      expect_activation: "false"
     environment:
       files:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj
