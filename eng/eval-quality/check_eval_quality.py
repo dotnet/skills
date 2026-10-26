@@ -781,15 +781,17 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
     base = os.path.dirname(spec)
     suite_environment = doc.get("environment")
     suite_destinations = {
-        entry.get("dest")
+        entry["dest"]
         for entry in environment_file_entries(suite_environment)
-        if isinstance(entry, dict)
+        if isinstance(entry, dict) and isinstance(entry.get("dest"), str)
     }
     for stim in doc.get("stimuli") or []:
         duplicates = sorted(
-            entry.get("dest")
+            entry["dest"]
             for entry in environment_file_entries(stim.get("environment"))
-            if isinstance(entry, dict) and entry.get("dest") in suite_destinations
+            if isinstance(entry, dict)
+            and isinstance(entry.get("dest"), str)
+            and entry["dest"] in suite_destinations
         )
         if duplicates and not os.path.basename(base).startswith("agent."):
             errors.append(
