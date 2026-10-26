@@ -545,7 +545,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Added a separate IFormatProvider overload and kept the shipped two-parameter method unchanged. Adding the optional parameter in place would remove the binary signature that existing assemblies call, so already-compiled consumers would throw MissingMethodException until they recompile.
+              Added a separate IFormatProvider overload and kept the shipped two-parameter method unchanged. Changing that signature in place would break the binary binding used by already-compiled consumers until they recompile.
 
               Updated only PublicAPI.Unshipped.txt for the new overload and validated both the existing and provider-aware entry points on every target framework.
     # Phrased as users phrase it; the binary-compatibility constraint is left for the agent to notice.
