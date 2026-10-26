@@ -278,10 +278,12 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > The evaluator captures `GH_TOKEN` or `GITHUB_TOKEN` for its SDK client, then
 > removes both aliases from the process and every setup-command or command-grader
 > child environment.
-> The session filesystem provider stores `session-state/*` under the private
-> config directory, resolves relative file-tool paths from the scenario
-> workspace, limits absolute paths to the private evaluator root, and rejects
-> any reparse-point or symbolic-link component that escapes the selected root.
+> The session filesystem provider stores relative `session-state/*` paths under
+> the private config directory, permits SDK state I/O under the exact absolute
+> client session-state root in the private evaluator root, resolves relative
+> file-tool paths from the scenario workspace, limits all other absolute paths to explicit
+> per-session roots, and rejects any reparse-point or symbolic-link component
+> that escapes the selected root.
 > Evaluator clients use a process-private directory under the system temp
 > directory as their SDK filesystem root because the shared client is created
 > before per-scenario `sv-*` workspaces. Fixtures and staged skills are created
