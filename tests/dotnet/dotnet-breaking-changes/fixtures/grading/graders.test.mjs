@@ -470,3 +470,78 @@ test("assert-tests-kill-mutants: platform checks only in grader-owned GraderChec
   write(root, "tests/Billing.Tests/GraderChecks/PlatformChecks.cs", "ASSERT_TAG_NET8 ASSERT_TAG_NET10");
   assert.equal(kill(), 1);
 }, "platform"));
+
+function singleParser(files) {
+  const root = mkdtempSync(join(tmpdir(), "bc-single-parser-"));
+  try {
+    mkdirSync(join(root, ".grading"));
+    for (const script of ["assert-single-parser.js", "assert-tests-kill-mutants.js"]) {
+      cpSync(join(grading, script), join(root, ".grading", script));
+    }
+    for (const [file, text] of Object.entries(files)) write(root, file, text);
+    return run(root, ".grading/assert-single-parser.js", "src/Billing");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const documentedForwarder = `namespace Billing;
+public static class AppSettingsHelper
+{
+    public static int ParseIntSetting(string? raw, int fallback)
+        => int.TryParse(raw, out var v) ? v : fallback;
+
+    public static bool ParseBoolSetting(string? raw, bool fallback)
+        => bool.TryParse(raw, out var v) ? v : fallback;
+}
+
+[System.Obsolete("Use AppSettingsHelper; ConfigReader no longer calls int.TryParse or bool.TryParse itself.")]
+public static class ConfigReader
+{
+    // Preserve int.TryParse behavior by forwarding to the canonical helper.
+    public static int ReadInt(string? raw, int fallback) => AppSettingsHelper.ParseIntSetting(raw, fallback);
+
+    /* Preserve bool.TryParse behavior by forwarding, too. */
+    public static bool ReadBool(string? raw, bool fallback) => AppSettingsHelper.ParseBoolSetting(raw, fallback);
+}
+`;
+
+test("assert-single-parser: the shipped duplicated fixture fails", () => {
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": readFileSync(join(suite, "src", "Billing", "AppSettingsHelper.cs"), "utf8") }), 1);
+});
+
+test("assert-single-parser: a forwarder documented with TryParse in comments and strings passes", () => {
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": documentedForwarder }), 0);
+});
+
+test("assert-single-parser: the golden share-parsing patch result passes", () => {
+  const root = mkdtempSync(join(tmpdir(), "bc-golden-fold-"));
+  try {
+    const helper = join("src", "Billing", "AppSettingsHelper.cs");
+    mkdirSync(join(root, "src", "Billing"), { recursive: true });
+    cpSync(join(suite, helper), join(root, helper));
+    spawnSync("git", ["init", "-q"], { cwd: root });
+    const applied = spawnSync("git", ["apply", "--include=src/Billing/AppSettingsHelper.cs", join(suite, "golden-patches", "share-parsing.patch")], { cwd: root, encoding: "utf8" });
+    assert.equal(applied.status, 0, applied.stderr);
+    assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": readFileSync(join(root, helper), "utf8") }), 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("assert-single-parser: duplicated parsing in another file or alias spelling still fails", () => {
+  assert.equal(singleParser({
+    "src/Billing/AppSettingsHelper.cs": documentedForwarder,
+    "src/Billing/Legacy/LegacyReader.cs": "namespace Billing; static class LegacyReader { static int R(string s) => System.Int32.TryParse(s, out var v) ? v : 0; }",
+  }), 1);
+  assert.equal(singleParser({
+    "src/Billing/AppSettingsHelper.cs": documentedForwarder.replace("=> AppSettingsHelper.ParseBoolSetting(raw, fallback)", "=> Boolean.TryParse(raw, out var b) ? b : fallback"),
+  }), 1);
+});
+
+test("assert-single-parser: build output is ignored", () => {
+  assert.equal(singleParser({
+    "src/Billing/AppSettingsHelper.cs": documentedForwarder,
+    "src/Billing/obj/Debug/Generated.cs": "class G { int A(string s) => int.TryParse(s, out var v) ? v : 0; }",
+  }), 0);
+});

@@ -65,6 +65,10 @@ stimuli:
       files:
         - src: fixtures/grading/ShippedParsingConsumerChecks.cs
           dest: tests/Billing.Tests/GraderChecks/ShippedParsingConsumerChecks.cs
+        - src: fixtures/grading/assert-single-parser.js
+          dest: .grading/assert-single-parser.js
+        - src: fixtures/grading/assert-tests-kill-mutants.js
+          dest: .grading/assert-tests-kill-mutants.js
     graders:
       - &grader-checks
         type: run-command
@@ -73,7 +77,8 @@ stimuli:
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
-      # Billing.csproj does not enforce the shipped baseline by itself, so require it byte-for-byte.
+      # RS0017 only checks that shipped lines match the code, so deleting a member together with its
+      # shipped line stays green; require the baseline byte-for-byte.
       - &shipped-baseline-unchanged
         type: run-command
         config:
@@ -100,17 +105,13 @@ stimuli:
         config:
           path: src/Billing/Billing.csproj
           value: RS0016;RS0017;RS0036
+      # Code-aware single-implementation check: comments and string literals are masked, so a
+      # documented forwarder is not counted as duplicated parsing.
       - type: run-command
         config:
-          command: >-
-            node -e "const fs=require('fs'),path=require('path');
-            const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{
-            const p=path.join(d,e.name);
-            return e.isDirectory()?(['bin','obj'].includes(e.name)?[]:walk(p)):(e.name.endsWith('.cs')?[p]:[])});
-            const s=walk('src/Billing').map(p=>fs.readFileSync(p,'utf8')).join('\n');
-            const count=x=>s.split(x).length-1;
-            if(count('int.TryParse')>1||count('bool.TryParse')>1)process.exit(1)"
+          command: node .grading/assert-single-parser.js src/Billing
           expected_exit_code: 0
+          timeout: 1m
       # Behavior gate for the agent's own refactor; the grader-only consumer above is what
       # enforces the shipped surface.
       - type: run-command
