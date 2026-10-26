@@ -8,6 +8,23 @@ const originalTest = 'PricingMath_AppliesDiscountForFriendAssembly';
 
 function maskInterpolatedReferences(source) {
   const out = mask(source).split('');
+  const restoreExpression = (start, delimiterLength) => {
+    const tail = mask(source.slice(start));
+    const close = '}'.repeat(delimiterLength);
+    let depth = 0;
+    for (let j = 0; j < tail.length; j++) {
+      if (depth === 0 && tail.startsWith(close, j)) {
+        const end = start + j;
+        const expression = maskInterpolatedReferences(source.slice(start, end));
+        for (let k = 0; k < expression.length; k++) out[start + k] = expression[k];
+        return end + delimiterLength;
+      }
+      if (tail[j] === '{') depth++;
+      else if (tail[j] === '}' && depth > 0) depth--;
+    }
+    return -1;
+  };
+
   for (let i = 0; i < source.length;) {
     if (source.startsWith('//', i)) {
       const end = source.indexOf('\n', i + 2);
@@ -23,6 +40,33 @@ function maskInterpolatedReferences(source) {
       i++;
       while (i < source.length && source[i] !== "'") i += source[i] === '\\' ? 2 : 1;
       i++;
+      continue;
+    }
+
+    const rawPrefix = /^(\$+)("{3,})/.exec(source.slice(i));
+    if (rawPrefix) {
+      const braces = rawPrefix[1].length;
+      const quotes = rawPrefix[2].length;
+      const open = '{'.repeat(braces);
+      const close = '"'.repeat(quotes);
+      let cursor = i + rawPrefix[0].length;
+      while (cursor < source.length) {
+        if (source.startsWith(close, cursor)) {
+          cursor += quotes;
+          break;
+        }
+        if (source.startsWith(open, cursor)) {
+          const end = restoreExpression(cursor + braces, braces);
+          if (end < 0) {
+            cursor = source.length;
+            break;
+          }
+          cursor = end;
+          continue;
+        }
+        cursor++;
+      }
+      i = cursor;
       continue;
     }
 
@@ -50,25 +94,12 @@ function maskInterpolatedReferences(source) {
           continue;
         }
 
-        const expressionStart = cursor + 1;
-        const tail = mask(source.slice(expressionStart));
-        let depth = 1;
-        let expressionEnd = expressionStart;
-        for (let j = 0; j < tail.length; j++) {
-          if (tail[j] === '{') depth++;
-          else if (tail[j] === '}' && --depth === 0) {
-            expressionEnd += j;
-            break;
-          }
-        }
-        if (depth !== 0) {
+        const end = restoreExpression(cursor + 1, 1);
+        if (end < 0) {
           cursor = source.length;
           break;
         }
-
-        const expression = maskInterpolatedReferences(source.slice(expressionStart, expressionEnd));
-        for (let j = 0; j < expression.length; j++) out[expressionStart + j] = expression[j];
-        cursor = expressionEnd + 1;
+        cursor = end;
       }
       i = cursor;
       continue;
@@ -83,6 +114,12 @@ function maskInterpolatedReferences(source) {
         }
         if (source[i++] === '"') break;
       }
+      continue;
+    }
+    const raw = /^("{3,})/.exec(source.slice(i));
+    if (raw) {
+      const end = source.indexOf(raw[1], i + raw[1].length);
+      i = end < 0 ? source.length : end + raw[1].length;
       continue;
     }
     if (source[i] === '"') {

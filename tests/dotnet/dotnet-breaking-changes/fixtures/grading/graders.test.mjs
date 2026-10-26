@@ -176,6 +176,7 @@ test("assert-unchanged: the rename plus a test edit, added file, or deleted file
 function withPrivateAppRename(fn) {
   const root = mkdtempSync(join(tmpdir(), "bc-private-rename-"));
   try {
+    cpSync(join(suite, "global.json"), join(root, "global.json"));
     for (const file of ["Reports.csproj", "Program.cs", "ReportBuilder.cs"]) {
       mkdirSync(join(root, "Reports"), { recursive: true });
       cpSync(join(suite, "fixtures", "private-app", file), join(root, "Reports", file));
@@ -308,6 +309,28 @@ test("assert-friend-consumer-migrated: an interpolated ApplyDiscount call still 
     "Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));",
     `var legacy = $"{PricingMath.ApplyDiscount(100m, 0.10m):F2}";
         Assert.Equal("90.00", $"{PricingMath.CalculateDiscount(100m, 0.10m):F2}");`),
+  root => {
+    assert.equal(friendConsumer(root), 1);
+  }));
+
+for (const expression of [
+  '$"""{PricingMath.CalculateDiscount(100m, 0.10m)}"""',
+  '$$"""{{PricingMath.CalculateDiscount(100m, 0.10m)}}"""',
+]) {
+  test(`assert-friend-consumer-migrated: raw interpolation ${expression.slice(0, 5)} passes`, () =>
+    withFriendConsumer(migratedFriendConsumer.replace(
+      "PricingMath.CalculateDiscount(100m, 0.10m)",
+      expression),
+    root => {
+      assert.equal(friendConsumer(root), 0);
+    }));
+}
+
+test("assert-friend-consumer-migrated: a raw interpolated ApplyDiscount call still fails", () =>
+  withFriendConsumer(migratedFriendConsumer.replace(
+    "Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));",
+    `var legacy = $"""{PricingMath.ApplyDiscount(100m, 0.10m)}""";
+        Assert.Equal(90m, PricingMath.CalculateDiscount(100m, 0.10m));`),
   root => {
     assert.equal(friendConsumer(root), 1);
   }));
