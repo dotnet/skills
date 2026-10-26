@@ -61,6 +61,23 @@ function trajectory(events = []) {
   return { stimulus, events };
 }
 
+test("prerendering tasks scaffold a per-page Server app outside staged skill sources", async () => {
+  const path = join("tests", "dotnet-blazor", "support-prerendering", "eval.yaml");
+  const spec = await loadEvalSpec(path);
+  assert.equal(spec.stimuli.length, 2);
+  assert.equal(spec.defaults.timeout, "10m");
+  for (const item of spec.stimuli) {
+    assert.deepEqual(item.environment?.commands, [
+      "dotnet new blazor --interactivity server --no-https --force --output BlazorApp",
+    ], item.name);
+    assert.equal(item.constraints?.max_agent_duration, undefined, item.name);
+  }
+  const validation = validateEvalSpec(spec, {
+    registry: createDefaultGraderRegistry(), evalFilePath: path,
+  });
+  assert.equal(validation.valid, true, JSON.stringify(validation.diagnostics));
+});
+
 function completedToolCall(toolName) {
   return [
     {

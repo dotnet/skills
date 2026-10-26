@@ -84,6 +84,20 @@ Read the model and judge fields in each result, rather than assuming that an
 older run used the current defaults. The separate health and issue-triage
 workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
 
+### Builds outside the trial workspace
+
+For a build timeout, compare `session.start.data.context.cwd` with the directory
+used by the shell command and the other arms' session working directories.
+The prerendering inventory trial searched the host for an existing project and
+built the plugin arm's app instead of working in its own empty directory.
+That is cross-trial contamination, not proof that the SDK or compiler hung.
+Prompts that assume an existing app must stage or scaffold that app in each
+trial's environment, equally for baseline, isolated, and plugin. Place the
+starter app in its own subdirectory: plugin skills also live at the
+trial root, and recursive SDK compile globs must not include their C# utilities.
+Verify it builds without supplying the task's solution; do not compensate
+for missing setup by increasing limits or accepting unmatched trajectories.
+
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate
