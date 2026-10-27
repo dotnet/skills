@@ -48,6 +48,7 @@ internal static class EnforcementTests
         {
             TestToolchainSourceSuppression(root);
             TestDocumentedSourceFinding(repositoryRoot, pluginRoot, root);
+            TestAuthenticodeProtocol(root);
             TestStructuredVerifiedBoundaries(root);
             TestAutoTransitionProtocol(root);
             TestDynamicLifecycleMatrix(root);
@@ -611,6 +612,177 @@ internal static class EnforcementTests
         Directory.GetFiles(root, "*", SearchOption.AllDirectories)
             .ToDictionary(path => Path.GetRelativePath(root, path),
                 path => ContractJson.RawDigest(File.ReadAllBytes(path)).Value, StringComparer.Ordinal);
+
+    private static void TestAuthenticodeProtocol(string root)
+    {
+        var fixture = CreateFixture(Path.Combine(root, "authenticode"), lifecycleRequired: false);
+        WriteFile(
+            fixture.Root,
+            "authenticode.log",
+            "Direct verification found no Authenticode signature or file-digest material in the exact DLL.");
+        var rawLog = CreateEvidenceInput(fixture.Root, "authenticode.log", "authenticode-log");
+        var dll = NupkgInspector.GetFileEntryDigests(fixture.NupkgPath, ".dll").Single();
+        const string expectedIdentity = "Synthetic release signing identity";
+
+        byte[] Protocol(
+            string fileDigest = "absent",
+            string chain = "not-applicable",
+            string timestamp = "not-applicable",
+            string revocation = "not-applicable",
+            string observedIdentity = "not-applicable",
+            string expected = expectedIdentity) =>
+            StrictJson.SerializeCanonical(writer =>
+            {
+                writer.WriteStartObject();
+                writer.WriteNumber("schema_version", 1);
+                writer.WriteString("protocol", "authenticode-verification");
+                writer.WritePropertyName("artifacts");
+                writer.WriteStartArray();
+                writer.WriteStartObject();
+                writer.WriteString("package_entry", dll.Key);
+                WriteDigest(writer, "artifact_sha256", new Sha256Digest("sha256", dll.Value));
+                writer.WriteString("expected_identity", expected);
+                writer.WriteString("observed_identity", observedIdentity);
+                writer.WriteString("file_digest_disposition", fileDigest);
+                writer.WriteString("chain_disposition", chain);
+                writer.WriteString("timestamp_disposition", timestamp);
+                writer.WriteString("revocation_disposition", revocation);
+                WriteDigest(writer, "raw_observation_sha256", rawLog.ContentDigest);
+                writer.WriteEndObject();
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            });
+
+        void ValidateProtocol(
+            byte[] protocolBytes,
+            string status = "gap",
+            bool bindRawLog = true)
+        {
+            File.WriteAllBytes(Path.Combine(fixture.Root, "authenticode.json"), protocolBytes);
+            var protocol = CreateEvidenceInput(fixture.Root, "authenticode.json", "structured-protocol");
+            var input = fixture.Manifest with
+            {
+                EvidenceInputs = (bindRawLog ? new[] { protocol, rawLog } : [protocol])
+                    .OrderBy(item => item.Basename, StringComparer.Ordinal)
+                    .ToArray()
+            };
+            var inputBytes = InputManifestService.Serialize(input);
+            var initialized = AssessmentService.Initialize("package", fixture.Root, input, inputBytes, null);
+            var evidence = BuildEvidence(
+                initialized.Identity,
+                [
+                    Draft(
+                        initialized.Identity,
+                        EvidenceIdentity.ReproducedRuntimeObservation,
+                        protocol.Basename,
+                        EvidenceProtocolValidator.AuthenticodeMethod,
+                        protocol.ContentDigest)
+                ]);
+            var evidenceId = evidence.Selection.Single().EvidenceId;
+            var assessment = CompleteRows(
+                initialized,
+                new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
+                {
+                    ["PI-02"] = status == "verified"
+                        ? Verified(evidenceId)
+                        : new RowConclusion(
+                            "gap",
+                            "Direct verification found absent Authenticode signature/file-digest material in the exact DLL.",
+                            [evidenceId],
+                            null,
+                            null,
+                            null)
+                });
+            Validate(fixture.Root, input, inputBytes, assessment, evidence);
+        }
+
+        AssertEqual(
+            "protocol:authenticode-verification-v1",
+            EvidenceProtocolValidator.AuthenticodeMethod,
+            "Authenticode method stays at protocol v1");
+        var absent = Protocol();
+        ValidateProtocol(absent);
+        ExpectValidationMessage(
+            () => ValidateProtocol(absent, "verified"),
+            "result 'passed'",
+            "Absent Authenticode material can never verify PI-02");
+
+        foreach (var chain in new[] { "valid", "invalid", "not-tested", "unknown", "Not-Applicable" })
+        {
+            ExpectValidationMessage(
+                () => ValidateProtocol(Protocol(chain: chain)),
+                "is malformed",
+                $"Absent Authenticode rejects chain disposition '{chain}'");
+        }
+
+        foreach (var disposition in new[] { "valid", "invalid", "not-tested", "unknown", "Not-Applicable" })
+        {
+            ExpectValidationMessage(
+                () => ValidateProtocol(Protocol(timestamp: disposition)),
+                "is malformed",
+                $"Absent Authenticode rejects timestamp disposition '{disposition}'");
+            ExpectValidationMessage(
+                () => ValidateProtocol(Protocol(revocation: disposition)),
+                "is malformed",
+                $"Absent Authenticode rejects revocation disposition '{disposition}'");
+        }
+
+        foreach (var fileDigest in new[] { "valid", "invalid" })
+        {
+            ExpectValidationMessage(
+                () => ValidateProtocol(Protocol(fileDigest: fileDigest, observedIdentity: expectedIdentity)),
+                "is malformed",
+                $"Legacy '{fileDigest}' Authenticode rejects not-applicable chain");
+        }
+
+        foreach (var fileDigest in new[] { "not-applicable", "not-tested", "unknown", "Absent" })
+        {
+            ExpectValidationMessage(
+                () => ValidateProtocol(Protocol(fileDigest, chain: "valid", observedIdentity: expectedIdentity)),
+                "is malformed",
+                $"Authenticode rejects file-digest disposition '{fileDigest}'");
+        }
+
+        foreach (var observedIdentity in new[] { expectedIdentity, "Unsigned DLL", "Not-Applicable" })
+        {
+            ExpectValidationMessage(
+                () => ValidateProtocol(Protocol(observedIdentity: observedIdentity)),
+                "is malformed",
+                "Absent Authenticode requires exact not-applicable observed identity");
+        }
+
+        foreach (var expected in new[] { "abc", "not-applicable" })
+        {
+            ExpectValidationMessage(
+                () => ValidateProtocol(Protocol(expected: expected)),
+                "is malformed",
+                "Absent Authenticode still requires a substantive expected signing identity");
+        }
+
+        ExpectValidationMessage(
+            () => ValidateProtocol(absent, bindRawLog: false),
+            "digest-bound raw verification log",
+            "Absent Authenticode still requires a confirmed raw verification log");
+        var canonical = Encoding.UTF8.GetString(absent);
+        ExpectValidationMessage(
+            () => ValidateProtocol(Encoding.UTF8.GetBytes(canonical.Replace(
+                "\"schema_version\":1,\"protocol\":\"authenticode-verification\"",
+                "\"protocol\":\"authenticode-verification\",\"schema_version\":1",
+                StringComparison.Ordinal))),
+            "canonical",
+            "Absent Authenticode rejects noncanonical field order");
+        ExpectValidationMessage(
+            () => ValidateProtocol(Encoding.UTF8.GetBytes(" " + canonical)),
+            "canonical",
+            "Absent Authenticode rejects noncanonical whitespace");
+        ExpectValidationMessage(
+            () => ValidateProtocol(Encoding.UTF8.GetBytes(canonical.Replace(
+                "\"schema_version\":1",
+                "\"schema_version\":2",
+                StringComparison.Ordinal))),
+            "schema version 1",
+            "Absent Authenticode does not introduce protocol v2");
+    }
 
     private static void TestStructuredVerifiedBoundaries(string root)
     {

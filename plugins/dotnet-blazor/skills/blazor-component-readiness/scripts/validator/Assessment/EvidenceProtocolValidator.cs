@@ -964,13 +964,20 @@ public static class EvidenceProtocolValidator
         var passed = true;
         foreach (var artifact in artifacts)
         {
+            var validVerificationShape = artifact.FileDigestDisposition == "absent"
+                ? artifact.ExpectedIdentity != "not-applicable" &&
+                    artifact.ObservedIdentity == "not-applicable" &&
+                    artifact.ChainDisposition == "not-applicable" &&
+                    artifact.TimestampDisposition == "not-applicable" &&
+                    artifact.RevocationDisposition == "not-applicable"
+                : HasText(artifact.ObservedIdentity, 3) &&
+                    artifact.FileDigestDisposition is "valid" or "invalid" &&
+                    artifact.ChainDisposition is "valid" or "invalid" or "not-tested" &&
+                    artifact.TimestampDisposition is "valid" or "invalid" or "not-applicable" or "not-tested" &&
+                    artifact.RevocationDisposition is "valid" or "invalid" or "not-applicable" or "not-tested";
             if (artifact.ArtifactDigest.Value != expectedEntries[artifact.PackageEntry] ||
                 !IsSubstantive(artifact.ExpectedIdentity) ||
-                !HasText(artifact.ObservedIdentity, 3) ||
-                artifact.FileDigestDisposition is not ("valid" or "invalid") ||
-                artifact.ChainDisposition is not ("valid" or "invalid" or "not-tested") ||
-                artifact.TimestampDisposition is not ("valid" or "invalid" or "not-applicable" or "not-tested") ||
-                artifact.RevocationDisposition is not ("valid" or "invalid" or "not-applicable" or "not-tested") ||
+                !validVerificationShape ||
                 !HasInputDigest(input, artifact.RawObservationDigest, "authenticode-log"))
             {
                 throw new DeterministicValidationException(

@@ -1500,6 +1500,13 @@ internal static class WorkflowTests
         AssertContains(provenance, "For `PI-06`, `PI-07`, `PI-10`, and `PI-11`, publication is the required surface", "SBOM/provenance absence boundary");
         AssertContains(provenance, "the absence is direct evidence, not an unrun probe", "SBOM/provenance direct evidence");
         AssertContains(provenance, "For `PI-08` and `PI-09`, missing SBOM bytes alone are insufficient", "asset/notice representation boundary");
+        AssertContains(provenance, "complete, version-bound direct/transitive dependency inventory", "LP-03 objective license evidence boundary");
+        AssertContains(provenance, "applicable license evidence establishing OSI-approved, non-copyleft licensing for every dependency", "LP-03 applicable license evidence");
+        AssertContains(provenance, "An inventory or `PackageLicenseExpression` alone is insufficient", "LP-03 inventory and metadata insufficiency");
+        AssertContains(provenance, "license supports `gap`", "LP-03 incompatible license gap");
+        AssertContains(provenance, "use `not tested` when the evidence is independently reproducible/acquirable", "LP-03 reproducible evidence disposition");
+        AssertContains(provenance, "`owner evidence required` only when the missing fact genuinely must come from an", "LP-03 owner-only evidence boundary");
+        AssertContains(provenance, "Passing `LP-03` is not organizational legal approval", "LP-03 legal approval boundary");
 
         var comparison = File.ReadAllText(Path.Combine(referencesRoot, "blinded-comparison.md"));
         AssertContains(comparison, "Schema version 2", "comparison schema version");

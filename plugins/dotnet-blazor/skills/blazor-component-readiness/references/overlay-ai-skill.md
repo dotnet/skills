@@ -16,3 +16,13 @@ Assess generated code as code against the core requirements. Fluent or plausible
 evidence of runtime correctness, security, accessibility, package compatibility, or release
 readiness. Missing private review records for an applicable obligation are `owner evidence required`; direct generated output
 that violates a selected requirement may be a `gap`.
+
+For `AI-04` and `AI-05`, dependency inventory covers not only package references and framework APIs
+but also external runtime assets recommended or required by shipped AI guidance or generated code,
+including script and stylesheet URLs, hosted service or upload endpoints, fonts, icon kits, module
+imports, and similar runtime dependencies. Distinguish executable or runtime dependencies loaded or
+called by generated code from harmless documentation hyperlinks, issue/reference links, or local
+sample placeholders. An external runtime asset does not by itself establish a proprietary-dependency
+`gap`, but any external runtime asset without bound identity, source, and license/support
+disposition prevents `verified`; when that closure is absent, default conservatively to `not tested`
+or `owner evidence required` according to the repository-standard status boundary.

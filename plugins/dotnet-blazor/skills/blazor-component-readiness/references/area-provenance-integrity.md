@@ -72,10 +72,14 @@ representation or create a new mandatory evidence format.
 Use `verified` only when the applicable distributed surface is sufficiently represented. Preserve
 supported positive dependency matches even when another embedded component is missing.
 
-For dependency-license acceptability, a complete dependency inventory defines what must be
-reviewed but does not make the legal acceptance decision. Without a supplied owner-approved
-decision record, use `owner evidence required`; do not relabel the missing decision as an unrun
-technical probe.
+For `LP-03`, `verified` requires a complete, version-bound direct/transitive dependency inventory
+and applicable license evidence establishing OSI-approved, non-copyleft licensing for every dependency.
+An inventory or `PackageLicenseExpression` alone is insufficient. A demonstrated incompatible
+license supports `gap`. Missing or ambiguous license evidence is unresolved, not automatically
+`verified` or `gap`: use `not tested` when the evidence is independently reproducible/acquirable but
+not completed, and `owner evidence required` only when the missing fact genuinely must come from an
+owner. Passing `LP-03` is not organizational legal approval or a comprehensive license-compliance
+opinion.
 
 ### Verified-boundary protocols
 
@@ -96,12 +100,25 @@ Register notice protocols as `reviewer-generated-analysis` with method
 `protocol:notice-coverage-v1`. Register Authenticode protocols as
 `reproduced-runtime-observation` with method `protocol:authenticode-verification-v1`. In both cases,
 the locator is the confirmed protocol basename and its digest must match `evidence_inputs`.
-Notice coverage may resolve `complete` or `incomplete`; Authenticode artifacts may record valid,
-invalid, not-tested, or not-applicable layer dispositions. `verified` requires the all-valid shape,
-while `gap` requires a structured failed/incomplete outcome rather than a malformed protocol.
+Notice coverage may resolve `complete` or `incomplete`. Authenticode remains schema version 1 with
+method `protocol:authenticode-verification-v1`. Its `file_digest_disposition` is `valid`, `invalid`
+(signature/file-digest material is present but verification failed), or `absent` (direct verification
+found no Authenticode signature/file-digest material, as with an unsigned DLL). For `absent`, require
+`chain_disposition`, `timestamp_disposition`, and `revocation_disposition` all exactly
+`not-applicable`. Keep `expected_identity` substantive and name the required signing identity, not
+`not-applicable`; set `observed_identity` exactly to `not-applicable` because there is no signer to
+identify. Retain the exact DLL digest and digest-bound raw verification log. Any absent artifact
+makes the protocol result `failed`: it supports a `PI-02` `gap`, never `verified`. Do not label an
+unsigned file's digest `invalid` or reinterpret retained legacy `invalid` records.
+
+For `valid`/`invalid` file-digest dispositions, preserve the existing layer sets: chain is `valid`,
+`invalid`, or `not-tested` (never `not-applicable`); timestamp and revocation also allow
+`not-applicable`. `verified` requires matching expected/observed identity, valid file digest and
+chain, and valid or not-applicable timestamp/revocation. `gap` requires a structured
+failed/incomplete outcome rather than a malformed protocol.
 When exact DLLs exist but the Authenticode protocol lacks digest, chain, timestamp, revocation, or
-expected-identity results, use `not tested` unless the unresolved prerequisite is specifically an
-owner-only identity declaration.
+expected-identity results because the probe was unrun or incomplete, use `not tested`, not `absent`,
+unless the unresolved prerequisite is specifically an owner-only identity declaration.
 
 ## Requested implementation guidance
 
