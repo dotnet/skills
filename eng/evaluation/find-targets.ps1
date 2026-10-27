@@ -141,6 +141,9 @@ function Get-PluginAgentEntries {
   )
   $pluginRoot = [IO.Path]::GetFullPath((Join-Path $contentRoot "plugins" $plugin))
   $manifestPath = Join-Path $pluginRoot "plugin.json"
+  if (-not (Test-Path $pluginRoot -PathType Container)) {
+    return @()
+  }
   if (-not (Test-Path $manifestPath -PathType Leaf)) {
     throw "Cannot discover agents for '$plugin': plugin.json is missing."
   }
@@ -222,11 +225,21 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   }
   try {
   $mergeBase = git merge-base $base $head
-  $changedFiles = git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
+    throw "Could not determine a merge base for '$base' and '$head'."
+  }
+  $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+  if ($LASTEXITCODE -ne 0) {
+    throw "Could not enumerate changed files for '$mergeBase..$head'."
+  }
   $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
     -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
   foreach ($plugin in $changedManifestPlugins) {
-    $manifestPath = Join-Path $contentRoot "plugins" $plugin "plugin.json"
+    $pluginRoot = Join-Path $contentRoot "plugins" $plugin
+    if (-not (Test-Path $pluginRoot -PathType Container)) {
+      continue
+    }
+    $manifestPath = Join-Path $pluginRoot "plugin.json"
     if (-not (Test-Path $manifestPath -PathType Leaf)) {
       throw "Changed root manifest for '$plugin' is missing at the evaluated head; target discovery cannot enumerate the production surface."
     }

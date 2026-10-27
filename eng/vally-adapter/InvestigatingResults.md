@@ -30,7 +30,8 @@ changing the registered production surface, so version-only sync PRs do not run
 unrelated skill or agent evaluations. Both manifests must be strict JSON objects
 with one valid `major.minor.patch` string in the top-level `version` property.
 New or semantically changed root manifests select every skill and agent eval for
-that plugin. Removed or invalid root manifests require evaluation, then target
+that plugin. A fully deleted plugin has no surviving target to evaluate. If the
+plugin directory survives but its root manifest is missing or invalid, target
 discovery fails explicitly because it cannot safely enumerate the production
 agent surface.
 
