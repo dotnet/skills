@@ -527,7 +527,15 @@ test('collection and publication use the same workflow start timestamp', () => {
   );
   assert.doesNotMatch(workflow, /window_end="\$\(date -u/);
   assert.equal(isoWeekKey(new Date('2026-10-25T23:58:00Z')), '2026-W43');
+  assert.equal(isoWeekKey(new Date('2026-10-26T00:00:00Z')), '2026-W44');
   assert.equal(isoWeekKey(new Date('2026-10-26T00:01:00Z')), '2026-W44');
+
+  const report = buildReport({
+    dashboard: { entries: [] },
+    workflowRuns: [],
+    windowEnd: '2026-10-26T00:00:00Z',
+  });
+  assert.equal(report.weekKey, '2026-W44');
 });
 
 test('unfinished workflow runs do not affect duration averages', () => {

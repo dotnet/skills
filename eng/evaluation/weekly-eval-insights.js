@@ -430,7 +430,7 @@ function buildReport({ dashboard, workflowRuns, windowEnd }) {
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    weekKey: isoWeekKey(new Date(endMs - 1)),
+    weekKey: isoWeekKey(new Date(endMs)),
     metricContract: {
       observation:
         'One published plugin, skill, executor-model, and judge-model evaluation result in the reporting window.',
