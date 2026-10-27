@@ -9,8 +9,8 @@ description: >
   USE FOR: "without breaking existing callers"; adding an optional parameter, overload, or
   interface member; renaming a public method, parameter, or alias; changing a signature,
   nullability, const/default value, or attribute; adding a target framework; renaming or removing an
-  internal member or helper; fixing RS0016/RS0017 or ApiCompat errors; "is this PR breaking?".
-  DO NOT USE FOR: a console app, web app, or other executable whose callers all live in the same
+  InternalsVisibleTo-exposed internal member; fixing RS0016/RS0017 or ApiCompat errors; "is this PR breaking?".
+  DO NOT USE FOR: a console app or executable whose callers all live in the same
   project (renaming its public members is a plain refactor);
   renaming a local or private member; formatting; framework/SDK/NuGet upgrades (use dotnet-upgrade).
 license: MIT
