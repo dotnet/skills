@@ -363,6 +363,8 @@ stimuli:
           dest: .eval-baseline/Program.cs
         - src: fixtures/http-file/CatalogApi.csproj
           dest: .eval-baseline/CatalogApi.csproj
+        - src: fixtures/http-file/VerifyCatalogHttp.py
+          dest: VerifyCatalogHttp.py
       commands:
         - >-
           python3 -c "from pathlib import Path; import hashlib, json, stat;
@@ -381,25 +383,7 @@ stimuli:
           path: "*.http"
       - type: run-command
         config:
-          command: >-
-            python3 -c "from pathlib import Path; import re, sys;
-            files=list(Path('.').glob('*.http'));
-            text='\n'.join(p.read_text() for p in files);
-            declarations=re.findall(r'(?im)^@([A-Za-z_]\w*)\s*=', text);
-            variable=declarations[0] if len(set(declarations))==1 else None;
-            prefix=r'\{\{'+re.escape(variable)+r'\}\}' if variable else r'(?!)';
-            suffix=r'(?:\s+HTTP/\d(?:\.\d)?)?\s*$';
-            ids=re.findall(r'(?im)^(?:GET|DELETE)\s+'+prefix+r'/api/catalog/(\d+)'+suffix, text);
-            checks=[variable,
-            re.search(r'(?im)^GET\s+'+prefix+r'/api/catalog'+suffix, text),
-            re.search(r'(?im)^GET\s+'+prefix+r'/api/catalog/\d+'+suffix, text),
-            re.search(r'(?im)^POST\s+'+prefix+r'/api/catalog'+suffix, text),
-            re.search(r'(?im)^DELETE\s+'+prefix+r'/api/catalog/\d+'+suffix, text),
-            re.search(r'(?i)Content-Type:\s*application/json', text),
-            re.search(r'(?i)\"name\"\s*:', text),
-            re.search(r'(?i)\"price\"\s*:', text),
-            any(value != '1' for value in ids)];
-            sys.exit(0 if files and all(checks) else 1)"
+          command: python3 VerifyCatalogHttp.py
           expected_exit_code: 0
           timeout: 1m
       - type: run-command

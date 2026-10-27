@@ -204,40 +204,59 @@ stimuli:
       risk: medium
       journey: build-data-flow
     prompt: |
-      Add an interactive /featured-products page that calls
-      ProductService.GetFeaturedAsync once when the component starts. Show a
-      loading placeholder and then product cards. Wrap this page's loading and
-      product content in an ErrorBoundary with a friendly failure view. There is
-      no retry requirement and no parameter-driven reload. Keep the component
-      simple and let unexpected service failures reach the boundary.
-      Create a minimal ProductService stub, product model, and DI registration.
-    environment: *interactive-server-project
+      Add an interactive /featured-products page. Put an ErrorBoundary on the
+      page with the friendly failure text "Unable to load featured products."
+      Render a FeaturedProductsLoader child inside that boundary. The child
+      calls the supplied ProductService.GetFeaturedAsync once when it starts,
+      shows a loading placeholder, and then renders product cards. Register the
+      supplied service. There is no retry requirement and no parameter-driven
+      reload. Keep the child simple and let unexpected failures reach the parent
+      boundary.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+        - src: fixtures/error-boundary/ProductService.cs
+          dest: Services/ProductService.cs
+        - src: fixtures/error-boundary/VerifyFeaturedProductsBoundary.py
+          dest: VerifyFeaturedProductsBoundary.py
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-exists
         config:
           path: '**/FeaturedProducts.razor'
       - type: file-contains
         config:
-          path: '**/FeaturedProducts.razor'
+          path: '**/*FeaturedProducts*Loader*.razor'
           value: OnInitializedAsync
       - type: file-contains
         config:
           path: '**/FeaturedProducts.razor'
           value: ErrorBoundary
-      - type: file-not-contains
+      - type: file-contains
         config:
           path: '**/FeaturedProducts.razor'
+          value: Unable to load featured products.
+      - type: file-not-contains
+        config:
+          path: '**/*FeaturedProducts*Loader*.razor'
           value: catch (Exception
       - type: run-command
         config:
           command: dotnet build --no-restore
           expected_exit_code: 0
           timeout: 5m
+      - type: run-command
+        config:
+          command: python3 VerifyFeaturedProductsBoundary.py
+          expected_exit_code: 0
+          timeout: 2m
       - type: prompt
     rubric:
-      - Loads once during initialization because no changing parameter controls the request
-      - Uses explicit loading and loaded states
-      - Keeps the load inside a friendly ErrorBoundary instead of duplicating generic catch logic
+      - Keeps the ErrorBoundary in a parent and loads once in a descendant component so initialization failures reach the boundary
+      - Uses explicit loading and loaded states in the child loader
+      - Shows the requested friendly failure view without exposing the service exception
       - Does not add retry, cancellation replacement, or parameter guards that the scenario does not need
   - name: Submit an order without duplicate requests
     tags:
