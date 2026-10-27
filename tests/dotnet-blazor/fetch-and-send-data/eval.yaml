@@ -381,7 +381,11 @@ stimuli:
             files=list(Path('.').glob('**/AuditLog.razor'));
             text='\n'.join(p.read_text() for p in files);
             text=re.sub(r'\b\w*[Ll]og\w*\s*\.\s*Log\w*\s*\(.*?\)\s*;', '', text, flags=re.S);
-            sys.exit(0 if files and '.Message' not in text else 1)"
+            exception_names=re.findall(r'catch\s*\(\s*(?:System\.)?(?:Exception|\w+Exception)\s+(\w+)\s*\)', text);
+            unsafe=any(re.search(r'(?:@\s*'+re.escape(name)+r'\s*\.\s*Message\b|'
+            +r'(?:error|message|status)\w*\s*=\s*'+re.escape(name)+r'\s*\.\s*Message\b)', text, re.I)
+            for name in exception_names);
+            sys.exit(0 if files and not unsafe else 1)"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -409,10 +413,14 @@ stimuli:
       Program.cs files and add the API endpoint required by the browser client.
     environment: *auto-project
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/Program.cs'
-          value: InventoryClient
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            files=[p for p in Path('.').glob('**/Program.cs') if '.Client' not in str(p)];
+            sys.exit(0 if files and any('InventoryClient' in p.read_text() for p in files) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: '**/*.Client/**/Program.cs'

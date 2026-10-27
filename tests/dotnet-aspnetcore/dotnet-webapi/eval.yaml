@@ -40,8 +40,11 @@ stimuli:
             python3 -c "from pathlib import Path; import re, sys;
             files=[p for p in Path('.').rglob('*.cs') if not {'bin','obj'} & set(p.parts)];
             text='\n'.join(p.read_text() for p in files);
-            routes=['/api/products','/api/products/{id'];
-            ok=all(route in text for route in routes)
+            full_by_id='/api/products/{id' in text;
+            grouped_by_id=('/api/products' in text
+            and re.search(r'(?:MapGroup|RouteGroupBuilder).*?/api/products', text, re.S)
+            and re.search(r'MapGet\s*\([^)]*/\{id', text));
+            ok='/api/products' in text and (full_by_id or grouped_by_id)
             and 'MapGet' in text and 'MapPost' in text
             and re.search(r'\binterface\s+I\w*Product\w*\b', text)
             and 'CancellationToken' in text
@@ -159,7 +162,8 @@ stimuli:
             orders='\n'.join(p.read_text() for p in files if 'Order' in p.name);
             ok='OrdersController' in orders and 'ControllerBase' in orders
             and '[ApiController]' in orders and 'HttpGet' in orders
-            and 'HttpPost' in orders and 'CreatedAtAction' in orders
+            and 'HttpPost' in orders
+            and re.search(r'\bCreated(?:AtAction|AtRoute)?\s*\(', orders)
             and 'CancellationToken' in orders and 'DateTimeOffset' in orders
             and re.search(r'\binterface\s+I\w*Order\w*\b', text)
             and not re.search(r'\bMap(?:Get|Post|Put|Delete|Patch)\s*\(', text);
@@ -377,12 +381,15 @@ stimuli:
             python3 -c "from pathlib import Path; import re, sys;
             files=list(Path('.').glob('*.http'));
             text='\n'.join(p.read_text() for p in files);
-            ids=re.findall(r'(?im)^(?:GET|DELETE)\s+\{\{[^}]+\}\}/api/catalog/(\d+)\s*$', text);
-            checks=[re.search(r'(?im)^@(?:baseUrl|host)\s*=', text),
-            re.search(r'(?im)^GET\s+\{\{[^}]+\}\}/api/catalog\s*$', text),
-            re.search(r'(?im)^GET\s+\{\{[^}]+\}\}/api/catalog/\d+\s*$', text),
-            re.search(r'(?im)^POST\s+\{\{[^}]+\}\}/api/catalog\s*$', text),
-            re.search(r'(?im)^DELETE\s+\{\{[^}]+\}\}/api/catalog/\d+\s*$', text),
+            declarations=re.findall(r'(?im)^@([A-Za-z_]\w*)\s*=', text);
+            variable=declarations[0] if len(set(declarations))==1 else None;
+            prefix=r'\{\{'+re.escape(variable)+r'\}\}' if variable else r'(?!)';
+            ids=re.findall(r'(?im)^(?:GET|DELETE)\s+'+prefix+r'/api/catalog/(\d+)\s*$', text);
+            checks=[variable,
+            re.search(r'(?im)^GET\s+'+prefix+r'/api/catalog\s*$', text),
+            re.search(r'(?im)^GET\s+'+prefix+r'/api/catalog/\d+\s*$', text),
+            re.search(r'(?im)^POST\s+'+prefix+r'/api/catalog\s*$', text),
+            re.search(r'(?im)^DELETE\s+'+prefix+r'/api/catalog/\d+\s*$', text),
             re.search(r'(?i)Content-Type:\s*application/json', text),
             re.search(r'(?i)\"name\"\s*:', text),
             re.search(r'(?i)\"price\"\s*:', text),

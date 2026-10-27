@@ -266,10 +266,14 @@ stimuli:
       commands:
         - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity auto --no-https --force
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/Program.cs'
-          value: FavoritesState
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            files=[p for p in Path('.').glob('**/Program.cs') if '.Client' not in str(p)];
+            sys.exit(0 if files and any('FavoritesState' in p.read_text() for p in files) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: '**/*.Client/**/Program.cs'

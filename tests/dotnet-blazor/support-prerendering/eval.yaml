@@ -211,10 +211,14 @@ stimuli:
       commands:
         - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity webassembly --no-https --force
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/Program.cs'
-          value: IExchangeRateService
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            files=[p for p in Path('.').glob('**/Program.cs') if '.Client' not in str(p)];
+            sys.exit(0 if files and any('IExchangeRateService' in p.read_text() for p in files) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: '**/*.Client/**/Program.cs'
@@ -334,10 +338,16 @@ stimuli:
       Create minimal service and connection stubs and register them so the project builds.
     environment: *interactive-server-project
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/LiveOrders.razor'
-          value: RendererInfo.IsInteractive
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/LiveOrders.razor'))+list(Path('.').glob('**/LiveOrders.razor.cs'));
+            text='\n'.join(p.read_text() for p in files);
+            post_render=re.search(r'OnAfterRenderAsync\s*\([^)]*\).*?\bfirstRender\b', text, re.S);
+            sys.exit(0 if files and ('RendererInfo.IsInteractive' in text or post_render) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: run-command
         config:
           command: >-
@@ -359,7 +369,7 @@ stimuli:
       - type: prompt
     rubric:
       - Separates initial prerendered data loading from interactive-only connection startup
-      - Guards connection startup with the renderer's interactivity state
+      - Starts the live connection only from an interactive render path
       - Reuses persisted initial data and disposes the live connection
   - name: Keep a client-only service optional during prerender
     tags:
@@ -384,10 +394,16 @@ stimuli:
       - type: file-exists
         config:
           path: '**/*.Client/**/*DeviceStatus*.razor'
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/*.Client/**/*DeviceStatus*.razor'
-          value: RendererInfo.IsInteractive
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/*.Client/**/*DeviceStatus*.razor'))+list(Path('.').glob('**/*.Client/**/*DeviceStatus*.razor.cs'));
+            text='\n'.join(p.read_text() for p in files);
+            post_render=re.search(r'OnAfterRenderAsync\s*\([^)]*\).*?\bfirstRender\b', text, re.S);
+            sys.exit(0 if files and ('RendererInfo.IsInteractive' in text or post_render) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: run-command
         config:
           command: dotnet build --no-restore

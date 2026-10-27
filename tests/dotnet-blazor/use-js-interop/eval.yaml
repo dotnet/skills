@@ -260,9 +260,18 @@ stimuli:
         config:
           path: '**/SalesChart.razor.js'
           value: export
-      - type: file-exists
+      - type: run-command
         config:
-          path: '**/*ChartInterop.cs'
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/*.cs'))+list(Path('.').glob('**/SalesChart.razor'));
+            text='\n'.join(p.read_text() for p in files);
+            wrapper=(re.search(r'class\s+\w*(?:Chart|Interop|Module)\w*', text, re.I)
+            and ('IJSObjectReference' in text or 'IJSRuntime' in text)
+            and re.search(r'(?:Create|Update|Destroy|Dispose)Async', text));
+            sys.exit(0 if files and wrapper else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: run-command
         config:
           command: dotnet build --no-restore
@@ -305,10 +314,19 @@ stimuli:
             sys.exit(0 if files and re.search(pattern, text, re.S) else 1)"
           expected_exit_code: 0
           timeout: 1m
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/ClipboardMonitor.razor.js'
-          value: removeEventListener
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/ClipboardMonitor.razor.js'));
+            text='\n'.join(p.read_text() for p in files);
+            cleanup=('removeEventListener' in text
+            or (re.search(r'new\s+AbortController\s*\(', text)
+            and re.search(r'\.abort\s*\(', text)
+            and re.search(r'addEventListener\s*\(.*?signal', text, re.S)));
+            sys.exit(0 if files and cleanup else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: run-command
         config:
           command: dotnet build --no-restore

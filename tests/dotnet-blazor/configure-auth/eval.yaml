@@ -210,20 +210,31 @@ stimuli:
     tags:
       feature: per-page-identity
       capability: per-page-identity
-      risk: high
-      journey: secure-application
+      risk: routing
+      journey: decline-off-target
+      expect_activation: "false"
     prompt: |
-      Add simple ASP.NET Core Identity login, register, and logout endpoints to
-      this per-page Interactive Server app. Normal application pages opt into
-      interactivity, but account operations must use a real request HttpContext.
-      Implement the account flow and explain which account files need render-mode
-      attributes or routing exclusions in this per-page setup.
+      This per-page Interactive Server app already uses the Individual
+      authentication template. Verify that its login, registration, and logout
+      account pages stay static so they can use a real request HttpContext.
+      Explain the existing routing behavior briefly and do not modify any files.
     environment:
       files:
         - src: ../fixtures/global.json
           dest: global.json
       commands:
         - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --auth Individual --no-https --force
+        - >-
+          python3 -c "from pathlib import Path; import hashlib, json, stat;
+          root=Path('.');
+          files=[p for p in root.rglob('*') if not ({'.eval-baseline','bin','obj'} & set(p.parts))
+          and (p.is_file() or p.is_symlink())];
+          assert not any(p.is_symlink() for p in files);
+          manifest={p.relative_to(root).as_posix(): {'sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
+          'inode': p.stat().st_ino, 'mode': stat.S_IMODE(p.stat().st_mode), 'size': p.stat().st_size,
+          'mtime_ns': p.stat().st_mtime_ns, 'ctime_ns': p.stat().st_ctime_ns} for p in files};
+          baseline=Path('.eval-baseline'); baseline.mkdir(exist_ok=True);
+          baseline.joinpath('manifest.json').write_text(json.dumps(manifest, sort_keys=True))"
     graders:
       - type: file-contains
         config:
@@ -235,11 +246,21 @@ stimuli:
           value: '@rendermode InteractiveServer'
       - type: run-command
         config:
-          command: dotnet build
+          command: >-
+            python3 -c "from pathlib import Path; import hashlib, json, stat, sys;
+            root=Path('.');
+            files=[p for p in root.rglob('*') if not ({'.eval-baseline','bin','obj'} & set(p.parts))
+            and (p.is_file() or p.is_symlink())];
+            expected=json.loads(Path('.eval-baseline/manifest.json').read_text());
+            actual={p.relative_to(root).as_posix(): {'sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
+            'inode': p.stat().st_ino, 'mode': stat.S_IMODE(p.stat().st_mode), 'size': p.stat().st_size,
+            'mtime_ns': p.stat().st_mtime_ns, 'ctime_ns': p.stat().st_ctime_ns} for p in files if not p.is_symlink()};
+            sys.exit(0 if not any(p.is_symlink() for p in files) and actual==expected else 1)"
           expected_exit_code: 0
-          timeout: 8m
+          timeout: 1m
       - type: prompt
     rubric:
+      - The configure-auth skill stayed dormant because the requested account flow already exists
       - Keeps account pages static by leaving off interactive render modes in a per-page app
       - Does not require ExcludeFromInteractiveRouting when the account pages are already outside an interactive route
       - Handles logout through a static request endpoint rather than an interactive event handler
@@ -279,7 +300,7 @@ stimuli:
     rubric:
       - Protects the server API independently of the Blazor page
       - Serializes the required claims and restores them in the WebAssembly runtime
-      - Applies the Orders.Read policy to the API and an equivalent authorization requirement to the page
+      - Requires authentication on the page and applies the Orders.Read policy to the API
       - Uses an HTTP client abstraction from the client project rather than server-only access
   - name: Apply a claim-based authorization policy
     tags:
