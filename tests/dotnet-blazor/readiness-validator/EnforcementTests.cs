@@ -734,6 +734,40 @@ internal static class EnforcementTests
             Validate(fixture.Root, input, inputBytes, assessment, evidence);
         }
 
+        void ValidateNotTestedWithoutProtocol()
+        {
+            var input = fixture.Manifest;
+            var inputBytes = InputManifestService.Serialize(input);
+            var initialized = AssessmentService.Initialize("package", fixture.Root, input, inputBytes, null);
+            var locator = $"package:entry/{dlls[0].Key}";
+            var evidence = BuildEvidence(
+                initialized.Identity,
+                [
+                    Draft(
+                        initialized.Identity,
+                        EvidenceIdentity.PackageArtifactMetadata,
+                        locator,
+                        "Captured the package entry without running Authenticode verification.",
+                        new Sha256Digest(
+                            "sha256",
+                            NupkgInspector.ComputeEvidenceContentSha256(fixture.NupkgPath, locator)))
+                ]);
+            var evidenceId = evidence.Selection.Single().EvidenceId;
+            var assessment = CompleteRows(
+                initialized,
+                new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
+                {
+                    ["PI-02"] = new RowConclusion(
+                        "not tested",
+                        "No Authenticode verification protocol was supplied.",
+                        [evidenceId],
+                        null,
+                        "Run Authenticode verification against every shipped DLL.",
+                        null)
+                });
+            Validate(fixture.Root, input, inputBytes, assessment, evidence);
+        }
+
         var absentArtifact = Artifact();
         var validArtifact = Artifact(
             fileDigest: "valid",
@@ -839,8 +873,38 @@ internal static class EnforcementTests
 
         var valid = Protocol(validArtifact, validArtifact);
         ValidateProtocol(valid, "verified");
+        ExpectValidationMessage(
+            () => ValidateProtocol(valid, "not tested"),
+            "only with result 'incomplete'",
+            "Passed Authenticode cannot be softened to PI-02 not tested");
+        ExpectValidationMessage(
+            () => ValidateProtocol(absent, "not tested"),
+            "only with result 'incomplete'",
+            "Failed Authenticode cannot be softened to PI-02 not tested");
+        ValidateNotTestedWithoutProtocol();
+
+        var incompleteCases = new[]
+        {
+            ("chain", incompleteArtifact),
+            ("timestamp", Artifact(
+                fileDigest: "valid",
+                chain: "valid",
+                timestamp: "not-tested",
+                observedIdentity: expectedIdentity)),
+            ("revocation", Artifact(
+                fileDigest: "valid",
+                chain: "valid",
+                revocation: "not-tested",
+                observedIdentity: expectedIdentity))
+        };
+        foreach (var (_, artifact) in incompleteCases)
+        {
+            ValidateProtocol(
+                Protocol(artifact, validArtifact),
+                "not tested");
+        }
+
         var incomplete = Protocol(incompleteArtifact, validArtifact);
-        ValidateProtocol(incomplete, "not tested");
         ExpectValidationMessage(
             () => ValidateProtocol(incomplete),
             "result 'failed'",
@@ -850,13 +914,32 @@ internal static class EnforcementTests
             "result 'passed'",
             "Incomplete Authenticode cannot verify PI-02");
 
-        ValidateProtocol(
-            Protocol(
-                Artifact(
-                    fileDigest: "invalid",
-                    chain: "not-tested",
-                    observedIdentity: expectedIdentity),
-                incompleteArtifact));
+        var failedCases = new[]
+        {
+            ("file digest", Artifact(
+                fileDigest: "invalid",
+                chain: "valid",
+                observedIdentity: expectedIdentity)),
+            ("chain", Artifact(
+                fileDigest: "valid",
+                chain: "invalid",
+                observedIdentity: expectedIdentity)),
+            ("timestamp", Artifact(
+                fileDigest: "valid",
+                chain: "valid",
+                timestamp: "invalid",
+                observedIdentity: expectedIdentity)),
+            ("revocation", Artifact(
+                fileDigest: "valid",
+                chain: "valid",
+                revocation: "invalid",
+                observedIdentity: expectedIdentity))
+        };
+        foreach (var (_, artifact) in failedCases)
+        {
+            ValidateProtocol(Protocol(artifact, incompleteArtifact));
+        }
+
         ValidateProtocol(
             Protocol(
                 Artifact(

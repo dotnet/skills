@@ -128,7 +128,8 @@ public static class EvidenceProtocolValidator
             "PI-02",
             AuthenticodeMethod,
             "passed",
-            "failed");
+            "failed",
+            "incomplete");
         RequireProtocolForVerifiedRow(
             assessment,
             records,
@@ -1302,20 +1303,40 @@ public static class EvidenceProtocolValidator
         string rowId,
         string method,
         string verifiedResult,
-        string gapResult)
+        string gapResult,
+        string? notTestedResult = null)
     {
         var row = assessment.Rows.SingleOrDefault(item => item.Id == rowId);
-        if (row?.Status is not ("verified" or "gap"))
+        if (row?.Status is null)
+        {
+            return;
+        }
+
+        var matching = row.EvidenceIds
+            .Where(id =>
+                protocols.TryGetValue(id, out var protocol) &&
+                protocol.Method == method &&
+                records[id].Applicability.Scope == row.Scope)
+            .Select(id => protocols[id])
+            .ToArray();
+        if (row.Status == "not tested" && notTestedResult is not null)
+        {
+            if (matching.Any(protocol => protocol.Result != notTestedResult))
+            {
+                throw new DeterministicValidationException(
+                    $"Row '{rowId}' status 'not tested' can cite structured '{method}' evidence only with result '{notTestedResult}'.");
+            }
+
+            return;
+        }
+
+        if (row.Status is not ("verified" or "gap"))
         {
             return;
         }
 
         var expectedResult = row.Status == "verified" ? verifiedResult : gapResult;
-        if (!row.EvidenceIds.Any(id =>
-                protocols.TryGetValue(id, out var protocol) &&
-                protocol.Method == method &&
-                protocol.Result == expectedResult &&
-                records[id].Applicability.Scope == row.Scope))
+        if (!matching.Any(protocol => protocol.Result == expectedResult))
         {
             throw new DeterministicValidationException(
                 $"Row '{rowId}' status '{row.Status}' requires structured '{method}' evidence with result '{expectedResult}'.");
