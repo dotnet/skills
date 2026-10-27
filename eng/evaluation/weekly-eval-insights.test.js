@@ -515,7 +515,7 @@ test('week keys use the ISO week year', () => {
   assert.equal(isoWeekKey(new Date('2025-12-30T00:00:00Z')), '2026-W01');
 });
 
-test('collection and publication use the same workflow start timestamp', () => {
+test('collection and publication use the same attempt-stable workflow timestamp', () => {
   const workflow = fs.readFileSync(
     path.join(__dirname, '..', '..', '.github', 'workflows', 'weekly-eval-insights.md'),
     'utf8',
@@ -523,8 +523,10 @@ test('collection and publication use the same workflow start timestamp', () => {
 
   assert.match(
     workflow,
-    /gh api "repos\/\$\{REPOSITORY\}\/actions\/runs\/\$\{GITHUB_RUN_ID\}"[\s\S]*--jq \.run_started_at/,
+    /gh api "repos\/\$\{REPOSITORY\}\/actions\/runs\/\$\{GITHUB_RUN_ID\}"[\s\S]*--jq \.created_at/,
   );
+  assert.match(workflow, /new Date\(currentRun\.data\.created_at\)/);
+  assert.doesNotMatch(workflow, /currentRun\.data\.run_started_at|--jq \.run_started_at/);
   assert.doesNotMatch(workflow, /window_end="\$\(date -u/);
   assert.equal(isoWeekKey(new Date('2026-10-25T23:58:00Z')), '2026-W43');
   assert.equal(isoWeekKey(new Date('2026-10-26T00:00:00Z')), '2026-W44');
@@ -536,6 +538,15 @@ test('collection and publication use the same workflow start timestamp', () => {
     windowEnd: '2026-10-26T00:00:00Z',
   });
   assert.equal(report.weekKey, '2026-W44');
+
+  const retainedReport = buildReport({
+    dashboard: { entries: [] },
+    workflowRuns: [],
+    windowEnd: '2026-10-23T17:00:00Z',
+  });
+  assert.equal(retainedReport.weekKey, '2026-W43');
+  assert.equal(isoWeekKey(new Date('2026-10-23T17:00:00Z')), retainedReport.weekKey);
+  assert.notEqual(isoWeekKey(new Date('2026-10-26T00:01:00Z')), retainedReport.weekKey);
 });
 
 test('unfinished workflow runs do not affect duration averages', () => {

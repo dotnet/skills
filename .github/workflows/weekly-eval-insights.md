@@ -95,9 +95,9 @@ safe-outputs:
                 repo: context.repo.repo,
                 run_id: context.runId,
               });
-              const now = new Date(currentRun.data.run_started_at);
+              const now = new Date(currentRun.data.created_at);
               if (Number.isNaN(now.getTime())) {
-                core.setFailed("Workflow run start time is unavailable");
+                core.setFailed("Workflow run creation time is unavailable");
                 return;
               }
               const isoDate = new Date(Date.UTC(
@@ -223,10 +223,10 @@ steps:
       mkdir -p /tmp/gh-aw/data /tmp/gh-aw/eval-dashboard
       window_end="$(
         gh api "repos/${REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-          --jq .run_started_at
+          --jq .created_at
       )"
       if [ -z "${window_end}" ] || [ "${window_end}" = "null" ]; then
-        echo "::error::Workflow run start time is unavailable"
+        echo "::error::Workflow run creation time is unavailable"
         exit 1
       fi
       window_start="$(date -u -d "${window_end} - 7 days" +%Y-%m-%dT%H:%M:%SZ)"
