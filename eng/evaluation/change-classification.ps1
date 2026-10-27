@@ -3,7 +3,7 @@ function Test-JsonPropertiesUnique {
 
   if ($Element.ValueKind -eq [System.Text.Json.JsonValueKind]::Object) {
     $names = [System.Collections.Generic.HashSet[string]]::new(
-      [System.StringComparer]::Ordinal)
+      [System.StringComparer]::OrdinalIgnoreCase)
     foreach ($property in $Element.EnumerateObject()) {
       if (-not $names.Add($property.Name)) {
         return $false
@@ -58,7 +58,7 @@ function Get-ManifestWithoutVersion {
 
     $version = $versionProperty.Value.GetString()
     if ([string]::IsNullOrWhiteSpace($version) -or
-        $version -notmatch '^\d+\.\d+\.\d+$') {
+        $version -notmatch '\A[0-9]+\.[0-9]+\.[0-9]+\z') {
       throw "the top-level 'version' property must be major.minor.patch"
     }
 

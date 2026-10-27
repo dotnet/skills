@@ -3187,6 +3187,7 @@ esac
             script = (
                 "$ErrorActionPreference = 'Stop'\n"
                 + f". '{str(PATH_SAFETY_SCRIPT).replace(chr(39), chr(39) * 2)}'\n"
+                + f". '{str(CHANGE_CLASSIFICATION_SCRIPT).replace(chr(39), chr(39) * 2)}'\n"
                 + functions
                 + f"\n$root = '{str(root).replace(chr(39), chr(39) * 2)}'\n"
                 + "$entries = @(\n"
@@ -3382,7 +3383,10 @@ esac
                     script,
                 )
                 self.assertIn("$changedManifestPlugins", script)
-                self.assertIn("--diff-filter=ACMRD", script)
+                self.assertIn(
+                    "git diff --name-only --no-renames --diff-filter=ACMRD",
+                    script,
+                )
                 if job_name != "discover":
                     self.assertIn("if (Test-Path $helperPath)", script)
                     self.assertIn(
@@ -3475,12 +3479,21 @@ esac
                     text=True,
                 ).stdout.strip()
 
-            def classify(from_commit: str, to_commit: str) -> list[str]:
+            def classify(
+                from_commit: str,
+                to_commit: str,
+                changed_files: list[str] | None = None,
+            ) -> list[str]:
                 helper = str(CHANGE_CLASSIFICATION_SCRIPT).replace("'", "''")
+                changed_files = changed_files or ["plugins/demo/plugin.json"]
+                changed_files_literal = ",".join(
+                    f"'{path.replace(chr(39), chr(39) * 2)}'"
+                    for path in changed_files
+                )
                 script = (
                     f". '{helper}'; "
                     "$result = @(Get-BehaviorChangedPluginManifests "
-                    "-ChangedFiles @('plugins/demo/plugin.json') "
+                    f"-ChangedFiles @({changed_files_literal}) "
                     f"-BaseCommit '{from_commit}' -HeadCommit '{to_commit}'); "
                     "ConvertTo-Json -InputObject $result -Compress"
                 )
@@ -3535,6 +3548,31 @@ esac
                 "malformed version": (
                     '{"name":"demo","version":"1.0","skills":["./skills/"]}'
                 ),
+                "trailing newline version": (
+                    '{"name":"demo","version":"1.0.0\\n",'
+                    '"skills":["./skills/"]}'
+                ),
+                "unicode digit version": (
+                    '{"name":"demo","version":"١.٠.٠",'
+                    '"skills":["./skills/"]}'
+                ),
+                "wrong-cased version": (
+                    '{"name":"demo","Version":"1.0.3",'
+                    '"skills":["./skills/"]}'
+                ),
+                "duplicate top-level property": (
+                    '{"name":"demo","name":"other","version":"1.0.3",'
+                    '"skills":["./skills/"]}'
+                ),
+                "duplicate nested property": (
+                    '{"name":"demo","version":"1.0.3",'
+                    '"metadata":{"value":1,"value":2},'
+                    '"skills":["./skills/"]}'
+                ),
+                "case-colliding property": (
+                    '{"name":"demo","Name":"other","version":"1.0.3",'
+                    '"skills":["./skills/"]}'
+                ),
                 "malformed JSON": "{ malformed",
             }
             for name, content in invalid_manifests.items():
@@ -3542,6 +3580,9 @@ esac
                     invalid = commit_raw(content, f"Invalid manifest: {name}")
                     self.assertEqual(classify(semantic, invalid), ["demo"])
 
+            restored = commit_manifest(
+                "1.0.3", "Changed registration metadata", "Restore manifest"
+            )
             manifest.unlink()
             subprocess.run(["git", "add", "-A"], cwd=root, check=True)
             subprocess.run(
@@ -3558,7 +3599,51 @@ esac
                 capture_output=True,
                 text=True,
             ).stdout.strip()
-            self.assertEqual(classify(semantic, deleted), ["demo"])
+            self.assertEqual(classify(restored, deleted), ["demo"])
+
+            rename_base = commit_manifest(
+                "1.0.4", "Changed registration metadata", "Restore for rename"
+            )
+            renamed_manifest = root / "plugins" / "renamed" / "plugin.json"
+            renamed_manifest.parent.mkdir(parents=True)
+            subprocess.run(
+                ["git", "mv", str(manifest), str(renamed_manifest)],
+                cwd=root,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Rename plugin manifest"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            renamed = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            renamed_files = subprocess.run(
+                [
+                    "git",
+                    "diff",
+                    "--name-only",
+                    "--no-renames",
+                    "--diff-filter=ACMRD",
+                    rename_base,
+                    renamed,
+                ],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.splitlines()
+            self.assertEqual(
+                classify(rename_base, renamed, renamed_files),
+                ["demo", "renamed"],
+            )
 
     def test_pr_status_missing_manifest_helper_fails_closed(self) -> None:
         workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))

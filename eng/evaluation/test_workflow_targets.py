@@ -95,6 +95,24 @@ class WorkflowTargetsTests(unittest.TestCase):
         )
         return manifest
 
+    def create_agent_fixture(self, manifest_content=None):
+        agent = self.root / "plugins" / "demo" / "agents" / "router.agent.md"
+        evaluation = self.root / "tests" / "demo" / "agent.router" / "eval.yaml"
+        agent.parent.mkdir(parents=True)
+        evaluation.parent.mkdir(parents=True)
+        agent.write_text(
+            "---\nname: router\ndescription: Route work.\n---\nRoute work.\n",
+            encoding="utf-8",
+        )
+        evaluation.write_text(
+            "name: router\nstimuli: []\n",
+            encoding="utf-8",
+        )
+        if manifest_content is not None:
+            manifest = self.root / "plugins" / "demo" / "plugin.json"
+            manifest.write_text(manifest_content, encoding="utf-8")
+        return agent
+
     def test_manual_collection_and_single_package_dispatch(self):
         for selected, count in (("", 2), ("alpha", 1)):
             with self.subTest(selected=selected):
@@ -194,6 +212,34 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertIn("target discovery cannot enumerate", output)
         self.assertIn("production surface", output)
 
+    def test_pr_valid_manifest_without_agents_keeps_empty_agent_result(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.write_text(
+            '{"name":"demo","version":"1.0.1",'
+            '"description":"Changed","skills":["./skills/"]}\n',
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertTrue(entries)
+        self.assertEqual(
+            {entry["target_kind"] for entry in entries},
+            {"skill"},
+        )
+
     def test_pr_removed_manifest_fails_target_discovery(self):
         manifest = self.create_plugin_fixture()
         self.git("init", "--quiet")
@@ -214,6 +260,46 @@ class WorkflowTargetsTests(unittest.TestCase):
         output = normalized_output(result)
         self.assertIn("target discovery cannot enumerate", output)
         self.assertIn("production surface", output)
+
+    def test_agent_source_change_with_missing_manifest_fails_closed(self):
+        agent = self.create_agent_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        agent.write_text(agent.read_text(encoding="utf-8") + "\nChanged.\n",
+                         encoding="utf-8")
+        head = self.commit_fixture("Change agent")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("plugin.json is missing", result.stdout + result.stderr)
+
+    def test_agent_source_change_with_invalid_manifest_fails_closed(self):
+        agent = self.create_agent_fixture("{ malformed")
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        agent.write_text(agent.read_text(encoding="utf-8") + "\nChanged.\n",
+                         encoding="utf-8")
+        head = self.commit_fixture("Change agent")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("plugin.json is invalid", result.stdout + result.stderr)
 
     def test_missing_spec_unknown_package_and_traversal_fail_closed(self):
         for selected in ("missing", "../alpha", "alpha/.."):

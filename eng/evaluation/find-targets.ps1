@@ -141,13 +141,16 @@ function Get-PluginAgentEntries {
   )
   $pluginRoot = [IO.Path]::GetFullPath((Join-Path $contentRoot "plugins" $plugin))
   $manifestPath = Join-Path $pluginRoot "plugin.json"
-  if (-not (Test-Path $manifestPath)) { return @() }
-  try {
-    $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-  } catch {
-    Write-Warning "Skipping agent discovery for '$plugin': malformed plugin.json"
-    return @()
+  if (-not (Test-Path $manifestPath -PathType Leaf)) {
+    throw "Cannot discover agents for '$plugin': plugin.json is missing."
   }
+  $manifestContent = Get-Content $manifestPath -Raw
+  $normalizedManifest = Get-ManifestWithoutVersion `
+    -Content $manifestContent -Label $manifestPath
+  if ($null -eq $normalizedManifest) {
+    throw "Cannot discover agents for '$plugin': plugin.json is invalid."
+  }
+  $manifest = $manifestContent | ConvertFrom-Json
   $declaredPaths = @($manifest.agents | Where-Object { -not [string]::IsNullOrWhiteSpace("$_") })
   if ($declaredPaths.Count -eq 0) { $declaredPaths = @("./agents/") }
 
@@ -219,7 +222,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   }
   try {
   $mergeBase = git merge-base $base $head
-  $changedFiles = git diff --name-only --diff-filter=ACMRD $mergeBase $head
+  $changedFiles = git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head
   $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
     -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
   foreach ($plugin in $changedManifestPlugins) {
@@ -342,6 +345,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
     $agentPlugins = @(
       $changedAgentSourcePlugins + $changedSkillSourcePlugins + $changedManifestPlugins + $changedTestPlugins |
+        Where-Object { $_ -ne 'agentic-workflows' } |
         Sort-Object -Unique)
     $entries += @($agentPlugins | ForEach-Object {
       $plugin = $_
