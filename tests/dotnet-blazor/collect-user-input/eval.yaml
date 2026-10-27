@@ -207,8 +207,8 @@ stimuli:
           command: >-
             python3 -c "from pathlib import Path; import re, sys;
             files=list(Path('.').glob('**/*Preferences*.razor'));
-            pattern=r'(?:FormName|@formname)\s*=\s*[\x22\x27]([^\x22\x27]+)';
-            sys.exit(0 if files and any(len(set(re.findall(pattern, p.read_text(), re.I))) >= 2 for p in files) else 1)"
+            pattern=r'<(?:EditForm|form)\b[^>]*?(?:FormName|@formname)\s*=\s*[\x22\x27]([^\x22\x27]+)';
+            sys.exit(0 if files and any(len(set(re.findall(pattern, p.read_text(), re.I|re.S))) >= 2 for p in files) else 1)"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -279,10 +279,15 @@ stimuli:
         config:
           path: '**/ProductFilter.razor'
           value: EventCallback
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/ProductFilter.razor'
-          value: InputSelect
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/ProductFilter.razor'));
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and len(re.findall(r'<(?:InputSelect|select)\b', text, re.I)) >= 2 else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: run-command
         config:
           command: dotnet build --no-restore

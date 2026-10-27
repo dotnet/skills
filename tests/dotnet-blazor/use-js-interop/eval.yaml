@@ -392,10 +392,14 @@ stimuli:
         config:
           path: '**/LocationMap.razor'
           value: DotNetObjectReference
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/LocationMap.razor'
-          value: JSDisconnectedException
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            files=list(Path('.').glob('**/LocationMap.razor'))+list(Path('.').glob('**/LocationMap.razor.cs'))+list(Path('.').glob('**/*Map*.cs'));
+            sys.exit(0 if files and any('JSDisconnectedException' in p.read_text() for p in files) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: '**/LocationMap.razor.js'
