@@ -36,7 +36,9 @@ break consumers or the API gate:
 - **Adding an optional parameter** to an existing public method is **binary-breaking**, even when ordinary
   source calls still compile. Already-compiled call sites bind to the exact old signature and fail with
   `MissingMethodException`. It can also be **source-breaking**: method-group conversions to the old
-  delegate type no longer compile. Keep the original method and add an overload instead.
+  delegate type no longer compile. Keep the original method and add an overload instead. Make the new
+  parameter required on the new overload: callers that omit it continue selecting the original method,
+  while callers that need the capability select the new signature explicitly.
 - **Adding a member to a public interface** breaks every implementer. A default interface member avoids
   this only where the runtime supports it (.NET Core 3.0+ and .NET 5+, not `netstandard2.0` or .NET
   Framework).
@@ -62,6 +64,9 @@ Preserve these unless the task is explicitly to change them.
    disappeared; restore the member and do not edit the line.
 3. If no gate exists in a library, diff the public surface manually (compare declarations, or a
    generated ref/`.txt`) and surface the delta to the user.
+4. In the final response, do not stop at "binary compatible." Name the preserved signature and the
+   failure it prevents for already-compiled consumers; name source-only hazards such as named arguments
+   or nullable callers just as concretely.
 
 ## Preserving identity: `[Obsolete]` shims and type-forwarders
 

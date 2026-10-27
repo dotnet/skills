@@ -91,9 +91,16 @@ and shipped baseline, test both old and new entry points, and explain the compat
 last edit, inspect the diff or reopen the implementation file before claiming success. A green test run
 does not prove a failed patch applied when the unchanged fixture already passes those tests.
 
+Do not use labels such as "for binary compatibility" as the whole explanation. Name the exact old
+entry point that remains, the consumer that still binds to it, and the concrete failure avoided. For
+example: "Kept `Parse(string?, int)` unchanged because already-compiled consumers still request that
+exact method and would throw `MissingMethodException` if it disappeared." For source-only breaks, name
+the affected syntax (`raw:` named arguments, derivation from a newly sealed class, or nullable callers)
+instead. This causal sentence is part of the implementation, not optional release-note polish.
+
 | Tempting change | Why it breaks | Safe shape |
 |-----------------|---------------|------------|
-| Add an optional parameter to a shipped method (`Foo(a)` → `Foo(a, b = null)`) | **Binary break**: the old signature is gone, so already-compiled consumers throw `MissingMethodException` until they recompile | Keep `Foo(a)` unchanged and add a new overload `Foo(a, b)`; record only the new overload |
+| Add an optional parameter to a shipped method (`Foo(a)` → `Foo(a, b = null)`) | **Binary break**: the old signature is gone, so already-compiled consumers throw `MissingMethodException` until they recompile | Keep `Foo(a)` unchanged and add a new overload `Foo(a, b)` with `b` required on that overload; omission continues to select the old method. Record only the new overload |
 | Fix RS0017 by editing or deleting a line in `PublicAPI.Shipped.txt` | Shipped lines are the released contract; rewriting one hides the break the gate exists to report | Leave shipped lines alone. Restore the shipped member and record new surface in `PublicAPI.Unshipped.txt` |
 | Add a member to a shipped public interface | Every existing implementer, including ones in other packages, stops compiling | Add a default interface implementation (requires runtime support: not on `netstandard2.0` or .NET Framework targets), or add a new interface. A default member is callable only through the interface, so also add a public member on any concrete type that must expose it, and record both |
 | Rename a shipped member | Source and binary break | Add the new name, keep the old one as an `[Obsolete]` forwarder, and record only the new member |
@@ -101,6 +108,17 @@ does not prove a failed patch applied when the unchanged fixture already passes 
 | Seal a class, make a member non-virtual, or narrow a parameter's nullability | Derived types, overrides, or nullable callers break | Treat as a breaking change; escalate rather than edit |
 | Change a `const` value or an optional parameter's default | The old value is compiled into callers and persists until they recompile | Preserve the shipped constant/default; introduce a separately named member (which may be `static readonly`) or a new overload for new behavior. Replacing an existing `const` with `static readonly` is itself source-breaking |
 | Change a value under `#if` for one target | Only consumers of that target see it; tests edited to match will not catch it | Treat as a behavior change for that target and call it out |
+
+Before finishing a compatibility-preserving edit, make the delta easy to audit:
+
+1. Name the **new** entry point or behavior and the **exact old** entry point that remains.
+2. Name the in-repo caller, generated template, or friend assembly you migrated, plus any external
+   consumer you could not migrate and therefore protected with a forwarder.
+3. State which baseline stayed unchanged and which new surface was recorded.
+4. Report the exact compatibility check that exercised the old entry point as well as the new one.
+
+For a no-change outcome, lead with `No files changed.` and identify the decisive evidence before any
+general explanation: the existing delegation, shipped signature, parameter name, or nullability line.
 
 When asked **"is this a breaking change?"** or to review a diff, make no edits unless asked and answer
 in this shape, scaled to the diff:
