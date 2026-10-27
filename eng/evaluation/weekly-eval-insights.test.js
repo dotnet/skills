@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   buildReport,
@@ -13,6 +15,8 @@ function skill(overrides = {}) {
   return {
     skill: 'example',
     timedOut: false,
+    targetActivationFailed: false,
+    completionRegressed: false,
     passTotal: 10,
     baselineFail: 6,
     treatmentFail: 2,
@@ -71,9 +75,18 @@ test('differentiation requires authoritative gate evidence', () => {
   assert.equal(isDifferentiated(skill({
     targetActivationFailed: true,
   })), false);
+  assert.equal(isDifferentiated(skill({
+    targetActivationFailed: undefined,
+  })), false);
+  assert.equal(isDifferentiated(skill({
+    completionRegressed: undefined,
+  })), false);
   assert.equal(classify(skill({
     targetActivationFailed: true,
   })), 'activation-failed');
+  assert.equal(classify(skill({
+    completionRegressed: undefined,
+  })), 'native-outcome-unverified');
 });
 
 test('invalid measurements take priority over unverified activation', () => {
@@ -500,6 +513,21 @@ test('missing revision evidence leaves variability comparability unknown', () =>
 
 test('week keys use the ISO week year', () => {
   assert.equal(isoWeekKey(new Date('2025-12-30T00:00:00Z')), '2026-W01');
+});
+
+test('collection and publication use the same workflow start timestamp', () => {
+  const workflow = fs.readFileSync(
+    path.join(__dirname, '..', '..', '.github', 'workflows', 'weekly-eval-insights.md'),
+    'utf8',
+  );
+
+  assert.match(
+    workflow,
+    /gh api "repos\/\$\{REPOSITORY\}\/actions\/runs\/\$\{GITHUB_RUN_ID\}"[\s\S]*--jq \.run_started_at/,
+  );
+  assert.doesNotMatch(workflow, /window_end="\$\(date -u/);
+  assert.equal(isoWeekKey(new Date('2026-10-25T23:58:00Z')), '2026-W43');
+  assert.equal(isoWeekKey(new Date('2026-10-26T00:01:00Z')), '2026-W44');
 });
 
 test('unfinished workflow runs do not affect duration averages', () => {

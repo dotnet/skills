@@ -41,6 +41,11 @@ function flattenWorkflowRuns(input) {
   return pages.flatMap(page => Array.isArray(page?.workflow_runs) ? page.workflow_runs : []);
 }
 
+function hasNativeOutcomeEvidence(skill) {
+  return typeof skill.completionRegressed === 'boolean'
+    && typeof skill.targetActivationFailed === 'boolean';
+}
+
 function isDifferentiated(skill) {
   const preference = skill.preference;
   if (!preference || preference.conclusive !== true || preference.underpowered === true) {
@@ -51,8 +56,9 @@ function isDifferentiated(skill) {
     && preference.practicalPassed === true
     && Number.isFinite(preference.pValue)
     && preference.pValue <= alpha
-    && skill.completionRegressed !== true
-    && skill.targetActivationFailed !== true
+    && hasNativeOutcomeEvidence(skill)
+    && skill.completionRegressed === false
+    && skill.targetActivationFailed === false
     && skill.activationContract?.evaluated === true
     && skill.activationContract.passed === true;
 }
@@ -67,8 +73,9 @@ function isPreferenceLoss(skill) {
     && preference.practicalPassed === true
     && Number.isFinite(preference.pValue)
     && preference.pValue <= alpha
-    && skill.completionRegressed !== true
-    && skill.targetActivationFailed !== true
+    && hasNativeOutcomeEvidence(skill)
+    && skill.completionRegressed === false
+    && skill.targetActivationFailed === false
     && skill.activationContract?.evaluated === true
     && skill.activationContract.passed === true;
 }
@@ -78,6 +85,7 @@ function classify(skill) {
   if (skill.targetActivationFailed === true) return 'activation-failed';
   if (skill.activationContract?.passed === false) return 'activation-failed';
   if (!skill.preference || skill.preference.conclusive !== true) return 'invalid';
+  if (!hasNativeOutcomeEvidence(skill)) return 'native-outcome-unverified';
   if (skill.activationContract?.evaluated !== true) return 'activation-unverified';
   if (skill.preference.underpowered === true) return 'underpowered';
   if (isDifferentiated(skill)) return 'differentiated';

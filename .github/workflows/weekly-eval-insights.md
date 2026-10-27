@@ -221,8 +221,15 @@ steps:
     run: |
       set -euo pipefail
       mkdir -p /tmp/gh-aw/data /tmp/gh-aw/eval-dashboard
-      window_end="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      window_start="$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+      window_end="$(
+        gh api "repos/${REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+          --jq .run_started_at
+      )"
+      if [ -z "${window_end}" ] || [ "${window_end}" = "null" ]; then
+        echo "::error::Workflow run start time is unavailable"
+        exit 1
+      fi
+      window_start="$(date -u -d "${window_end} - 7 days" +%Y-%m-%dT%H:%M:%SZ)"
       git fetch --no-tags --depth=1 origin dashboard-eval-data
       git archive --format=tar FETCH_HEAD data/ | tar -xf - -C /tmp/gh-aw/eval-dashboard
       gh api --method GET --paginate --slurp \
