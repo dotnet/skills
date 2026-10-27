@@ -4,6 +4,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -13,6 +14,12 @@ import yaml
 from test_token_failover import BASH
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def normalized_output(result):
+    output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", result.stdout + result.stderr)
+    output = re.sub(r"(?m)^\s*\|\s?", "", output)
+    return " ".join(output.split())
 
 
 class WorkflowTargetsTests(unittest.TestCase):
@@ -183,7 +190,7 @@ class WorkflowTargetsTests(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        output = result.stdout + result.stderr
+        output = normalized_output(result)
         self.assertIn("target discovery cannot enumerate", output)
         self.assertIn("production surface", output)
 
@@ -204,7 +211,7 @@ class WorkflowTargetsTests(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        output = result.stdout + result.stderr
+        output = normalized_output(result)
         self.assertIn("target discovery cannot enumerate", output)
         self.assertIn("production surface", output)
 
