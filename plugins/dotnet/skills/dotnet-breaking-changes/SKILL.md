@@ -4,12 +4,12 @@ description: >
   Use before changing .NET/C# code whose callers you do not control: a NuGet library, or a repo with
   PublicAPI.Shipped/Unshipped.txt, ApiCompat or package validation, multiple TargetFrameworks,
   InternalsVisibleTo, or partial/generated (.g.cs) types. Green builds miss silent breaks
-  from optional parameters, parameter names, interface members, sealing, const values,
-  nullability, and #if branches.
+  from optional parameters, parameter names, sealing, const values, nullability, and #if.
   USE FOR: "without breaking existing callers"; adding an optional parameter, overload, or
-  interface member; renaming a public method, parameter, or alias; changing a signature,
-  nullability, const/default value, or attribute; adding a target framework; renaming or removing an
-  InternalsVisibleTo-exposed internal member; fixing RS0016/RS0017 or ApiCompat errors; "is this PR breaking?".
+  interface member; renaming a public method, parameter, or alias; renaming or removing an internal
+  helper a friend assembly may use; consolidating duplicated logic; changing a
+  signature, nullability, const/default value, or attribute; adding a target framework; fixing
+  RS0016/RS0017 or ApiCompat errors; "is this PR breaking?".
   DO NOT USE FOR: a console app or executable whose callers all live in the same
   project (renaming its public members is a plain refactor);
   renaming a local or private member; formatting; framework/SDK/NuGet upgrades (use dotnet-upgrade).
@@ -49,6 +49,10 @@ Then read only the reference(s) for the surfaces you actually found. For every `
 name, check whether that project is in the solution: a friend **not** built here is an external
 consumer of every internal it can see, exactly like a public caller, and a green solution build proves
 nothing about it.
+
+Before editing, confirm the request's premise is true in the code. For "consolidate", "deduplicate", or
+"add X" requests, trace the actual calls: if one type already delegates to the other, or the member
+already exists, the work is done — change nothing and report the delegating call (see Stop and escalate).
 
 ## The hidden surfaces (depth in references/)
 
@@ -158,18 +162,18 @@ the project sets `EnablePackageValidation`, run `dotnet pack` — package valida
 - The requested change is **already in place** — e.g. the "duplicated" code already delegates to one
   implementation, or the overload already exists. Say so and change nothing; do not invent a
   refactor to have something to show.
-
-When you change nothing (the request is already done or has no safe shape), a bare "no" looks like
-ignoring the request. Make the final answer show the work, in this order: "No files changed." and why;
-the evidence that decided it (the shipped `PublicAPI.Shipped.txt` line, or the call that already
-delegates, with its file); who would break, or where the single implementation already lives; what the
-user *can* do instead, if anything; and the validation you ran.
 - A **public/shipped API** would change and you cannot verify compatibility — no shim/forwarder path and
   no PublicApiAnalyzers/ApiCompat/package-validation gate to catch a break.
 - The edit changes an **observable annotation** (nullability, `[DynamicallyAccessedMembers]`,
   `[RequiresUnreferencedCode]`, generic constraints) on a public member.
 - The change can be made consistent across **some but not all** target frameworks or platforms.
 - The only way to apply it is editing **generated output** that the next build will overwrite.
+
+When you change nothing (the request is already done or has no safe shape), a bare "no" looks like
+ignoring the request. Make the final answer show the work, in this order: "No files changed." and why;
+the evidence that decided it (the shipped `PublicAPI.Shipped.txt` line, or the call that already
+delegates, with its file); who would break, or where the single implementation already lives; what the
+user *can* do instead, if anything; and the validation you ran.
 
 ## Reference files
 
