@@ -41,6 +41,8 @@ Inspect the project's actual `TargetFramework` or `TargetFrameworks` before intr
 
 When starting a process with the APIs or `ProcessStartInfo` features described in this skill, keep `UseShellExecute` at its default value of `false`. Leave the property unset rather than explicitly assigning `false`: when the application never sets it, the AOT compiler can eliminate the unused shell-execution code.
 
+**Prefer argument collections over concatenating, interpolating, or joining arguments into `ProcessStartInfo.Arguments`.**
+
 Do not manually copy the parent's environment variables: `ProcessStartInfo.Environment` and `EnvironmentVariables` already initialize from them automatically. Apply only the child-specific changes.
 
 The nullability of static `Process.Start` depends on the launch mode:
@@ -83,7 +85,7 @@ Redirecting standard output and standard error creates two separate pipes. Each 
 With both streams redirected, this code can deadlock:
 
 ```csharp
-ProcessStartInfo startInfo = new("dotnet", "--help")
+ProcessStartInfo startInfo = new("dotnet", ["--help"])
 {
     RedirectStandardOutput = true,
     RedirectStandardError = true
@@ -134,7 +136,7 @@ public Task<(byte[] StandardOutput, byte[] StandardError)> ReadAllBytesAsync(Can
 For untrusted output, drain both streams concurrently with fixed-size byte buffers and enforce one shared retention budget across stdout and stderr before retaining each chunk. On overflow, either terminate the child and wait for termination, or keep only the bounded prefix and continue draining and discarding excess bytes. Report truncation or the limit violation. Do not simply stop reading a still-running child: it can block on full pipes. Give execution and output draining separate lifetime policies because descendants can keep writers open after the immediate child exits.
 
 ```csharp
-ProcessStartInfo startInfo = new("dotnet", "--help")
+ProcessStartInfo startInfo = new("dotnet", ["--help"])
 {
     RedirectStandardOutput = true,
     RedirectStandardError = true,
@@ -290,7 +292,7 @@ In asynchronous code, use `await Process.RunAsync(startInfo)` instead. The child
 **Never redirect output to pipes merely to suppress it.** This common anti-pattern creates stdout and stderr pipes without consuming them:
 
 ```csharp
-ProcessStartInfo psi = new("dotnet", "build")
+ProcessStartInfo psi = new("dotnet", ["build"])
 {
     RedirectStandardInput = true,
     RedirectStandardOutput = true,
