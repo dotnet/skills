@@ -219,9 +219,20 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   }
   try {
   $mergeBase = git merge-base $base $head
-  $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+  $changedFiles = git diff --name-only --diff-filter=ACMRD $mergeBase $head
   $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
     -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
+  foreach ($plugin in $changedManifestPlugins) {
+    $manifestPath = Join-Path $contentRoot "plugins" $plugin "plugin.json"
+    if (-not (Test-Path $manifestPath -PathType Leaf)) {
+      throw "Changed root manifest for '$plugin' is missing at the evaluated head; target discovery cannot enumerate the production surface."
+    }
+    $normalizedManifest = Get-ManifestWithoutVersion `
+      -Content (Get-Content $manifestPath -Raw) -Label $manifestPath
+    if ($null -eq $normalizedManifest) {
+      throw "Changed root manifest for '$plugin' is invalid; target discovery cannot enumerate the production surface."
+    }
+  }
 
   # Check if any changed files are in infrastructure paths. The native
   # custom-agent lane executes eng/skill-validator/src, so those source

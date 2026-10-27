@@ -62,9 +62,12 @@ behavior against the corrected executor.
 > legacy schema below. Health and issue-triage workflow models are separate.
 
 > PR discovery ignores a root plugin manifest when its only semantic change is
-> the generated `version` value. Any other root manifest change, including a
-> new, removed, or malformed manifest, still selects the plugin's full skill
-> and agent evaluation surface.
+> the generated `version` value. Both manifests must be strict JSON objects with
+> one valid `major.minor.patch` string in the top-level `version` property. A
+> new or semantically changed root manifest selects the plugin's full skill and
+> agent evaluation surface. A removed or invalid root manifest requires
+> evaluation, then target discovery fails explicitly because it cannot safely
+> enumerate the production agent surface.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup

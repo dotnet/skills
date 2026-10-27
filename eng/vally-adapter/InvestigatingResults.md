@@ -27,8 +27,12 @@ PR target discovery treats a root `plugin.json` edit as a full-plugin behavior
 change only when fields other than `version` differ. The automated version sync
 stamps generated versions into the root, Claude, and Codex manifests without
 changing the registered production surface, so version-only sync PRs do not run
-unrelated skill or agent evaluations. New, removed, malformed, or semantically
-changed root manifests still select every skill and agent eval for that plugin.
+unrelated skill or agent evaluations. Both manifests must be strict JSON objects
+with one valid `major.minor.patch` string in the top-level `version` property.
+New or semantically changed root manifests select every skill and agent eval for
+that plugin. Removed or invalid root manifests require evaluation, then target
+discovery fails explicitly because it cannot safely enumerate the production
+agent surface.
 
 The native agent parser stages `stimuli[].environment.files`, not a shared
 suite-level `environment.files` block. Declare required authentication helpers

@@ -3382,6 +3382,13 @@ esac
                     script,
                 )
                 self.assertIn("$changedManifestPlugins", script)
+                self.assertIn("--diff-filter=ACMRD", script)
+                if job_name != "discover":
+                    self.assertIn("if (Test-Path $helperPath)", script)
+                    self.assertIn(
+                        "treating every root manifest edit as a behavior change",
+                        script,
+                    )
 
         matrix_script = discovery_scripts["discover"]
         self.assertIn("$changedManifestPlugins", matrix_script)
@@ -3450,22 +3457,23 @@ esac
             semantic = commit_manifest(
                 "1.0.2", "Changed registration metadata", "Change manifest"
             )
-            manifest.write_text("{ malformed", encoding="utf-8")
-            subprocess.run(["git", "add", "."], cwd=root, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", "Break manifest"],
-                cwd=root,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            malformed = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=root,
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
+            def commit_raw(content: str, message: str) -> str:
+                manifest.write_text(content, encoding="utf-8")
+                subprocess.run(["git", "add", "."], cwd=root, check=True)
+                subprocess.run(
+                    ["git", "commit", "-m", message],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                return subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
 
             def classify(from_commit: str, to_commit: str) -> list[str]:
                 helper = str(CHANGE_CLASSIFICATION_SCRIPT).replace("'", "''")
@@ -3493,11 +3501,114 @@ esac
                 self.assertEqual(
                     result.returncode, 0, result.stdout + result.stderr
                 )
-                return json.loads(result.stdout.strip())
+                return json.loads(result.stdout.strip().splitlines()[-1])
 
             self.assertEqual(classify(base, version_only), [])
             self.assertEqual(classify(version_only, semantic), ["demo"])
-            self.assertEqual(classify(semantic, malformed), ["demo"])
+
+            invalid_manifests = {
+                "array root": '[{"name":"demo","version":"1.0.3"}]',
+                "comment": (
+                    '{"name":"demo",// comment\n'
+                    '"version":"1.0.3","skills":["./skills/"]}'
+                ),
+                "trailing comma": (
+                    '{"name":"demo","version":"1.0.3",'
+                    '"skills":["./skills/"],}'
+                ),
+                "missing version": '{"name":"demo","skills":["./skills/"]}',
+                "null version": (
+                    '{"name":"demo","version":null,"skills":["./skills/"]}'
+                ),
+                "numeric version": (
+                    '{"name":"demo","version":103,"skills":["./skills/"]}'
+                ),
+                "object version": (
+                    '{"name":"demo","version":{},"skills":["./skills/"]}'
+                ),
+                "array version": (
+                    '{"name":"demo","version":[],"skills":["./skills/"]}'
+                ),
+                "empty version": (
+                    '{"name":"demo","version":"","skills":["./skills/"]}'
+                ),
+                "malformed version": (
+                    '{"name":"demo","version":"1.0","skills":["./skills/"]}'
+                ),
+                "malformed JSON": "{ malformed",
+            }
+            for name, content in invalid_manifests.items():
+                with self.subTest(name=name):
+                    invalid = commit_raw(content, f"Invalid manifest: {name}")
+                    self.assertEqual(classify(semantic, invalid), ["demo"])
+
+            manifest.unlink()
+            subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "Remove manifest"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            deleted = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            self.assertEqual(classify(semantic, deleted), ["demo"])
+
+    def test_pr_status_missing_manifest_helper_fails_closed(self) -> None:
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        changed_files = [
+            "plugins/alpha/plugin.json",
+            "plugins/beta/plugin.json",
+            "plugins/alpha/README.md",
+        ]
+
+        for job_name in ("pr-status", "fork-pr-status"):
+            with self.subTest(job=job_name):
+                script = workflow_step_script(
+                    workflow, job_name, "$changedManifestPlugins = @("
+                )
+                match = re.search(
+                    r"(\$changedManifestPlugins = @\(\$changedFiles \|.*?"
+                    r"Sort-Object -Unique\))\s*\$helperPath",
+                    script,
+                    re.DOTALL,
+                )
+                self.assertIsNotNone(match)
+                powershell = (
+                    "$changedFiles = @("
+                    + ",".join(f"'{path}'" for path in changed_files)
+                    + "); "
+                    + match.group(1)
+                    + "; ConvertTo-Json -InputObject "
+                    "$changedManifestPlugins -Compress"
+                )
+                result = subprocess.run(
+                    [
+                        "pwsh",
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        powershell,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(
+                    result.returncode, 0, result.stdout + result.stderr
+                )
+                self.assertEqual(
+                    json.loads(result.stdout.strip()),
+                    ["alpha", "beta"],
+                )
+                self.assertIn("if (Test-Path $helperPath)", script)
 
     def test_manual_whole_plugin_dispatch_includes_agent_entries(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))

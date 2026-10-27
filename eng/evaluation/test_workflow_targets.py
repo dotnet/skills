@@ -67,6 +67,27 @@ class WorkflowTargetsTests(unittest.TestCase):
                  "commit", "--quiet", "-m", message)
         return self.git("rev-parse", "HEAD")
 
+    def create_plugin_fixture(self):
+        manifest = self.root / "plugins" / "demo" / "plugin.json"
+        skill = self.root / "plugins" / "demo" / "skills" / "sample" / "SKILL.md"
+        evaluation = self.root / "tests" / "demo" / "sample" / "eval.yaml"
+        manifest.parent.mkdir(parents=True)
+        skill.parent.mkdir(parents=True)
+        evaluation.parent.mkdir(parents=True)
+        manifest.write_text(
+            '{"name":"demo","version":"1.0.0","skills":["./skills/"]}\n',
+            encoding="utf-8",
+        )
+        skill.write_text(
+            "---\nname: sample\ndescription: Sample.\n---\nSample.\n",
+            encoding="utf-8",
+        )
+        evaluation.write_text(
+            "name: sample\nstimuli: []\n",
+            encoding="utf-8",
+        )
+        return manifest
+
     def test_manual_collection_and_single_package_dispatch(self):
         for selected, count in (("", 2), ("alpha", 1)):
             with self.subTest(selected=selected):
@@ -144,6 +165,48 @@ class WorkflowTargetsTests(unittest.TestCase):
                                  {"agentic-workflows/alpha/aw.yml", "agentic-workflows/beta/aw.yml"})
                 self.assertEqual(len(entries), 4)
                 self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
+
+    def test_pr_malformed_changed_manifest_fails_target_discovery(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.write_text("{ malformed", encoding="utf-8")
+        head = self.commit_fixture("Break manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = result.stdout + result.stderr
+        self.assertIn("target discovery cannot enumerate", output)
+        self.assertIn("production surface", output)
+
+    def test_pr_removed_manifest_fails_target_discovery(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.unlink()
+        head = self.commit_fixture("Remove manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = result.stdout + result.stderr
+        self.assertIn("target discovery cannot enumerate", output)
+        self.assertIn("production surface", output)
 
     def test_missing_spec_unknown_package_and_traversal_fail_closed(self):
         for selected in ("missing", "../alpha", "alpha/.."):
