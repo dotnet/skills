@@ -1,6 +1,7 @@
 // Staged only for grading. Usage: node assert-single-parser.js [src-dir]
-// Fails (exit 1) when duplicated parsing survives or ConfigReader does not forward both entry
-// points to AppSettingsHelper. Comments and string/char literals are masked before inspection.
+// Fails (exit 1) when duplicated parsing survives or the shipped AppSettingsHelper and ConfigReader
+// entry points do not reach the same AppSettingsHelper implementation. Comments and string/char
+// literals are masked before inspection.
 const fs = require('fs');
 const path = require('path');
 const { mask } = require('./assert-tests-kill-mutants.js');
@@ -13,7 +14,8 @@ const csFiles = dir => !fs.existsSync(dir) ? [] : fs.readdirSync(dir, { withFile
   });
 
 const code = csFiles(process.argv[2] || 'src/Billing').map(f => mask(fs.readFileSync(f, 'utf8'))).join('\n');
-const count = type => (code.match(new RegExp(`(?<![\\w.])(?:global\\s*::\\s*)?(?:System\\s*\\.\\s*)?(?:${type})\\s*\\.\\s*TryParse\\b`, 'g')) || []).length;
+const count = type => (code.match(new RegExp(
+  `(?<![\\w.])(?:global\\s*::\\s*)?(?:System\\s*\\.\\s*)?(?:${type})\\s*\\.\\s*(?:TryParse|Parse)\\b`, 'g')) || []).length;
 const ints = count('int|Int32');
 const bools = count('bool|Boolean');
 
@@ -33,7 +35,7 @@ function typeBody(name) {
 function memberBody(source, name, returnType) {
   if (!source) return null;
   const declaration = new RegExp(
-    `\\b(?:public\\s+)?static\\s+${returnType}\\s+${name}\\s*\\([^)]*\\)\\s*(\\{|=>)`, 'g');
+    `\\b(?:(?:public|private|internal|protected)\\s+)?static\\s+${returnType}\\s+${name}\\s*\\([^)]*\\)\\s*(\\{|=>)`, 'g');
   const match = declaration.exec(source);
   if (!match) return null;
   const start = match.index + match[0].length - match[1].length;
@@ -61,7 +63,7 @@ const aliases = [...code.matchAll(
 const hasStaticImport =
   /\busing\s+static\s+(?:global\s*::\s*)?(?:Billing\s*\.\s*)?AppSettingsHelper\s*;/.test(code);
 
-function callsShared(body, member) {
+function callsAppSettingsMember(body, member) {
   if (!body) return false;
   const qualifiers = ['AppSettingsHelper', ...aliases]
     .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
@@ -70,23 +72,62 @@ function callsShared(body, member) {
     (hasStaticImport && new RegExp(`\\b${member}\\b`).test(body));
 }
 
+function memberNames(source, returnType) {
+  const declaration = new RegExp(
+    `\\b(?:(?:public|private|internal|protected)\\s+)?static\\s+${returnType}\\s+([A-Za-z_]\\w*)\\s*\\(`, 'g');
+  return [...source.matchAll(declaration)].map(match => match[1]);
+}
+
+function reachesParser(body, returnType, parses, seen = new Set()) {
+  if (!body) return false;
+  if (parses(body)) return true;
+
+  for (const match of body.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) {
+    const name = match[1];
+    if (seen.has(name)) continue;
+    const target = memberBody(appSettings, name, returnType);
+    if (!target) continue;
+    const nextSeen = new Set(seen).add(name);
+    if (reachesParser(target, returnType, parses, nextSeen)) return true;
+  }
+  return false;
+}
+
+function forwardsToSharedParser(body, returnType, parses) {
+  if (!body || parses(body)) return false;
+  return memberNames(appSettings, returnType).some(name =>
+    callsAppSettingsMember(body, name) &&
+    reachesParser(memberBody(appSettings, name, returnType), returnType, parses, new Set([name])));
+}
+
+const intType = '(?:int|Int32|System\\s*\\.\\s*Int32)';
+const boolType = '(?:bool|Boolean|System\\s*\\.\\s*Boolean)';
+const appSettings = typeBody('AppSettingsHelper');
 const configReader = typeBody('ConfigReader');
-const readInt = memberBody(configReader, 'ReadInt', '(?:int|Int32|System\\s*\\.\\s*Int32)');
-const readBool = memberBody(configReader, 'ReadBool', '(?:bool|Boolean|System\\s*\\.\\s*Boolean)');
+const parseInt = memberBody(appSettings, 'ParseIntSetting', intType);
+const parseBool = memberBody(appSettings, 'ParseBoolSetting', boolType);
+const readInt = memberBody(configReader, 'ReadInt', intType);
+const readBool = memberBody(configReader, 'ReadBool', boolType);
 const parsesInt = body => body && /(?<![\w.])(?:System\s*\.\s*)?(?:int|Int32)\s*\.\s*(?:TryParse|Parse)\b/.test(body);
 const parsesBool = body => body && /(?<![\w.])(?:System\s*\.\s*)?(?:bool|Boolean)\s*\.\s*(?:TryParse|Parse)\b/.test(body);
 const errors = [];
-if (ints > 1 || bools > 1) {
-  errors.push(`duplicated parsing remains: ${ints} int TryParse call(s), ${bools} bool TryParse call(s)`);
+if (ints !== 1 || bools !== 1) {
+  errors.push(`expected one parsing implementation: ${ints} int parser call(s), ${bools} bool parser call(s)`);
 }
-if (!callsShared(readInt, 'ParseIntSetting') || parsesInt(readInt)) {
-  errors.push('ConfigReader.ReadInt does not forward exclusively to AppSettingsHelper.ParseIntSetting');
+if (!reachesParser(parseInt, intType, parsesInt)) {
+  errors.push('AppSettingsHelper.ParseIntSetting does not reach the shared int parser');
 }
-if (!callsShared(readBool, 'ParseBoolSetting') || parsesBool(readBool)) {
-  errors.push('ConfigReader.ReadBool does not forward exclusively to AppSettingsHelper.ParseBoolSetting');
+if (!reachesParser(parseBool, boolType, parsesBool)) {
+  errors.push('AppSettingsHelper.ParseBoolSetting does not reach the shared bool parser');
+}
+if (!forwardsToSharedParser(readInt, intType, parsesInt)) {
+  errors.push('ConfigReader.ReadInt does not forward to the shared AppSettingsHelper int parser');
+}
+if (!forwardsToSharedParser(readBool, boolType, parsesBool)) {
+  errors.push('ConfigReader.ReadBool does not forward to the shared AppSettingsHelper bool parser');
 }
 if (errors.length) {
   console.error(errors.join('\n'));
   process.exit(1);
 }
-console.log(`single parsing implementation: ${ints} int, ${bools} bool TryParse call(s)`);
+console.log(`single parsing implementation: ${ints} int, ${bools} bool parser call(s)`);

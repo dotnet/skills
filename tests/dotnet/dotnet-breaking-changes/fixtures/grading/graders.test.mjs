@@ -717,12 +717,42 @@ public static class ConfigReader
 }
 `;
 
+const sharedCoreForwarder = `namespace Billing;
+public static class AppSettingsHelper
+{
+    public static int ParseIntSetting(string? raw, int fallback)
+        => ParseIntCore(raw, fallback);
+
+    public static bool ParseBoolSetting(string? raw, bool fallback)
+        => ParseBoolCore(raw, fallback);
+
+    internal static int ParseIntCore(string? raw, int fallback)
+        => int.TryParse(raw, out var v) ? v : fallback;
+
+    internal static bool ParseBoolCore(string? raw, bool fallback)
+        => bool.TryParse(raw, out var v) ? v : fallback;
+}
+
+public static class ConfigReader
+{
+    public static int ReadInt(string? raw, int fallback)
+        => AppSettingsHelper.ParseIntCore(raw, fallback);
+
+    public static bool ReadBool(string? raw, bool fallback)
+        => AppSettingsHelper.ParseBoolCore(raw, fallback);
+}
+`;
+
 test("assert-single-parser: the shipped duplicated fixture fails", () => {
   assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": readFileSync(join(suite, "src", "Billing", "AppSettingsHelper.cs"), "utf8") }), 1);
 });
 
 test("assert-single-parser: a forwarder documented with TryParse in comments and strings passes", () => {
   assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": documentedForwarder }), 0);
+});
+
+test("assert-single-parser: both public types may forward through shared AppSettingsHelper cores", () => {
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": sharedCoreForwarder }), 0);
 });
 
 test("assert-single-parser: the golden share-parsing patch result passes", () => {
