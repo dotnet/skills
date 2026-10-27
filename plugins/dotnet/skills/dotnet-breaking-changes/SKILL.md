@@ -3,13 +3,13 @@ name: dotnet-breaking-changes
 description: >
   Use before changing .NET/C# code whose callers you do not control: a NuGet library, or a repo with
   PublicAPI.Shipped/Unshipped.txt, ApiCompat or package validation, multiple TargetFrameworks,
-  InternalsVisibleTo, or partial/generated (.g.cs) types. Green builds and tests miss silent breaks
+  InternalsVisibleTo, or partial/generated (.g.cs) types. Green builds miss silent breaks
   from optional parameters, parameter names, interface members, sealing, const values,
   nullability, and #if branches.
   USE FOR: "without breaking existing callers"; adding an optional parameter, overload, or
   interface member; renaming a public method, parameter, or alias; changing a signature,
-  nullability, const/default value, or attribute; adding a target framework; renaming an internal
-  used by a friend assembly; fixing RS0016/RS0017 or ApiCompat errors; "is this PR breaking?".
+  nullability, const/default value, or attribute; adding a target framework; renaming or removing an
+  internal member or helper; fixing RS0016/RS0017 or ApiCompat errors; "is this PR breaking?".
   DO NOT USE FOR: a console app, web app, or other executable whose callers all live in the same
   project (renaming its public members is a plain refactor);
   renaming a local or private member; formatting; framework/SDK/NuGet upgrades (use dotnet-upgrade).
@@ -45,7 +45,10 @@ git ls-files "*.g.cs" "*.generated.cs" ; grep -rln "partial class\|partial recor
 grep -rn "InternalsVisibleTo" --include=*.cs --include=*.csproj --include=*.props .
 ```
 
-Then read only the reference(s) for the surfaces you actually found.
+Then read only the reference(s) for the surfaces you actually found. For every `InternalsVisibleTo`
+name, check whether that project is in the solution: a friend **not** built here is an external
+consumer of every internal it can see, exactly like a public caller, and a green solution build proves
+nothing about it.
 
 ## The hidden surfaces (depth in references/)
 
@@ -104,10 +107,17 @@ instead. This causal sentence is part of the implementation, not optional releas
 | Fix RS0017 by editing or deleting a line in `PublicAPI.Shipped.txt` | Shipped lines are the released contract; rewriting one hides the break the gate exists to report | Leave shipped lines alone. Restore the shipped member and record new surface in `PublicAPI.Unshipped.txt` |
 | Add a member to a shipped public interface | Every existing implementer, including ones in other packages, stops compiling | Add a default interface implementation (requires runtime support: not on `netstandard2.0` or .NET Framework targets), or add a new interface. A default member is callable only through the interface, so also add a public member on any concrete type that must expose it, and record both |
 | Rename a shipped member | Source and binary break | Add the new name, keep the old one as an `[Obsolete]` forwarder, and record only the new member |
+| Rename or remove an `internal` member when `InternalsVisibleTo` names an assembly not in the solution | That friend was compiled against the old name and cannot be updated from this repo; it fails at bind time | Add the new name, migrate in-repo callers, keep the old internal name as an `[Obsolete]` forwarder, keep the grant, and name the protected friend in the answer |
 | Rename a parameter of a shipped member | Callers passing it by name (`raw: x`) stop compiling and late-bound/`dynamic` callers fail; positional callers in this repo hide it. PublicAPI analyzers report it as RS0016 + RS0017 | Keep the shipped name — no overload can carry a different name for the same signature. Leave it unchanged and edit nothing else; you may offer (not make) a clearer XML `<param>` doc, or the rename at the next major version |
 | Seal a class, make a member non-virtual, or narrow a parameter's nullability | Derived types, overrides, or nullable callers break | Treat as a breaking change; escalate rather than edit |
 | Change a `const` value or an optional parameter's default | The old value is compiled into callers and persists until they recompile | Preserve the shipped constant/default; introduce a separately named member (which may be `static readonly`) or a new overload for new behavior. Replacing an existing `const` with `static readonly` is itself source-breaking |
 | Change a value under `#if` for one target | Only consumers of that target see it; tests edited to match will not catch it | Treat as a behavior change for that target and call it out |
+
+Whenever you kept an old entry point or departed from the literal request, the final answer must
+contain this line, filled in — terse bullets such as "preserved for binary consumers" do not satisfy it:
+
+> **Compatibility:** Kept `<exact old signature>` unchanged because `<who still binds to it>` would
+> `<concrete failure>` if it changed. `<What you did instead of the literal request, and why.>`
 
 Before finishing a compatibility-preserving edit, make the delta easy to audit:
 
