@@ -304,15 +304,19 @@ stimuli:
         config:
           command: >-
             python3 -c "from pathlib import Path; import re, sys;
-            files=[p for p in Path('.').glob('**/*.razor') if '.Client' in str(p)];
+            files=list(Path('.').glob('**/*.Client/**/*Profile*.razor'))+list(Path('.').glob('**/*.Client/**/*Profile*.razor.cs'));
             text='\n'.join(p.read_text() for p in files);
             sys.exit(0 if files and re.search(r'Persistent(?:Component)?State', text) else 1)"
           expected_exit_code: 0
           timeout: 1m
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/*.Client/**/*.razor'
-          value: OnParametersSetAsync
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            files=list(Path('.').glob('**/*.Client/**/*Profile*.razor'))+list(Path('.').glob('**/*.Client/**/*Profile*.razor.cs'));
+            sys.exit(0 if files and any('OnParametersSetAsync' in p.read_text() for p in files) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: run-command
         config:
           command: dotnet build --no-restore

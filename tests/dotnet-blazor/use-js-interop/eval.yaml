@@ -296,10 +296,15 @@ stimuli:
       promise rejections, event handlers, or .NET references behind.
     environment: *interactive-server-project
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/ClipboardMonitor.razor'
-          value: '[JSInvokable]'
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/ClipboardMonitor.razor'))+list(Path('.').glob('**/ClipboardMonitor.razor.cs'));
+            text='\n'.join(p.read_text() for p in files);
+            sys.exit(0 if files and re.search(r'\[\s*JSInvokable\b(?:\s*\([^]]*\))?\s*\]', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: '**/ClipboardMonitor.razor'
@@ -310,8 +315,9 @@ stimuli:
             python3 -c "from pathlib import Path; import re, sys;
             files=list(Path('.').glob('**/ClipboardMonitor.razor.js'));
             text='\n'.join(p.read_text() for p in files);
-            pattern=r'try\s*\{.*?await\s+.*?invokeMethodAsync.*?\}\s*catch';
-            sys.exit(0 if files and re.search(pattern, text, re.S) else 1)"
+            try_catch=re.search(r'try\s*\{.*?await\s+.*?invokeMethodAsync.*?\}\s*catch', text, re.S);
+            promise_catch=re.search(r'invokeMethodAsync\s*\(.*?\)\s*\.catch\s*\(', text, re.S);
+            sys.exit(0 if files and (try_catch or promise_catch) else 1)"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -352,14 +358,22 @@ stimuli:
       FocusAsync calls safe before and after the first render.
     environment: *interactive-server-project
     graders:
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/FocusableEditor.razor'
-          value: ElementReference
-      - type: file-contains
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            files=list(Path('.').glob('**/FocusableEditor.razor'))+list(Path('.').glob('**/FocusableEditor.razor.cs'));
+            sys.exit(0 if files and any('ElementReference' in p.read_text() for p in files) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
         config:
-          path: '**/FocusableEditor.razor'
-          value: OnAfterRenderAsync
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            files=list(Path('.').glob('**/FocusableEditor.razor'))+list(Path('.').glob('**/FocusableEditor.razor.cs'));
+            sys.exit(0 if files and any('OnAfterRenderAsync' in p.read_text() for p in files) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: '**/FocusableEditor.razor.js'

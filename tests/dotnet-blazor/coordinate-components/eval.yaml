@@ -305,8 +305,32 @@ stimuli:
       better root-level state design so each group of consumers subscribes only
       to the value it needs, while updates still propagate app-wide to
       interactive subscribers.
-      Add the state types and registrations needed for the generated project to build.
-    environment: *interactive-server-project
+      Replace AppState with ThemeState, LocaleState, CartState, and
+      ConnectionState cascades. Rewire the supplied ThemePreview, LocalePreview,
+      CartSummary, and ConnectionBadge consumers to their matching state. Add
+      the registrations and source wrappers needed for the project to build.
+    environment:
+      files:
+        - src: ../fixtures/global.json
+          dest: global.json
+        - src: fixtures/granular-cascades/AppState.cs
+          dest: State/AppState.cs
+        - src: fixtures/granular-cascades/SettingsShell.razor
+          dest: Components/SettingsShell.razor
+        - src: fixtures/granular-cascades/ThemePreview.razor
+          dest: Components/ThemePreview.razor
+        - src: fixtures/granular-cascades/LocalePreview.razor
+          dest: Components/LocalePreview.razor
+        - src: fixtures/granular-cascades/CartSummary.razor
+          dest: Components/CartSummary.razor
+        - src: fixtures/granular-cascades/ConnectionBadge.razor
+          dest: Components/ConnectionBadge.razor
+        - src: fixtures/granular-cascades/Settings.razor
+          dest: Components/Pages/Settings.razor
+        - src: fixtures/granular-cascades/VerifyGranularCascades.py
+          dest: VerifyGranularCascades.py
+      commands:
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor --interactivity server --no-https --force
     graders:
       - type: file-contains
         config:
@@ -316,6 +340,11 @@ stimuli:
         config:
           path: '**/*.cs'
           value: NotifyChangedAsync
+      - type: run-command
+        config:
+          command: python3 VerifyGranularCascades.py
+          expected_exit_code: 0
+          timeout: 1m
       - type: run-command
         config:
           command: dotnet build --no-restore

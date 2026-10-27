@@ -16,7 +16,7 @@ request_pattern = re.compile(
     + re.escape(variable)
     + r"\}\}(/api/catalog(?:/\d+)?)(?:\s+HTTP/\d(?:\.\d)?)?\s*$"
 )
-blocks = re.split(r"(?m)^\s*###(?:\s+.*)?$", text)
+blocks = re.split(r"(?m)^[ \t]*###[ \t]*(?:[^\r\n]*)?$", text)
 requests = []
 for block in blocks:
     matches = list(request_pattern.finditer(block))
