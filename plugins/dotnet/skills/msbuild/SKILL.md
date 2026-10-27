@@ -1,6 +1,6 @@
 ---
 name: msbuild
-description: "Use for MSBuild build-file review/repair, .binlog capture/replay, and build-speedup claims or controlled timing comparisons, even without a checkout. A successful build followed by a failing test assertion is code/test debugging: DO NOT activate. Framework/API or .NET/ASP.NET Core upgrade plans and working non-SDK-to-SDK/packages.config migrations are migration tasks: DO NOT activate. Activate before editing .proj/.csproj/.fsproj/.vbproj or Directory.Build.props/targets; review Import/Exists hooks, NuGet packed imports, conditions, custom targets, Inputs/Outputs, stale generated outputs and incorrect incremental skips. Simple-looking XML can break evaluation, hook order or input tracking. Also diagnose failed dotnet build/restore/pack/publish and slow evaluation, compilation, copying or no-change builds. Exclude SDK installation alone, C# refactoring, runtime CPU profiling and non-MSBuild builds."
+description: "Use for MSBuild XML review/repair, .binlog capture/replay, and assessing supported or unsupported build-speedup claims and controlled timings, even without a checkout. Framework/API/.NET/ASP.NET upgrades and working non-SDK-to-SDK/packages.config conversions are migrations: DO NOT activate. A failing assertion after a successful build is code/test debugging: DO NOT activate. For MSBuild authoring itself, activate before reviewing/editing .proj/.props/.targets/.csproj/.fsproj/.vbproj or Directory.Build files, including no-change import reviews. Check Import/Exists, required and NuGet packed imports, hook order, conditions, custom targets, Inputs/Outputs, stale generated outputs and incorrect skips; small XML fixes need safe verification. Also diagnose failed dotnet build/restore/pack/publish or slow evaluation/compilation/copying. Exclude SDK installation alone, C# refactoring, runtime CPU profiling and non-MSBuild builds."
 license: MIT
 ---
 
@@ -22,16 +22,17 @@ SDK selection, configuration, target framework, runtime identifier, global prope
 Ask only for consequential information that cannot be discovered.
 
 An existing `.binlog` can be the only available artifact. Analyze it before requesting a new
-build; paths inside it do not prove a checkout exists locally. A self-contained static review
-or advisory question needs no checkout, restore, build, or binlog. A reference is optional:
-read one only when a material semantic question remains unresolved.
+build; paths inside it do not prove a checkout exists locally.
 
 For a mixed request, fix correctness before measuring successful builds, and keep authoring review
 separate from a performance experiment. A failing test assertion after a successful build is not
 an MSBuild failure.
 
-**Capture only:** append a binary logger with an unused path to the exact supplied command,
-run it once, and save its original exit code before checking the new log is nonempty.
+**Capture only:** choose an unused artifact path under the supplied workspace, unless the user
+specified another artifact directory. Do not put the only deliverable in a shared/global
+temporary directory where workspace artifact collection will miss it, or stage/commit the log.
+Append the binary logger to the exact supplied command, run it once, and save its original
+exit code before checking the new log is nonempty.
 Report the artifact path and original exit code, then stop: no replay, diagnosis, or repair.
 Read [capture details](references/binlog-generation.md) only for an unresolved wrapper,
 logger-option, toolset, or privacy question.
@@ -72,26 +73,36 @@ equivalent builds without losing required behavior.
 For advice, give the verdict, decisive supplied facts, and a concrete next step. When further
 measurements are needed, finish with how equivalent successful builds and required outputs
 will validate any gain. Do not re-prove a supplied timeline or load references to restate settled facts.
+Do not label a workload warm/no-op or assign most of a timing gap to one confound without evidence.
 
 | Supplied evidence | Decision | Smallest useful follow-up |
 | --- | --- | --- |
 | Parallel target totals include overlapping dependency waits | Keep required references and parallelism. Cumulative waits can exceed both wall time and the duration of one dependency task; they do not prove CPU utilization or healthy scheduling. | Follow the supplied timeline to the dependency task holding up consumers. For `Csc`, inspect compiler inputs and invocation, analyzer/source-generator timing, and whether compilation was expected for this workload. Measure CPU/node utilization or I/O contention if unknown; do not infer them from wait totals. Validate any change with equivalent successful builds and required outputs. |
 | Commands, restore policy, or starting input/output states differ | Reject attribution to the setting, not the possibility of a real gain. | Give one matched old-setting/new-setting experiment below, not a menu of different workloads or an invented setting name. |
-| Repeated successful runs have matched conditions and outputs | Accept the observed improvement for that workload; calculate it from comparable summaries and report spread. | Bound the conclusion by the sample and workload, without inventing hidden failures or requiring other scenarios or a checkout. |
+| Repeated successful runs have matched conditions and outputs | Accept the observed improvement for that workload; use the same summary statistic for both arms: `100 * (old - new) / old`. | Report sample count and observed elapsed-time ranges, not an invented percentage uncertainty interval. Do not require a checkout to acknowledge the supplied result. |
 
-For a minimal A/B plan, make **A = old setting; B = new setting**, not restore-on versus
-restore-off:
+For one minimal A/B experiment:
 
-1. Repeat the original baseline command as written for both arms unless the user explicitly
-   requests another workload. Do not pre-restore and add `--no-restore` to a restore-inclusive
-   experiment: that changes the measured scope. Keep SDK, machine, configuration,
-   instrumentation, input edit, and starting outputs equivalent; change only the setting.
-   Give one experiment, not a menu of Rebuild, changed-input, and no-op workloads.
-2. Warm both arms outside samples only for a warm-workload claim; retain cold-start work
-   for a cold claim. Never purge shared caches or stop shared build servers.
-3. Alternate several matched pairs, record wall time, compare medians and spread, and check
-   required outputs and diagnostics. Scope the claim to that workload, not the original
-   confounded timing gap. No benchmark matrix is needed.
+1. Identify the **actual changed setting**, keeping unspecified names/values as placeholders.
+   A differing target or restore flag is not that setting unless the user identifies it as such.
+2. Copy the full original baseline command into **both arms**, not a generic replacement.
+   Change only the actual setting's argument if it is supplied on the command line; otherwise
+   keep the invocation verbatim and vary its configured value.
+
+| Arm | Actual setting value | Invocation and workload |
+| --- | --- | --- |
+| A | Old value | Original baseline command, input edit, and starting outputs |
+| B | New value | Repeat A's full command, edit, and starting outputs; only the actual setting differs |
+
+3. Match all non-treatment controls: SDK, machine, configuration, instrumentation, target,
+   restore policy, input edit, and starting outputs. Preserve the original workload: do not
+   substitute ordinary Build for a supplied Rebuild or move restore outside timed samples
+   just to make measurement easier. Give this one experiment, not a menu of alternative workloads.
+   Warm both arms outside samples only for an explicitly warm-workload claim; retain cold-start
+   work for a cold claim. Never purge shared caches or stop shared build servers.
+4. Alternate several matched pairs, compare wall-time medians and observed spread, and check
+   required outputs and diagnostics. Scope the conclusion to that workload, not the original
+   confounded timing gap.
 
 For requested optimization, reuse matching evidence or establish the relevant successful
 baseline before editing. Separate evaluation from execution, choose the measured branch
@@ -128,8 +139,9 @@ and inspect SDK defaults before adding switches to suppress supposedly duplicate
 | Restructure generation or copying as part of cleanup | [incremental-build](references/incremental-build.md) and [copy-to-output-directory](references/copy-to-output-directory.md), as applicable | First-build and no-change behavior, invalidation, generated-item registration, and output completeness. |
 
 Record the existing contract before editing. Review only relevant catalog entries; a matching text
-pattern is not proof of a defect. Leave already-correct patterns unchanged. Validate the original
-configurations, relevant consumers, and affected incremental/pack/publish behavior.
+pattern is not proof of a defect. Leave already-correct patterns unchanged. After authorized
+changes, validate the original configurations, relevant consumers, and affected
+incremental/pack/publish behavior.
 
 Keep optional and required imports distinct, including inside aggregation files:
 
