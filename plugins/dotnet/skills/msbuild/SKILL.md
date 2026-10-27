@@ -1,6 +1,6 @@
 ---
 name: msbuild
-description: "Use for MSBuild failure investigation or repair, stale generated outputs and incorrect incremental skips, build-performance analysis (including advisory timing claims without a checkout), or review of existing build XML/extension contracts. Failed assertions after a successful build are code/test debugging: do not activate just because dotnet test failed. Converting working legacy/non-SDK projects to SDK style, packages.config migration, and framework/API upgrades are migrations, not build-file reviews: do not activate. Activate for advisory Import/Exists hooks and NuGet packed-import questions even without a checkout; .csproj/.fsproj/.vbproj/.props/.targets conditions; custom-target input membership, Inputs/Outputs; .binlog capture/replay; failing dotnet build/restore/pack/publish; slow evaluation, compilation, copying or no-change builds; and controlled timing comparisons. Exclude SDK installation alone, C# refactoring, runtime profiling, and non-MSBuild builds."
+description: "Use for MSBuild build-file review/repair, .binlog capture/replay, and build-speedup claims or controlled timing comparisons, even without a checkout. A successful build followed by a failing test assertion is code/test debugging: DO NOT activate. Framework/API or .NET/ASP.NET Core upgrade plans and working non-SDK-to-SDK/packages.config migrations are migration tasks: DO NOT activate. Activate before editing .proj/.csproj/.fsproj/.vbproj or Directory.Build.props/targets; review Import/Exists hooks, NuGet packed imports, conditions, custom targets, Inputs/Outputs, stale generated outputs and incorrect incremental skips. Simple-looking XML can break evaluation, hook order or input tracking. Also diagnose failed dotnet build/restore/pack/publish and slow evaluation, compilation, copying or no-change builds. Exclude SDK installation alone, C# refactoring, runtime CPU profiling and non-MSBuild builds."
 license: MIT
 ---
 
@@ -30,6 +30,12 @@ For a mixed request, fix correctness before measuring successful builds, and kee
 separate from a performance experiment. A failing test assertion after a successful build is not
 an MSBuild failure.
 
+**Capture only:** append a binary logger with an unused path to the exact supplied command,
+run it once, and save its original exit code before checking the new log is nonempty.
+Report the artifact path and original exit code, then stop: no replay, diagnosis, or repair.
+Read [capture details](references/binlog-generation.md) only for an unresolved wrapper,
+logger-option, toolset, or privacy question.
+
 ## 1. Troubleshoot build issues
 
 **Goal:** identify the independent root causes and make the smallest repair, not a broad cleanup.
@@ -37,7 +43,7 @@ an MSBuild failure.
 | Situation | Reference if needed | Action |
 | --- | --- | --- |
 | A build failed and a binary log exists | [binlog-failure-analysis](references/binlog-failure-analysis.md) | Replay the log with MSBuild; connect errors to the responsible project instance, target, and task. Separate root causes from cascading failures. |
-| The failure needs evidence and no matching log exists | [binlog-generation](references/binlog-generation.md), then [failure analysis](references/binlog-failure-analysis.md) | Capture the original invocation once, verify the artifact, and analyze it. |
+| The failure needs evidence and no matching log exists | [binlog-generation](references/binlog-generation.md), then [failure analysis](references/binlog-failure-analysis.md) | Capture the original invocation once and verify the artifact. Analyze it only when requested. |
 | A project/build file has incorrect conditions, items, properties, or output paths | [msbuild-antipatterns](references/msbuild-antipatterns.md) | Select the relevant catalog entries and check their exceptions before changing anything. |
 | Imports or build hooks are missing, overwritten, or run in the wrong order | [extension-points](references/extension-points.md) | Inspect the import contract, discovery order, and packed NuGet layout rather than hiding a required failure. |
 | Outputs are stale or required work is skipped | [incremental-build](references/incremental-build.md) | Prove the invalidation defect. For input-set changes, prefer a persisted membership list written with `WriteLinesToFile` and `WriteOnlyWhenDifferent`, plus the actual files in `Inputs`. A list of paths is not a content hash. |
@@ -48,8 +54,11 @@ project and required imports, not by deleting and recreating original sources. I
 in-place check is unavoidable, copy originals before mutation, preserve timestamps, restore in
 `finally`, and compare source hashes before claiming preservation. `Get-Content`/`Set-Content`
 round-trips do not preserve exact bytes, encodings, or line endings.
-For membership repairs, explain the old timestamp blind spot, how the state file and actual
-inputs cover different changes, and which checks actually ran.
+Explain the mechanism, not only the resulting behavior: removed inputs disappear from the
+timestamp comparison; an older addition need not be newer than the output. A membership file
+changes for either case, while actual input timestamps still catch ordinary edits.
+`WriteOnlyWhenDifferent` preserves unchanged-build skips. Keep empty-input generation and
+missing-output recovery working; report which cases actually ran.
 
 After a repair, rerun the original failing scenario and check affected dependents. If only a log
 is available, provide an evidence-backed proposed fix and say it was not applied or rebuilt.
@@ -60,39 +69,33 @@ Do not turn a targeted failure investigation into solution-wide authoring cleanu
 **Goal:** measure the reported scenario, identify its bottleneck, change one cause, and compare
 equivalent builds without losing required behavior.
 
-For advisory questions covered by this table, give a verdict, the decisive evidence, and a
-ranked next-measurement plan only where evidence is missing. Stop there; do not load references
-or start a diagnostic workflow to restate supplied facts.
+For advice, give the verdict, decisive supplied facts, and a concrete next step. When further
+measurements are needed, finish with how equivalent successful builds and required outputs
+will validate any gain. Do not re-prove a supplied timeline or load references to restate settled facts.
 
 | Supplied evidence | Decision | Smallest useful follow-up |
 | --- | --- | --- |
-| Parallel target totals include overlapping dependency waits | Do not treat cumulative wait as exclusive work, CPU utilization, or a reason to remove required references or disable parallelism. | Confirm critical-path task intervals, dependency completion, and waiting projects' resumption before attributing wall time to a candidate task. Inspect compiler/analyzer/generator or I/O detail and unnecessary reruns. Measure contention before changing node budgets; any claimed gain needs matched successful builds and preserved required outputs. |
-| Before/after commands, restore policy, or input/output states differ | Reject attribution to the setting: the comparison is confounded. | **A = old setting; B = new setting; identical command and workload.** Keep the setting unnamed if it was not supplied. Restore-on versus restore-off, or Rebuild versus no-op, measures a different change and cannot replace this A/B test. |
-| Repeated successful runs have matched conditions and required outputs | Accept the observed improvement for that workload; compute the reduction from comparable summaries and report the spread. | Qualify sample size and deployment scope without inventing failures, hidden confounds, or statistical limitations. Other workloads or a checkout are not prerequisites for reporting the supplied observation. |
+| Parallel target totals include overlapping dependency waits | Keep required references and parallelism. Cumulative waits can exceed both wall time and the duration of one dependency task; they do not prove CPU utilization or healthy scheduling. | Follow the supplied timeline to the dependency task holding up consumers. For `Csc`, inspect compiler inputs and invocation, analyzer/source-generator timing, and whether compilation was expected for this workload. Measure CPU/node utilization or I/O contention if unknown; do not infer them from wait totals. Validate any change with equivalent successful builds and required outputs. |
+| Commands, restore policy, or starting input/output states differ | Reject attribution to the setting, not the possibility of a real gain. | Give one matched old-setting/new-setting experiment below, not a menu of different workloads or an invented setting name. |
+| Repeated successful runs have matched conditions and outputs | Accept the observed improvement for that workload; calculate it from comparable summaries and report spread. | Bound the conclusion by the sample and workload, without inventing hidden failures or requiring other scenarios or a checkout. |
 
-Make a proposed experiment executable without expanding it into a benchmark matrix:
+For a minimal A/B plan, make **A = old setting; B = new setting**, not restore-on versus
+restore-off:
 
-1. Use the original baseline command and workload for **both** setting values unless the user
-   explicitly names another intended workload. Keep target, restore policy, and starting state
-   fixed; a forced Rebuild, a changed-input Build, and a no-op are not interchangeable.
-2. Keep SDK, machine, configuration, restore policy, and instrumentation equivalent. Replay the
-   same input edit from equivalent starting outputs; change only the setting.
-3. For warm-workload measurements, warm both arms outside the measured samples. Preserve
-   cold-start work when that is the claim instead; do not silently discard it. Leave shared
-   caches and build servers alone.
-4. Alternate repeated matched pairs, record per-run wall time, compare medians and spread,
-   and verify required outputs and diagnostics. The original confounded gap is not an effect
-   size to reproduce. Other workloads are not prerequisites for this scoped comparison.
+1. Repeat the original baseline command as written for both arms unless the user explicitly
+   requests another workload. Do not pre-restore and add `--no-restore` to a restore-inclusive
+   experiment: that changes the measured scope. Keep SDK, machine, configuration,
+   instrumentation, input edit, and starting outputs equivalent; change only the setting.
+   Give one experiment, not a menu of Rebuild, changed-input, and no-op workloads.
+2. Warm both arms outside samples only for a warm-workload claim; retain cold-start work
+   for a cold claim. Never purge shared caches or stop shared build servers.
+3. Alternate several matched pairs, record wall time, compare medians and spread, and check
+   required outputs and diagnostics. Scope the claim to that workload, not the original
+   confounded timing gap. No benchmark matrix is needed.
 
-When actual investigation or optimization is requested:
-
-1. Reuse matching measurements. If they are missing, establish the relevant baseline before
-   editing configuration; do not time a failed build as a successful baseline.
-2. Classify evaluation versus target/task execution. Inclusive target totals and dependency waits
-   are not additive wall time or proof of CPU utilization.
-3. Follow the measured branch below. Do not apply every optimization in every reference.
-4. Repeat the same scenario, command, input change, and instrumentation. Report spread/noise and
-   correctness checks; an isolated faster run is not proof of improvement.
+For requested optimization, reuse matching evidence or establish the relevant successful
+baseline before editing. Separate evaluation from execution, choose the measured branch
+below, and change one supported cause.
 
 | Situation | Reference if needed | Keep distinct |
 | --- | --- | --- |
@@ -135,8 +138,11 @@ Keep optional and required imports distinct, including inside aggregation files:
 <Import Project="required.targets" />
 ```
 
-The required import must load or fail, not silently skip. Check optional present/absent crossed
-with required present/absent, preserving the intended import order when both exist.
+The required import must load or fail, not silently skip. Explain why a condition on an entire
+mixed path list can suppress a valid required import; semicolon-separated imports themselves
+are supported. Check optional present/absent crossed with required present/absent, preserving
+order when both exist. When checks run, report the observed order and failure cases, not only
+"verification passed." Do not replace configurable paths with hard-coded values unnecessarily.
 
 For a packaged forwarder, resolve imports from the importing file's location in the **package**,
 not from the source tree or consumer's framework. If supplied packed-layout facts already prove
@@ -146,10 +152,9 @@ requested or the actual package contents remain unknown.
 
 ## Shared evidence and safety
 
-- For capture-only requests, use [binlog-generation](references/binlog-generation.md), report the
-  new artifact and original exit code, and stop. For analysis, use
-  [MSBuild replay](references/binlog-failure-analysis.md#replay-a-binary-log), never binary-file
-  text parsing. Replay success and replay duration are not the recorded build's result or duration.
+- For analysis, use [MSBuild replay](references/binlog-failure-analysis.md#replay-a-binary-log),
+  never binary-file text parsing. Replay success and replay duration are not the recorded
+  build's result or duration.
 - Resolve these files relative to this skill. Do not load the original plugin's skills or search
   other installations/checkouts. After a failed reference read, allow one listing of `references`
   to distinguish a missing bundled file from a present-but-unreadable tool integration failure.
