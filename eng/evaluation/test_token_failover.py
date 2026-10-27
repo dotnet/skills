@@ -3387,6 +3387,19 @@ esac
                     "git diff --name-only --no-renames --diff-filter=ACMRD",
                     script,
                 )
+                self.assertIn(
+                    'if ($LASTEXITCODE -ne 0 -or '
+                    '[string]::IsNullOrWhiteSpace("$mergeBase"))',
+                    script,
+                )
+                self.assertIn(
+                    "Could not determine a merge base",
+                    script,
+                )
+                self.assertIn(
+                    "Could not enumerate changed files",
+                    script,
+                )
                 if job_name != "discover":
                     self.assertIn("if (Test-Path $helperPath)", script)
                     self.assertIn(

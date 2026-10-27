@@ -183,7 +183,13 @@ jobs:
           $base = "${{ github.event.pull_request.base.sha }}"
           $head = "${{ github.event.pull_request.head.sha }}"
           $mergeBase = git merge-base $base $head
-          $changedFiles = git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
+            throw "Could not determine a merge base for '$base' and '$head'."
+          }
+          $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not enumerate changed files for '$mergeBase..$head'."
+          }
           $changedManifestPlugins = @($changedFiles |
             ForEach-Object {
               if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
@@ -274,7 +280,13 @@ jobs:
           $base = "${{ github.event.pull_request.base.sha }}"
           $head = "FETCH_HEAD"
           $mergeBase = git merge-base $base $head
-          $changedFiles = git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
+            throw "Could not determine a merge base for '$base' and '$head'."
+          }
+          $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not enumerate changed files for '$mergeBase..$head'."
+          }
           $changedManifestPlugins = @($changedFiles |
             ForEach-Object {
               if ($_ -match '^plugins/([^/]+)/plugin\.json$') {

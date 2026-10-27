@@ -260,6 +260,27 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.entries(), [])
 
+    def test_pr_removed_manifest_from_surviving_plugin_fails_closed(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.unlink()
+        head = self.commit_fixture("Remove manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = normalized_output(result)
+        self.assertIn("target discovery cannot enumerate", output)
+        self.assertIn("production surface", output)
+
     def test_pr_merge_base_failure_fails_closed(self):
         self.git("init", "--quiet")
         head = self.commit_fixture("Fixture base")
