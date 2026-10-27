@@ -38,6 +38,7 @@ def main():
         (11, 2, "1 MiB (1,048,576 bytes)", "an unspecified amount"),
         (12, 1, "SafeProcessHandle.Start(info)", "Process.Start(info)!.SafeHandle"),
         (13, 1, "UseShellExecute = true", "UseShellExecute = false"),
+        (13, 2, "})?.Dispose();", "})?.WaitForExit();"),
         (14, 1, "silent: true", "silent: false"),
     )
     for stimulus_index, grader_index, original, replacement in mutations:
@@ -91,6 +92,11 @@ def main():
         ),
         (0, deconstructed, "printed deconstructed capture"),
         (2, deconstructed, "printed deconstructed instance read"),
+        (
+            13,
+            outputs[13].replace("})?.Dispose();", "})?.Dispose(); // No Process.WaitForExit() call."),
+            "browser-opening comment about not waiting",
+        ),
         (
             0,
             deconstructed.replace("(string stdout, string stderr)", "var (stdout, stderr)"),

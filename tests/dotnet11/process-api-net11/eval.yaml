@@ -876,7 +876,8 @@ stimuli:
           pattern: 'UseShellExecute\s*=\s*true\b'
       - type: output-not-matches
         config:
-          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?(?:\bProcess\.Run(Async)?\s*\(|\bRunAndCaptureText(Async)?\s*\(|\bStartAndForget\s*\(|\bSafeProcessHandle\.Start\s*\(|\.WaitForExit(?:Status)?(?:Async)?\s*\()'
+          # Skip string literals and line comments when looking for executable calls.
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```|//|").|"(?:\\.|[^"\\])*"|//[^\r\n]*(?:\r?\n|$))*?(?:\bProcess\.Run(Async)?\s*\(|\bRunAndCaptureText(Async)?\s*\(|\bStartAndForget\s*\(|\bSafeProcessHandle\.Start\s*\(|\.WaitForExit(?:Status)?(?:Async)?\s*\()'
       - type: prompt
     rubric:
       - Opens the requested URL through the operating system's default-browser association with shell execution enabled
