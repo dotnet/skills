@@ -307,6 +307,14 @@ If either output pipe fills, the child blocks writing while the parent waits for
 
 ## Waiting for Process Exit
 
+### Modernize the Behavioral Contract, Not Individual Calls
+
+Before modernizing process-management code, identify its behavioral contract: what it waits for, what triggers termination, which processes it terminates, and how it reports completion or failure. Evaluate the entire mechanism, even when spread across callbacks, helpers, or multiple methods, against the new APIs. Recognize intent rather than matching particular code patterns.
+
+When the intent is "wait for this process to exit, terminate it on timeout or cancellation, and wait for termination," use `SafeProcessHandle.WaitForExitOrKillOnCancellationAsync` for asynchronous code or `WaitForExitOrKillOnTimeout` for synchronous code. For an asynchronous timeout, supply a token from a timeout-backed `CancellationTokenSource`. Replace the equivalent custom orchestration rather than merely modernizing individual calls within it. Preserve required logging, exception behavior, and cleanup scope.
+
+Retain custom orchestration only when a concrete requirement is not provided by the new API; identify that requirement explicitly.
+
 ### Wait for Termination, Not Output EOF
 
 Prefer the .NET 11 status-wait methods when waiting for a process to terminate. They return its exit status without waiting for stdout or stderr to reach EOF.
