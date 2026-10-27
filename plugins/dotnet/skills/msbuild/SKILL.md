@@ -1,6 +1,6 @@
 ---
 name: msbuild
-description: "Use for MSBuild XML review/repair, .binlog capture/replay, and assessing supported or unsupported build-speedup claims and controlled timings, even without a checkout. Framework/API/.NET/ASP.NET upgrades and working non-SDK-to-SDK/packages.config conversions are migrations: DO NOT activate. A failing assertion after a successful build is code/test debugging: DO NOT activate. For MSBuild authoring itself, activate before reviewing/editing .proj/.props/.targets/.csproj/.fsproj/.vbproj or Directory.Build files, including no-change import reviews. Check Import/Exists, required and NuGet packed imports, hook order, conditions, custom targets, Inputs/Outputs, stale generated outputs and incorrect skips; small XML fixes need safe verification. Also diagnose failed dotnet build/restore/pack/publish or slow evaluation/compilation/copying. Exclude SDK installation alone, C# refactoring, runtime CPU profiling and non-MSBuild builds."
+description: "Use before MSBuild custom-target or incremental-generation repairs, XML/import review, .binlog capture/replay, or assessing supported/unsupported build-speedup claims and controlled timings, even without a checkout. Framework/API/.NET/ASP.NET upgrades and working non-SDK-to-SDK/packages.config conversions are migrations: DO NOT activate. A failing assertion after a successful build is code/test debugging: DO NOT activate. For MSBuild authoring itself, activate before reviewing/editing .proj/.props/.targets/.csproj/.fsproj/.vbproj or Directory.Build files, including no-change import reviews. Check Import/Exists, required and NuGet packed imports, hook order, conditions, Inputs/Outputs, stale outputs and incorrect skips. Build-wiring checks must preserve source-input bytes. Also diagnose failed dotnet build/restore/pack/publish or slow evaluation/compilation/copying. Exclude SDK installation alone, C# refactoring, runtime CPU profiling and non-MSBuild builds."
 license: MIT
 ---
 
@@ -55,9 +55,9 @@ project and required imports, not by deleting and recreating original sources. I
 in-place check is unavoidable, copy originals before mutation, preserve timestamps, restore in
 `finally`, and compare source hashes before claiming preservation. `Get-Content`/`Set-Content`
 round-trips do not preserve exact bytes, encodings, or line endings.
-Explain the mechanism, not only the resulting behavior: removed inputs disappear from the
-timestamp comparison; an older addition need not be newer than the output. A membership file
-changes for either case, while actual input timestamps still catch ordinary edits.
+In the final repair report, state the **cause, mechanism, and observed checks**: removed inputs
+disappear from the timestamp comparison; an older addition need not be newer than the output.
+A membership file changes for either case, while actual input timestamps still catch ordinary edits.
 `WriteOnlyWhenDifferent` preserves unchanged-build skips. Keep empty-input generation and
 missing-output recovery working; report which cases actually ran.
 
@@ -83,16 +83,18 @@ Do not label a workload warm/no-op or assign most of a timing gap to one confoun
 
 For one minimal A/B experiment:
 
-1. Identify the **actual changed setting**, keeping unspecified names/values as placeholders.
-   A differing target or restore flag is not that setting unless the user identifies it as such.
-2. Copy the full original baseline command into **both arms**, not a generic replacement.
+1. Fill in the **treatment name, old value, and new value** from the user's evidence.
+   When the claimed setting is not identified, keep the literal placeholders `<setting>`,
+   `<old>`, and `<new>`. Several differing command arguments do not identify which one is the
+   claimed setting; selecting one of them would test a different question.
+2. Copy the full original baseline command into **both arms** as the control, not a generic replacement.
    Change only the actual setting's argument if it is supplied on the command line; otherwise
    keep the invocation verbatim and vary its configured value.
 
-| Arm | Actual setting value | Invocation and workload |
+| Arm | Treatment: supplied name/values, or these placeholders | Controlled invocation and workload |
 | --- | --- | --- |
-| A | Old value | Original baseline command, input edit, and starting outputs |
-| B | New value | Repeat A's full command, edit, and starting outputs; only the actual setting differs |
+| A | `<setting> = <old>` | Full original baseline command, input edit, and starting outputs |
+| B | `<setting> = <new>` | Repeat A's full command, edit, and starting outputs; only the named treatment differs |
 
 3. Match all non-treatment controls: SDK, machine, configuration, instrumentation, target,
    restore policy, input edit, and starting outputs. Preserve the original workload: do not
@@ -102,7 +104,7 @@ For one minimal A/B experiment:
    work for a cold claim. Never purge shared caches or stop shared build servers.
 4. Alternate several matched pairs, compare wall-time medians and observed spread, and check
    required outputs and diagnostics. Scope the conclusion to that workload, not the original
-   confounded timing gap.
+   confounded timing gap. Stop after this one matched experiment and its validity checks.
 
 For requested optimization, reuse matching evidence or establish the relevant successful
 baseline before editing. Separate evaluation from execution, choose the measured branch
@@ -156,11 +158,15 @@ are supported. Check optional present/absent crossed with required present/absen
 order when both exist. When checks run, report the observed order and failure cases, not only
 "verification passed." Do not replace configurable paths with hard-coded values unnecessarily.
 
-For a packaged forwarder, resolve imports from the importing file's location in the **package**,
-not from the source tree or consumer's framework. If supplied packed-layout facts already prove
-that the required target exists, report no change: do not add an `Exists` guard, reorganize
-sources, or rebuild/repack just to confirm those facts. Inspect artifacts when verification is
-requested or the actual package contents remain unknown.
+For a packaged forwarder, separate **packing** from **consumer evaluation**. A configured
+`NuspecFile` can be outside the project; `NuspecBasePath` anchors its source-file lookup.
+Source-to-target mappings determine the package entries: do not infer that a source path
+is also shipped as an extra entry. At consumer evaluation, resolve relative imports from
+the importing file's location in the **package**, not from the source tree, feed directory,
+or consumer's framework. If supplied packed-layout facts already prove that the required
+target exists, report no change: do not add an `Exists` guard, reorganize sources, or
+rebuild/repack just to confirm those facts. Inspect artifacts when verification is requested
+or the actual package contents remain unknown.
 
 ## Shared evidence and safety
 
