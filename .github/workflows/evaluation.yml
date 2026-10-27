@@ -184,10 +184,16 @@ jobs:
           $head = "${{ github.event.pull_request.head.sha }}"
           $mergeBase = git merge-base $base $head
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+          . (Join-Path $PWD "eng/evaluation/change-classification.ps1")
+          $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
+            -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
+          if ($changedManifestPlugins.Count -gt 0) {
+            $hasSkillChanges = $true
+          }
 
           # Evaluation pipeline changes need a re-eval. The native custom-agent
           # lane executes eng/skill-validator/src, so changes there are evaluator
@@ -195,7 +201,7 @@ jobs:
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
               ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -256,15 +262,21 @@ jobs:
           $head = "FETCH_HEAD"
           $mergeBase = git merge-base $base $head
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+          . (Join-Path $PWD "eng/evaluation/change-classification.ps1")
+          $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
+            -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
+          if ($changedManifestPlugins.Count -gt 0) {
+            $hasSkillChanges = $true
+          }
 
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
               ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'

@@ -22,7 +22,12 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.root = Path(self.scratch.name)
         scripts = self.root / "eng" / "evaluation"
         scripts.mkdir(parents=True)
-        for name in ("path-safety.ps1", "workflow-targets.ps1", "find-targets.ps1"):
+        for name in (
+            "change-classification.ps1",
+            "path-safety.ps1",
+            "workflow-targets.ps1",
+            "find-targets.ps1",
+        ):
             shutil.copy2(REPO_ROOT / "eng" / "evaluation" / name, scripts / name)
         (self.root / "plugins").mkdir()
         for package in ("alpha", "beta"):

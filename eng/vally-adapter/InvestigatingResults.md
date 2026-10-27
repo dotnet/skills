@@ -23,6 +23,13 @@ package-manifest/eval source links.
 
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 
+PR target discovery treats a root `plugin.json` edit as a full-plugin behavior
+change only when fields other than `version` differ. The automated version sync
+stamps generated versions into the root, Claude, and Codex manifests without
+changing the registered production surface, so version-only sync PRs do not run
+unrelated skill or agent evaluations. New, removed, malformed, or semantically
+changed root manifests still select every skill and agent eval for that plugin.
+
 The native agent parser stages `stimuli[].environment.files`, not a shared
 suite-level `environment.files` block. Declare required authentication helpers
 and other shared inputs in every stimulus that uses them. A missing

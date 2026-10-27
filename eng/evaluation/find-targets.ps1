@@ -1,6 +1,7 @@
 $entries = @()
 $plugins = @()
 . (Join-Path $PWD "eng/evaluation/path-safety.ps1")
+. (Join-Path $PWD "eng/evaluation/change-classification.ps1")
 if (Test-Path "agentic-workflows") {
   . (Join-Path $PWD "eng/evaluation/workflow-targets.ps1")
 }
@@ -219,6 +220,8 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   try {
   $mergeBase = git merge-base $base $head
   $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+  $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
+    -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
 
   # Check if any changed files are in infrastructure paths. The native
   # custom-agent lane executes eng/skill-validator/src, so those source
@@ -226,7 +229,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   $hasInfraChanges = $changedFiles |
     Where-Object {
       ($_ -match '^eng/vally-adapter/') -or
-      ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+      ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
       ($_ -match '^eng/skill-validator/src/') -or
       ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
       $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -235,8 +238,11 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   # Also check for skill, agent, and test changes so we don't lose them.
   $hasSkillChanges = $changedFiles |
-    Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
+    Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
     Select-Object -First 1
+  if ($changedManifestPlugins.Count -gt 0) {
+    $hasSkillChanges = $true
+  }
 
   if ($hasInfraChanges -and -not $hasSkillChanges) {
     echo "is_infra=true" >> $env:GITHUB_OUTPUT
@@ -285,14 +291,6 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     $changedSkillSourcePlugins = @($changedFiles |
       ForEach-Object {
         if ($_ -match '^plugins/([^/]+)/skills/[^/]+/') {
-          $Matches[1]
-        }
-      } |
-      Where-Object { $_ } |
-      Sort-Object -Unique)
-    $changedManifestPlugins = @($changedFiles |
-      ForEach-Object {
-        if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
           $Matches[1]
         }
       } |

@@ -27,6 +27,9 @@ TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests
 EVAL_QUALITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "eval-quality.yml"
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
+CHANGE_CLASSIFICATION_SCRIPT = (
+    REPO_ROOT / "eng" / "evaluation" / "change-classification.ps1"
+)
 FIND_TARGETS_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
@@ -2375,12 +2378,17 @@ esac
             "node eng/evaluation-tools/lint-corpus.mjs tests",
         )
 
-    def test_path_safety_helper_changes_run_workflow_tests(self) -> None:
+    def test_evaluation_helpers_run_workflow_tests(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
         triggers = workflow.get("on", workflow.get(True))
-        helper_path = "eng/evaluation/path-safety.ps1"
-        for event in ("pull_request", "push"):
-            self.assertEqual(triggers[event]["paths"].count(helper_path), 1)
+        for helper_path in (
+            "eng/evaluation/change-classification.ps1",
+            "eng/evaluation/path-safety.ps1",
+        ):
+            for event in ("pull_request", "push"):
+                self.assertEqual(
+                    triggers[event]["paths"].count(helper_path), 1
+                )
 
     def test_manual_dispatch_does_not_execute_pr_path_safety_helper(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
@@ -3327,7 +3335,7 @@ esac
             "tests/agentic-workflows/graders/check_result.py",
             "plugins/dotnet-test/README.md",
         ]
-        expected = changed_files[:-1]
+        expected = changed_files[1:-1]
 
         for job_name, script in discovery_scripts.items():
             with self.subTest(job=job_name):
@@ -3369,6 +3377,11 @@ esac
                     result.stdout + result.stderr,
                 )
                 self.assertEqual(json.loads(result.stdout.strip()), expected)
+                self.assertIn(
+                    "eng/evaluation/change-classification.ps1",
+                    script,
+                )
+                self.assertIn("$changedManifestPlugins", script)
 
         matrix_script = discovery_scripts["discover"]
         self.assertIn("$changedManifestPlugins", matrix_script)
@@ -3380,6 +3393,111 @@ esac
             "every agent eval in an affected plugin",
             matrix_script,
         )
+
+    def test_manifest_change_classification_ignores_only_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manifest = root / "plugins" / "demo" / "plugin.json"
+            manifest.parent.mkdir(parents=True)
+            subprocess.run(
+                ["git", "init", "-b", "main"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Evaluation Test"],
+                cwd=root,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "evaluation@example.com"],
+                cwd=root,
+                check=True,
+            )
+
+            def commit_manifest(version: str, description: str, message: str) -> str:
+                manifest.write_text(
+                    json.dumps(
+                        {
+                            "name": "demo",
+                            "version": version,
+                            "description": description,
+                            "skills": ["./skills/"],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                subprocess.run(["git", "add", "."], cwd=root, check=True)
+                subprocess.run(
+                    ["git", "commit", "-m", message],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                return subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+
+            base = commit_manifest("1.0.0", "Demo", "Initial")
+            version_only = commit_manifest("1.0.1", "Demo", "Stamp version")
+            semantic = commit_manifest(
+                "1.0.2", "Changed registration metadata", "Change manifest"
+            )
+            manifest.write_text("{ malformed", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "Break manifest"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            malformed = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+            def classify(from_commit: str, to_commit: str) -> list[str]:
+                helper = str(CHANGE_CLASSIFICATION_SCRIPT).replace("'", "''")
+                script = (
+                    f". '{helper}'; "
+                    "$result = @(Get-BehaviorChangedPluginManifests "
+                    "-ChangedFiles @('plugins/demo/plugin.json') "
+                    f"-BaseCommit '{from_commit}' -HeadCommit '{to_commit}'); "
+                    "ConvertTo-Json -InputObject $result -Compress"
+                )
+                result = subprocess.run(
+                    [
+                        "pwsh",
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        script,
+                    ],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(
+                    result.returncode, 0, result.stdout + result.stderr
+                )
+                return json.loads(result.stdout.strip())
+
+            self.assertEqual(classify(base, version_only), [])
+            self.assertEqual(classify(version_only, semantic), ["demo"])
+            self.assertEqual(classify(semantic, malformed), ["demo"])
 
     def test_manual_whole_plugin_dispatch_includes_agent_entries(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
