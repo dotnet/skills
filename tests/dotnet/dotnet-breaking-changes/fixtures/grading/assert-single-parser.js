@@ -21,15 +21,19 @@ const bools = count('bool|Boolean');
 
 function typeBody(name) {
   const declaration = new RegExp(`\\bclass\\s+${name}\\b[^{}]*\\{`, 'g');
-  const match = declaration.exec(code);
-  if (!match) return null;
-  const start = match.index + match[0].length - 1;
-  let depth = 0;
-  for (let i = start; i < code.length; i++) {
-    if (code[i] === '{') depth++;
-    else if (code[i] === '}' && --depth === 0) return code.slice(start + 1, i);
+  const bodies = [];
+  for (const match of code.matchAll(declaration)) {
+    const start = match.index + match[0].length - 1;
+    let depth = 0;
+    for (let i = start; i < code.length; i++) {
+      if (code[i] === '{') depth++;
+      else if (code[i] === '}' && --depth === 0) {
+        bodies.push(code.slice(start + 1, i));
+        break;
+      }
+    }
   }
-  return null;
+  return bodies.length ? bodies.join('\n') : null;
 }
 
 function memberBody(source, name, returnType) {
