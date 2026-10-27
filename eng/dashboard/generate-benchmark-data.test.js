@@ -15,7 +15,7 @@ test('skill value index backfills retained native outcome evidence', () => {
         commit: { id: 'commit-a' },
         date,
         executionId: 'run-1',
-        model: 'executor',
+        model: 'executor-a',
         verdictEvidence: [
           {
             skillName: 'regressed-agent',
@@ -30,18 +30,46 @@ test('skill value index backfills retained native outcome evidence', () => {
             stateReason: { code: 'target_agent_not_activated' },
           },
         ],
+      }, {
+        commit: { id: 'commit-a' },
+        date,
+        executionId: 'run-1',
+        model: 'executor-b',
+        verdictEvidence: [
+          {
+            skillName: 'clean-agent',
+            stateReason: { code: 'none' },
+          },
+          {
+            skillName: 'judge-specific-regression',
+            stateReason: { code: 'none' },
+          },
+        ],
       }],
       SkillValue: [{
         commit: { id: 'commit-a' },
         date,
         executionId: 'run-1',
-        model: 'executor',
+        model: 'executor-a',
         judgeModel: 'judge',
         skills: [
           { skill: 'regressed-agent' },
-          { skill: 'clean-agent' },
           { skill: 'activation-failed-agent' },
           { skill: 'unmatched-legacy-agent' },
+        ],
+      }, {
+        commit: { id: 'commit-a' },
+        date,
+        executionId: 'run-1',
+        model: 'executor-b',
+        judgeModel: 'judge',
+        skills: [
+          { skill: 'clean-agent' },
+          {
+            skill: 'judge-specific-regression',
+            completionRegressed: true,
+            targetActivationFailed: false,
+          },
         ],
       }],
     },
@@ -69,22 +97,30 @@ test('skill value index backfills retained native outcome evidence', () => {
     const index = JSON.parse(
       fs.readFileSync(path.join(tempDir, 'skill-value.json'), 'utf8'),
     );
-    const skills = Object.fromEntries(
-      index.entries[0].skills.map(skill => [skill.skill, skill]),
+    const entries = Object.fromEntries(
+      index.entries.map(entry => [entry.model, entry]),
+    );
+    const executorASkills = Object.fromEntries(
+      entries['executor-a'].skills.map(skill => [skill.skill, skill]),
+    );
+    const executorBSkills = Object.fromEntries(
+      entries['executor-b'].skills.map(skill => [skill.skill, skill]),
     );
 
-    assert.equal(skills['regressed-agent'].completionRegressed, true);
-    assert.equal(skills['regressed-agent'].targetActivationFailed, false);
-    assert.equal(skills['clean-agent'].completionRegressed, false);
-    assert.equal(skills['clean-agent'].targetActivationFailed, false);
-    assert.equal(skills['activation-failed-agent'].completionRegressed, false);
-    assert.equal(skills['activation-failed-agent'].targetActivationFailed, true);
+    assert.equal(executorASkills['regressed-agent'].completionRegressed, true);
+    assert.equal(executorASkills['regressed-agent'].targetActivationFailed, false);
+    assert.equal(executorASkills['activation-failed-agent'].completionRegressed, false);
+    assert.equal(executorASkills['activation-failed-agent'].targetActivationFailed, true);
+    assert.equal(executorBSkills['clean-agent'].completionRegressed, false);
+    assert.equal(executorBSkills['clean-agent'].targetActivationFailed, false);
+    assert.equal(executorBSkills['judge-specific-regression'].completionRegressed, true);
+    assert.equal(executorBSkills['judge-specific-regression'].targetActivationFailed, false);
     assert.equal(
-      Object.hasOwn(skills['unmatched-legacy-agent'], 'completionRegressed'),
+      Object.hasOwn(executorASkills['unmatched-legacy-agent'], 'completionRegressed'),
       false,
     );
     assert.equal(
-      Object.hasOwn(skills['unmatched-legacy-agent'], 'targetActivationFailed'),
+      Object.hasOwn(executorASkills['unmatched-legacy-agent'], 'targetActivationFailed'),
       false,
     );
   } finally {

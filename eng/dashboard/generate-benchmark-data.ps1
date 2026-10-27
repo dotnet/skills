@@ -172,7 +172,7 @@ function Update-SkillValueIndex([string]$Directory) {
 
     function Get-EntryIdentity([object]$Entry) {
         if ($Entry.executionId) {
-            return "execution:$($Entry.executionId)"
+            return "execution:$($Entry.executionId):$($Entry.model)"
         }
         $commitId = if ($Entry.commit -and $Entry.commit.id) { $Entry.commit.id } else { "" }
         return "legacy:$($Entry.date):$($Entry.model):$commitId"
@@ -191,9 +191,7 @@ function Update-SkillValueIndex([string]$Directory) {
             completionRegressed   = $completionRegressed
             targetActivationFailed = $targetActivationFailed
         }.GetEnumerator()) {
-            if ($Skill.PSObject.Properties[$property.Key]) {
-                $Skill.($property.Key) = $property.Value
-            } else {
+            if (-not $Skill.PSObject.Properties[$property.Key]) {
                 $Skill | Add-Member -NotePropertyName $property.Key -NotePropertyValue $property.Value
             }
         }
