@@ -615,43 +615,71 @@ internal static class EnforcementTests
 
     private static void TestAuthenticodeProtocol(string root)
     {
-        var fixture = CreateFixture(Path.Combine(root, "authenticode"), lifecycleRequired: false);
+        var fixture = CreateFixture(
+            Path.Combine(root, "authenticode"),
+            lifecycleRequired: false,
+            includeSecondDll: true);
         WriteFile(
             fixture.Root,
             "authenticode.log",
             "Direct verification found no Authenticode signature or file-digest material in the exact DLL.");
         var rawLog = CreateEvidenceInput(fixture.Root, "authenticode.log", "authenticode-log");
-        var dll = NupkgInspector.GetFileEntryDigests(fixture.NupkgPath, ".dll").Single();
+        var dlls = NupkgInspector.GetFileEntryDigests(fixture.NupkgPath, ".dll").ToArray();
+        AssertEqual(2, dlls.Length, "Authenticode precedence fixture DLL count");
         const string expectedIdentity = "Synthetic release signing identity";
 
-        byte[] Protocol(
+        (
+            string FileDigest,
+            string Chain,
+            string Timestamp,
+            string Revocation,
+            string ObservedIdentity,
+            string ExpectedIdentity) Artifact(
             string fileDigest = "absent",
             string chain = "not-applicable",
             string timestamp = "not-applicable",
             string revocation = "not-applicable",
             string observedIdentity = "not-applicable",
-            string expected = expectedIdentity) =>
-            StrictJson.SerializeCanonical(writer =>
+            string? expected = null) =>
+            (fileDigest, chain, timestamp, revocation, observedIdentity, expected ?? expectedIdentity);
+
+        byte[] Protocol(params (
+            string FileDigest,
+            string Chain,
+            string Timestamp,
+            string Revocation,
+            string ObservedIdentity,
+            string ExpectedIdentity)[] artifacts)
+        {
+            AssertEqual(dlls.Length, artifacts.Length, "Authenticode protocol artifact count");
+            return StrictJson.SerializeCanonical(writer =>
             {
                 writer.WriteStartObject();
                 writer.WriteNumber("schema_version", 1);
                 writer.WriteString("protocol", "authenticode-verification");
                 writer.WritePropertyName("artifacts");
                 writer.WriteStartArray();
-                writer.WriteStartObject();
-                writer.WriteString("package_entry", dll.Key);
-                WriteDigest(writer, "artifact_sha256", new Sha256Digest("sha256", dll.Value));
-                writer.WriteString("expected_identity", expected);
-                writer.WriteString("observed_identity", observedIdentity);
-                writer.WriteString("file_digest_disposition", fileDigest);
-                writer.WriteString("chain_disposition", chain);
-                writer.WriteString("timestamp_disposition", timestamp);
-                writer.WriteString("revocation_disposition", revocation);
-                WriteDigest(writer, "raw_observation_sha256", rawLog.ContentDigest);
-                writer.WriteEndObject();
+                for (var index = 0; index < artifacts.Length; index++)
+                {
+                    var artifact = artifacts[index];
+                    var dll = dlls[index];
+                    writer.WriteStartObject();
+                    writer.WriteString("package_entry", dll.Key);
+                    WriteDigest(writer, "artifact_sha256", new Sha256Digest("sha256", dll.Value));
+                    writer.WriteString("expected_identity", artifact.ExpectedIdentity);
+                    writer.WriteString("observed_identity", artifact.ObservedIdentity);
+                    writer.WriteString("file_digest_disposition", artifact.FileDigest);
+                    writer.WriteString("chain_disposition", artifact.Chain);
+                    writer.WriteString("timestamp_disposition", artifact.Timestamp);
+                    writer.WriteString("revocation_disposition", artifact.Revocation);
+                    WriteDigest(writer, "raw_observation_sha256", rawLog.ContentDigest);
+                    writer.WriteEndObject();
+                }
+
                 writer.WriteEndArray();
                 writer.WriteEndObject();
             });
+        }
 
         void ValidateProtocol(
             byte[] protocolBytes,
@@ -685,22 +713,41 @@ internal static class EnforcementTests
                 {
                     ["PI-02"] = status == "verified"
                         ? Verified(evidenceId)
-                        : new RowConclusion(
-                            "gap",
-                            "Direct verification found absent Authenticode signature/file-digest material in the exact DLL.",
-                            [evidenceId],
-                            null,
-                            null,
-                            null)
+                        : status == "gap"
+                            ? new RowConclusion(
+                                "gap",
+                                "Direct verification found failed Authenticode verification in the exact DLL set.",
+                                [evidenceId],
+                                null,
+                                null,
+                                null)
+                            : status == "not tested"
+                                ? new RowConclusion(
+                                    "not tested",
+                                    "Direct verification did not complete every Authenticode layer.",
+                                    [evidenceId],
+                                    null,
+                                    "Complete every remaining Authenticode verification layer.",
+                                    null)
+                                : throw new InvalidOperationException($"Unsupported Authenticode test status '{status}'.")
                 });
             Validate(fixture.Root, input, inputBytes, assessment, evidence);
         }
 
+        var absentArtifact = Artifact();
+        var validArtifact = Artifact(
+            fileDigest: "valid",
+            chain: "valid",
+            observedIdentity: expectedIdentity);
+        var incompleteArtifact = Artifact(
+            fileDigest: "valid",
+            chain: "not-tested",
+            observedIdentity: expectedIdentity);
         AssertEqual(
             "protocol:authenticode-verification-v1",
             EvidenceProtocolValidator.AuthenticodeMethod,
             "Authenticode method stays at protocol v1");
-        var absent = Protocol();
+        var absent = Protocol(absentArtifact, absentArtifact);
         ValidateProtocol(absent);
         ExpectValidationMessage(
             () => ValidateProtocol(absent, "verified"),
@@ -710,7 +757,7 @@ internal static class EnforcementTests
         foreach (var chain in new[] { "valid", "invalid", "not-tested", "unknown", "Not-Applicable" })
         {
             ExpectValidationMessage(
-                () => ValidateProtocol(Protocol(chain: chain)),
+                () => ValidateProtocol(Protocol(Artifact(chain: chain), absentArtifact)),
                 "is malformed",
                 $"Absent Authenticode rejects chain disposition '{chain}'");
         }
@@ -718,11 +765,11 @@ internal static class EnforcementTests
         foreach (var disposition in new[] { "valid", "invalid", "not-tested", "unknown", "Not-Applicable" })
         {
             ExpectValidationMessage(
-                () => ValidateProtocol(Protocol(timestamp: disposition)),
+                () => ValidateProtocol(Protocol(Artifact(timestamp: disposition), absentArtifact)),
                 "is malformed",
                 $"Absent Authenticode rejects timestamp disposition '{disposition}'");
             ExpectValidationMessage(
-                () => ValidateProtocol(Protocol(revocation: disposition)),
+                () => ValidateProtocol(Protocol(Artifact(revocation: disposition), absentArtifact)),
                 "is malformed",
                 $"Absent Authenticode rejects revocation disposition '{disposition}'");
         }
@@ -730,7 +777,9 @@ internal static class EnforcementTests
         foreach (var fileDigest in new[] { "valid", "invalid" })
         {
             ExpectValidationMessage(
-                () => ValidateProtocol(Protocol(fileDigest: fileDigest, observedIdentity: expectedIdentity)),
+                () => ValidateProtocol(Protocol(
+                    Artifact(fileDigest: fileDigest, observedIdentity: expectedIdentity),
+                    absentArtifact)),
                 "is malformed",
                 $"Legacy '{fileDigest}' Authenticode rejects not-applicable chain");
         }
@@ -738,7 +787,9 @@ internal static class EnforcementTests
         foreach (var fileDigest in new[] { "not-applicable", "not-tested", "unknown", "Absent" })
         {
             ExpectValidationMessage(
-                () => ValidateProtocol(Protocol(fileDigest, chain: "valid", observedIdentity: expectedIdentity)),
+                () => ValidateProtocol(Protocol(
+                    Artifact(fileDigest, chain: "valid", observedIdentity: expectedIdentity),
+                    absentArtifact)),
                 "is malformed",
                 $"Authenticode rejects file-digest disposition '{fileDigest}'");
         }
@@ -746,18 +797,74 @@ internal static class EnforcementTests
         foreach (var observedIdentity in new[] { expectedIdentity, "Unsigned DLL", "Not-Applicable" })
         {
             ExpectValidationMessage(
-                () => ValidateProtocol(Protocol(observedIdentity: observedIdentity)),
+                () => ValidateProtocol(Protocol(
+                    Artifact(observedIdentity: observedIdentity),
+                    absentArtifact)),
                 "is malformed",
                 "Absent Authenticode requires exact not-applicable observed identity");
         }
 
-        foreach (var expected in new[] { "abc", "not-applicable" })
+        foreach (var expected in new[] { "abc", "not-applicable", "Not-Applicable", "NOT-APPLICABLE" })
         {
             ExpectValidationMessage(
-                () => ValidateProtocol(Protocol(expected: expected)),
+                () => ValidateProtocol(Protocol(
+                    Artifact(expected: expected),
+                    absentArtifact)),
                 "is malformed",
                 "Absent Authenticode still requires a substantive expected signing identity");
         }
+
+        foreach (var identity in new[] { "not-applicable", "Not-Applicable", "NOT-APPLICABLE" })
+        {
+            ExpectValidationMessage(
+                () => ValidateProtocol(Protocol(
+                    Artifact(
+                        fileDigest: "valid",
+                        chain: "valid",
+                        observedIdentity: identity),
+                    validArtifact)),
+                "is malformed",
+                "Non-absent Authenticode rejects not-applicable observed identity");
+            ExpectValidationMessage(
+                () => ValidateProtocol(Protocol(
+                    Artifact(
+                        fileDigest: "valid",
+                        chain: "valid",
+                        observedIdentity: expectedIdentity,
+                        expected: identity),
+                    validArtifact)),
+                "is malformed",
+                "Authenticode rejects not-applicable expected identity");
+        }
+
+        var valid = Protocol(validArtifact, validArtifact);
+        ValidateProtocol(valid, "verified");
+        var incomplete = Protocol(incompleteArtifact, validArtifact);
+        ValidateProtocol(incomplete, "not tested");
+        ExpectValidationMessage(
+            () => ValidateProtocol(incomplete),
+            "result 'failed'",
+            "Incomplete Authenticode cannot support PI-02 gap");
+        ExpectValidationMessage(
+            () => ValidateProtocol(incomplete, "verified"),
+            "result 'passed'",
+            "Incomplete Authenticode cannot verify PI-02");
+
+        ValidateProtocol(
+            Protocol(
+                Artifact(
+                    fileDigest: "invalid",
+                    chain: "not-tested",
+                    observedIdentity: expectedIdentity),
+                incompleteArtifact));
+        ValidateProtocol(
+            Protocol(
+                Artifact(
+                    fileDigest: "valid",
+                    chain: "not-tested",
+                    observedIdentity: "Unexpected signing identity"),
+                incompleteArtifact));
+        ValidateProtocol(Protocol(absentArtifact, incompleteArtifact));
 
         ExpectValidationMessage(
             () => ValidateProtocol(absent, bindRawLog: false),
@@ -3084,11 +3191,14 @@ internal static class EnforcementTests
             "comparison dispositions cannot remain unresolved");
     }
 
-    private static Fixture CreateFixture(string root, bool lifecycleRequired)
+    private static Fixture CreateFixture(
+        string root,
+        bool lifecycleRequired,
+        bool includeSecondDll = false)
     {
         Directory.CreateDirectory(root);
         var nupkgPath = Path.Combine(root, "package.nupkg");
-        CreatePackage(nupkgPath);
+        CreatePackage(nupkgPath, includeSecondDll);
         WriteFile(root, "README.md", "# Synthetic package");
         var inspected = NupkgInspector.Inspect(nupkgPath);
         var lifecycle = lifecycleRequired
@@ -3631,7 +3741,7 @@ internal static class EnforcementTests
         "workflow-inventory"
     ];
 
-    private static void CreatePackage(string path)
+    private static void CreatePackage(string path, bool includeSecondDll = false)
     {
         using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
         var nuspec = archive.CreateEntry("Synthetic.Controls.nuspec", CompressionLevel.NoCompression);
@@ -3650,6 +3760,16 @@ internal static class EnforcementTests
         using (var dllStream = dll.Open())
         {
             dllStream.Write(Encoding.UTF8.GetBytes("synthetic managed assembly bytes"));
+        }
+
+        if (includeSecondDll)
+        {
+            var secondDll = archive.CreateEntry(
+                "lib/net11.0/Synthetic.Controls.Secondary.dll",
+                CompressionLevel.NoCompression);
+            secondDll.LastWriteTime = nuspec.LastWriteTime;
+            using var secondDllStream = secondDll.Open();
+            secondDllStream.Write(Encoding.UTF8.GetBytes("secondary synthetic managed assembly bytes"));
         }
 
         var readme = archive.CreateEntry("README.md", CompressionLevel.NoCompression);

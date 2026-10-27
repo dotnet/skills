@@ -114,8 +114,11 @@ unsigned file's digest `invalid` or reinterpret retained legacy `invalid` record
 For `valid`/`invalid` file-digest dispositions, preserve the existing layer sets: chain is `valid`,
 `invalid`, or `not-tested` (never `not-applicable`); timestamp and revocation also allow
 `not-applicable`. `verified` requires matching expected/observed identity, valid file digest and
-chain, and valid or not-applicable timestamp/revocation. `gap` requires a structured
-failed/incomplete outcome rather than a malformed protocol.
+chain, and valid or not-applicable timestamp/revocation. Any absent artifact, identity mismatch, or
+invalid layer makes the protocol result `failed`. If no failure exists but any permitted layer is
+`not-tested`, the result is `incomplete`; only conclusive valid/not-applicable layers produce
+`passed`. A `PI-02` `gap` requires a structured `failed` result, while `incomplete` supports
+`not tested`, not `gap`.
 When exact DLLs exist but the Authenticode protocol lacks digest, chain, timestamp, revocation, or
 expected-identity results because the probe was unrun or incomplete, use `not tested`, not `absent`,
 unless the unresolved prerequisite is specifically an owner-only identity declaration.

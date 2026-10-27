@@ -857,8 +857,12 @@ internal static class WorkflowTests
                 "no component selection or component-specific source closure"]),
             ("area-conditional-families.md", ["`AI-06` applies only to a **new** AI skill",
                 "before merge", "known-existing", "newness is missing", "draft status unassigned"]),
+            // Guidance-contract coverage only; runtime-asset fixture/oracle coverage remains separate work.
             ("overlay-ai-skill.md", ["`AI-06` applies only to a new AI skill",
-                "RAI review before merge", "missing newness", "draft status unassigned"]),
+                "RAI review before merge", "missing newness", "draft status unassigned",
+                "runtime dependency outside .NET or qualifying",
+                "partner libraries supports `gap`",
+                "external runtime asset is not inherently", "without bound identity, source, and license/support"]),
             ("report-contract.md", ["assessment init --kind component", "assessment revise",
                 "Source validation manifest SHA-256:", "explicit", "decision-guidance.md"]),
             ("library-assessment.md", ["inventory discover", "inventory confirm", "inventory status",
@@ -1507,6 +1511,9 @@ internal static class WorkflowTests
         AssertContains(provenance, "use `not tested` when the evidence is independently reproducible/acquirable", "LP-03 reproducible evidence disposition");
         AssertContains(provenance, "`owner evidence required` only when the missing fact genuinely must come from an", "LP-03 owner-only evidence boundary");
         AssertContains(provenance, "Passing `LP-03` is not organizational legal approval", "LP-03 legal approval boundary");
+        AssertContains(provenance, "Any absent artifact, identity mismatch, or", "Authenticode failed-result precedence");
+        AssertContains(provenance, "the result is `incomplete`", "Authenticode incomplete-result boundary");
+        AssertContains(provenance, "`incomplete` supports", "Authenticode incomplete outcome status");
 
         var comparison = File.ReadAllText(Path.Combine(referencesRoot, "blinded-comparison.md"));
         AssertContains(comparison, "Schema version 2", "comparison schema version");

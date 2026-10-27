@@ -22,7 +22,9 @@ but also external runtime assets recommended or required by shipped AI guidance 
 including script and stylesheet URLs, hosted service or upload endpoints, fonts, icon kits, module
 imports, and similar runtime dependencies. Distinguish executable or runtime dependencies loaded or
 called by generated code from harmless documentation hyperlinks, issue/reference links, or local
-sample placeholders. An external runtime asset does not by itself establish a proprietary-dependency
-`gap`, but any external runtime asset without bound identity, source, and license/support
-disposition prevents `verified`; when that closure is absent, default conservatively to `not tested`
-or `owner evidence required` according to the repository-standard status boundary.
+sample placeholders. For `AI-04`, a demonstrated runtime dependency outside .NET or qualifying
+partner libraries supports `gap`. For `AI-05`, an external runtime asset is not inherently
+proprietary or closed-source; `gap` requires direct evidence of that disposition. In either row, an
+external runtime asset without bound identity, source, and license/support disposition prevents
+`verified`; when that closure is absent, use `not tested` or `owner evidence required` according to
+the repository-standard status boundary.

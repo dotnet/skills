@@ -961,16 +961,28 @@ public static class EvidenceProtocolValidator
                 "Authenticode verification must cover every shipped DLL package entry exactly once.");
         }
 
-        var passed = true;
+        var failed = false;
+        var incomplete = false;
         foreach (var artifact in artifacts)
         {
-            var validVerificationShape = artifact.FileDigestDisposition == "absent"
-                ? artifact.ExpectedIdentity != "not-applicable" &&
+            var absent = artifact.FileDigestDisposition == "absent";
+            var expectedIdentityNotApplicable = string.Equals(
+                artifact.ExpectedIdentity,
+                "not-applicable",
+                StringComparison.OrdinalIgnoreCase);
+            var observedIdentityNotApplicable = string.Equals(
+                artifact.ObservedIdentity,
+                "not-applicable",
+                StringComparison.OrdinalIgnoreCase);
+            var validVerificationShape = absent
+                ? !expectedIdentityNotApplicable &&
                     artifact.ObservedIdentity == "not-applicable" &&
                     artifact.ChainDisposition == "not-applicable" &&
                     artifact.TimestampDisposition == "not-applicable" &&
                     artifact.RevocationDisposition == "not-applicable"
-                : HasText(artifact.ObservedIdentity, 3) &&
+                : !expectedIdentityNotApplicable &&
+                    !observedIdentityNotApplicable &&
+                    HasText(artifact.ObservedIdentity, 3) &&
                     artifact.FileDigestDisposition is "valid" or "invalid" &&
                     artifact.ChainDisposition is "valid" or "invalid" or "not-tested" &&
                     artifact.TimestampDisposition is "valid" or "invalid" or "not-applicable" or "not-tested" &&
@@ -984,16 +996,23 @@ public static class EvidenceProtocolValidator
                     $"Authenticode verification for '{artifact.PackageEntry}' is malformed or lacks a digest-bound raw verification log.");
             }
 
-            passed &= artifact.ExpectedIdentity == artifact.ObservedIdentity &&
-                artifact.FileDigestDisposition == "valid" &&
-                artifact.ChainDisposition == "valid" &&
-                artifact.TimestampDisposition is "valid" or "not-applicable" &&
-                artifact.RevocationDisposition is "valid" or "not-applicable";
+            failed |= absent ||
+                artifact.ExpectedIdentity != artifact.ObservedIdentity ||
+                artifact.FileDigestDisposition == "invalid" ||
+                artifact.ChainDisposition == "invalid" ||
+                artifact.TimestampDisposition == "invalid" ||
+                artifact.RevocationDisposition == "invalid";
+            incomplete |= artifact.ChainDisposition == "not-tested" ||
+                artifact.TimestampDisposition == "not-tested" ||
+                artifact.RevocationDisposition == "not-tested";
         }
 
         var canonical = SerializeAuthenticode(artifacts);
         ContractJson.RequireCanonical(bytes.Span, canonical, "Authenticode verification protocol");
-        return new ParsedProtocol(AuthenticodeMethod, null, passed ? "passed" : "failed");
+        return new ParsedProtocol(
+            AuthenticodeMethod,
+            null,
+            failed ? "failed" : incomplete ? "incomplete" : "passed");
     }
 
     private static AuthenticodeArtifact ParseAuthenticodeArtifact(JsonElement element)
