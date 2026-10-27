@@ -147,6 +147,11 @@ builder.Services.AddCascadingValue(
     sp => sp.GetRequiredService<ThemeState>().Source);
 ```
 
+When you use the wrapper, **replace** the earlier direct
+`AddCascadingValue` registration with these two registrations. Do not register
+both sources: consumers could subscribe to one source while `ThemeState`
+notifies the other.
+
 **Update protocol:** Whenever shared state changes, the state wrapper MUST call
 `NotifyChangedAsync()` on its `CascadingValueSource<T>`. This is the mechanism that
 triggers re-rendering in all interactive `[CascadingParameter]` subscribers.

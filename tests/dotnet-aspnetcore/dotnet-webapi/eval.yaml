@@ -88,6 +88,8 @@ stimuli:
           dest: ExceptionApi.csproj
         - src: fixtures/exception-handler/Program.cs
           dest: Program.cs
+        - src: fixtures/exception-handler/VerifyExceptionHandling.py
+          dest: VerifyExceptionHandling.py
     graders:
       - type: run-command
         config:
@@ -102,12 +104,14 @@ stimuli:
             text='\n'.join(p.read_text() for p in files);
             required=['KeyNotFoundException','ArgumentException',
             'InvalidOperationException','AddProblemDetails','UseExceptionHandler'];
-            statuses=[r'(?:Status404NotFound|\b404\b)',r'(?:Status400BadRequest|\b400\b)',
-            r'(?:Status409Conflict|\b409\b)',r'(?:Status500InternalServerError|\b500\b)'];
-            sys.exit(0 if all(value in text for value in required)
-            and all(re.search(pattern, text) for pattern in statuses) else 1)"
+            sys.exit(0 if all(value in text for value in required) else 1)"
           expected_exit_code: 0
           timeout: 1m
+      - type: run-command
+        config:
+          command: python3 VerifyExceptionHandling.py
+          expected_exit_code: 0
+          timeout: 2m
       - type: exit-success
       - type: prompt
     rubric:
@@ -384,12 +388,13 @@ stimuli:
             declarations=re.findall(r'(?im)^@([A-Za-z_]\w*)\s*=', text);
             variable=declarations[0] if len(set(declarations))==1 else None;
             prefix=r'\{\{'+re.escape(variable)+r'\}\}' if variable else r'(?!)';
-            ids=re.findall(r'(?im)^(?:GET|DELETE)\s+'+prefix+r'/api/catalog/(\d+)\s*$', text);
+            suffix=r'(?:\s+HTTP/\d(?:\.\d)?)?\s*$';
+            ids=re.findall(r'(?im)^(?:GET|DELETE)\s+'+prefix+r'/api/catalog/(\d+)'+suffix, text);
             checks=[variable,
-            re.search(r'(?im)^GET\s+'+prefix+r'/api/catalog\s*$', text),
-            re.search(r'(?im)^GET\s+'+prefix+r'/api/catalog/\d+\s*$', text),
-            re.search(r'(?im)^POST\s+'+prefix+r'/api/catalog\s*$', text),
-            re.search(r'(?im)^DELETE\s+'+prefix+r'/api/catalog/\d+\s*$', text),
+            re.search(r'(?im)^GET\s+'+prefix+r'/api/catalog'+suffix, text),
+            re.search(r'(?im)^GET\s+'+prefix+r'/api/catalog/\d+'+suffix, text),
+            re.search(r'(?im)^POST\s+'+prefix+r'/api/catalog'+suffix, text),
+            re.search(r'(?im)^DELETE\s+'+prefix+r'/api/catalog/\d+'+suffix, text),
             re.search(r'(?i)Content-Type:\s*application/json', text),
             re.search(r'(?i)\"name\"\s*:', text),
             re.search(r'(?i)\"price\"\s*:', text),
