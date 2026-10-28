@@ -368,13 +368,28 @@ public class BuildSessionConfigTests
     {
         var workDir = Path.Combine(AgentRunner.GetEvaluationRoot(), "current-scenario");
         var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
-        var args = JsonDocument.Parse("""{"path":"session-state/events.jsonl"}""").RootElement;
+        var sdkStatePath = Path.Combine(
+            AgentRunner.GetEvaluationRoot(),
+            "session-state",
+            "events.jsonl");
 
         var result = await config.Hooks!.OnPreToolUse!(
-            new PreToolUseHookInput { ToolName = "view", ToolArgs = args },
+            new PreToolUseHookInput
+            {
+                ToolName = "view",
+                ToolArgs = JsonSerializer.SerializeToElement(new { path = "session-state/events.jsonl" }),
+            },
+            null!);
+        var absolutePathResult = await config.Hooks.OnPreToolUse!(
+            new PreToolUseHookInput
+            {
+                ToolName = "view",
+                ToolArgs = JsonSerializer.SerializeToElement(new { path = sdkStatePath }),
+            },
             null!);
 
         Assert.AreEqual("deny", result!.PermissionDecision);
+        Assert.AreEqual("deny", absolutePathResult!.PermissionDecision);
     }
 
     [TestMethod]
