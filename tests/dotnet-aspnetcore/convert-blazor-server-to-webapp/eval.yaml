@@ -516,7 +516,7 @@ stimuli:
     rubric:
       - Correctly recognizes that the project already uses component services, component endpoints, and the Blazor Web App document structure
       - Does not rewrite, regenerate, or delete any project or source file
-      - Does not activate or apply the legacy server-hosting conversion workflow because no conversion is needed
+      - Treats the legacy server-hosting conversion workflow as outside the scope because no conversion is needed
 
   - name: Keep conversion guidance dormant for hosted WebAssembly
     tags:
@@ -535,4 +535,4 @@ stimuli:
     rubric:
       - Recognizes that a hosted WebAssembly solution has a different migration path from a server-rendered Blazor application
       - Does not prescribe replacing AddServerSideBlazor, MapBlazorHub, or _Host.cshtml when those are not the described hosting model
-      - The server-hosting conversion workflow stayed dormant for the WebAssembly request
+      - Treats server-hosting conversion steps as outside the scope of the hosted WebAssembly request

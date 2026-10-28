@@ -426,7 +426,7 @@ stimuli:
     rubric:
       - Answers the requested component and form task without turning it into an HTTP API redesign
       - Does not add controllers, minimal API routes, OpenAPI setup, or server error middleware
-      - The specialized Web API workflow stayed dormant for a frontend-only request
+      - Treats an HTTP API redesign as outside the scope of the frontend-only request
 
   - name: Keep Web API guidance dormant for a SignalR hub
     tags:
@@ -444,4 +444,4 @@ stimuli:
     rubric:
       - Recognizes the request as real-time hub messaging rather than request/response HTTP API work
       - Does not add controller or minimal API conventions, OpenAPI metadata, or Problem Details work
-      - Gives focused hub guidance or asks for project context and does not activate the specialized request/response Web API workflow
+      - Treats request/response Web API work as outside the scope and gives focused hub guidance or asks for the project context needed to implement it

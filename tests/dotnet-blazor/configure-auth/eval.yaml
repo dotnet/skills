@@ -206,13 +206,12 @@ stimuli:
       - Registers one scoped provider as both the concrete service and AuthenticationStateProvider
       - Builds ClaimsPrincipal values with authentication type, name, and role claims
       - Notifies subscribers on both sign-in and sign-out so conditional UI updates immediately
-  - name: Keep per-page Identity endpoints static
+  - name: Verify per-page Identity endpoints stay static
     tags:
       feature: per-page-identity
       capability: per-page-identity
-      risk: routing
-      journey: decline-off-target
-      expect_activation: "false"
+      risk: low
+      journey: verify-existing-auth
     prompt: |
       This per-page Interactive Server app already uses the Individual
       authentication template. Verify that its login, registration, and logout
@@ -260,9 +259,9 @@ stimuli:
           timeout: 1m
       - type: prompt
     rubric:
-      - The configure-auth skill stayed dormant because the requested account flow already exists
+      - Recognizes that the requested account flow already exists and does not change working files
       - Keeps account pages static by leaving off interactive render modes in a per-page app
-      - Does not require ExcludeFromInteractiveRouting when the account pages are already outside an interactive route
+      - Explains the template's existing static account-page routing, including any existing ExcludeFromInteractiveRouting attribute, without changing files
       - Handles logout through a static request endpoint rather than an interactive event handler
       - Leaves unrelated pages free to opt into Interactive Server
   - name: Authorize both an Auto page and its API
@@ -392,4 +391,4 @@ stimuli:
     rubric:
       - Implements shared UI state without introducing authentication or authorization infrastructure
       - Keeps each server circuit's theme independent
-      - Stayed dormant and did not hijack the request with users, claims, policies, or account pages
+      - Treats users, claims, policies, and account infrastructure as outside the scope of theme state
