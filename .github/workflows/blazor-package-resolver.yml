@@ -1,0 +1,39 @@
+name: blazor-package-resolver
+
+on:
+  pull_request:
+    paths:
+      - "eng/blazor-package-resolver/**"
+      - ".github/workflows/blazor-package-resolver.yml"
+      - "global.json"
+  push:
+    branches: [main]
+    paths:
+      - "eng/blazor-package-resolver/**"
+      - ".github/workflows/blazor-package-resolver.yml"
+      - "global.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: global.json
+      - name: Build
+        run: dotnet build eng/blazor-package-resolver/tests/ResolverChecks.csproj --nologo
+      - name: Check synthetic contracts and architecture
+        run: dotnet run --project eng/blazor-package-resolver/tests/ResolverChecks.csproj --no-build
+      - name: Replay synthetic cases
+        run: dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj --no-build -- replay eng/blazor-package-resolver/tests/fixtures/cases.json

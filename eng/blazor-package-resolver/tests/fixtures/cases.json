@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "synthetic-package",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "package.txt",
+          "sha256": "c51ea103f26298a2556632cd44a1c19fd3db2cb923eb1f45de813e1b2a1e8289"
+        },
+        {
+          "role": "repository-snapshot",
+          "path": "repository.txt",
+          "sha256": "62a33736fad1b85b213fe2ffe100ed7f021ac6cd2629426b7acf51b18073abe1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "package-dispatcher",
+        "resolver_version": "1.0.0",
+        "branch_id": "unimplemented",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "package.txt",
+            "sha256": "c51ea103f26298a2556632cd44a1c19fd3db2cb923eb1f45de813e1b2a1e8289"
+          },
+          {
+            "role": "repository-snapshot",
+            "path": "repository.txt",
+            "sha256": "62a33736fad1b85b213fe2ffe100ed7f021ac6cd2629426b7acf51b18073abe1"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A deterministic branch for this row has not been implemented.",
+        "required_input": "row-resolver",
+        "next_category": "row-implementation"
+      },
+      "rationale": "Unimplemented row must escalate without making a license assertion.",
+      "evidence_pointers": ["fixture:package.txt", "fixture:repository.txt"]
+    },
+    {
+      "case_id": "synthetic-owner",
+      "row_id": "SUP-01",
+      "inputs": [
+        {
+          "role": "owner-record",
+          "path": "owner.txt",
+          "sha256": "075cf753d2929af368c0c6a9031e448c33eb8bac6ec9a77e3c77bf28ea571a01"
+        }
+      ],
+      "expected": {
+        "row_id": "SUP-01",
+        "resolver_id": "package-dispatcher",
+        "resolver_version": "1.0.0",
+        "branch_id": "unimplemented",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "owner-record",
+            "path": "owner.txt",
+            "sha256": "075cf753d2929af368c0c6a9031e448c33eb8bac6ec9a77e3c77bf28ea571a01"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A deterministic branch for this row has not been implemented.",
+        "required_input": "row-resolver",
+        "next_category": "row-implementation"
+      },
+      "rationale": "Owner evidence cannot be inferred from a fixture before row implementation.",
+      "evidence_pointers": ["fixture:owner.txt"]
+    }
+  ]
+}
