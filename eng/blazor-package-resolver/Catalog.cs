@@ -28,6 +28,18 @@ public sealed class Catalog
 
     public static Catalog Load(string dataDirectory)
     {
+        try
+        {
+            return LoadCore(dataDirectory);
+        }
+        catch (Exception error) when (error is KeyNotFoundException or InvalidOperationException or FormatException)
+        {
+            throw new InvalidDataException("Malformed normative catalog.", error);
+        }
+    }
+
+    private static Catalog LoadCore(string dataDirectory)
+    {
         using var provenance = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(dataDirectory, "provenance.json")));
         var root = provenance.RootElement;
         Require(root.GetProperty("source_commit").GetString() == SourceCommit, "Unexpected catalog source commit.");
@@ -114,5 +126,5 @@ public sealed class Catalog
             throw new InvalidDataException(message);
     }
 
-    public static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
+    public static string Digest(ReadOnlySpan<byte> bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 }

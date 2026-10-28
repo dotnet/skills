@@ -27,7 +27,7 @@
         ],
         "evidence_references": ["fixture:synthetic"],
         "evidence_contract": null,
-        "finding": "explicitly present",
+        "finding": "synthetic package, no vendor assertions",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
@@ -101,6 +101,40 @@
         "next_category": "owner"
       },
       "rationale": "A test-only handler must escalate an unknown branch.",
+      "evidence_pointers": ["fixture:owner.txt"]
+    },
+    {
+      "case_id": "applicable-missing",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "owner-record",
+          "path": "owner.txt",
+          "sha256": "075cf753d2929af368c0c6a9031e448c33eb8bac6ec9a77e3c77bf28ea571a01"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "synthetic",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-license",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "owner-record",
+            "path": "owner.txt",
+            "sha256": "075cf753d2929af368c0c6a9031e448c33eb8bac6ec9a77e3c77bf28ea571a01"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "License text is missing.",
+        "required_input": "license-text",
+        "next_category": "owner"
+      },
+      "rationale": "Known applicability may require escalation for a missing fact.",
       "evidence_pointers": ["fixture:owner.txt"]
     }
   ]

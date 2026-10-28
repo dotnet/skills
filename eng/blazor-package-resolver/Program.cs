@@ -9,13 +9,35 @@ try
     {
         [] or ["coverage"] => registry.Coverage(catalog),
         ["replay", var manifest] => Replay.Run(manifest, registry),
-        _ => throw new ArgumentException("Usage: blazor-package-resolver [coverage | replay <cases.json>]")
+        _ => throw new CliUsageException()
     };
     using var stdout = Console.OpenStandardOutput();
     stdout.Write(output);
 }
-catch (Exception error) when (error is IOException or JsonException or ArgumentException or InvalidOperationException)
+catch (InvalidDataException)
 {
-    Console.Error.WriteLine(error.Message);
-    Environment.ExitCode = 1;
+    Console.Error.WriteLine("Invalid resolver catalog or replay contract.");
+    Environment.ExitCode = 2;
 }
+catch (JsonException)
+{
+    Console.Error.WriteLine("Invalid JSON contract.");
+    Environment.ExitCode = 2;
+}
+catch (IOException)
+{
+    Console.Error.WriteLine("Unable to read required catalog or case input.");
+    Environment.ExitCode = 2;
+}
+catch (UnauthorizedAccessException)
+{
+    Console.Error.WriteLine("Unable to read required catalog or case input.");
+    Environment.ExitCode = 2;
+}
+catch (CliUsageException)
+{
+    Console.Error.WriteLine("Usage: blazor-package-resolver [coverage | replay <cases.json>]");
+    Environment.ExitCode = 2;
+}
+
+sealed class CliUsageException : Exception;

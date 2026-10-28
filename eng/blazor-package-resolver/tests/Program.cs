@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Diagnostics;
+using System.Text;
 using BlazorPackageResolver;
 
 var data = Path.Combine(AppContext.BaseDirectory, "data");
@@ -52,7 +54,7 @@ foreach (var (branch, applicability, finding) in tests)
     var handler = Fake("LP-01", input => Result(input, branch, "deterministic", applicability,
         finding, null, null, null));
     var withHandler = Implemented(handler);
-    var input = new ResolverCase(branch, "LP-01", []);
+    var input = new ResolverCase(branch, "LP-01", [], new Dictionary<string, CheckedInput>());
     var result = withHandler.Dispatch(input);
     Check(result.BranchId == branch && result.Applicability == applicability && result.Finding == finding,
         "Deterministic branch identity and applicability");
@@ -60,31 +62,56 @@ foreach (var (branch, applicability, finding) in tests)
 }
 var unknownHandler = Fake("LP-01", input => Result(input, "missing-owner", "escalated",
     "unknown", null, "Owner identity is not recorded.", "owner-record", "owner"));
-var unknown = Implemented(unknownHandler).Dispatch(new ResolverCase("unknown", "LP-01", []));
+var unknown = Implemented(unknownHandler).Dispatch(
+    new ResolverCase("unknown", "LP-01", [], new Dictionary<string, CheckedInput>()));
 Check(unknown.RequiredInput == "owner-record" && unknown.NextCategory == "owner", "Unknown branch escalation");
+var applicable = Implemented(Fake("LP-01", input => Result(input, "missing-license",
+    "escalated", "applicable", null, "License text is missing.", "license-text", "owner")))
+    .Dispatch(new ResolverCase("applicable-missing", "LP-01", [], new Dictionary<string, CheckedInput>()));
+Check(applicable.Applicability == "applicable" && applicable.RequiredInput == "license-text",
+    "Known applicability can escalate for missing facts");
 var branches = Path.Combine(AppContext.BaseDirectory, "fixtures", "branch-cases.json");
+var positiveInvocations = 0;
+CaseResult Positive(ResolverCase input)
+{
+    positiveInvocations++;
+    var checkedInput = input.CheckedInputs["package"];
+    Check(checkedInput.Identity == input.Inputs.Single() &&
+        Catalog.Digest(checkedInput.Content.Span) == checkedInput.Identity.Sha256,
+        "Handler receives the exact checked input identity and bytes");
+    return Result(input, "positive", "deterministic", "applicable",
+        Encoding.UTF8.GetString(checkedInput.Content.Span).TrimEnd('\n'), null, null, null);
+}
 var branchRegistry = Implemented(Fake("LP-01", input => input.CaseId switch
 {
-    "positive" => Result(input, "positive", "deterministic", "applicable",
-        "explicitly present", null, null, null),
+    "positive" => Positive(input),
     "negative" => Result(input, "negative", "deterministic", "not-applicable",
         "explicitly absent", null, null, null),
+    "applicable-missing" => Result(input, "missing-license", "escalated", "applicable",
+        null, "License text is missing.", "license-text", "owner"),
     _ => Result(input, "missing-owner", "escalated", "unknown",
         null, "Owner identity is not recorded.", "owner-record", "owner")
 }));
 var branchOutput = Replay.Run(branches, branchRegistry);
 Check(branchOutput.SequenceEqual(Replay.Run(branches, branchRegistry)) &&
-    JsonDocument.Parse(branchOutput).RootElement.GetProperty("cases").GetArrayLength() == 3,
-    "Pinned positive, negative and unknown branch replays");
+    JsonDocument.Parse(branchOutput).RootElement.GetProperty("cases").GetArrayLength() == 4 &&
+    positiveInvocations == 2,
+    "Pinned positive, negative, applicable-missing and unknown branch replays");
 NoClaims(JsonDocument.Parse(branchOutput).RootElement);
+var pinned = new PinnedInput("package", "package.txt",
+    "c51ea103f26298a2556632cd44a1c19fd3db2cb923eb1f45de813e1b2a1e8289");
+Throws(() => branchRegistry.Dispatch(new ResolverCase("positive", "LP-01", [pinned],
+    new Dictionary<string, CheckedInput> { ["package"] = new(pinned, "tampered"u8.ToArray()) })));
+Check(positiveInvocations == 2, "Tampered checked buffer rejected before handler invocation");
 Throws(() => Implemented(Fake("LP-01", input =>
     Result(input, "bad", "deterministic", "unknown", "guessed", null, null, null)))
-    .Dispatch(new ResolverCase("invalid", "LP-01", [])));
+    .Dispatch(new ResolverCase("invalid", "LP-01", [], new Dictionary<string, CheckedInput>())));
 Throws(() => Implemented(Fake("LP-01", input =>
     Result(input with { Inputs = [new PinnedInput("package", "wrong", new string('a', 64))] },
         "bad", "deterministic", "applicable", "wrong input", null, null, null)))
-    .Dispatch(new ResolverCase("invalid-input", "LP-01", [])));
-Throws(() => registry.Dispatch(new ResolverCase("component", catalog.ExcludedIds.First(), [])));
+    .Dispatch(new ResolverCase("invalid-input", "LP-01", [], new Dictionary<string, CheckedInput>())));
+Throws(() => registry.Dispatch(new ResolverCase("component", catalog.ExcludedIds.First(), [],
+    new Dictionary<string, CheckedInput>())));
 
 var replay = Replay.Run(fixture, registry);
 Check(replay.SequenceEqual(Replay.Run(fixture, registry)), "Canonical replay bytes");
@@ -118,6 +145,16 @@ try
     Throws(() => Replay.Run(path, registry));
     File.WriteAllText(path, suite);
     Check(Replay.Run(path, registry).SequenceEqual(replay), "Relocated fixture replay");
+    var branchPath = Path.Combine(temp, "branch-cases.json");
+    File.Copy(branches, branchPath);
+    Check(Replay.Run(branchPath, branchRegistry).SequenceEqual(branchOutput),
+        "Checked bytes yield location-independent output");
+    var invocationCount = positiveInvocations;
+    File.AppendAllText(Path.Combine(temp, "package.txt"), "tampered");
+    Throws(() => Replay.Run(branchPath, branchRegistry));
+    Check(positiveInvocations == invocationCount, "Tampered pinned file rejected before handler invocation");
+    File.Copy(Path.Combine(Path.GetDirectoryName(fixture)!, "package.txt"),
+        Path.Combine(temp, "package.txt"), true);
     File.WriteAllText(path, "{\"schema_version\":1,\"cases\":[]}");
     Check(JsonDocument.Parse(Replay.Run(path, registry)).RootElement.GetProperty("cases")
         .GetArrayLength() == 0, "Empty suite supported");
@@ -130,6 +167,20 @@ try
     File.Copy(Path.Combine(data, "rubric.json"), Path.Combine(dataCopy, "rubric.json"), true);
     File.AppendAllText(Path.Combine(dataCopy, "requirement-basis.json"), " ");
     Throws(() => Catalog.Load(dataCopy));
+    var invalidJson = Path.Combine(temp, "invalid.json");
+    File.WriteAllText(invalidJson, "{");
+    CliReject("Invalid JSON contract.", "replay", invalidJson);
+    CliReject("Unable to read required catalog or case input.", "replay",
+        Path.Combine(temp, "missing-secret.json"));
+    File.WriteAllText(path, suite.Replace("\"row_id\": \"SUP-01\"", "\"row_id\": \"TA-08\""));
+    CliReject("Invalid resolver catalog or replay contract.", "replay", path);
+    File.WriteAllText(path, suite.Replace("\"resolver_version\": \"1.0.0\"", "\"resolver_version\": null"));
+    CliReject("Invalid resolver catalog or replay contract.", "replay", path);
+    File.WriteAllText(path, suite.Replace("\"row_id\": \"SUP-01\"", "\"row_id\": null"));
+    CliReject("Invalid resolver catalog or replay contract.", "replay", path);
+    File.WriteAllText(path, suite.Replace("\"path\": \"owner.txt\"", "\"path\": \"\\u0000\""));
+    CliReject("Invalid resolver catalog or replay contract.", "replay", path);
+    CliReject("Usage: blazor-package-resolver [coverage | replay <cases.json>]", "replay");
 }
 finally
 {
@@ -178,6 +229,25 @@ static void Throws(Action action)
     catch (JsonException) { return; }
     catch (FileNotFoundException) { return; }
     throw new Exception("Expected input or contract rejection.");
+}
+static void CliReject(string expected, params string[] arguments)
+{
+    var process = new ProcessStartInfo("dotnet")
+    {
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false
+    };
+    process.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "BlazorPackageResolver.dll"));
+    foreach (var argument in arguments)
+        process.ArgumentList.Add(argument);
+    using var cli = Process.Start(process) ?? throw new Exception("Could not launch resolver CLI.");
+    var output = cli.StandardOutput.ReadToEnd();
+    var error = cli.StandardError.ReadToEnd();
+    cli.WaitForExit();
+    Check(cli.ExitCode == 2 && output.Length == 0 &&
+        error == expected + Environment.NewLine && !error.Contains(AppContext.BaseDirectory, StringComparison.Ordinal),
+        "CLI returns a stable, path-free contract error without a stack trace");
 }
 static void NoClaims(JsonElement node)
 {
