@@ -27,6 +27,21 @@ GATE_BOUND = re.compile(
 )
 
 
+MODEL_FAMILIES = (("claude-", "claude"), ("gpt-", "gpt"), ("mai-", "mai"), ("gemini-", "gemini"))
+
+
+def model_family(model):
+    for prefix, family in MODEL_FAMILIES:
+        if model.startswith(prefix):
+            return family
+    raise ValueError(f"Unknown model family for {model}; add it to MODEL_FAMILIES")
+
+
+def assert_cross_family(executor, judge):
+    if model_family(executor) == model_family(judge):
+        raise ValueError(f"Judge {judge} cannot grade same-family executor {executor}")
+
+
 def command(*args, env=None, allowed=(0,)):
     result = subprocess.run(args, check=False, text=True, env=env)
     if result.returncode not in allowed:
@@ -142,7 +157,7 @@ def artifact_uploaded_by_job(artifact, job):
         return False
 
 
-def discover(run_ids, artifact_name, executor_prefix="gpt-"):
+def discover(run_ids, artifact_name, executor_prefix="gpt-", candidate_judge=None):
     if not RUN_IDS.fullmatch(run_ids):
         raise ValueError("Run IDs must be a comma-separated list of positive integers")
     if artifact_name and not ARTIFACT_NAME.fullmatch(artifact_name):
@@ -164,6 +179,12 @@ def discover(run_ids, artifact_name, executor_prefix="gpt-"):
             if not artifact_name and executor_prefix and not re.search(
                     r"--" + re.escape(executor_prefix) + r"[A-Za-z0-9._-]*\Z", name):
                 continue
+            suffix = name.rsplit("--", 1)[-1]
+            if candidate_judge and any(suffix.startswith(prefix) for prefix, _ in MODEL_FAMILIES):
+                if model_family(suffix) == model_family(candidate_judge):
+                    if artifact_name:
+                        assert_cross_family(suffix, candidate_judge)
+                    continue
             entries.append({"run_id": run_id, "artifact_id": artifact["id"],
                             "artifact_name": name})
     if not entries:
@@ -507,6 +528,8 @@ def run_replay(args):
     old, model, original_files = scenario_trials(source, args.original_judge, legacy_root=source)
     if not old:
         raise ValueError("No original judged trials to replay")
+    assert_cross_family(model, args.candidate_judge)
+    usage_log = output / "judge-usage.jsonl"
     contracts = activation_contract(original_files)
     output.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
@@ -518,12 +541,15 @@ def run_replay(args):
         manifest.write_text("\n".join(expected) + "\n", encoding="utf-8")
         contract_path = output / "activation-contract.json"
         contract_path.write_text(json.dumps(contracts, sort_keys=True), encoding="utf-8")
+        usage_log.unlink(missing_ok=True)
+        adapter_env = os.environ.copy()
+        adapter_env["VALLY_JUDGE_USAGE_LOG"] = str(usage_log)
         command("node", args.adapter, "--experiment-dir", str(experiment[0]),
                 "--output-root", str(output / "candidate"), "--repo-root", args.repo_root,
                 "--expected-evals", str(manifest), "--model", model,
                 "--replay-activation-contract", str(contract_path),
                 "--judge-model", args.candidate_judge, "--vally", "vally",
-                "--plugin-variant", "__judge_only_no_plugin__")
+                "--plugin-variant", "__judge_only_no_plugin__", env=adapter_env)
         summary = load(output / "candidate" / "adapter-summary.json")
         if (summary["expectedEvalCount"] != len(expected)
                 or summary["writtenResultCount"] != len(expected)
@@ -579,10 +605,30 @@ def run_replay(args):
                             "candidate_judge": args.candidate_judge,
                             "source_trials": len(old)}
     report["replay_wall_seconds"] = round(time.monotonic() - start, 2)
+    report["judge_usage"] = judge_usage(usage_log, args.candidate_judge, report["counts"]["matched"])
     (output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"provenance": report["provenance"], "counts": report["counts"]}))
     if report["counts"]["new_errors"]:
         raise ValueError("Candidate has errored judgment slots; see comparison.json")
+
+
+def judge_usage(path, judge, matched):
+    """Sum candidate judge tokens and latency captured by the Vally usage tap."""
+    if not path.is_file():
+        return {"available": False}
+    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    if any(record.get("model") != judge for record in records):
+        raise ValueError("Judge usage log contains another judge model")
+    complete = [r for r in records if not r.get("errored")
+                and isinstance(r.get("inputTokens"), int) and isinstance(r.get("outputTokens"), int)]
+    def total(key):
+        return sum(r.get(key) or 0 for r in complete)
+    return {"available": len(complete) == matched, "calls": len(records),
+            "complete_calls": len(complete), "input_tokens": total("inputTokens"),
+            "output_tokens": total("outputTokens"),
+            "judge_latency_ms": total("forwardLatencyMs") + total("reverseLatencyMs"),
+            "judge_wall_ms": total("wallMs"),
+            "position_swap_consistent": sum(r.get("positionSwapConsistent") is True for r in complete)}
 
 
 def aggregate(root, expected):
@@ -593,8 +639,14 @@ def aggregate(root, expected):
         raise ValueError(f"Missing or duplicate replay reports: expected {len(required)}, got {len(reports)}")
     totals = {key: sum(report["counts"][key] for report in reports)
               for key in reports[0]["counts"]}
+    usage = [report.get("judge_usage", {}) for report in reports]
+    usage_totals = {key: sum(item.get(key, 0) for item in usage)
+                    for key in ("calls", "complete_calls", "input_tokens", "output_tokens",
+                                "judge_latency_ms", "judge_wall_ms", "position_swap_consistent")}
+    usage_totals["available_artifacts"] = sum(bool(item.get("available")) for item in usage)
     return {"artifacts": len(reports), "replay_wall_seconds": round(
-        sum(report["replay_wall_seconds"] for report in reports), 2), "counts": totals}
+        sum(report["replay_wall_seconds"] for report in reports), 2), "counts": totals,
+        "judge_usage": usage_totals}
 
 
 def main():
@@ -623,7 +675,8 @@ def main():
     if args.action == "discover":
         if not MODEL_NAME.fullmatch(args.original_judge) or not MODEL_NAME.fullmatch(args.candidate_judge):
             raise ValueError("Judge models must be simple allowlisted model IDs")
-        entries = discover(args.run_ids, args.artifact_name, args.executor_prefix)
+        entries = discover(args.run_ids, args.artifact_name, args.executor_prefix,
+                           args.candidate_judge)
         Path(args.output).write_text(json.dumps({"entry": entries}), encoding="utf-8")
         print(f"Selected {len(entries)} artifact(s) for judge-only replay")
     elif args.action == "download-source":

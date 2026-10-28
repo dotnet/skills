@@ -132,7 +132,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/judge-tools/bin"
-          cp eng/evaluation-tools/{package.json,package-lock.json,vally.mjs,sdk-startup.mjs} "$RUNNER_TEMP/judge-tools/"
+          cp eng/evaluation-tools/{package.json,package-lock.json,vally.mjs,sdk-startup.mjs,judge-usage-tap.mjs} "$RUNNER_TEMP/judge-tools/"
           npm ci --prefix "$RUNNER_TEMP/judge-tools" --registry https://registry.npmjs.org/
           chmod +x "$RUNNER_TEMP/judge-tools/vally.mjs"
           ln -s ../vally.mjs "$RUNNER_TEMP/judge-tools/bin/vally"

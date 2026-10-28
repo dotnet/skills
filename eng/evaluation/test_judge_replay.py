@@ -165,6 +165,44 @@ class JudgeReplayTests(unittest.TestCase):
             with self.subTest(run_ids=invalid), self.assertRaises(ValueError):
                 replay.discover(invalid, "")
 
+    def test_cross_family_guard_and_discovery_filter(self):
+        self.assertEqual(replay.model_family("mai-code-2-flash"), "mai")
+        replay.assert_cross_family("gpt-5.6-luna", "mai-code-2-flash")
+        with self.assertRaisesRegex(ValueError, "same-family"):
+            replay.assert_cross_family("claude-sonnet-5", "claude-haiku-5.5")
+        with self.assertRaisesRegex(ValueError, "Unknown model family"):
+            replay.model_family("other-model")
+        run = {"path": ".github/workflows/evaluation.yml", "status": "completed",
+               "repository": "dotnet/skills"}
+        artifacts = [
+            {"id": 1, "name": "vally-results-dotnet-msbuild--claude-sonnet-5", "expired": False},
+            {"id": 2, "name": "vally-results-dotnet-msbuild--gpt-5.6-luna", "expired": False},
+        ]
+        with patch.object(replay, "github", side_effect=[run, artifacts]):
+            entries = replay.discover("123", "", "", "claude-haiku-5.5")
+        self.assertEqual([entry["artifact_id"] for entry in entries], [2])
+        with patch.object(replay, "github", side_effect=[run, artifacts]), \
+                self.assertRaisesRegex(ValueError, "same-family"):
+            replay.discover("123", artifacts[0]["name"], "", "claude-haiku-5.5")
+
+    def test_judge_usage_sums_complete_tap_records(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            log = Path(temporary) / "judge-usage.jsonl"
+            self.assertEqual(replay.judge_usage(log, "mai-code-2-flash", 1), {"available": False})
+            rows = [{"model": "mai-code-2-flash", "errored": False, "inputTokens": 10,
+                     "outputTokens": 2, "forwardLatencyMs": 5, "reverseLatencyMs": 6,
+                     "wallMs": 12, "positionSwapConsistent": True},
+                    {"model": "mai-code-2-flash", "errored": True, "inputTokens": None,
+                     "outputTokens": None, "wallMs": 4}]
+            log.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+            usage = replay.judge_usage(log, "mai-code-2-flash", 1)
+            self.assertEqual(usage, {"available": True, "calls": 2, "complete_calls": 1,
+                                     "input_tokens": 10, "output_tokens": 2,
+                                     "judge_latency_ms": 11, "judge_wall_ms": 12,
+                                     "position_swap_consistent": 1})
+            with self.assertRaisesRegex(ValueError, "another judge"):
+                replay.judge_usage(log, "gpt-6.1-terra", 1)
+
     def test_duplicate_names_download_only_the_selected_artifact_id(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
             root = Path(temporary)
