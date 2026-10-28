@@ -56,7 +56,7 @@ Migrate a .NET 9 project or solution to .NET 10, systematically resolving all br
 ### Step 1: Assess the project
 
 1. Identify how the project is built and tested. Look for build scripts, `.sln`/`.slnx` files, or individual `.csproj` files.
-2. Run `dotnet --version` to confirm the .NET 10 SDK is installed. If it is not, stop and inform the user.
+2. Run `dotnet --version` to confirm the .NET 10 SDK is installed, and verify that the IDE in use supports `net10.0` (Visual Studio 2026 / 18.0+; see `references/sdk-msbuild-dotnet9to10.md`). If the SDK is not installed, stop and inform the user.
 3. Determine which technology areas the project uses by examining:
    - **SDK attribute**: `Microsoft.NET.Sdk.Web` → ASP.NET Core; `Microsoft.NET.Sdk.WindowsDesktop` with `<UseWPF>` or `<UseWindowsForms>` → WPF/WinForms
    - **PackageReferences**: `Microsoft.EntityFrameworkCore.*` → EF Core; `Microsoft.Data.Sqlite` → Sqlite; `Microsoft.Extensions.Hosting` → Generic Host / BackgroundService
@@ -234,6 +234,8 @@ Behavioral changes do not cause build errors but may change runtime behavior. Re
 4. **OpenSSL requirements**: OpenSSL 1.1.1 or later is now required on Unix. OpenSSL cryptographic primitives are no longer supported on macOS.
 
 5. **Solution file format**: If `dotnet new sln` is used in scripts, note it now generates SLNX format. Pass `--format sln` if the old format is needed.
+
+6. **Visual Studio compatibility**: Ensure CI images and developer machines that build with Visual Studio use Visual Studio 2026 (18.0+) to target `net10.0`.
 
 ### Step 6: Verify
 
