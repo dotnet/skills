@@ -94,8 +94,18 @@ public sealed class Registry
 
     public CaseResult Dispatch(ResolverCase input)
     {
-        if (!entries.TryGetValue(input.RowId, out var registration))
+        if (string.IsNullOrWhiteSpace(input.RowId) ||
+            !entries.TryGetValue(input.RowId, out var registration))
             throw new InvalidDataException($"Case row is not a package registry ID: {input.RowId}");
+        var roles = new HashSet<string>(StringComparer.Ordinal);
+        if (input.Inputs is null || input.CheckedInputs is null ||
+            input.CheckedInputs.Count != input.Inputs.Count ||
+            input.Inputs.Any(identity => identity is null ||
+                string.IsNullOrWhiteSpace(identity.Role) || !roles.Add(identity.Role) ||
+                !input.CheckedInputs.TryGetValue(identity.Role, out var checkedInput) ||
+                checkedInput.Identity != identity ||
+                Catalog.Digest(checkedInput.Content.Span) != identity.Sha256))
+            throw new InvalidDataException("Pinned input identities do not match checked content.");
         if (registration.WorkState == "tbd")
             return new CaseResult(input.RowId, "package-dispatcher", "1.0.0", "unimplemented",
                 "escalated", "unknown", input.Inputs, [], null, null,

@@ -5,7 +5,10 @@ using System.Text.RegularExpressions;
 namespace BlazorPackageResolver;
 
 public sealed record PinnedInput(string Role, string Path, string Sha256);
-public sealed record ResolverCase(string CaseId, string RowId, IReadOnlyList<PinnedInput> Inputs);
+public sealed record CheckedInput(PinnedInput Identity, ReadOnlyMemory<byte> Content);
+public sealed record ResolverCase(
+    string CaseId, string RowId, IReadOnlyList<PinnedInput> Inputs,
+    IReadOnlyDictionary<string, CheckedInput> CheckedInputs);
 
 public sealed record CaseResult(
     string RowId, string ResolverId, string ResolverVersion, string BranchId,
@@ -16,9 +19,11 @@ public sealed record CaseResult(
     public void Validate(ResolverCase input, IDeterministicResolver? handler = null)
     {
         if (RowId != input.RowId || Inputs is null || !Inputs.SequenceEqual(input.Inputs) ||
-            Inputs.Any(item => string.IsNullOrWhiteSpace(item.Role) || string.IsNullOrWhiteSpace(item.Path) ||
+            Inputs.Any(item => item is null || string.IsNullOrWhiteSpace(item.Role) ||
+                string.IsNullOrWhiteSpace(item.Path) ||
                 !Regex.IsMatch(item.Sha256 ?? "", "^[a-f0-9]{64}$", RegexOptions.CultureInvariant)) ||
             !Slug(ResolverId) || !Slug(BranchId) ||
+            string.IsNullOrWhiteSpace(ResolverVersion) ||
             !Regex.IsMatch(ResolverVersion, @"^[1-9][0-9]*\.[0-9]+\.[0-9]+$", RegexOptions.CultureInvariant) ||
             EvidenceReferences is null || EvidenceReferences.Any(string.IsNullOrWhiteSpace) ||
             EvidenceReferences.Distinct(StringComparer.Ordinal).Count() != EvidenceReferences.Count ||
@@ -36,10 +41,10 @@ public sealed record CaseResult(
         }
         else if (Decision == "escalated")
         {
-            if (Applicability != "unknown" || Finding is not null ||
+            if (Applicability == "not-applicable" || Finding is not null ||
                 string.IsNullOrWhiteSpace(MissingFact) || string.IsNullOrWhiteSpace(RequiredInput) ||
                 !Slug(NextCategory))
-                throw new InvalidDataException("Escalation requires a specific missing fact, input and next category.");
+                throw new InvalidDataException("Applicable or unknown escalation requires a missing fact, input and next category.");
         }
         else
             throw new InvalidDataException($"Unknown case decision: {Decision}");
@@ -108,34 +113,49 @@ public static class Replay
 
     public static byte[] Run(string manifestPath, Registry registry)
     {
-        var suite = JsonSerializer.Deserialize<CaseSuite>(File.ReadAllBytes(manifestPath), JsonOptions)
+        if (string.IsNullOrWhiteSpace(manifestPath))
+            throw new InvalidDataException("Case manifest path is required.");
+        byte[] manifest;
+        try
+        {
+            manifest = File.ReadAllBytes(manifestPath);
+        }
+        catch (ArgumentException error)
+        {
+            throw new InvalidDataException("Invalid case manifest path.", error);
+        }
+        var suite = JsonSerializer.Deserialize<CaseSuite>(manifest, JsonOptions)
             ?? throw new InvalidDataException("Empty replay suite.");
         if (suite.SchemaVersion != 1 || suite.Cases is null)
             throw new InvalidDataException("Unsupported replay suite.");
-        var root = Path.GetDirectoryName(Path.GetFullPath(manifestPath))!;
+        var root = Path.GetDirectoryName(FullPath(manifestPath))!;
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var results = new List<(string Id, CaseResult Result)>();
         foreach (var item in suite.Cases)
         {
-            if (string.IsNullOrWhiteSpace(item.CaseId) || !ids.Add(item.CaseId) ||
+            if (item is null || string.IsNullOrWhiteSpace(item.CaseId) || !ids.Add(item.CaseId) ||
                 string.IsNullOrWhiteSpace(item.Rationale) || item.Inputs is null ||
                 item.Expected is null || item.EvidencePointers is null ||
                 item.EvidencePointers.Any(string.IsNullOrWhiteSpace))
                 throw new InvalidDataException("Case needs a unique ID, rationale, inputs, expected result and evidence pointers.");
             var roles = new HashSet<string>(StringComparer.Ordinal);
+            var checkedInputs = new Dictionary<string, CheckedInput>(StringComparer.Ordinal);
             foreach (var artifact in item.Inputs)
             {
-                if (string.IsNullOrWhiteSpace(artifact.Role) || !roles.Add(artifact.Role) ||
+                if (artifact is null || string.IsNullOrWhiteSpace(artifact.Role) || !roles.Add(artifact.Role) ||
                     string.IsNullOrWhiteSpace(artifact.Path) ||
                     !Regex.IsMatch(artifact.Sha256 ?? "", "^[a-f0-9]{64}$", RegexOptions.CultureInvariant))
                     throw new InvalidDataException($"Conflicting or invalid pinned inputs in {item.CaseId}.");
-                var path = Path.GetFullPath(Path.Combine(root, artifact.Path));
+                var path = FullPath(root, artifact.Path);
                 if (Path.IsPathRooted(artifact.Path) ||
-                    Path.GetRelativePath(root, path).StartsWith("..", StringComparison.Ordinal) ||
-                    Catalog.Digest(File.ReadAllBytes(path)) != artifact.Sha256)
+                    Path.GetRelativePath(root, path).StartsWith("..", StringComparison.Ordinal))
                     throw new InvalidDataException($"Missing, escaped or digest-mismatched input: {artifact.Path}");
+                var bytes = File.ReadAllBytes(path);
+                if (Catalog.Digest(bytes) != artifact.Sha256)
+                    throw new InvalidDataException($"Missing, escaped or digest-mismatched input: {artifact.Path}");
+                checkedInputs.Add(artifact.Role, new CheckedInput(artifact, bytes));
             }
-            var input = new ResolverCase(item.CaseId, item.RowId, item.Inputs);
+            var input = new ResolverCase(item.CaseId, item.RowId, item.Inputs, checkedInputs);
             item.Expected.Validate(input);
             if (item.Expected.EvidenceReferences.Any(reference =>
                 !item.EvidencePointers.Contains(reference, StringComparer.Ordinal)))
@@ -166,6 +186,18 @@ public static class Replay
             writer.WriteEndArray();
             writer.WriteEndObject();
         });
+    }
+
+    private static string FullPath(string path, string? relative = null)
+    {
+        try
+        {
+            return Path.GetFullPath(relative is null ? path : Path.Combine(path, relative));
+        }
+        catch (ArgumentException error)
+        {
+            throw new InvalidDataException("Invalid case input path.", error);
+        }
     }
 }
 

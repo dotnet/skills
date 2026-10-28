@@ -2,9 +2,12 @@
 
 This standalone, dependency-free .NET CLI is a **non-scoring dispatch foundation**, not
 a skill, assessment, readiness authority, or component resolver. The full 112-row
-normative rubric and JSON crosswalk/basis are copied byte-for-byte from commit
-`fefdaccbfdc0f34cec3d3ca5b8f7ea3fce4a68e3`; `data/provenance.json` records
-their original paths, Git blob IDs and SHA-256 digests. The loader checks both
+normative rubric and JSON crosswalk/basis are copied byte-for-byte from historical
+local commit `fefdaccbfdc0f34cec3d3ca5b8f7ea3fce4a68e3`, preserved in the
+verified local reference bundle. This is **not** claimed as reachable from a live
+remote: no live origin ref containing both exact blobs was found. The copied bytes
+are independently pinned; `data/provenance.json` records their original paths,
+Git blob IDs and SHA-256 digests. The loader checks both
 digests, crosswalk clauses, source version and all core scopes. Only the 60
 `repository-wide` core rows enter the registry; the 52 component rows and the
 separate TA-08 extension are excluded. All 60 package rows are `tbd`, with no
@@ -26,6 +29,10 @@ Roles can include package, repository snapshot, release assets, workflow, corpus
 and owner record. Conflicting roles, missing files, digest changes, unexpected
 fields, and mismatched frozen expected results fail explicitly. The output is
 canonical JSON; no readiness status, score, or verdict is emitted.
+Each handler receives role-keyed `CheckedInput` entries with the same read-only
+bytes used for SHA-256 verification; handlers consume those bytes rather than
+reopening a path. Results retain only relative paths, roles, and digests, so
+replays do not depend on the checkout location.
 
 Each case's `expected` is a structured `CaseResult`: `row_id`, `resolver_id`,
 `resolver_version`, stable `branch_id`, `decision` (`deterministic` or `escalated`),
@@ -33,7 +40,8 @@ Each case's `expected` is a structured `CaseResult`: `row_id`, `resolver_id`,
 `evidence_references` and/or `evidence_contract`, plus either a factual `finding`
 or a specific `missing_fact`, `required_input`, and `next_category`. Branches of
 the same future row may take different paths. Deterministic branches need a
-finding and evidence; unknown applicability must escalate. The dispatcher
+finding and evidence; unknown applicability must escalate. A known applicable
+branch may also escalate when a named fact/input remains missing. The dispatcher
 escalates every unimplemented row as `package-dispatcher`, not as a claimed row
 resolver. Registry construction rejects missing/extra IDs, component or extension
 IDs, handlers without registrations, implementation declarations without matching
