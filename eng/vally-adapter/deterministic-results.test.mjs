@@ -131,21 +131,45 @@ test("failed baseline checks do not block a healthy isolated arm", async () => {
   });
 });
 
-test("incomplete execution in any required arm is invalid, not a completed grader failure", async () => {
+test("incomplete isolated execution invalidates required deterministic evidence", async () => {
   await fixture((spec, roles) => {
-    for (const map of [roles.baselineByStim, roles.skilledByStim, roles.pluginByStim]) {
-      const record = map.get("Check")[0];
-      record.trajectory.endReason = "agent_timeout";
-      assert.equal(deterministicContract(spec, roles).valid, false);
-      record.trajectory.endReason = "completed";
-    }
-    // Execution validity is independent of whether an eval declares a static check.
-    spec.stimuli[0].graders = [];
-    roles.baselineByStim.get("Check")[0].trajectory.endReason = "agent_timeout";
+    roles.skilledByStim.get("Check")[0].trajectory.endReason = "agent_timeout";
     const result = deterministicContract(spec, roles);
     assert.equal(result.valid, false);
     assert.equal(result.passed, null);
     assert.match(result.errors[0].message, /completed trajectory/);
+  }, { plugin: true });
+});
+
+test("timeouts outside isolated deterministic evidence are diagnostic", async () => {
+  await fixture((spec, roles) => {
+    for (const arm of ["baseline", "plugin"]) {
+      const record = roles[`${arm}ByStim`].get("Check")[0];
+      record.trajectory.endReason = "agent_timeout";
+    }
+    const result = deterministicContract(spec, roles);
+    assert.equal(result.valid, true);
+    assert.equal(result.passed, true);
+    assert.deepEqual(result.diagnostics.map(({ arm }) => arm), ["baseline", "plugin"]);
+    assert.equal(reconcileDeterministicComparison(result, { stimuli: [] }).valid, true);
+
+    spec.stimuli[0].graders = [{ type: "prompt" }];
+    roles.skilledByStim.get("Check")[0].trajectory.endReason = "agent_timeout";
+    const promptOnly = deterministicContract(spec, roles);
+    assert.equal(promptOnly.valid, true);
+    assert.equal(promptOnly.passed, true);
+    assert.deepEqual(promptOnly.diagnostics.map(({ arm }) => arm), ["baseline", "skilled", "plugin"]);
+    assert.equal(reconcileDeterministicComparison(promptOnly, { stimuli: [] }).valid, true);
+  }, { plugin: true });
+});
+
+test("non-success executor status invalidates every arm", async () => {
+  await fixture((spec, roles) => {
+    for (const map of [roles.baselineByStim, roles.skilledByStim, roles.pluginByStim]) {
+      map.get("Check")[0].status = "error";
+      assert.equal(deterministicContract(spec, roles).valid, false);
+      map.get("Check")[0].status = "success";
+    }
   }, { plugin: true });
 });
 

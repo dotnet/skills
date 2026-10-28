@@ -104,10 +104,11 @@ function trialIndexOf(record) {
   return match ? Number(match[1]) : null;
 }
 
-function checkRecord(record, stimulus, spec) {
+function checkRecord(record, stimulus, spec, requireDeterministicEvidence) {
   const declarations = stimulus.graders.filter((grader) => grader.deterministic);
   const details = record?.gradeResult?.details;
   const errors = [];
+  const diagnostics = [];
   const checks = [];
   for (const field of ["evalHash", "configHash"]) {
     if (spec[field] == null) continue;
@@ -117,13 +118,18 @@ function checkRecord(record, stimulus, spec) {
       errors.push(`Experiment ${field} does not match the source and effective plan; use the original configuration and --param values`);
     }
   }
-  if (record?.status !== "success" || !record.trajectory
-      || record.trajectory.endReason !== "completed") {
+  const trajectoryComplete = record?.status === "success"
+    && record.trajectory?.endReason === "completed";
+  if (record?.status !== "success" || !record.trajectory) {
     errors.push("Executor did not produce a completed trajectory");
+  } else if (record.trajectory.endReason !== "completed") {
+    const message = "Executor did not produce a completed trajectory";
+    (requireDeterministicEvidence ? errors : diagnostics).push(message);
   }
   if (declarations.length > 0) {
     if (!Array.isArray(details) || details.length !== stimulus.graders.length) {
-      errors.push("Grader detail count does not match the parsed eval spec");
+      const message = "Grader detail count does not match the parsed eval spec";
+      (requireDeterministicEvidence ? errors : diagnostics).push(message);
     } else {
       for (const declaration of declarations) {
         const detail = details[declaration.index];
@@ -140,20 +146,26 @@ function checkRecord(record, stimulus, spec) {
           passed: valid ? detail.passed : null,
           evidence: detail?.evidence ?? null,
         });
-        if (!valid) errors.push(`Missing, errored or mismatched grader: ${declaration.name}`);
+        if (!valid) {
+          const message = `Missing, errored or mismatched grader: ${declaration.name}`;
+          (requireDeterministicEvidence ? errors : diagnostics).push(message);
+        }
       }
     }
   }
   return {
-    passed: errors.length > 0 ? null : declarations.length === 0
+    passed: errors.length > 0 || diagnostics.length > 0 ? null : declarations.length === 0
       ? null : checks.every((check) => check.passed),
     checks,
     errors,
+    diagnostics,
+    trajectoryComplete,
   };
 }
 
 export function deterministicContract(spec, roles, variants = {}) {
   const errors = [];
+  const diagnostics = [];
   const trials = [];
   const roleMaps = [
     ["baseline", roles.baselineByStim, variants.baseline ?? "baseline"],
@@ -185,9 +197,14 @@ export function deterministicContract(spec, roles, variants = {}) {
           errors.push({ arm, stimulusName: stimulus.name, trialIndex, message: "Missing, duplicate or wrong-arm trial" });
           continue;
         }
-        const result = checkRecord(matches[0], stimulus, effectiveSpec);
+        const requireDeterministicEvidence = arm === "skilled"
+          && stimulus.graders.some((grader) => grader.deterministic);
+        const result = checkRecord(matches[0], stimulus, effectiveSpec, requireDeterministicEvidence);
         trials.push({ arm, stimulusName: stimulus.name, trialIndex, ...result });
         errors.push(...result.errors.map((message) => ({
+          arm, stimulusName: stimulus.name, trialIndex, message,
+        })));
+        diagnostics.push(...result.diagnostics.map((message) => ({
           arm, stimulusName: stimulus.name, trialIndex, message,
         })));
       }
@@ -202,6 +219,7 @@ export function deterministicContract(spec, roles, variants = {}) {
     passed: errors.length === 0 ? failures.length === 0 : null,
     failures,
     errors,
+    diagnostics,
     trials,
   };
 }
@@ -209,6 +227,7 @@ export function deterministicContract(spec, roles, variants = {}) {
 export function reconcileDeterministicComparison(contract, report) {
   const keyOf = (name, index) => JSON.stringify([name, index]);
   const expected = new Set(contract.trials.filter((trial) => trial.arm === "baseline")
+    .filter((trial) => trial.trajectoryComplete)
     .map((trial) => keyOf(trial.stimulusName, trial.trialIndex)));
   const observed = (report.stimuli ?? []).flatMap((stimulus) =>
     (stimulus.trials ?? []).map((trial) => keyOf(stimulus.stimulusName, trial.trialIndex)));

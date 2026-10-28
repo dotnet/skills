@@ -606,11 +606,12 @@ When evidence is complete but an isolated check fails, the verdict is
 preference or low preference sample count. Inspect
 `deterministicContract.failures[].checks` for the declaration and evidence.
 Baseline and plugin failures remain diagnostic; they do not block a healthy
-isolated arm when execution completed and the grader results are valid.
-An executor timeout is incomplete execution, not a completed grader failure,
-even if Vally persists the trial with `status: "success"`. It invalidates any
-required arm, including evals without deterministic declarations. This is an
-intentional skill-lane validity rule; native-agent completion policy is unchanged.
+isolated arm. An executor timeout is incomplete execution, not a completed
+grader failure, even if Vally persists the trial with `status: "success"`.
+It invalidates required deterministic evidence only in the isolated arm.
+Timeouts in baseline, plugin, or prompt-only eval records remain diagnostics.
+Non-success executor status still invalidates every arm. Native-agent completion
+policy is unchanged.
 Missing or errored evidence in any required arm also invalidates
 the measurement. LLM results, aggregate scores, weights and thresholds cannot
 override an explicit deterministic failure.
