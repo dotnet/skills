@@ -183,11 +183,36 @@ jobs:
           $base = "${{ github.event.pull_request.base.sha }}"
           $head = "${{ github.event.pull_request.head.sha }}"
           $mergeBase = git merge-base $base $head
-          $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
+            throw "Could not determine a merge base for '$base' and '$head'."
+          }
+          $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not enumerate changed files for '$mergeBase..$head'."
+          }
+          $changedManifestPlugins = @($changedFiles |
+            ForEach-Object {
+              if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
+                $Matches[1]
+              }
+            } |
+            Where-Object { $_ } |
+            Sort-Object -Unique)
+          $helperPath = Join-Path $PWD "eng/evaluation/change-classification.ps1"
+          if (Test-Path $helperPath) {
+            . $helperPath
+            $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
+              -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
+          } else {
+            Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
+          }
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
+          if ($changedManifestPlugins.Count -gt 0) {
+            $hasSkillChanges = $true
+          }
 
           # Evaluation pipeline changes need a re-eval. The native custom-agent
           # lane executes eng/skill-validator/src, so changes there are evaluator
@@ -195,7 +220,7 @@ jobs:
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
               ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -255,16 +280,41 @@ jobs:
           $base = "${{ github.event.pull_request.base.sha }}"
           $head = "FETCH_HEAD"
           $mergeBase = git merge-base $base $head
-          $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
+            throw "Could not determine a merge base for '$base' and '$head'."
+          }
+          $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not enumerate changed files for '$mergeBase..$head'."
+          }
+          $changedManifestPlugins = @($changedFiles |
+            ForEach-Object {
+              if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
+                $Matches[1]
+              }
+            } |
+            Where-Object { $_ } |
+            Sort-Object -Unique)
+          $helperPath = Join-Path $PWD "eng/evaluation/change-classification.ps1"
+          if (Test-Path $helperPath) {
+            . $helperPath
+            $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
+              -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
+          } else {
+            Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
+          }
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
+          if ($changedManifestPlugins.Count -gt 0) {
+            $hasSkillChanges = $true
+          }
 
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
               ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'

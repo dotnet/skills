@@ -4,6 +4,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -15,6 +16,12 @@ from test_token_failover import BASH
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def normalized_output(result):
+    output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", result.stdout + result.stderr)
+    output = re.sub(r"(?m)^\s*\|\s?", "", output)
+    return " ".join(output.split())
+
+
 class WorkflowTargetsTests(unittest.TestCase):
     def setUp(self):
         self.scratch = tempfile.TemporaryDirectory(prefix="workflow-targets-")
@@ -22,7 +29,12 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.root = Path(self.scratch.name)
         scripts = self.root / "eng" / "evaluation"
         scripts.mkdir(parents=True)
-        for name in ("path-safety.ps1", "workflow-targets.ps1", "find-targets.ps1"):
+        for name in (
+            "change-classification.ps1",
+            "path-safety.ps1",
+            "workflow-targets.ps1",
+            "find-targets.ps1",
+        ):
             shutil.copy2(REPO_ROOT / "eng" / "evaluation" / name, scripts / name)
         (self.root / "plugins").mkdir()
         for package in ("alpha", "beta"):
@@ -61,6 +73,45 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
                  "commit", "--quiet", "-m", message)
         return self.git("rev-parse", "HEAD")
+
+    def create_plugin_fixture(self):
+        manifest = self.root / "plugins" / "demo" / "plugin.json"
+        skill = self.root / "plugins" / "demo" / "skills" / "sample" / "SKILL.md"
+        evaluation = self.root / "tests" / "demo" / "sample" / "eval.yaml"
+        manifest.parent.mkdir(parents=True)
+        skill.parent.mkdir(parents=True)
+        evaluation.parent.mkdir(parents=True)
+        manifest.write_text(
+            '{"name":"demo","version":"1.0.0","skills":["./skills/"]}\n',
+            encoding="utf-8",
+        )
+        skill.write_text(
+            "---\nname: sample\ndescription: Sample.\n---\nSample.\n",
+            encoding="utf-8",
+        )
+        evaluation.write_text(
+            "name: sample\nstimuli: []\n",
+            encoding="utf-8",
+        )
+        return manifest
+
+    def create_agent_fixture(self, manifest_content=None):
+        agent = self.root / "plugins" / "demo" / "agents" / "router.agent.md"
+        evaluation = self.root / "tests" / "demo" / "agent.router" / "eval.yaml"
+        agent.parent.mkdir(parents=True)
+        evaluation.parent.mkdir(parents=True)
+        agent.write_text(
+            "---\nname: router\ndescription: Route work.\n---\nRoute work.\n",
+            encoding="utf-8",
+        )
+        evaluation.write_text(
+            "name: router\nstimuli: []\n",
+            encoding="utf-8",
+        )
+        if manifest_content is not None:
+            manifest = self.root / "plugins" / "demo" / "plugin.json"
+            manifest.write_text(manifest_content, encoding="utf-8")
+        return agent
 
     def test_manual_collection_and_single_package_dispatch(self):
         for selected, count in (("", 2), ("alpha", 1)):
@@ -139,6 +190,200 @@ class WorkflowTargetsTests(unittest.TestCase):
                                  {"agentic-workflows/alpha/aw.yml", "agentic-workflows/beta/aw.yml"})
                 self.assertEqual(len(entries), 4)
                 self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
+
+    def test_pr_malformed_changed_manifest_fails_target_discovery(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.write_text("{ malformed", encoding="utf-8")
+        head = self.commit_fixture("Break manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = normalized_output(result)
+        self.assertIn("target discovery cannot enumerate", output)
+        self.assertIn("production surface", output)
+
+    def test_pr_valid_manifest_without_agents_keeps_empty_agent_result(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.write_text(
+            '{"name":"demo","version":"1.0.1",'
+            '"description":"Changed","skills":["./skills/"]}\n',
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertTrue(entries)
+        self.assertEqual(
+            {entry["target_kind"] for entry in entries},
+            {"skill"},
+        )
+
+    def test_pr_fully_deleted_plugin_has_no_surviving_target(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        shutil.rmtree(manifest.parent)
+        shutil.rmtree(self.root / "tests" / "demo")
+        head = self.commit_fixture("Remove manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.entries(), [])
+
+    def test_pr_removed_manifest_from_surviving_plugin_fails_closed(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.unlink()
+        head = self.commit_fixture("Remove manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = normalized_output(result)
+        self.assertIn("target discovery cannot enumerate", output)
+        self.assertIn("production surface", output)
+
+    def test_pr_merge_base_failure_fails_closed(self):
+        self.git("init", "--quiet")
+        head = self.commit_fixture("Fixture base")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA="not-a-commit",
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "Could not determine a merge base",
+            normalized_output(result),
+        )
+
+    def test_pr_diff_failure_fails_closed(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        changed = self.root / "changed.txt"
+        changed.write_text("changed\n", encoding="utf-8")
+        head = self.commit_fixture("Change file")
+
+        real_git = shutil.which("git")
+        self.assertIsNotNone(real_git)
+        wrapper_dir = self.root / "fake-bin"
+        wrapper_dir.mkdir()
+        if os.name == "nt":
+            wrapper = wrapper_dir / "git.cmd"
+            wrapper.write_text(
+                '@echo off\r\n'
+                'if "%1"=="diff" exit /b 42\r\n'
+                f'"{real_git}" %*\r\n',
+                encoding="utf-8",
+            )
+        else:
+            wrapper = wrapper_dir / "git"
+            wrapper.write_text(
+                "#!/bin/sh\n"
+                'if [ "$1" = "diff" ]; then exit 42; fi\n'
+                f'exec "{real_git}" "$@"\n',
+                encoding="utf-8",
+            )
+            wrapper.chmod(0o755)
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+            PATH=str(wrapper_dir) + os.pathsep + os.environ["PATH"],
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "Could not enumerate changed files",
+            normalized_output(result),
+        )
+
+    def test_agent_source_change_with_missing_manifest_fails_closed(self):
+        agent = self.create_agent_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        agent.write_text(agent.read_text(encoding="utf-8") + "\nChanged.\n",
+                         encoding="utf-8")
+        head = self.commit_fixture("Change agent")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("plugin.json is missing", result.stdout + result.stderr)
+
+    def test_agent_source_change_with_invalid_manifest_fails_closed(self):
+        agent = self.create_agent_fixture("{ malformed")
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        agent.write_text(agent.read_text(encoding="utf-8") + "\nChanged.\n",
+                         encoding="utf-8")
+        head = self.commit_fixture("Change agent")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("plugin.json is invalid", result.stdout + result.stderr)
 
     def test_missing_spec_unknown_package_and_traversal_fail_closed(self):
         for selected in ("missing", "../alpha", "alpha/.."):
