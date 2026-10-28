@@ -1,0 +1,511 @@
+#!/usr/bin/env node
+
+const fs = require('node:fs');
+const path = require('node:path');
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function parseArgs(args) {
+  const values = {};
+  for (let index = 0; index < args.length; index += 2) {
+    const key = args[index];
+    const value = args[index + 1];
+    if (!key?.startsWith('--') || value === undefined) {
+      throw new Error(`Invalid argument near ${key ?? '<end>'}`);
+    }
+    values[key.slice(2)] = value;
+  }
+  return values;
+}
+
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function mean(values) {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function ratio(numerator, denominator) {
+  return denominator > 0 ? numerator / denominator : null;
+}
+
+function round(value, digits = 4) {
+  if (value === null || !Number.isFinite(value)) return null;
+  return Number(value.toFixed(digits));
+}
+
+function flattenWorkflowRuns(input) {
+  const pages = Array.isArray(input) ? input : [input];
+  return pages.flatMap(page => Array.isArray(page?.workflow_runs) ? page.workflow_runs : []);
+}
+
+function hasNativeOutcomeEvidence(skill) {
+  return typeof skill.completionRegressed === 'boolean'
+    && typeof skill.targetActivationFailed === 'boolean';
+}
+
+function isDifferentiated(skill) {
+  const preference = skill.preference;
+  if (!preference || preference.conclusive !== true || preference.underpowered === true) {
+    return false;
+  }
+  const alpha = Number.isFinite(preference.alpha) ? preference.alpha : 0.05;
+  return preference.direction === 'better'
+    && preference.practicalPassed === true
+    && Number.isFinite(preference.pValue)
+    && preference.pValue <= alpha
+    && hasNativeOutcomeEvidence(skill)
+    && skill.completionRegressed === false
+    && skill.targetActivationFailed === false
+    && skill.activationContract?.evaluated === true
+    && skill.activationContract.passed === true;
+}
+
+function isPreferenceLoss(skill) {
+  const preference = skill.preference;
+  if (!preference || preference.conclusive !== true || preference.underpowered === true) {
+    return false;
+  }
+  const alpha = Number.isFinite(preference.alpha) ? preference.alpha : 0.05;
+  return preference.direction === 'worse'
+    && preference.practicalPassed === true
+    && Number.isFinite(preference.pValue)
+    && preference.pValue <= alpha
+    && hasNativeOutcomeEvidence(skill)
+    && skill.completionRegressed === false
+    && skill.targetActivationFailed === false
+    && skill.activationContract?.evaluated === true
+    && skill.activationContract.passed === true;
+}
+
+function classify(skill) {
+  if (skill.completionRegressed === true) return 'completion-regression';
+  if (skill.targetActivationFailed === true) return 'activation-failed';
+  if (skill.activationContract?.passed === false) return 'activation-failed';
+  if (!skill.preference || skill.preference.conclusive !== true) return 'invalid';
+  if (!hasNativeOutcomeEvidence(skill)) return 'native-outcome-unverified';
+  if (skill.activationContract?.evaluated !== true) return 'activation-unverified';
+  if (skill.preference.underpowered === true) return 'underpowered';
+  if (isDifferentiated(skill)) return 'differentiated';
+  if (isPreferenceLoss(skill)) return 'preference-loss';
+  return 'no-change';
+}
+
+function weightedMetric(records, arm, field) {
+  let total = 0;
+  let count = 0;
+  for (const record of records) {
+    const metrics = record.skill[arm];
+    const n = Number(metrics?.n);
+    const value = Number(metrics?.[field]);
+    if (n > 0 && Number.isFinite(value)) {
+      total += value * n;
+      count += n;
+    }
+  }
+  return {
+    n: count,
+    value: count > 0 ? total / count : null,
+  };
+}
+
+function deduplicateMetricRecords(records) {
+  const unique = new Map();
+  for (const [index, record] of records.entries()) {
+    const key = record.executionId
+      ? [
+        record.plugin,
+        record.skill.skill,
+        record.model,
+        record.executionId,
+      ].join('\u0000')
+      : `legacy\u0000${index}`;
+    const existing = unique.get(key);
+    const pairedCount = Math.min(
+      Number(record.skill.baseline?.n) || 0,
+      Number(record.skill.treatment?.n) || 0,
+    );
+    const existingPairedCount = existing
+      ? Math.min(
+        Number(existing.skill.baseline?.n) || 0,
+        Number(existing.skill.treatment?.n) || 0,
+      )
+      : -1;
+    if (!existing || pairedCount > existingPairedCount) unique.set(key, record);
+  }
+  return [...unique.values()];
+}
+
+function aggregateSkill(records) {
+  const metricRecords = deduplicateMetricRecords(records);
+  const publishedResults = records.length;
+  const publishedConclusiveResults =
+    records.filter(record => record.skill.preference?.conclusive === true).length;
+  const differentiatedResults = records.filter(record => isDifferentiated(record.skill)).length;
+  const preferenceLossResults = records.filter(record => isPreferenceLoss(record.skill)).length;
+  const completionRegressionResults =
+    records.filter(record => record.skill.completionRegressed === true).length;
+  const publishedInvalidResults = publishedResults - publishedConclusiveResults;
+  const underpoweredResults = records.filter(record => record.skill.preference?.underpowered === true).length;
+  const timedOutResults = records.filter(record => record.skill.timedOut === true).length;
+  const activationFailures = records.filter(record =>
+    record.skill.targetActivationFailed === true
+    || record.skill.activationContract?.passed === false).length;
+  const allPublishedViewsHavePassEvidence = records.length > 0
+    && records.every(record => Number(record.skill.passTotal) > 0);
+  const passTotal = records.reduce((sum, record) => sum + (Number(record.skill.passTotal) || 0), 0);
+  const treatmentFailures = records.reduce(
+    (sum, record) => sum + (Number(record.skill.treatmentFail) || 0),
+    0,
+  );
+  const baselineFailures = records.reduce(
+    (sum, record) => sum + (Number(record.skill.baselineFail) || 0),
+    0,
+  );
+  const treatmentTime = weightedMetric(metricRecords, 'treatment', 'timeMs');
+  const baselineTime = weightedMetric(metricRecords, 'baseline', 'timeMs');
+  const treatmentTokens = weightedMetric(metricRecords, 'treatment', 'tokens');
+  const baselineTokens = weightedMetric(metricRecords, 'baseline', 'tokens');
+  const statuses = [...new Set(records.map(record => classify(record.skill)))].sort();
+  const models = [...new Set(records.map(record => record.model).filter(Boolean))].sort();
+  const judgeModels = [...new Set(records.map(record => record.judgeModel).filter(Boolean))].sort();
+  const flakyDimensions = [];
+  const revisionStatuses = [];
+  const recordsWithRevision = records.filter(record => revisionId(record) !== null);
+  const variabilityComparable = recordsWithRevision.length === records.length;
+  let modelSensitive = false;
+
+  if (variabilityComparable) {
+    for (const [revision, revisionRecords] of groupBy(
+      recordsWithRevision,
+      record => revisionId(record),
+    )) {
+      const stableDimensionStatuses = [];
+      const statusesForRevision = [...new Set(
+        revisionRecords.map(record => classify(record.skill)),
+      )].sort();
+      revisionStatuses.push({ revision, statuses: statusesForRevision });
+
+      for (const [dimension, dimensionRecords] of groupBy(
+        revisionRecords,
+        record => `${record.model ?? 'unknown'}\u0000${record.judgeModel ?? 'unknown'}`,
+      )) {
+        const dimensionStatuses = [...new Set(
+          dimensionRecords.map(record => classify(record.skill)),
+        )].sort();
+        if (dimensionStatuses.length > 1) {
+          const [model, judgeModel] = dimension.split('\u0000');
+          flakyDimensions.push({
+            revision,
+            model,
+            judgeModel,
+            statuses: dimensionStatuses,
+          });
+        } else if (dimensionStatuses.length === 1) {
+          stableDimensionStatuses.push(dimensionStatuses[0]);
+        }
+      }
+
+      if (new Set(stableDimensionStatuses).size > 1) {
+        modelSensitive = true;
+      }
+    }
+  }
+
+  return {
+    publishedResults,
+    publishedConclusiveResults,
+    publishedInvalidResults,
+    underpoweredResults,
+    differentiatedResults,
+    preferenceLossResults,
+    completionRegressionResults,
+    publishedResultReliabilityRate: round(ratio(publishedConclusiveResults, publishedResults)),
+    differentiationRate: round(ratio(differentiatedResults, publishedConclusiveResults)),
+    treatmentPassRate: round(ratio(passTotal - treatmentFailures, passTotal)),
+    baselinePassRate: round(ratio(passTotal - baselineFailures, passTotal)),
+    timedOutResults,
+    activationFailures,
+    metricObservationCount: metricRecords.length,
+    averageTreatmentDurationMs: round(treatmentTime.value, 1),
+    averageBaselineDurationMs: round(baselineTime.value, 1),
+    averageTreatmentTokens: round(treatmentTokens.value, 1),
+    averageBaselineTokens: round(baselineTokens.value, 1),
+    pairedScenarioCount: treatmentTime.n,
+    models,
+    judgeModels,
+    statuses,
+    flaky: flakyDimensions.length > 0,
+    flakyDimensions,
+    revisionStatuses,
+    variabilityComparability: variabilityComparable ? 'known' : 'unknown',
+    modelSensitive: flakyDimensions.length === 0 && modelSensitive,
+    consistentlyPassing:
+      publishedResults >= 2
+      && publishedConclusiveResults === publishedResults
+      && allPublishedViewsHavePassEvidence
+      && treatmentFailures === 0,
+    consistentlyDifferentiating:
+      publishedResults >= 2
+      && differentiatedResults === publishedResults
+      && publishedConclusiveResults === publishedResults,
+  };
+}
+
+function revisionId(record) {
+  const commit = record?.commit;
+  const id = typeof commit === 'string' ? commit : commit?.id;
+  return typeof id === 'string' && id.trim() ? id.trim() : null;
+}
+
+function collectRecords(entries, startMs, endMs) {
+  const records = [];
+  for (const entry of entries) {
+    if (!Number.isFinite(entry?.date) || entry.date < startMs || entry.date >= endMs) continue;
+    for (const skill of entry.skills ?? []) {
+      records.push({
+        plugin: entry.plugin,
+        model: entry.model,
+        judgeModel: entry.judgeModel,
+        executionId: entry.executionId,
+        date: entry.date,
+        commit: entry.commit,
+        skill,
+      });
+    }
+  }
+  return records;
+}
+
+function groupBy(records, keySelector) {
+  const groups = new Map();
+  for (const record of records) {
+    const key = keySelector(record);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(record);
+  }
+  return groups;
+}
+
+function aggregateWindow(entries, startMs, endMs) {
+  const records = collectRecords(entries, startMs, endMs);
+  const overall = aggregateSkill(records);
+  const plugins = [];
+
+  for (const [plugin, pluginRecords] of [...groupBy(records, record => record.plugin).entries()].sort()) {
+    const skills = [];
+    for (const [skill, skillRecords] of [...groupBy(pluginRecords, record => record.skill.skill).entries()].sort()) {
+      skills.push({
+        skill,
+        ...aggregateSkill(skillRecords),
+      });
+    }
+    const pluginAggregate = aggregateSkill(pluginRecords);
+    plugins.push({
+      plugin,
+      ...pluginAggregate,
+      flaky: skills.some(skill => skill.flaky),
+      flakyDimensions: skills.flatMap(skill =>
+        skill.flakyDimensions.map(dimension => ({ skill: skill.skill, ...dimension }))),
+      modelSensitive: skills.some(skill => skill.modelSensitive),
+      consistentlyPassing: skills.length > 0 && skills.every(skill => skill.consistentlyPassing),
+      consistentlyDifferentiating:
+        skills.length > 0 && skills.every(skill => skill.consistentlyDifferentiating),
+      skills,
+    });
+  }
+
+  const allSkills = plugins.flatMap(plugin =>
+    plugin.skills.map(skill => ({ plugin: plugin.plugin, ...skill })));
+  const descending = (field) => (left, right) =>
+    (right[field] ?? Number.NEGATIVE_INFINITY) - (left[field] ?? Number.NEGATIVE_INFINITY);
+
+  return {
+    start: new Date(startMs).toISOString(),
+    end: new Date(endMs).toISOString(),
+    publishedResults: records.length,
+    publishedConclusiveResults:
+      records.filter(record => record.skill.preference?.conclusive === true).length,
+    publishedInvalidResults:
+      records.filter(record => record.skill.preference?.conclusive !== true).length,
+    underpoweredResults: records.filter(record => record.skill.preference?.underpowered === true).length,
+    differentiatedResults: records.filter(record => isDifferentiated(record.skill)).length,
+    preferenceLossResults: records.filter(record => isPreferenceLoss(record.skill)).length,
+    completionRegressionResults:
+      records.filter(record => record.skill.completionRegressed === true).length,
+    publishedResultReliabilityRate: round(ratio(
+      records.filter(record => record.skill.preference?.conclusive === true).length,
+      records.length,
+    )),
+    differentiationRate: round(ratio(
+      records.filter(record => isDifferentiated(record.skill)).length,
+      records.filter(record => record.skill.preference?.conclusive === true).length,
+    )),
+    models: [...new Set(records.map(record => record.model).filter(Boolean))].sort(),
+    judgeModels: [...new Set(records.map(record => record.judgeModel).filter(Boolean))].sort(),
+    treatmentPassRate: overall.treatmentPassRate,
+    baselinePassRate: overall.baselinePassRate,
+    averageTreatmentDurationMs: overall.averageTreatmentDurationMs,
+    averageBaselineDurationMs: overall.averageBaselineDurationMs,
+    averageTreatmentTokens: overall.averageTreatmentTokens,
+    averageBaselineTokens: overall.averageBaselineTokens,
+    metricObservationCount: overall.metricObservationCount,
+    pairedScenarioCount: overall.pairedScenarioCount,
+    plugins,
+    signals: {
+      flaky: allSkills.filter(skill => skill.flaky)
+        .sort((left, right) => left.plugin.localeCompare(right.plugin) || left.skill.localeCompare(right.skill)),
+      consistentlyPassing: allSkills.filter(skill => skill.consistentlyPassing)
+        .sort((left, right) => left.plugin.localeCompare(right.plugin) || left.skill.localeCompare(right.skill)),
+      consistentlyDifferentiating: allSkills.filter(skill => skill.consistentlyDifferentiating)
+        .sort((left, right) => left.plugin.localeCompare(right.plugin) || left.skill.localeCompare(right.skill)),
+      preferenceLosses: allSkills.filter(skill => skill.preferenceLossResults > 0)
+        .sort((left, right) =>
+          right.preferenceLossResults - left.preferenceLossResults
+          || left.plugin.localeCompare(right.plugin)
+          || left.skill.localeCompare(right.skill)),
+      completionRegressions: allSkills.filter(skill => skill.completionRegressionResults > 0)
+        .sort((left, right) =>
+          right.completionRegressionResults - left.completionRegressionResults
+          || left.plugin.localeCompare(right.plugin)
+          || left.skill.localeCompare(right.skill)),
+      modelSensitive: allSkills.filter(skill => skill.modelSensitive)
+        .sort((left, right) => left.plugin.localeCompare(right.plugin) || left.skill.localeCompare(right.skill)),
+      slowest: allSkills.filter(skill => skill.averageTreatmentDurationMs !== null)
+        .sort(descending('averageTreatmentDurationMs'))
+        .slice(0, 10),
+      highestTokenUse: allSkills.filter(skill => skill.averageTreatmentTokens !== null)
+        .sort(descending('averageTreatmentTokens'))
+        .slice(0, 10),
+      leastReliable: allSkills
+        .filter(skill =>
+          skill.publishedResultReliabilityRate !== null
+          && skill.publishedResultReliabilityRate < 1)
+        .sort((left, right) =>
+          left.publishedResultReliabilityRate - right.publishedResultReliabilityRate)
+        .slice(0, 10),
+    },
+  };
+}
+
+function aggregateRuns(runs, startMs, endMs) {
+  const selected = runs.filter(run => {
+    const created = Date.parse(run.created_at);
+    return Number.isFinite(created) && created >= startMs && created < endMs;
+  });
+  const completedDurations = selected
+    .filter(run => typeof run.conclusion === 'string' && run.conclusion.length > 0)
+    .map(run => [Date.parse(run.run_started_at ?? run.created_at), Date.parse(run.updated_at)])
+    .filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end >= start)
+    .map(([start, end]) => end - start);
+  const conclusions = {};
+  for (const run of selected) {
+    const key = run.conclusion ?? run.status ?? 'unknown';
+    conclusions[key] = (conclusions[key] ?? 0) + 1;
+  }
+  return {
+    count: selected.length,
+    conclusions,
+    averageDurationMs: round(mean(completedDurations), 1),
+    references: selected
+      .filter(run => run.html_url)
+      .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))
+      .slice(0, 3)
+      .map(run => ({
+        id: run.id,
+        conclusion: run.conclusion,
+        url: run.html_url,
+      })),
+  };
+}
+
+function buildReport({ dashboard, workflowRuns, windowEnd }) {
+  const endMs = Date.parse(windowEnd);
+  if (!Number.isFinite(endMs)) throw new Error(`Invalid --window-end value: ${windowEnd}`);
+  const startMs = endMs - (7 * DAY_MS);
+  const previousStartMs = startMs - (7 * DAY_MS);
+
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    weekKey: isoWeekKey(new Date(endMs)),
+    metricContract: {
+      observation:
+        'One published plugin, skill, executor-model, and judge-model evaluation result in the reporting window.',
+      differentiation:
+        'A conclusive, sufficiently powered treatment win with p <= alpha, practical significance, and a passing activation contract.',
+      preferenceLoss:
+        'A conclusive, sufficiently powered reverse preference with p <= alpha, practical significance, and a passing activation contract. This is triage evidence, not an objective completion regression.',
+      completionRegression:
+        'An authoritative native objective completion regression retained from the evaluator. It overrides favorable preference evidence and cannot count as differentiation.',
+      publishedResultReliability:
+        'Conclusive retained evaluation results divided by retained evaluation results. Missing evaluation outputs are not represented in retained data.',
+      expectedCoverage:
+        'Unavailable: official retained data does not include a complete expected-target manifest for failed runs with no published output.',
+      passRate: 'Treatment completion passes divided by trials with explicit paired pass evidence.',
+      resourceDeduplication:
+        'Resource metrics remove judge views with the same plugin, skill, executor model, and stable evaluation execution ID. Legacy entries without an execution ID remain separate.',
+      aiCredits:
+        'Unavailable: official evaluation CI does not emit authoritative AI Credits. Token telemetry is reported without estimating credits.',
+    },
+    workflowRuns: aggregateRuns(workflowRuns, startMs, endMs),
+    current: aggregateWindow(dashboard.entries ?? [], startMs, endMs),
+    previous: aggregateWindow(dashboard.entries ?? [], previousStartMs, startMs),
+    aiCredits: {
+      available: false,
+      value: null,
+      reason:
+        'Official evaluation CI publishes token usage but not the normalized AI Credits value or a versioned pricing record.',
+    },
+  };
+}
+
+function isoWeek(date) {
+  const current = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = current.getUTCDay() || 7;
+  current.setUTCDate(current.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(current.getUTCFullYear(), 0, 1));
+  return String(Math.ceil((((current - yearStart) / DAY_MS) + 1) / 7)).padStart(2, '0');
+}
+
+function isoWeekKey(date) {
+  const current = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = current.getUTCDay() || 7;
+  current.setUTCDate(current.getUTCDate() + 4 - day);
+  return `${current.getUTCFullYear()}-W${isoWeek(date)}`;
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const required = ['dashboard-file', 'runs-file', 'window-end', 'output'];
+  for (const key of required) {
+    if (!args[key]) throw new Error(`Missing required argument --${key}`);
+  }
+
+  const report = buildReport({
+    dashboard: readJson(args['dashboard-file']),
+    workflowRuns: flattenWorkflowRuns(readJson(args['runs-file'])),
+    windowEnd: args['window-end'],
+  });
+  fs.mkdirSync(path.dirname(args.output), { recursive: true });
+  fs.writeFileSync(args.output, `${JSON.stringify(report, null, 2)}\n`);
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  aggregateRuns,
+  aggregateSkill,
+  aggregateWindow,
+  buildReport,
+  classify,
+  flattenWorkflowRuns,
+  isDifferentiated,
+  isPreferenceLoss,
+  isoWeek,
+  isoWeekKey,
+};
