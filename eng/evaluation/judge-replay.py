@@ -87,8 +87,9 @@ def github_vally_job_log(run_id, job_id):
 
 def job_step_log(log, job, step_name, action):
     # gh run view reports old logs as UNKNOWN STEP. Use the raw API log's
-    # action marker and the job API's rounded-second step start; stop at the
-    # next Run marker so the later trusted-tools checkout cannot supply a ref.
+    # action marker and the job API's rounded-second step times. A preceding
+    # checkout can fall inside the start second; use the first marker in the
+    # step window, then bind its ref to the evaluated commit.
     steps = [step for step in job.get("steps", [])
              if step.get("name") == step_name and step.get("conclusion") == "success"]
     if len(steps) != 1:
@@ -105,17 +106,20 @@ def job_step_log(log, job, step_name, action):
             timestamp = datetime.fromisoformat(match[1].replace("Z", "+00:00"))
             message = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", match[2])
             lines.append((timestamp, message))
-    markers = [i for i, (timestamp, message) in enumerate(lines)
+    markers = [(timestamp, i) for i, (timestamp, message) in enumerate(lines)
                if message.startswith(f"##[group]Run actions/{action}@")
-               and started <= timestamp < started + timedelta(seconds=1)]
-    if len(markers) != 1:
+               and started <= timestamp < completed + timedelta(seconds=1)]
+    if not markers:
+        raise ValueError(f"Raw job log has no unique {step_name} action marker")
+    earliest = min(timestamp for timestamp, _ in markers)
+    earliest_markers = [i for timestamp, i in markers if timestamp == earliest]
+    if len(earliest_markers) != 1:
         raise ValueError(f"Raw job log has no unique {step_name} action marker")
     messages = []
-    for timestamp, message in lines[markers[0]:]:
+    for timestamp, message in lines[earliest_markers[0]:]:
         if messages and message.startswith("##[group]Run "):
             break
-        if started <= timestamp < completed + timedelta(seconds=1):
-            messages.append(message)
+        messages.append(message)
     return "\n".join(messages)
 
 
