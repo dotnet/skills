@@ -137,11 +137,15 @@ Rank candidates in this order:
    setup, or runtime diagnostics.
 4. A cross-cutting specialist matching the actual mechanism, such as interop, vectorization,
    serialization, AOT, or microbenchmarking.
-5. `csharp-refactoring` for behavior-preserving structural change.
-6. The C# language fallback below when no narrower available skill owns the work.
+5. `dotnet-breaking-changes` when the edit touches a contract with callers outside the repo: shipped
+   public API (`PublicAPI.*.txt`, ApiCompat), `InternalsVisibleTo` friends, multiple target
+   frameworks, or generated partials. Pair it with `csharp-refactoring` for a structural change.
+6. `csharp-refactoring` for behavior-preserving structural change.
+7. The C# language fallback below when no narrower available skill owns the work.
 
 Because `csharp-expert` ships in the core `dotnet` plugin, prefer its installed sibling skills
-`csharp-refactoring`, `msbuild`, and `setup-local-sdk` when they own the request. Do not require the
+`csharp-refactoring`, `dotnet-breaking-changes`, `msbuild`, and `setup-local-sdk` when they own the
+request. Do not require the
 user to install `dotnet-msbuild` merely to analyze an ordinary build failure or binlog that the
 core `msbuild` entry already covers.
 
