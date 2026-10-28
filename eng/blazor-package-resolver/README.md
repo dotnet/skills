@@ -2,15 +2,15 @@
 
 This standalone, dependency-free .NET CLI is a **non-scoring dispatch foundation**, not
 a skill, assessment, readiness authority, or component resolver. The full 112-row
-normative rubric and JSON crosswalk/basis are copied byte-for-byte from historical
-local commit `fefdaccbfdc0f34cec3d3ca5b8f7ea3fce4a68e3`, preserved in the
-verified local reference bundle. This is **not** claimed as reachable from a live
-remote: no live origin ref containing both exact blobs was found. The copied bytes
-are independently pinned; `data/provenance.json` records their original paths,
-Git blob IDs and SHA-256 digests. The loader checks both
-digests, crosswalk clauses, source version and all core scopes. Only the 60
-`repository-wide` core rows enter the registry; the 52 component rows and the
-separate TA-08 extension are excluded. All 60 package rows are `tbd`, with no
+normative rubric and JSON crosswalk/basis are copied byte-for-byte from
+`fefdaccbfdc0f34cec3d3ca5b8f7ea3fce4a68e3`, the tip of
+`https://github.com/dotnet/skills` branch `shneuvil-public-blazor-readiness`
+at copy time. Branch tips can move; the copied bytes remain independently
+pinned by the original paths, Git blob IDs and SHA-256 digests in
+`data/provenance.json`. The loader checks both digests, crosswalk clauses,
+source version and all core scopes. Only the 60 `repository-wide` core rows
+enter the registry; the 52 component rows and the separate TA-08 extension
+are excluded. All 60 package rows are `tbd`, with no
 registered handlers. `tbd` is a **work state**, not an evaluation result.
 
 Run from the repository root with the normal SDK in `global.json`:
