@@ -15,6 +15,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
 {
     private readonly string _stateRoot;
     private readonly string _workspaceRoot;
+    private readonly string? _sdkSessionStateRoot;
     private readonly string[] _allowedAbsoluteRoots;
     private readonly bool _offlineWorkflow;
     // The SDK can report "timeout while waiting for mutex to become available"
@@ -27,10 +28,12 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         string stateRoot,
         string workspaceRoot,
         IEnumerable<string> allowedAbsoluteRoots,
-        bool offlineWorkflow = false)
+        bool offlineWorkflow = false,
+        string? sdkSessionStateRoot = null)
     {
         _stateRoot = NormalizeRoot(stateRoot);
         _workspaceRoot = NormalizeRoot(workspaceRoot);
+        _sdkSessionStateRoot = sdkSessionStateRoot is null ? null : NormalizeRoot(sdkSessionStateRoot);
         _offlineWorkflow = offlineWorkflow;
         _allowedAbsoluteRoots = allowedAbsoluteRoots
             .Select(NormalizeRoot)
@@ -52,10 +55,23 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
             : full + Path.DirectorySeparatorChar;
     }
 
-    internal static bool IsSessionStatePath(string path)
+    internal static bool IsSessionStatePath(string path, string? sdkSessionStateRoot = null)
     {
         if (Path.IsPathFullyQualified(path))
-            return false;
+        {
+            if (sdkSessionStateRoot is null)
+                return false;
+            try
+            {
+                return GetRelativePathWithinRoot(
+                    NormalizeRoot(sdkSessionStateRoot),
+                    Path.GetFullPath(path)) is not null;
+            }
+            catch (Exception error) when (error is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return false;
+            }
+        }
 
         var normalized = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
         return normalized.Equals("session-state", StringComparison.OrdinalIgnoreCase)
@@ -101,8 +117,19 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         if (Path.IsPathFullyQualified(path))
         {
             full = Path.GetFullPath(path);
-            root = FindAllowedAbsoluteRoot(full)
-                ?? throw new UnauthorizedAccessException($"Path outside allowed roots: {path}");
+            var stateRelativePath = _sdkSessionStateRoot is null
+                ? null
+                : GetRelativePathWithinRoot(_sdkSessionStateRoot, full);
+            if (stateRelativePath is not null)
+            {
+                root = _stateRoot;
+                full = Path.GetFullPath(Path.Combine(root, "session-state", stateRelativePath));
+            }
+            else
+            {
+                root = FindAllowedAbsoluteRoot(full)
+                    ?? throw new UnauthorizedAccessException($"Path outside allowed roots: {path}");
+            }
         }
         else
         {
@@ -126,6 +153,26 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
             throw new UnauthorizedAccessException($"Symbolic-link traversal blocked: {path}");
         }
         return new ResolvedPath(root, full);
+    }
+
+    private static string? GetRelativePathWithinRoot(string root, string path)
+    {
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        var rootPath = Path.TrimEndingDirectorySeparator(root);
+        if (path.Equals(rootPath, comparison))
+            return "";
+        if (!path.StartsWith(root, comparison))
+            return null;
+
+        var relativePath = Path.GetRelativePath(rootPath, path);
+        return Path.IsPathFullyQualified(relativePath)
+            || relativePath.Equals("..", comparison)
+            || relativePath.StartsWith(".." + Path.DirectorySeparatorChar, comparison)
+            || relativePath.StartsWith(".." + Path.AltDirectorySeparatorChar, comparison)
+                ? null
+                : relativePath;
     }
 
     private string? FindAllowedAbsoluteRoot(string fullPath)

@@ -41,6 +41,7 @@ internal static class LlmSession
         var tempConfigDir = Path.Combine(
             AgentRunner.GetEvaluationRoot(),
             $"sv-judge-{Guid.NewGuid():N}");
+        var sdkSessionStateRoot = Path.Combine(AgentRunner.GetEvaluationRoot(), "session-state");
         try
         {
 
@@ -58,7 +59,8 @@ internal static class LlmSession
             CreateSessionFsProvider = _ => new LocalSessionFsHandler(
                 tempConfigDir,
                 workDir,
-                [workDir]),
+                [workDir],
+                sdkSessionStateRoot: sdkSessionStateRoot),
             OnPermissionRequest = onPermissionRequest ?? ((_, _) => Task.FromResult(PermissionDecision.UserNotAvailable())),
         });
 

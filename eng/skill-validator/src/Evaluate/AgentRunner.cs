@@ -775,6 +775,8 @@ public static class AgentRunner
                 + string.Join('\n', referenceCatalogs.Select(entry => $"- `{entry.Key}`: `{entry.Value}`"));
         }
 
+        var sdkSessionStateRoot = Path.Combine(GetEvaluationRoot(), "session-state");
+
         // Agents should access only the staged copies, never the original skill
         // or plugin tree. Custom-agent prompts are already loaded into memory.
         // The staged roots above contain all runtime skill content and are the
@@ -841,14 +843,15 @@ public static class AgentRunner
             CustomAgents = customAgents,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             // The SDK uses one SessionFsProvider for both session-state I/O and
-            // built-in file tools. Keep state under configDir, resolve relative
-            // tool paths under workDir, and permit absolute paths only within
+            // built-in file tools. Map the SDK's absolute state root into configDir;
+            // relative tool paths use workDir, and tool paths remain limited to
             // this scenario workspace and its explicitly staged skill roots.
             CreateSessionFsProvider = _ => new LocalSessionFsHandler(
                 configDir,
                 workDir,
                 new[] { workDir }.Concat(additionalAllowedDirs),
-                offlineWorkflow),
+                offlineWorkflow,
+                sdkSessionStateRoot),
             OnPermissionRequest = (request, invocation) =>
             {
                 if (denyShell && request is PermissionRequestShell)
@@ -906,7 +909,8 @@ public static class AgentRunner
                     }
 
                     var reqPaths = ExtractPathsFromToolArgs(input);
-                    if (reqPaths.Any(LocalSessionFsHandler.IsSessionStatePath))
+                    if (reqPaths.Any(path =>
+                        LocalSessionFsHandler.IsSessionStatePath(path, sdkSessionStateRoot)))
                     {
                         return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                         {

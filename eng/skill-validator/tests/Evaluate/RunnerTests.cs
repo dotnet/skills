@@ -2098,6 +2098,53 @@ public class LocalSessionFsHandlerTests
     }
 
     [TestMethod]
+    public async Task MapsSdkAbsoluteSessionStateIntoPrivateSessionRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-absolute-state-{Guid.NewGuid():N}");
+        var stateRoot = Path.Combine(root, "config");
+        var workDir = Path.Combine(root, "work");
+        var sdkSessionStateRoot = Path.Combine(root, "session-state");
+        var sdkStatePath = Path.Combine(sdkSessionStateRoot, "temp");
+
+        try
+        {
+            var handler = new LocalSessionFsHandler(
+                stateRoot,
+                workDir,
+                [workDir],
+                sdkSessionStateRoot: sdkSessionStateRoot);
+
+            Assert.AreEqual(
+                Path.Combine(stateRoot, "session-state", "temp"),
+                handler.ResolvePath(sdkStatePath));
+            Assert.IsTrue(LocalSessionFsHandler.IsSessionStatePath(
+                sdkStatePath,
+                sdkSessionStateRoot));
+            Assert.IsFalse(LocalSessionFsHandler.IsSessionStatePath(
+                Path.Combine(root, "other", "secret.txt"),
+                sdkSessionStateRoot));
+
+            var write = ProviderCallback<Func<string, string, int?, CancellationToken, Task>>(
+                handler,
+                "WriteFileAsync");
+            await write(sdkStatePath, "state", null, TestContext.CancellationToken);
+            Assert.AreEqual(
+                "state",
+                await File.ReadAllTextAsync(
+                    Path.Combine(stateRoot, "session-state", "temp"),
+                    TestContext.CancellationToken));
+
+            Assert.ThrowsExactly<UnauthorizedAccessException>(
+                () => handler.ResolvePath(Path.Combine(root, "other", "secret.txt")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
     public void RejectsWorkspaceSymlinkThatEscapesAllowedRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), $"session-fs-link-{Guid.NewGuid():N}");
