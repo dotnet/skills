@@ -1,0 +1,86 @@
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
+
+if (args.Length == 3 && args[0] == "--retained")
+{
+    string[] hashes =
+    [
+        "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d",
+        "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63",
+    ];
+    for (int vendor = 0; vendor < 2; vendor++)
+    {
+        var data = File.ReadAllBytes(args[vendor + 1]);
+        if (!Convert.ToHexString(SHA256.HashData(data)).Equals(
+                hashes[vendor], StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Retained archive hash differs.");
+        using var archive = new ZipArchive(new MemoryStream(data), ZipArchiveMode.Read);
+        var assemblies = archive.Entries.Where(entry => entry.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (assemblies.Length != 3)
+            throw new InvalidDataException("Retained assembly count differs.");
+        foreach (var entry in assemblies)
+        {
+            using var bytes = new MemoryStream();
+            using (var input = entry.Open())
+                input.CopyTo(bytes);
+            bytes.Position = 0;
+            using var pe = new PEReader(bytes);
+            var metadata = pe.GetMetadataReader();
+            _ = metadata.GetModuleDefinition();
+            var publicKey = metadata.GetBlobBytes(metadata.GetAssemblyDefinition().PublicKey);
+            var header = pe.PEHeaders.CorHeader ?? throw new InvalidDataException("Missing CLR header.");
+            var signature = header.StrongNameSignatureDirectory;
+            bool signedFlag = (header.Flags & CorFlags.StrongNameSigned) != 0;
+            bool hasSignatureBytes = signature.Size > 0 && pe.GetSectionData(
+                signature.RelativeVirtualAddress).GetContent(0, signature.Size).Any(value => value != 0);
+            if (vendor == 0 ? (signedFlag || signature.Size != 0 || publicKey.Length != 0)
+                : (!signedFlag || signature.Size != 128 || !hasSignatureBytes || publicKey.Length == 0))
+                throw new InvalidDataException($"Retained signing state differs: {entry.FullName}");
+            Console.WriteLine($"{entry.FullName}: flag={signedFlag}; signature bytes={signature.Size}; public key bytes={publicKey.Length}");
+        }
+    }
+    return;
+}
+
+if (args.Length != 5)
+    throw new ArgumentException("Expected unsigned, delay-signed, public-signed, module and nonzero-signature images.");
+
+string[] states = ["unsigned", "delay", "public", "module", "nonzero"];
+for (int index = 0; index < args.Length; index++)
+{
+    using var stream = File.OpenRead(args[index]);
+    using var pe = new PEReader(stream);
+    if (!pe.HasMetadata)
+        throw new InvalidDataException($"No managed metadata: {states[index]}");
+    var metadata = pe.GetMetadataReader();
+    if (metadata.GetTableRowCount(TableIndex.Module) != 1)
+        throw new InvalidDataException($"Invalid Module row: {states[index]}");
+    _ = metadata.GetModuleDefinition();
+    if (metadata.TypeDefinitions.Count < 2)
+        throw new InvalidDataException($"Missing compiled type: {states[index]}");
+    if (metadata.IsAssembly != (index != 3))
+        throw new InvalidDataException($"Wrong Assembly table: {states[index]}");
+    if (index != 3)
+    {
+        var assembly = metadata.GetAssemblyDefinition();
+        bool publicKey = !assembly.PublicKey.IsNil && metadata.GetBlobBytes(assembly.PublicKey).Length > 0;
+        if (publicKey != (index != 0))
+            throw new InvalidDataException($"Wrong assembly public key: {states[index]}");
+    }
+
+    var header = pe.PEHeaders.CorHeader ?? throw new InvalidDataException("Missing CLR header.");
+    var signature = header.StrongNameSignatureDirectory;
+    bool flag = (header.Flags & CorFlags.StrongNameSigned) != 0;
+    if (flag != (index is 2 or 4) || (signature.Size > 0) != (index is 1 or 2 or 4))
+        throw new InvalidDataException($"Wrong CLR strong-name flags/reservation: {states[index]}");
+    if (index is 1 or 2 or 4 && pe.GetSectionData(signature.RelativeVirtualAddress)
+            .GetContent(0, signature.Size).Any(value => value != 0) != (index == 4))
+        throw new InvalidDataException($"Unexpected reservation content: {states[index]}");
+    Console.WriteLine($"{states[index]}: valid PE/CLI metadata; Module=1; Assembly={(metadata.IsAssembly ? 1 : 0)}; strong-name flag={flag}; signature bytes={signature.Size}");
+}

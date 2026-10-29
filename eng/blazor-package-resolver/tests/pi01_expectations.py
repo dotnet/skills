@@ -24,6 +24,7 @@ VENDORS = (
     dict(vendor="syncfusion", binding="PI01_SYNCFUSION_NUPKG",
          filename="syncfusion.blazor.toolkit.2.0.1.nupkg", size_bytes=4912251,
          sha256="87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d",
+         cli_flags=1, signature_size=0, public_key_bytes=0,
          assembly_name="Syncfusion.Blazor.Toolkit", entries=(
              ("lib/net10.0/Syncfusion.Blazor.Toolkit.dll", 2957312, "b36556abb3d884fbff3f8ba96f94cba38f070da364ed3fabac1f9b84595efcf5"),
              ("lib/net8.0/Syncfusion.Blazor.Toolkit.dll", 2954240, "924274553e3d2f15c0a7a94cceb93981429856004aaa5732c5f2e83e3ba1c55b"),
@@ -32,6 +33,7 @@ VENDORS = (
     dict(vendor="infragistics", binding="PI01_INFRAGISTICS_NUPKG",
          filename="igniteui.blazor.lite.0.3.0.nupkg", size_bytes=1417667,
          sha256="e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63",
+         cli_flags=9, signature_size=128, public_key_bytes=160,
          assembly_name="IgniteUI.Blazor.Lite", entries=(
              ("lib/net10.0/IgniteUI.Blazor.Lite.dll", 721912, "f7482cddc881c63b7be9368f1ab029c912142091085f10f4abafb85cd9846095"),
              ("lib/net8.0/IgniteUI.Blazor.Lite.dll", 721400, "56e82a1b906156465ce030a305e88f9d8dbabb4ad3fe3305557768e90f1ce878"),
@@ -128,31 +130,35 @@ def assembly_state(data):
     require(tables is not None, "missing metadata tables")
     require(tables + 24 <= tables_end, "truncated metadata table header")
     valid = u64(data, tables + 8)
-    require(valid & (1 << 32), "no Assembly metadata table")
+    require(valid & 1, "no Module metadata table")
     rows = tables + 24
-    count = None
+    counts = {}
     for index in range(64):
         if valid & (1 << index):
             require(rows + 4 <= tables_end, "truncated metadata table counts")
-            value = u32(data, rows)
-            if index == 32:
-                count = value
+            counts[index] = u32(data, rows)
             rows += 4
-    require(count == 1 and rows + 22 <= tables_end,
+    require(counts[0] == 1 and rows + 10 <= tables_end, "invalid Module definition")
+    if 32 not in counts:
+        require(digest(data) == TEMPLATE_HASHES["module.netmodule"],
+                "module-only metadata needs independent validation")
+        return "module-only"
+    require(counts[32] == 1 and rows + 32 <= tables_end,
             "not a complete single assembly definition")
     flags = u32(data, cli + 16)
     signature_rva, signature_size = u32(data, cli + 32), u32(data, cli + 36)
     if not signature_rva and not signature_size and not (flags & 8):
         return "unsigned"
-    require((flags & 8) and signature_rva and signature_size,
-            "inconsistent strong-name flag and reservation")
+    require(signature_rva and signature_size, "inconsistent strong-name flag and reservation")
     require(signature_size <= 4096, "oversized signature reservation")
-    signature = data[locate(signature_rva, signature_size):
-                     locate(signature_rva, signature_size) + signature_size]
-    return "delay-signed" if not any(signature) else "signature-unverified"
+    offset = locate(signature_rva, signature_size)
+    if not any(data[offset:offset + signature_size]):
+        return "public-signed" if flags & 8 else "delay-signed"
+    require(flags & 8, "flag clear with nonzero signature")
+    return "signature-unverified"
 
 
-def synthetic_pe(state="unsigned", *, native=False, metadata=True):
+def synthetic_pe(*, native=False):
     data = bytearray(1024)
     data[:2] = b"MZ"
     struct.pack_into("<I", data, 0x3c, 0x80)
@@ -169,7 +175,7 @@ def synthetic_pe(state="unsigned", *, native=False, metadata=True):
         return bytes(data)
     struct.pack_into("<I", data, 0x200, 72)
     struct.pack_into("<II", data, 0x208, 0x2080, 128)
-    data[0x280:0x284] = b"BSJB" if metadata else b"NOPE"
+    data[0x280:0x284] = b"BSJB"
     struct.pack_into("<I", data, 0x28c, 4)
     data[0x290:0x294] = b"v4\0\0"
     struct.pack_into("<H", data, 0x296, 1)
@@ -177,11 +183,6 @@ def synthetic_pe(state="unsigned", *, native=False, metadata=True):
     data[0x2a0:0x2a4] = b"#~\0\0"
     struct.pack_into("<Q", data, 0x2c8, 1 << 32)
     struct.pack_into("<I", data, 0x2d8, 1)
-    if state != "unsigned":
-        struct.pack_into("<I", data, 0x210, 9 if state != "flag-clear" else 1)
-        struct.pack_into("<II", data, 0x220, 0x2100, 64)
-        if state not in ("delay-signed", "flag-clear"):
-            data[0x300:0x340] = bytes(range(1, 65))
     return bytes(data)
 
 
@@ -189,6 +190,44 @@ def changed(data, offset, replacement):
     value = bytearray(data)
     value[offset:offset + len(replacement)] = replacement
     return bytes(value)
+
+
+def fixture(name):
+    path = ROOT / "templates" / name
+    content = path.read_bytes()
+    require(digest(content) == TEMPLATE_HASHES[name], f"Compiled template differs: {name}")
+    return content
+
+
+TEMPLATE_HASHES = {
+    "unsigned.dll": "02f2bbb5fbd06ec2107e444a2446dfeda912bfa558c8f557a08653db7d1a7b5e",
+    "delay.dll": "4876361f6f04223c41d4e4bd7418388478a30b1d060c679bf28c497b77d0d06e",
+    "public.dll": "44991a20437b38b0ce99f611ef8ad070d8156b656d35123b7e442d5354964809",
+    "module.netmodule": "4a43543ca38712c0b62efe76b7bd07a39073b16582f1d021469f2f4fc2eb335f",
+    "nonzero.dll": "46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075",
+}
+PUBLIC_KEY_SHA256 = "6e35fc4ec1a559fce1857d5400e378e255434d8ca12c79b4dd65a1903c4e20a8"
+
+
+def image_offsets(data):
+    pe = u32(data, 0x3c)
+    option = pe + 24
+    directory = option + (96 if u16(data, option) == 0x10b else 112) + 14 * 8
+    section = option + u16(data, pe + 20)
+    def file_offset(rva):
+        return u32(data, section + 20) + rva - u32(data, section + 12)
+    cli = file_offset(u32(data, directory))
+    metadata = file_offset(u32(data, cli + 8))
+    stream_header = metadata + 16 + u32(data, metadata + 12)
+    table_header = data.find(b"#~\x00", stream_header, metadata + u32(data, cli + 12))
+    require(table_header >= 0, "Compiled fixture has no table stream")
+    tables = metadata + u32(data, table_header - 8)
+    valid = u64(data, tables + 8)
+    assembly_count = tables + 24 + sum(bool(valid & (1 << i)) for i in range(32)) * 4
+    return dict(option=option, directory=directory, cli=cli, metadata=metadata,
+                stream_count=stream_header + 2, stream_offset=table_header - 8,
+                tables=tables, module_count=tables + 24, assembly_count=assembly_count,
+                signature=file_offset(u32(data, cli + 32)) if u32(data, cli + 32) else None)
 
 
 def zip_entry(name):
@@ -216,8 +255,16 @@ def package(entries=(), problem=None):
                 nuspec = (declaration + NUSPEC.decode()).encode("utf-16")
             if problem == "comment-decoy":
                 nuspec = b'<!-- <!DOCTYPE package [<!ENTITY x "comment">]> -->' + nuspec
-            archive.writestr(zip_entry("Sample.PI01.nuspec"),
-                             b"<!DOCTYPE package []>" + nuspec if problem == "dtd" else
+            if problem in ("nuspec-at-limit", "nuspec-over-limit",
+                           "nuspec-underdeclared-inflated"):
+                limit = 1024 * 1024
+                size = limit if problem == "nuspec-at-limit" else limit + 1
+                nuspec += b" " * (size - len(nuspec))
+            root = zip_entry("Sample.PI01.nuspec")
+            if problem in ("nuspec-at-limit", "nuspec-over-limit",
+                           "nuspec-underdeclared-inflated"):
+                root.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(root, b"<!DOCTYPE package []>" + nuspec if problem == "dtd" else
                              b"<package" if problem == "invalid-xml" else nuspec)
         if problem == "two-nuspec":
             archive.writestr(zip_entry("Other.nuspec"), NUSPEC)
@@ -226,6 +273,10 @@ def package(entries=(), problem=None):
             for name, content in entries:
                 archive.writestr(zip_entry(name), content)
     content = stream.getvalue()
+    if problem == "nuspec-underdeclared-inflated":
+        directory = content.rfind(b"PK\x01\x02")
+        require(directory >= 0, "missing compressed root directory entry")
+        content = changed(content, directory + 24, struct.pack("<I", 1024 * 1024))
     if any("\\" in name for name, _ in entries):
         content = content.replace(b"lib/net8.0/a.dll", b"lib\\net8.0\\a.dll")
     return content
@@ -235,16 +286,38 @@ def spec(name, entries=(), branch="no-assemblies", problem=None):
     return dict(name=name, entries=entries, branch=branch, problem=problem)
 
 
-PE = synthetic_pe()
-SIGNED = synthetic_pe("signature-unverified")
+PE = fixture("unsigned.dll")
+DELAY = fixture("delay.dll")
+PUBLIC = fixture("public.dll")
+MODULE = fixture("module.netmodule")
+SIGNED = changed(PUBLIC, image_offsets(PUBLIC)["signature"], b"\x01")
+require(digest(SIGNED) == TEMPLATE_HASHES["nonzero.dll"],
+        "nonzero signature specimen differs")
+OFF = image_offsets(PE)
+SIGNED_OFF = image_offsets(SIGNED)
 CASES = (
     spec("empty"),
     spec("readme", (("README.md", b"Package documentation\n"),)),
     spec("js-only", (("staticwebassets/app.js", b"console.log('hello');\n"),)),
     spec("signature-file-only", ((".signature.p7s", b"not an assembly"),)),
-    spec("native-dll", ((EXAMPLE, synthetic_pe(native=True)),)),
-    spec("native-exe", (("tools/native.exe", synthetic_pe(native=True)),)),
-    spec("native-disguised", (("assets/native.dat", synthetic_pe(native=True)),)),
+    spec("nuspec-at-limit", problem="nuspec-at-limit"),
+    spec("nuspec-over-limit", ((EXAMPLE, PE),), "unsafe-package", "nuspec-over-limit"),
+    spec("nuspec-underdeclared-inflated", ((EXAMPLE, PE),), "unsafe-package",
+         "nuspec-underdeclared-inflated"),
+    spec("module-only", (("lib/net8.0/Sample.netmodule", MODULE),)),
+    spec("native-dll", ((EXAMPLE, synthetic_pe(native=True)),), "opaque-container"),
+    spec("native-exe", (("tools/native.exe", synthetic_pe(native=True)),), "opaque-container"),
+    spec("native-disguised", (("assets/native.dat", synthetic_pe(native=True)),), "opaque-container"),
+    spec("native-bundle-shaped", (("tools/app.exe", synthetic_pe(native=True) +
+                                    b"BSJB" + PE),), "opaque-container"),
+    spec("nested-unsigned", (("content/inner.zip", package((("inner.dll", PE),))),),
+         "opaque-container"),
+    spec("nested-with-passive-name", (("README.md", package((("inner.dll", PE),))),),
+         "opaque-container"),
+    spec("known-archive-extension", (("content/vendor.jar", b"no signature"),),
+         "opaque-container"),
+    spec("compressed-container", (("assets/data.dat", b"\x1f\x8b" + bytes(8)),),
+         "opaque-container"),
     spec("unsigned-lib", ((EXAMPLE, PE),), "unsigned-assembly"),
     spec("unsigned-ref", (("ref/net8.0/Sample.PI01.dll", PE),), "unsigned-assembly"),
     spec("unsigned-runtime", (("runtimes/linux-x64/lib/net8.0/Sample.PI01.dll", PE),), "unsigned-assembly"),
@@ -253,30 +326,54 @@ CASES = (
     spec("unsigned-arbitrary-path", (("assets/disguised.dat", PE),), "unsigned-assembly"),
     spec("unsigned-upper-suffix", (("LIB/NET8.0/SAMPLE.DLL", PE),), "unsigned-assembly"),
     spec("unsigned-multiple", (("lib/net8.0/B.dll", PE), ("lib/net9.0/A.dll", PE)), "unsigned-assembly"),
+    spec("module-with-unsigned", (("lib/net8.0/A.netmodule", MODULE),
+                                   ("lib/net8.0/B.dll", PE)), "unsigned-assembly"),
     spec("mixed-unsigned-and-signature", (("lib/net8.0/A.dll", SIGNED), ("lib/net9.0/B.dll", PE)), "unsigned-assembly"),
+    spec("unsigned-and-native", ((EXAMPLE, PE), ("tools/native.exe", synthetic_pe(native=True))),
+         "opaque-container"),
     spec("signature-present", ((EXAMPLE, SIGNED),), "signature-unverified"),
     spec("signature-and-dependency", ((EXAMPLE, SIGNED), ("package.json", b'{"name":"sample"}')), "signature-unverified"),
     spec("signature-with-nuspec-repo", ((EXAMPLE, SIGNED),), "signature-unverified",
          "repository-claim"),
     spec("signature-multiple", (("lib/net8.0/A.dll", SIGNED), ("lib/net9.0/A.dll", SIGNED)), "signature-unverified"),
-    spec("signature-changed", ((EXAMPLE, changed(SIGNED, 0x300, b"\xfe")),), "signature-unverified"),
-    spec("signature-with-native", ((EXAMPLE, SIGNED), ("tools/native.exe", synthetic_pe(native=True))), "signature-unverified"),
-    spec("delay-signed", ((EXAMPLE, synthetic_pe("delay-signed")),), "delay-signed"),
+    spec("signature-changed", ((EXAMPLE, changed(SIGNED, SIGNED_OFF["signature"], b"\xfe")),), "signature-unverified"),
+    spec("signature-with-native", ((EXAMPLE, SIGNED), ("tools/native.exe", synthetic_pe(native=True))), "opaque-container"),
+    spec("delay-signed", ((EXAMPLE, DELAY),), "delay-signed"),
     spec("delay-and-signature", (("lib/net8.0/A.dll", SIGNED),
-                                 ("lib/net9.0/B.dll", synthetic_pe("delay-signed"))), "delay-signed"),
-    spec("flag-clear-reservation", ((EXAMPLE, synthetic_pe("flag-clear")),), "unsafe-assembly"),
-    spec("metadata-no-table", ((EXAMPLE, changed(PE, 0x2c8, bytes(8))),), "unsafe-assembly"),
-    spec("metadata-no-assembly-row", ((EXAMPLE, changed(PE, 0x2d8, bytes(4))),), "unsafe-assembly"),
-    spec("metadata-no-stream", ((EXAMPLE, changed(PE, 0x296, bytes(2))),), "unsafe-assembly"),
-    spec("metadata-bad-stream", ((EXAMPLE, changed(PE, 0x298, b"\xff\xff\xff\x7f")),), "unsafe-assembly"),
-    spec("cli-missing-signature-rva", ((EXAMPLE, changed(SIGNED, 0x220, bytes(4))),), "unsafe-assembly"),
-    spec("cli-oversized-signature", ((EXAMPLE, changed(SIGNED, 0x224, struct.pack("<I", 4097))),), "unsafe-assembly"),
-    spec("cli-too-small", ((EXAMPLE, changed(PE, 0x16c, bytes(4))),), "unsafe-assembly"),
+                                 ("lib/net9.0/B.dll", DELAY)), "delay-signed"),
+    spec("public-signed", ((EXAMPLE, PUBLIC),), "public-signed"),
+    spec("module-with-public", (("lib/net8.0/A.netmodule", MODULE),
+                                 ("lib/net8.0/B.dll", PUBLIC)), "public-signed"),
+    spec("public-and-signature", (("lib/net8.0/A.dll", SIGNED),
+                                   ("lib/net9.0/B.dll", PUBLIC)), "public-signed"),
+    spec("public-and-delay", (("lib/net8.0/A.dll", PUBLIC),
+                               ("lib/net9.0/B.dll", DELAY)), "delay-signed"),
+    spec("public-and-unsigned", (("lib/net8.0/A.dll", PUBLIC),
+                                  ("lib/net9.0/B.dll", PE)), "public-signed"),
+    spec("delay-and-unsigned", (("lib/net8.0/A.dll", DELAY),
+                                 ("lib/net9.0/B.dll", PE)), "delay-signed"),
+    spec("flag-clear-reservation", ((EXAMPLE, changed(DELAY, image_offsets(DELAY)["signature"],
+                                                     b"\x01")),), "unsafe-assembly"),
+    spec("metadata-no-table", ((EXAMPLE, changed(PE, OFF["tables"] + 8, bytes(8))),), "unsafe-assembly"),
+    spec("metadata-cleared-assembly-mask", ((EXAMPLE, changed(
+        PE, OFF["tables"] + 8, struct.pack("<Q",
+            u64(PE, OFF["tables"] + 8) & ~(1 << 32)))),), "unsafe-assembly"),
+    spec("metadata-no-assembly-row", ((EXAMPLE, changed(PE, OFF["assembly_count"], bytes(4))),), "unsafe-assembly"),
+    spec("metadata-no-module-row", ((EXAMPLE, changed(PE, OFF["module_count"], bytes(4))),), "unsafe-assembly"),
+    spec("metadata-no-stream", ((EXAMPLE, changed(PE, OFF["stream_count"], bytes(2))),), "unsafe-assembly"),
+    spec("metadata-bad-stream", ((EXAMPLE, changed(PE, OFF["stream_offset"],
+                                                 b"\xff\xff\xff\x7f")),), "unsafe-assembly"),
+    spec("fake-assembly-table", ((EXAMPLE, synthetic_pe()),), "unsafe-assembly"),
+    spec("cli-missing-signature-rva", ((EXAMPLE, changed(SIGNED, SIGNED_OFF["cli"] + 32,
+                                                       bytes(4))),), "unsafe-assembly"),
+    spec("cli-oversized-signature", ((EXAMPLE, changed(SIGNED, SIGNED_OFF["cli"] + 36,
+                                                     struct.pack("<I", 4097))),), "unsafe-assembly"),
+    spec("cli-too-small", ((EXAMPLE, changed(PE, OFF["directory"] + 4, bytes(4))),), "unsafe-assembly"),
     spec("not-pe-dll", ((EXAMPLE, b"not a PE"),), "unsafe-assembly"),
     spec("truncated-mz", ((EXAMPLE, b"MZ"),), "unsafe-assembly"),
     spec("invalid-pe-offset", ((EXAMPLE, b"MZ" + bytes(58) + b"\xff\xff\xff\x7f"),), "unsafe-assembly"),
-    spec("invalid-cli-metadata", ((EXAMPLE, synthetic_pe(metadata=False)),), "unsafe-assembly"),
-    spec("bad-pe-magic", ((EXAMPLE, changed(PE, 0x98, bytes(2))),), "unsafe-assembly"),
+    spec("invalid-cli-metadata", ((EXAMPLE, changed(PE, OFF["metadata"], b"NOPE")),), "unsafe-assembly"),
+    spec("bad-pe-magic", ((EXAMPLE, changed(PE, OFF["option"], bytes(2))),), "unsafe-assembly"),
     spec("bad-section-table", ((EXAMPLE, changed(PE, 0x86, b"\xff\x00")),), "unsafe-assembly"),
     spec("unsafe-with-unsigned", ((EXAMPLE, PE), ("lib/net9.0/Unknown.dll", b"\x00")), "unsafe-assembly"),
     spec("wrong-extension-pe", (("content/Blob.bin", SIGNED),), "signature-unverified"),
@@ -339,8 +436,12 @@ def scan(content):
                         "unsafe ZIP entry path")
             roots = [name for name in names if "/" not in name and name.lower().endswith(".nuspec")]
             require(len(roots) == 1, "missing or ambiguous root nuspec")
-            xml = archive.read(roots[0])
-            require(len(xml) <= 1024 * 1024, "oversized nuspec")
+            require(archive.getinfo(roots[0]).file_size <= 1024 * 1024,
+                    "declared nuspec byte limit")
+            with archive.open(roots[0]) as nuspec:
+                xml = nuspec.read(1024 * 1024 + 1)
+            require(len(xml) <= 1024 * 1024 and len(xml) == archive.getinfo(roots[0]).file_size,
+                    "actual nuspec byte limit or inconsistent size")
             text = xml.decode("utf-16" if xml.startswith((b"\xff\xfe", b"\xfe\xff"))
                               else "utf-8-sig")
             declarations = re.sub(r"<!--.*?-->|<!\[CDATA\[.*?\]\]>|<\?.*?\?>",
@@ -360,19 +461,47 @@ def scan(content):
                 require(entry.file_size <= 8 * 1024 * 1024, "entry byte limit")
                 total_bytes += entry.file_size
                 require(total_bytes <= 32 * 1024 * 1024, "total uncompressed byte limit")
-                raw = archive.read(name)
+                with archive.open(name) as payload_stream:
+                    raw = payload_stream.read(8 * 1024 * 1024 + 1)
+                require(len(raw) <= 8 * 1024 * 1024 and len(raw) == entry.file_size,
+                        "actual payload byte limit or inconsistent size")
+                lower = name.lower()
+                if (raw.startswith((b"PK\x03\x04", b"PK\x05\x06", b"\x1f\x8b",
+                                    b"7z\xbc\xaf\x27\x1c", b"MSCF", b"!<arch>\n",
+                                    b"\x7fELF", b"\x00asm", b"\xfd7zXZ\x00",
+                                    b"BZh", b"Rar!\x1a\x07", b"\xd0\xcf\x11\xe0",
+                                    b"\x28\xb5\x2f\xfd", b"\xcf\xfa\xed\xfe",
+                                    b"\xfe\xed\xfa\xcf"))
+                        or raw[257:262] == b"ustar"
+                        or lower.endswith((".zip", ".nupkg", ".snupkg", ".jar",
+                                           ".7z", ".tar", ".gz", ".br", ".cab",
+                                           ".so", ".dylib", ".a", ".wasm"))):
+                    records.append(dict(path=name, sha256=digest(raw),
+                                        size_bytes=len(raw), state="opaque-container"))
+                    continue
                 if raw[:2] == b"MZ" or name.lower().endswith((".dll", ".exe", ".winmd")):
                     try:
                         state = assembly_state(raw)
                     except ValueError:
                         state = "unsafe"
                     records.append(dict(path=name, sha256=digest(raw), size_bytes=len(raw), state=state))
+                elif raw and not (lower.endswith((".rels", ".txt", ".md", ".png",
+                                                  ".jpg", ".jpeg", ".gif", ".svg",
+                                                  ".css", ".js", ".d.ts", ".xml",
+                                                  ".psmdcp", ".p7s", ".props", ".json"))
+                                  or lower.rsplit("/", 1)[-1] == "license"):
+                    records.append(dict(path=name, sha256=digest(raw),
+                                        size_bytes=len(raw), state="opaque-container"))
             records.sort(key=lambda item: item["path"])
             states = {item["state"] for item in records}
             if "unsafe" in states:
                 return "unsafe-assembly", records
+            if "opaque-container" in states or "native-pe" in states:
+                return "opaque-container", records
             if "delay-signed" in states:
                 return "delay-signed", records
+            if "public-signed" in states:
+                return "public-signed", records
             if "unsigned" in states:
                 return "unsigned-assembly", records
             if "signature-unverified" in states:
@@ -384,15 +513,17 @@ def scan(content):
 
 
 def result(inputs, branch, records):
-    structural = branch in ("missing-package", "unsafe-package", "unsafe-assembly")
-    decisive = branch in ("no-assemblies", "unsigned-assembly", "delay-signed")
+    structural = branch in ("missing-package", "unsafe-package",
+                            "unsafe-assembly", "opaque-container")
+    decisive = branch in ("no-assemblies", "unsigned-assembly", "delay-signed", "public-signed")
     evidence = [] if branch == "missing-package" else ["package:archive"]
     contract = ("Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): "
                 + json.dumps(records, sort_keys=True, separators=(",", ":"))) if records else None
     finding = {
         "no-assemblies": "No .NET assemblies found in the safely inspected package; PI-01 holds vacuously for this package only.",
         "unsigned-assembly": "At least one shipped .NET assembly has no strong-name signature reservation; PI-01 is not met for this package.",
-        "delay-signed": "At least one shipped .NET assembly has only a zero-filled strong-name signature reservation; PI-01 is not met for this package.",
+        "delay-signed": "At least one shipped .NET assembly has a zero-filled strong-name reservation with the CLR signed flag clear (delay signing); PI-01 is not met for this package.",
+        "public-signed": "At least one shipped .NET assembly has a zero-filled strong-name reservation with the CLR signed flag set (public signing); PI-01 is not met for this package.",
     }.get(branch)
     missing, required, category = {
         "missing-package": ("No checked package was supplied.", "pinned-package", "input-owner"),
@@ -400,6 +531,8 @@ def result(inputs, branch, records):
                            "safe-unambiguous-package", "package-owner"),
         "unsafe-assembly": ("Potential .NET assembly cannot be safely classified.",
                             "inspectable-complete-pe-cli-assembly", "package-owner"),
+        "opaque-container": ("An opaque entry, nested container or native PE could contain assemblies; packaged assembly inventory is incomplete.",
+                             "complete-safe-bundle-and-nested-container-inventory", "package-owner"),
         "signature-unverified": ("A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
                                  "cryptographic-strong-name-verification-of-each-assembly",
                                  "package-owner"),
@@ -422,9 +555,11 @@ def documents():
         explanation = {
             "no-assemblies": "safe inventory has no CLI assemblies.",
             "unsigned-assembly": "an Assembly metadata table has no strong-name reservation.",
-            "delay-signed": "a flagged reservation contains only zero bytes.",
+            "delay-signed": "a flag-clear reservation contains only zero bytes.",
+            "public-signed": "a flag-set reservation contains only zero bytes.",
             "signature-unverified": "flag and nonzero reservation do not validate RSA signature bytes.",
             "unsafe-assembly": "a PE/CLI candidate cannot safely establish assembly signing.",
+            "opaque-container": "a nested container or native PE could conceal assemblies.",
             "unsafe-package": "unsafe ZIP or nuspec takes precedence over assembly claims.",
             "missing-package": "no checked bytes can establish package signing facts.",
         }[branch]
@@ -523,14 +658,14 @@ def check_negative_bindings():
 
 def boundary_checks():
     at_entry = b"x" * (8 * 1024 * 1024)
-    require(scan(package((("data.bin", at_entry),)))[0] == "no-assemblies",
+    require(scan(package((("data.txt", at_entry),)))[0] == "no-assemblies",
             "At-limit entry must remain inspectable")
-    require(scan(package((("data.bin", at_entry + b"x"),)))[0] == "unsafe-package",
+    require(scan(package((("data.txt", at_entry + b"x"),)))[0] == "unsafe-package",
             "Over-limit entry must not be inspected")
-    require(scan(package(tuple((f"item{index}.bin", at_entry) for index in range(4))))[0]
+    require(scan(package(tuple((f"item{index}.txt", at_entry) for index in range(4))))[0]
             == "no-assemblies", "At-limit total uncompressed bytes must remain inspectable")
-    require(scan(package(tuple((f"item{index}.bin", at_entry) for index in range(4))
-                         + (("extra.bin", b"x"),)))[0] == "unsafe-package",
+    require(scan(package(tuple((f"item{index}.txt", at_entry) for index in range(4))
+                         + (("extra.txt", b"x"),)))[0] == "unsafe-package",
             "Over-limit total bytes must not be inspected")
     require(scan(package((("a" * 1024, b""),)))[0] == "no-assemblies",
             "At-limit name must remain inspectable")
@@ -557,8 +692,12 @@ def main():
         check_negative_bindings()
         return
     docs = documents()
+    public_key = (ROOT / "template" / "public.snk").read_bytes()
+    require(public_key[:1] == b"\x06" and digest(public_key) == PUBLIC_KEY_SHA256,
+            "Public-only fixture key differs")
     if args.write_fixtures:
         (ROOT / "packages").mkdir(parents=True, exist_ok=True)
+        (ROOT / "templates" / "nonzero.dll").write_bytes(SIGNED)
     for case, frozen in zip(CASES, docs["cases.json"]["cases"]):
         content = package(case["entries"], case["problem"])
         if content is None:
