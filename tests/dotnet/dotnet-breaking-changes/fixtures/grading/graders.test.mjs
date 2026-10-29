@@ -798,6 +798,57 @@ test("assert-single-parser: independent Parse implementations still fail", () =>
   assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": decoy + duplicated }), 1);
 });
 
+const genericCore = `namespace Billing;
+public static class AppSettingsHelper
+{
+    public static int ParseIntSetting(string? raw, int fallback)
+        => ParseSetting(raw, fallback);
+
+    public static bool ParseBoolSetting(string? raw, bool fallback)
+        => ParseSetting(raw, fallback);
+
+    internal static T ParseSetting<T>(string? raw, T fallback) where T : IParsable<T>
+        => T.TryParse(raw, provider: null, out var value) ? value : fallback;
+}
+
+[Obsolete("Use AppSettingsHelper.")]
+public static class ConfigReader
+{
+    public static int ReadInt(string? raw, int fallback)
+        => AppSettingsHelper.ParseIntSetting(raw, fallback);
+
+    public static bool ReadBool(string? raw, bool fallback)
+        => AppSettingsHelper.ParseBoolSetting(raw, fallback);
+}
+`;
+
+test("assert-single-parser: a shared generic IParsable<T> core passes", () => {
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": genericCore }), 0);
+  const blockBodied = genericCore.replace(
+    "=> T.TryParse(raw, provider: null, out var value) ? value : fallback;",
+    "{\n        if (T.TryParse(raw, null, out var value)) { return value; }\n        return fallback;\n    }");
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": blockBodied }), 0);
+  const directForward = genericCore
+    .replace("=> AppSettingsHelper.ParseIntSetting(raw, fallback);", "=> AppSettingsHelper.ParseSetting<int>(raw, fallback);")
+    .replace("=> AppSettingsHelper.ParseBoolSetting(raw, fallback);", "=> AppSettingsHelper.ParseSetting<bool>(raw, fallback);")
+    .replace("=> ParseSetting(raw, fallback);\n\n    public static bool", "=> ParseSetting<int>(raw, fallback);\n\n    public static bool");
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": directForward }), 0);
+});
+
+test("assert-single-parser: a generic core beside surviving duplicates still fails", () => {
+  const leftover = genericCore.replace(
+    "=> AppSettingsHelper.ParseIntSetting(raw, fallback);", "=> int.TryParse(raw, out var v) ? v : fallback;");
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": leftover }), 1);
+  const secondCore = genericCore
+    .replace("public static class ConfigReader\n{", "public static class ConfigReader\n{\n    static T Read<T>(string? raw, T fallback) where T : IParsable<T>\n        => T.TryParse(raw, null, out var value) ? value : fallback;\n")
+    .replace("=> AppSettingsHelper.ParseIntSetting(raw, fallback);", "=> Read(raw, fallback);")
+    .replace("=> AppSettingsHelper.ParseBoolSetting(raw, fallback);", "=> Read(raw, fallback);");
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": secondCore }), 1);
+  const unreached = genericCore.replace(
+    "=> ParseSetting(raw, fallback);\n\n    public static bool", "=> fallback;\n\n    public static bool");
+  assert.equal(singleParser({ "src/Billing/AppSettingsHelper.cs": unreached }), 1);
+});
+
 test("assert-single-parser: build output is ignored", () => {
   assert.equal(singleParser({
     "src/Billing/AppSettingsHelper.cs": documentedForwarder,
