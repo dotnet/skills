@@ -46,12 +46,20 @@ LP-05 through LP-09 inspect only the checked package bytes through their shared
 nuspec reader. It bounds package and ZIP directory size, entry count,
 entry-name length and nuspec read size; rejects
 ambiguous or missing root nuspecs, foreign NuGet namespaces and
-DTD/entity-bearing XML; and does not extract files. A nonblank recognized
+DTD/entity-bearing XML; and does not extract files. A root-level child whose
+local name is exactly `metadata` but whose namespace differs from a recognized
+root's namespace makes metadata ambiguous when recognized metadata is also
+present, regardless of sibling order. All five rows escalate without a field
+finding or field evidence; the frozen cases cite the archive-level ambiguity.
+This takes priority over duplicate recognized metadata when a foreign sibling
+is present. A case-variant `Metadata` child is not this exact-local-name
+ambiguity; zero or duplicate recognized metadata without a foreign sibling
+retains its existing invalid-metadata behavior. A nonblank recognized
 `license type="expression"` establishes only that `PackageLicenseExpression`
 is populated. The supported `type` is case-insensitive; optional `version`
 must parse as `System.Version` and not exceed `1.0.0`. XML namespace
 declarations are not license metadata attributes; unknown ordinary attributes
-escalate. A `licenseUrl` does not affect that field. The frozen 30-case LP-05
+escalate. A `licenseUrl` does not affect that field. The frozen 32-case LP-05
 synthetic matrix, the opt-in identities of both retained vendor packages,
 and replay instructions are in
 `tests/fixtures/lp05/README.md`. Runtime-generated boundary checks in
@@ -60,14 +68,14 @@ and malformed ZIP directory/entry data without checked-in giant fixtures.
 LP-06 establishes only whether the single recognized direct metadata
 `repository` element has a nonblank `url` attribute. It does not validate
 URL syntax, reachability, repository correctness, source correspondence or
-commit identity. Its frozen 31-case synthetic matrix, the opt-in retained
+commit identity. Its frozen 33-case synthetic matrix, the opt-in retained
 identities and replay instructions are in `tests/fixtures/lp06/README.md`.
 Tests check that repository elements elsewhere in the nuspec do not count,
 and exercise the same ZIP/package/nuspec resource limits for LP-06.
 LP-07 inspects the single direct recognized `repository` element's `commit`
 attribute independently of its URL, type or branch. It reports a declared
 nonzero full 40-hex SHA-1 or 64-hex SHA-256 object ID, not object existence,
-repository correctness, or package/source correspondence. Its frozen 53-case
+repository correctness, or package/source correspondence. Its frozen 55-case
 synthetic matrix, opt-in retained identities and replay instructions are in
 `tests/fixtures/lp07/README.md`. Tests cover ASCII-only hash boundaries,
 normalized commit-only duplicate comparison and the same resource limits.
@@ -75,7 +83,7 @@ LP-08 reports only whether one direct, recognized nuspec `authors` element
 has a nonblank comma-separated entry. It trims outer whitespace but preserves
 case, internal whitespace and Unicode; `owners` and malformed/foreign metadata
 cannot establish Authors. It does not verify identities, publisher, ownership,
-package validity or source correspondence. Its frozen 50-case synthetic matrix
+package validity or source correspondence. Its frozen 52-case synthetic matrix
 and opt-in retained identities are in `tests/fixtures/lp08/README.md`;
 `tests/Lp08BoundaryChecks.cs` adds namespace, Unicode and decision-order
 probes, and the shared resource-limit checks exercise LP-08 too.
@@ -84,11 +92,13 @@ the metadata's namespace has nonblank XML-decoded text after outer trim.
 It preserves internal text and does not validate URI syntax, scheme,
 reachability, source identity or correspondence to the independent LP-06
 RepositoryUrl. Case variants, foreign namespaces, duplicates and malformed
-element shapes escalate rather than selecting a value. Its frozen 65-case
+element shapes escalate rather than selecting a value. Its frozen 67-case
 matrix and opt-in retained identities are in `tests/fixtures/lp09/README.md`;
 `tests/Lp09BoundaryChecks.cs` adds decision-priority, namespace, XML text,
 Unicode and culture probes. The shared ZIP/package/nuspec resource-limit
-checks exercise LP-09 too.
+checks exercise LP-09 too. `tests/MetadataSiblingChecks.cs` probes
+cross-row metadata sibling order, namespace, case, priority, culture and
+repeatability without changing the frozen archives.
 Portable retained-package replay identities and result hashes are in each
 row's `tests/fixtures/lp05/acceptance-results.json` and
 `tests/fixtures/lp06/acceptance-results.json` and

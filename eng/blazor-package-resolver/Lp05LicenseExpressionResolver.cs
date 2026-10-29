@@ -32,6 +32,8 @@ public sealed class Lp05LicenseExpressionResolver : IDeterministicResolver
                 "The only nuspec entry is nested in a subfolder.", "root-nuspec", "package-owner"),
             NuspecStatus.OversizedNuspec => OversizedNuspec(input),
             NuspecStatus.UnsafeNuspec => UnsafeNuspec(input),
+            NuspecStatus.AmbiguousMetadata => Escalate(input, "ambiguous-metadata", "unknown",
+                NuGetNuspecReader.AmbiguousMetadataMissingFact, "unambiguous-nuspec", "package-owner"),
             NuspecStatus.InvalidXml or NuspecStatus.InvalidMetadata => Escalate(input, "invalid-xml", "unknown",
                 "The nuspec XML is not well formed.", "valid-nuspec", "package-owner"),
             NuspecStatus.ForeignRoot => Escalate(input, "foreign-root", "unknown",
