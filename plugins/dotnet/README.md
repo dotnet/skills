@@ -74,3 +74,20 @@ EXPERIMENT_FILE=./csharp-expert-coexistence.claude.experiment.yaml ./eng/run-ski
 Inspect the plugin-arm activation traces to confirm that installed specialists are invoked without
 installation advice. This is trace evidence rather than a shared output grader because the
 target-only arm may legitimately identify a missing specialist after completing a safe fallback.
+
+### Refactoring and compatibility co-loading
+
+`csharp-refactoring` owns structural edits and hands compatibility decisions to
+`dotnet-breaking-changes` when the edit crosses a consumer boundary, including an `internal`
+member exposed through `InternalsVisibleTo`. The supplemental
+[`csharp-refactoring-coexistence.experiment.yaml`](../../csharp-refactoring-coexistence.experiment.yaml)
+and
+[`csharp-refactoring-coexistence.claude.experiment.yaml`](../../csharp-refactoring-coexistence.claude.experiment.yaml)
+install both skills in the skilled arm and the full `dotnet` plugin in the plugin arm. Their
+`skill-invocation` graders require both skills for a single-target friend-visible rename and reject
+`dotnet-breaking-changes` for a private single-target app rename:
+
+```bash
+EXPERIMENT_FILE=./csharp-refactoring-coexistence.experiment.yaml ./eng/run-skill-evals.sh
+EXPERIMENT_FILE=./csharp-refactoring-coexistence.claude.experiment.yaml ./eng/run-skill-evals.sh
+```

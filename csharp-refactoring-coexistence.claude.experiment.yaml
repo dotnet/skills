@@ -1,0 +1,27 @@
+# Claude-family companion to csharp-refactoring-coexistence.experiment.yaml.
+name: csharp-refactoring-coexistence-claude
+evals:
+  - tests/dotnet/csharp-refactoring/coexistence.eval.yaml
+overrides:
+  model: claude-opus-4.6
+  judge_model: claude-opus-4.6
+vary:
+  - /environment/skills
+baseline: baseline
+variants:
+  baseline:
+    environment:
+      skills: []
+  skilled:
+    environment:
+      skills:
+        - plugins/dotnet/skills/csharp-refactoring
+        - plugins/dotnet/skills/dotnet-breaking-changes
+  plugin:
+    environment:
+      skills:
+        - plugins/dotnet/skills/csharp-expert
+        - plugins/dotnet/skills/csharp-refactoring
+        - plugins/dotnet/skills/dotnet-breaking-changes
+        - plugins/dotnet/skills/msbuild
+        - plugins/dotnet/skills/setup-local-sdk

@@ -1,0 +1,109 @@
+name: csharp-refactoring-coexistence
+description: Evaluates whether csharp-refactoring co-loads dotnet-breaking-changes only for friend-visible internals
+type: capability
+# Supplemental routing contract, run through csharp-refactoring-coexistence*.experiment.yaml.
+# Both non-baseline arms install csharp-refactoring and dotnet-breaking-changes, so the
+# skill-invocation graders observe routing between the two rather than whether a skill exists.
+# The baseline arm installs neither and is expected to fail those graders.
+defaults:
+  timeout: 10m
+  runs: 1
+stimuli:
+  # Single-target library with no PublicAPI files and no partial/generated code: the only
+  # cross-boundary marker is an InternalsVisibleTo grant to a friend built in another repository.
+  - name: Co-load compatibility rules for a friend-visible internal in a single-target library
+    tags:
+      capability: friend-assembly-coload
+      risk: missed-compatibility-handoff
+      journey: rename-friend-visible-member
+    prompt: "Rename the internal `FeeMath.ApplySurcharge` helper to `AddSurcharge` and update every consumer without changing results. The solution is at Ledger.sln."
+    environment:
+      files:
+        - src: fixtures/coexistence/fixture.gitignore
+          dest: .gitignore
+        - src: global.json
+          dest: global.json
+        - src: fixtures/coexistence/friend-library
+          dest: .
+      commands:
+        - dotnet restore Ledger.sln --nologo
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - csharp-refactoring
+            - dotnet-breaking-changes
+      - type: file-contains
+        config:
+          path: src/Ledger/Invoice.cs
+          value: AddSurcharge(
+      # Ledger.Extensions binds to ApplySurcharge and cannot be rebuilt from this repository.
+      - type: file-contains
+        config:
+          path: src/Ledger/Invoice.cs
+          value: ApplySurcharge(
+      - type: file-contains
+        config:
+          path: src/Ledger/AssemblyInfo.cs
+          value: InternalsVisibleTo("Ledger.Extensions")
+      - type: run-command
+        config:
+          command: dotnet test Ledger.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Migrated the in-solution consumers to the new name without changing surcharge results
+      - Recognized that Ledger.Extensions is built outside this solution, kept the old internal name callable for it, and told the user
+
+  # Off-boundary control: one non-packable single-target executable, no friends, no API files.
+  # csharp-refactoring owns the rename; the compatibility skill must stay out.
+  - name: Keep compatibility rules out of a private single-target app rename
+    tags:
+      capability: private-app-no-coload
+      risk: over-application
+      journey: rename-private-member
+    prompt: "In the Reports console app, `ReportBuilder.Build` is a vague name. Rename it to `BuildMonthlySummary` and update its callers. The project is Reports/Reports.csproj."
+    environment:
+      files:
+        - src: fixtures/coexistence/fixture.gitignore
+          dest: .gitignore
+        - src: global.json
+          dest: global.json
+        - src: fixtures/coexistence/private-app
+          dest: Reports
+      commands:
+        - dotnet restore Reports/Reports.csproj --nologo
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - csharp-refactoring
+          disallowed:
+            - dotnet-breaking-changes
+      - type: file-contains
+        config:
+          path: Reports/ReportBuilder.cs
+          value: BuildMonthlySummary(
+      - type: file-not-contains
+        config:
+          path: Reports/ReportBuilder.cs
+          value: Build(
+      - type: file-not-contains
+        config:
+          path: Reports/ReportBuilder.cs
+          value: Obsolete
+      - type: file-contains
+        config:
+          path: Reports/Program.cs
+          value: ReportBuilder.BuildMonthlySummary(
+      - type: run-command
+        config:
+          command: dotnet build Reports/Reports.csproj -v:q --no-restore
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Renamed the method and its caller directly so the app builds and prints the same summary
+      - Did not add a forwarder, API baseline, or external-consumer warnings to a private app

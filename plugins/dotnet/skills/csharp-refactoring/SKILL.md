@@ -147,8 +147,9 @@ Keep the handoff concise and evidence-based:
 
 ## Cross-boundary hazards (only when it touches a boundary)
 
-If — and only if — the change touches a **public** symbol, a **multi-targeted** project, or
-`partial`/generated code, some breaks won't show up as a failing test. Invoke the
+If — and only if — the change touches a **public** symbol, an **internal** symbol exposed to a friend
+assembly through `InternalsVisibleTo`, a **multi-targeted** project, or `partial`/generated code, some
+breaks won't show up as a failing test. Invoke the
 `dotnet-breaking-changes` skill before editing; it owns the compatibility decisions, and this skill
 still owns the structural steps. Search the repo for the surface
 that governs the symbol (don't assume): the public-API gate (`PublicAPI.Shipped/Unshipped.txt` for
