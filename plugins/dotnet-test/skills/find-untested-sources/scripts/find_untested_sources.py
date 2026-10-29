@@ -12,8 +12,11 @@ Supports any language tree-sitter-language-pack can parse and classify (Python,
 TypeScript, JavaScript, Go, Java, Rust, C#, Ruby, Kotlin, Swift, PowerShell,
 C++, ...).
 
-Output: legacy engine-specific JSON, or a shared envelope with --output-format
-json-v1. Pairing is heuristic static evidence, not behavioral coverage.
+Output: JSON to stdout with repo_root, summary, untested_sources, orphan_tests,
+and optional tested_sources (--include-tested). This legacy schema differs from
+the C# analyzer's repo/counts/untested/source_to_tests schema. Both engines also
+support the opt-in --output-format json-v1 envelope. Pairing is heuristic static
+reference evidence, not behavioral coverage.
 
 Dependencies:
     pip install tree-sitter-language-pack==1.8.1

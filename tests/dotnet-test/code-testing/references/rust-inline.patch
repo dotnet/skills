@@ -1,0 +1,16 @@
+diff --git a/work/src/lib.rs b/work/src/lib.rs
+--- a/work/src/lib.rs
++++ b/work/src/lib.rs
+@@ -8,6 +8,11 @@
+
+     #[test]
+     fn free_shipping_at_threshold() {
+-        assert_eq!(shipping_cost(50), 10);
++        assert_eq!(shipping_cost(50), 0);
++    }
++
++    #[test]
++    fn paid_shipping_below_threshold() {
++        assert_eq!(shipping_cost(49), 10);
+     }
+ }

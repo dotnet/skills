@@ -152,15 +152,19 @@ After resolving final property values, classify in this order:
 1. Final `UseVSTest=true` selects VSTest. If `global.json` simultaneously
    selects native MTP command mode, report `Platform: unavailable` because the
    command mode and project opt-out conflict.
-2. A native-MTP selection in `global.json` executes a compatible MTP
+2. A native-MTP selection in `global.json` executes a compatible MTP 1.7+
    application with final `OutputType=Exe` on MTP. A VSTest-only,
-   library-output, or opted-out project is unavailable.
-3. On SDK 8/9, an enabled MTP runner plus final
+   library-output, opted-out or older MTP project is unavailable.
+3. In VSTest mode, an enabled MTP runner plus final
    `TestingPlatformDotnetTestSupport=true` plus final `OutputType=Exe` executes
-   on MTP.
+   on MTP only when the resolved SDK/MTP integration supports the bridge:
+   SDK 8/9 supports it; SDK 10+ requires compatible MTP 1.x.
+   MTP 2+ removes VSTest-mode bridging on SDK 10+, so that combination is
+   `Platform: unavailable`, not a silent VSTest fallback. Inspect transitive
+   `Microsoft.Testing.Platform.MSBuild` versions as well as framework packages.
 4. If the runner is enabled but the bridge is absent or false, a dual-capable
    MSTest, NUnit, or xUnit project remains on VSTest: the runner establishes MTP
-   capability, but SDK 8/9 `dotnet test` cannot reach it and the VSTest adapter
+   capability, but the selected VSTest-mode command cannot reach it and the VSTest adapter
    executes the tests instead. If the bridge is true but no runner is enabled,
    the project also remains on VSTest.
 5. A runner and bridge with non-executable output is incomplete and unavailable.
@@ -170,8 +174,8 @@ After resolving final property values, classify in this order:
 Keep each signal's role exact:
 
 - The runner property selects the test application.
-- `TestingPlatformDotnetTestSupport=true` lets SDK 8/9 `dotnet test` reach that
-  application.
+- `TestingPlatformDotnetTestSupport=true` lets a supported VSTest-mode bridge
+  reach that application; it cannot override SDK/package incompatibility.
 - `OutputType=Exe` supplies the executable host shape. It does **not** select or
   enable MTP.
 
@@ -183,7 +187,7 @@ MSTest MTP runner, but it does **not** implicitly set
 MSTest.Sdk enables the MTP runner by default. Check its resolved version and
 evaluated properties for bridge behavior: version 3.8 supplies
 `TestingPlatformDotnetTestSupport` unless a later assignment overrides it,
-while newer SDKs on .NET 10 may expect native MTP mode instead.
+while MTP 2+ on .NET 10+ requires native mode rather than the legacy bridge.
 `<UseVSTest>true</UseVSTest>` opts back into VSTest.
 
 | Signal | Meaning |
@@ -192,7 +196,7 @@ while newer SDKs on .NET 10 may expect native MTP mode instead.
 | `MSTest` metapackage + `<EnableMSTestRunner>true>` | MTP runner enabled; does not imply the VSTest-to-MTP bridge |
 | `<UseMicrosoftTestingPlatformRunner>true` | Deciding xUnit runner-selection signal |
 | `<EnableMSTestRunner>true>` / `<EnableNUnitRunner>true>` | Deciding MSTest/NUnit runner-selection signal |
-| `TestingPlatformDotnetTestSupport=true` | Execution prerequisite for a VSTest-to-MTP bridge, not the runner-selection signal |
+| `TestingPlatformDotnetTestSupport=true` | Prerequisite for a supported VSTest-to-MTP bridge, not a runner selector or SDK/package compatibility override |
 | `Microsoft.Testing.Platform` package | MTP-capable application; not decisive by itself |
 | `TUnit` | MTP-only framework |
 | Final evaluated `<OutputType>Exe</OutputType>` | Required executable host shape for package-based MTP applications |
@@ -224,10 +228,11 @@ Directory.Build.props supplies final EnableNUnitRunner=true and
 TestingPlatformDotnetTestSupport=true, so NUnit executes on MTP.
 ```
 
-For an incompatible configuration, give one minimal alignment choice after the
-verdict without modifying files: either select the project's configured
-platform globally or remove the project opt-out to use the globally selected
-platform.
+For an incompatible configuration, give one supported alignment choice after
+the verdict without modifying files: select native MTP when the pinned packages
+support it, or resolve the actual opt-out/version conflict. Do not prescribe
+removing an opt-out that is not present or assume a bridge property can bypass
+an SDK/package incompatibility.
 
 ### Conditional and per-target-framework properties
 

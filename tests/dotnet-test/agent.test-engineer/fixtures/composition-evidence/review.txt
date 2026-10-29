@@ -1,0 +1,8 @@
+Review of the supplied test_shipping.py and test_stock.py before further edits:
+- ShippingTests.test_standard and test_threshold assert exact fees; retain them.
+- No existing ShippingTests input sets remote=True.
+- StockTests.test_reserve accepts either boolean and never checks remaining stock.
+- StockTests.test_shortage accepts either boolean and never checks that stock is unchanged.
+- StockTests.test_invalid protects constructor and request validation.
+These are static findings, not executed mutation results or measured coverage.
+The review is scoped to these tests and public shipping/stock outcomes only.

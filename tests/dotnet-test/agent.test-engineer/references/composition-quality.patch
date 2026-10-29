@@ -1,0 +1,36 @@
+--- a/parcel/test_shipping.py
++++ b/parcel/test_shipping.py
+@@ -10,6 +10,11 @@
+     def test_threshold(self):
+         self.assertEqual(0, quote(100))
+ 
+     def test_negative(self):
+         with self.assertRaises(ValueError):
+             quote(-1)
++
++    def test_remote(self):
++        for subtotal, expected in ((0, 13), (99, 13), (100, 8), (101, 8)):
++            with self.subTest(subtotal=subtotal):
++                self.assertEqual(expected, quote(subtotal, remote=True))
+--- a/parcel/test_stock.py
++++ b/parcel/test_stock.py
+@@ -6,15 +6,17 @@
+ class StockTests(unittest.TestCase):
+     def test_reserve(self):
+         stock = Stock(4)
+-        self.assertIsNotNone(stock.reserve(2))
++        self.assertIs(True, stock.reserve(2))
++        self.assertEqual(2, stock.quantity)
+ 
+     def test_shortage(self):
+         stock = Stock(4)
+-        self.assertIsNotNone(stock.reserve(5))
++        self.assertIs(False, stock.reserve(5))
++        self.assertEqual(4, stock.quantity)
+ 
+     def test_invalid(self):
+         with self.assertRaises(ValueError):
+             Stock(-1)
+         for count in (0, -1):
+             with self.assertRaises(ValueError):
+                 Stock(4).reserve(count)

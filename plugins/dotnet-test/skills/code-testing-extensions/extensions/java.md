@@ -193,6 +193,8 @@ testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
 If the repo uses BOMs (`<dependencyManagement>` or Gradle platforms), reuse them — don't pin a different version than the BOM publishes.
 
-## Skip Coverage Tools
+## Coverage when requested
 
-Do not configure or run coverage tools (JaCoCo, Cobertura, OpenClover). Coverage is measured separately by the evaluation harness.
+Follow the [shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Reuse configured JaCoCo, Cobertura or OpenClover tasks when measurement is
+required. Do not add plugins by default or assume a harness collects the report.

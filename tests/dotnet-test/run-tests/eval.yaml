@@ -98,6 +98,89 @@ stimuli:
     rubric:
       - Gives one runnable command that executes only the requested target framework
       - Does not run or modify the project
+  - name: List existing solution tests across VSTest and both MTP modes
+    prompt: |
+      I need discovery-only commands for three CI lanes, without running test
+      bodies or rebuilding. All three solutions already have current Debug
+      outputs and use SDK 10.0.100. Give one standalone command on its own
+      line for each lane; do not execute anything or modify files.
+
+      - VSTest.slnx uses VSTest with MSTest.
+      - Bridge.slnx explicitly selects VSTest in global.json, but its projects
+        run MTP 1.9 with TestingPlatformDotnetTestSupport=true and OutputType=Exe.
+      - Native.slnx selects Microsoft.Testing.Platform in global.json and its
+        test applications use MTP 2.0.
+    tags:
+      capability: discovery-command-mode-selection
+      risk: executing-tests-or-misrouting-discovery
+      journey: list-built-ci-test-inventory
+    environment:
+      files:
+        - src: discovery_commands.py
+          dest: .eval/discovery_commands.py
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: run-tests-discovery-command-modes
+        agent:
+          name: reference
+          version: 1.0.0
+          model_name: curated
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              ```shell
+              dotnet test VSTest.slnx --no-build --list-tests
+              dotnet test Bridge.slnx --no-build -- --list-tests
+              dotnet test --solution Native.slnx --no-build --list-tests
+              ```
+
+              These list the built tests without running their bodies. The
+              bridge forwards the discovery flag after `--`; native MTP uses
+              an explicit solution selector. I have not executed the commands.
+    graders:
+      # Scan shell quotes/backslash escapes as data; stop at unquoted whitespace + #.
+      # Required options must be in the executable segment, not quoted values.
+      - type: tool-calls
+        config:
+          disallowed:
+            - name: '(?i)(?:^|[.:])(?:bash|powershell|execute|run_shell_command|edit|create|apply_patch|write_file|replace|task)$'
+      - type: output-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[$>][ \t]*)?dotnet[ \t]+test[ \t]+(?:VSTest\.slnx|"VSTest\.slnx"|''VSTest\.slnx'')(?=[ \t]|$)(?=(?:\\[^\r\n]|(?![ \t]#)[^\\''"\r\n]|"(?:\\[^\r\n]|[^\\"\r\n])*"|''[^''\r\n]*'')*[ \t]--no-build(?=[ \t\r\n]|$))(?=(?:\\[^\r\n]|(?![ \t]#)[^\\''"\r\n]|"(?:\\[^\r\n]|[^\\"\r\n])*"|''[^''\r\n]*'')*[ \t](?:--list-tests|-t)(?=[ \t\r\n]|$))(?!(?:\\[^\r\n]|(?![ \t]#)[^\\''"\r\n]|"(?:\\[^\r\n]|[^\\"\r\n])*"|''[^''\r\n]*'')*[ \t]--[ \t])[^\r\n]*$'
+      - type: output-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[$>][ \t]*)?dotnet[ \t]+test[ \t]+(?:Bridge\.slnx|"Bridge\.slnx"|''Bridge\.slnx'')(?=[ \t]|$)(?=(?:\\[^\r\n]|(?![ \t]#)[^\\''"\r\n]|"(?:\\[^\r\n]|[^\\"\r\n])*"|''[^''\r\n]*'')*[ \t]--no-build(?=[ \t\r\n]|$))(?=(?:\\[^\r\n]|(?![ \t]#)[^\\''"\r\n]|"(?:\\[^\r\n]|[^\\"\r\n])*"|''[^''\r\n]*'')*[ \t]--(?=[ \t])(?:\\[^\r\n]|(?![ \t]#)[^\\''"\r\n]|"(?:\\[^\r\n]|[^\\"\r\n])*"|''[^''\r\n]*'')*[ \t]--list-tests(?=[ \t\r\n]|$))[^\r\n]*$'
+      - type: output-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[$>][ \t]*)?dotnet[ \t]+test(?=[ \t]|$)(?=(?:\\[^\r\n]|(?![ \t]#)[^\\''"\r\n]|"(?:\\[^\r\n]|[^\\"\r\n])*"|''[^''\r\n]*'')*[ \t]--solution[ \t]+(?:Native\.slnx|"Native\.slnx"|''Native\.slnx'')(?=[ \t\r\n]|$))(?=(?:\\[^\r\n]|(?![ \t]#)[^\\''"\r\n]|"(?:\\[^\r\n]|[^\\"\r\n])*"|''[^''\r\n]*'')*[ \t]--no-build(?=[ \t\r\n]|$))(?=(?:\\[^\r\n]|(?![ \t]#)[^\\''"\r\n]|"(?:\\[^\r\n]|[^\\"\r\n])*"|''[^''\r\n]*'')*[ \t]--list-tests(?=[ \t\r\n]|$))[^\r\n]*$'
+      - type: program
+        config:
+          program: python
+          args:
+            - -c
+            - >-
+              import hashlib,pathlib;
+              p=pathlib.Path('.eval/discovery_commands.py');data=p.read_bytes();
+              assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='92afbf0d91144dcfed31f504ae8b20a2bab06cb10695bde5febec78fa0b25bcb','Command verifier changed';
+              exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib;
+            expected={'.eval/discovery_commands.py':'92afbf0d91144dcfed31f504ae8b20a2bab06cb10695bde5febec78fa0b25bcb'};
+            actual={p.as_posix():hashlib.sha256(p.read_bytes().replace(b'\r\n',b'\n')).hexdigest() for p in pathlib.Path('.').rglob('*') if p.is_file() and p.parts[0] not in {'.git','.agents','.copilot','.claude'}};
+            assert actual==expected, 'Read-only discovery workspace changed'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Gives a discovery-only command for each named solution without running tests or rebuilding
+      - Preserves the legacy bridge on the compatible MTP version despite SDK 10, and keeps SDK build options before forwarded application arguments
+      - Uses --solution for the native MTP lane (valid SDK 10 syntax), while the VSTest and legacy bridge lanes keep positional solution paths
+      - Does not claim that listing tests proves they passed or that the commands were executed
   - name: Exclude slow integration tests on VSTest MSTest
     tags:
       capability: filter-vstest-select-exclude

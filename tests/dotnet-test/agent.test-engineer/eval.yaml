@@ -709,3 +709,515 @@ stimuli:
       - Correctly distinguished hollow checks from the meaningful item count and computed total assertions
       - Explained specific assertion repairs without adding unrelated audit dimensions
       - Preserved all production and test files and kept the small review direct rather than launching another audit workflow
+
+  # Composition cases add distinct planning, feedback and restraint evidence.
+  # They do not replace the original generation/repair/denial gates above.
+  - name: Plan a missing decision outcome despite full line coverage
+    prompt: |
+      We have room for one small test before shipping. Choose the first addition
+      between Freight.Quote and Policy.Label in dispatch, using the supplied
+      baseline.cobertura.xml and evidence.txt. Put the first case first in a
+      numbered plan, with input, expected result and why it comes before the
+      other candidate. Plan only: do not edit files or run tests.
+    tags:
+      capability: measured-branch-priority
+      risk: paired-line-covered-false-confidence
+      journey: choose-next-delivery-test
+    constraints:
+      max_duration: 6m
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: fixtures/composition-dotnet/Policy.cs
+          dest: dispatch/Policy.cs
+        - src: fixtures/composition-dotnet/Freight.cs
+          dest: dispatch/Freight.cs
+        - src: fixtures/composition-dotnet/Dispatch.csproj
+          dest: dispatch/Dispatch.csproj
+        - src: fixtures/composition-dotnet/baseline.cobertura.xml
+          dest: dispatch/baseline.cobertura.xml
+        - src: fixtures/composition-dotnet/evidence.txt
+          dest: dispatch/evidence.txt
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: graders/check_composition.py
+          dest: .eval/check_composition.py
+      commands:
+        - python -B .eval/check_composition.py snapshot dispatch
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/coverage-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: composition-branch-priority
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              1. Freight.Quote(remote: true) should return 13. Its supplied line
+                 coverage is 100% but branch coverage is 50%; evidence.txt shows
+                 only the false input. This price outcome matters more than the
+                 unpaired Label formatting helper. A source reference is not
+                 assertion coverage.
+              2. Policy.Label(true) should return "Express"; false should return
+                 "Standard". It has no measured execution, but is lower consequence.
+              This is supplied snapshot evidence, not refreshed validation.
+              No files changed and no tests ran; no complexity ranking was needed.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)^(?:[# \t]*1[.)]\s*|[ \t]*\|[ \t]*1[ \t]*\|)[^\r\n]*Quote'
+      - type: output-matches
+        config:
+          pattern: '(?is)Quote.{0,120}(true|remote).{0,120}\b13\b'
+      - type: output-matches
+        config:
+          pattern: '(?is)(missing|uncovered|unexercised).{0,60}(branch|outcome|remote)|(branch|outcome).{0,60}(missing|uncovered|unexercised|50\s*%)'
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -B
+            - -c
+            - >-
+              import hashlib,pathlib,subprocess,sys;
+              h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
+              assert h('.eval/composition-inputs.json')==sys.argv[1];
+              subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
+            - a424016c615f73234a693d1c158ba66e7c595786d65f349d1ca3f8ccc8f7a7a7
+            - dispatch
+            - readonly
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Prioritized the missing remote price outcome over unpaired formatting and supplied its exact expected fee
+      - Distinguished executed lines, decision outcomes and source references without claiming a refreshed measurement
+      - Kept this a read-only plan without unrelated risk analysis, collection or installation
+
+  - name: Rank planned tests from matching complexity and coverage
+    prompt: |
+      Before we change Policy in dispatch, rank its two methods for additional
+      tests using CRAP scores from their complexity and measured line coverage. Use the
+      supplied baseline.cobertura.xml and evidence.txt. Give a numbered plan,
+      highest change risk first, with the calculated risk scores and one concrete
+      case per method. Do not change files, collect new measurements or run tests.
+    tags:
+      capability: supported-risk-plan
+      risk: coverage-only-hotspot-ranking
+      journey: plan-tests-before-policy-change
+    constraints:
+      max_duration: 6m
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: fixtures/composition-dotnet/Policy.cs
+          dest: dispatch/Policy.cs
+        - src: fixtures/composition-dotnet/Freight.cs
+          dest: dispatch/Freight.cs
+        - src: fixtures/composition-dotnet/Dispatch.csproj
+          dest: dispatch/Dispatch.csproj
+        - src: fixtures/composition-dotnet/baseline.cobertura.xml
+          dest: dispatch/baseline.cobertura.xml
+        - src: fixtures/composition-dotnet/evidence.txt
+          dest: dispatch/evidence.txt
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: graders/check_composition.py
+          dest: .eval/check_composition.py
+      commands:
+        - python -B .eval/check_composition.py snapshot dispatch
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/crap-score
+        - ../../plugins/dotnet-test/skills/coverage-analysis
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: composition-risk-plan
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              1. Policy.Authorize: complexity 8, supplied line coverage 8/15;
+                 CRAP = 8 + 64 * (7/15)^3 = 14.5043. Test amount=10,
+                 approved=true, guest=true and all other flags=false: expect -5.
+              2. Policy.Label: complexity 2, supplied line coverage 0/3;
+                 CRAP = 2 + 4 * 1 = 6. Test express=true: expect "Express".
+              Authorize ranks above Label despite its higher coverage. These are
+              scores from the supplied snapshot, not new execution or permission
+              to refactor. No files changed and no tests or collection ran.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)^(?:[# \t]*1[.)]\s*|[ \t]*\|[ \t]*1[ \t]*\|)[^\r\n]*Authorize'
+      - type: output-matches
+        config:
+          pattern: '(?is)Authorize.{0,500}14\.5'
+      - type: output-matches
+        config:
+          pattern: '(?is)Label.{0,500}\b6(?:\.0+)?\b'
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -B
+            - -c
+            - >-
+              import hashlib,pathlib,subprocess,sys;
+              h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
+              assert h('.eval/composition-inputs.json')==sys.argv[1];
+              subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
+            - a424016c615f73234a693d1c158ba66e7c595786d65f349d1ca3f8ccc8f7a7a7
+            - dispatch
+            - readonly
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Ranked Authorize above Label using correctly calculated complexity-and-coverage scores, not raw missing coverage
+      - Proposed a concrete unprotected outcome in each method with an independent expected result
+      - Used the supplied snapshot without collection, installation or production refactoring
+
+  - name: Turn a native report and review into an effective missing-path test
+    prompt: |
+      Improve the stock test that covers the missed path in parcel/native.json.
+      The run selection and review notes are in parcel/native.txt. Keep the
+      change in the existing test_stock.py and preserve every other file.
+      Run the existing suite and explain which behavior is now protected.
+      Do not collect new measurements or add dependencies.
+    tags:
+      capability: native-metric-guided-repair
+      risk: line-hit-with-ineffective-oracle
+      journey: close-python-report-gap
+    constraints:
+      max_duration: 6m
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: fixtures/composition-python
+          dest: parcel
+        - src: fixtures/composition-evidence/native.json
+          dest: parcel/native.json
+        - src: fixtures/composition-evidence/native.txt
+          dest: parcel/native.txt
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: graders/check_composition.py
+          dest: .eval/check_composition.py
+      commands:
+        - python -B .eval/check_composition.py snapshot parcel
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+    golden_patch:
+      path: references/composition-native.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: composition-native-repair
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              SUCCESS. Strengthened StockTests.test_shortage to require False
+              and unchanged quantity 4 after requesting 5. The supplied native
+              report omitted this path from its selected run; the old assertion
+              also accepted an incorrect True result. Other files are unchanged.
+              Requirement coverage: shortage rejection and unchanged stock map to
+              StockTests.test_shortage. `python -B -m unittest discover -v`
+              passed all 6 tests from parcel. Coverage was not recollected; the
+              supplied snapshot is not post-edit coverage or a mutation score.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?is)(shortage|reserve).{0,220}(unchanged|quantity|stock)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)(new|current|post.edit|updated)\s+(?:line |branch )?coverage\s*(?:is|=|:|reached)\s*\d'
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -B
+            - -c
+            - >-
+              import hashlib,pathlib,subprocess,sys;
+              h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
+              assert h('.eval/composition-inputs.json')==sys.argv[1];
+              subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
+            - 9b0f4441179f2d35ad2a25271f70ab2e5e3b07783c49f0acb3fe60f45497c83e
+            - parcel
+            - native
+          expected_exit_code: 0
+          stdout_matches: 'Composition verified: [1-9][0-9]* tests, 5 rejected mutations'
+          timeout: 2m
+      - type: prompt
+    rubric:
+      - Used the selected native missing path and review evidence to strengthen the canonical shortage test
+      - Asserted both the rejection result and unchanged quantity, not merely a non-null return
+      - Preserved unrelated files and distinguished fresh test execution from historical coverage
+      - Did not substitute .NET metric tooling, install packages or duplicate the supplied review
+
+  - name: Plan from assertions when an old report no longer maps
+    prompt: |
+      Plan the next useful test improvement for Stock in parcel. An old report
+      is at parcel/stale.json; use it only if it helps with the current code.
+      Give a concrete input and expected outcome, and explain what is known
+      versus still unknown. This is a plan only: do not change files, execute
+      tests, collect reports or install anything.
+    tags:
+      capability: stale-evidence-restraint
+      risk: invented-current-risk-score
+      journey: plan-with-incomplete-python-metrics
+    constraints:
+      max_duration: 6m
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: fixtures/composition-python
+          dest: parcel
+        - src: fixtures/composition-evidence/stale.json
+          dest: parcel/stale.json
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: graders/check_composition.py
+          dest: .eval/check_composition.py
+      commands:
+        - python -B .eval/check_composition.py snapshot parcel
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: composition-stale-restraint
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Strengthen StockTests.test_shortage: with quantity 4, reserve(5)
+              must return False and leave quantity 4. The current presence-only
+              assertion accepts either boolean and never checks remaining stock.
+              stale.json maps legacy_stock.py from before the API replacement,
+              not current Stock. Current coverage and complexity-weighted risk
+              are unknown; the historical percentage cannot rank this code.
+              The plan comes from the contract and inspected assertions, not a
+              calculated score. No files changed, execution or collection ran,
+              or packages were installed.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(stale|legacy_stock|old report|unmapped|does not map)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(coverage|risk).{0,160}(unknown|unavailable|unmeasured|not measured)|(unknown|not verified).{0,160}coverage|(?:stale|legacy_stock|old report).{0,250}(not useful|irrelevant|cannot|does not|doesn.t apply|won.t rely|not current|not the current)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(reserve|shortage).{0,180}(False|unchanged|quantity)'
+      - type: output-not-matches
+        config:
+          pattern: '(?i)\bCRAP\s*(?:score)?\s*(?:is|=|:)\s*\d'
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -B
+            - -c
+            - >-
+              import hashlib,pathlib,subprocess,sys;
+              h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
+              assert h('.eval/composition-inputs.json')==sys.argv[1];
+              subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
+            - 91fb2c556b0c1c0e3cdafda54748957dc334d326c9c765ef1561f94887afcf5b
+            - parcel
+            - readonly
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Kept the plan actionable from the current contract and weak assertions despite unavailable current metrics
+      - Rejected the unmapped historical percentage as current coverage and did not invent a numerical risk score
+      - Left every input unchanged without collection, installation or execution
+
+  - name: Carry quality findings through repair and fresh validation
+    prompt: |
+      Finish improving the shipping and stock tests in parcel using review.txt.
+      Keep the useful checks and fix the gaps in the existing two test files.
+      Run the suite and explain which findings were addressed. Runtime code,
+      dependencies and runner configuration must stay unchanged.
+    tags:
+      capability: review-repair-revalidate
+      risk: green-suite-with-unclosed-findings
+      journey: finish-reviewed-python-suite
+    constraints:
+      max_duration: 6m
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: fixtures/composition-python
+          dest: parcel
+        - src: fixtures/composition-evidence/review.txt
+          dest: parcel/review.txt
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: graders/check_composition.py
+          dest: .eval/check_composition.py
+      commands:
+        - python -B .eval/check_composition.py snapshot parcel
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+    golden_patch:
+      path: references/composition-quality.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: composition-quality-feedback
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              SUCCESS. Reused the review, strengthened the two weak stock
+              assertions and added missing remote delivery cases.
+              | Requirement | Evidence |
+              | --- | --- |
+              | Remote charge even with free base | ShippingTests.test_remote: 13 below 100; 8 at/above 100 |
+              | Exact base-fee boundary | Preserved ShippingTests.test_threshold |
+              | Successful reserve result and quantity | StockTests.test_reserve: True, quantity 2 |
+              | Rejected shortage leaves quantity intact | StockTests.test_shortage: False, quantity 4 |
+              Existing standard, threshold and invalid-input checks remain.
+              `python -B -m unittest discover -v` passed all 7 tests after the
+              repairs. Runtime, runner and dependencies are unchanged.
+              Review findings are closed against the changed assertions;
+              coverage and empirical mutation score were not measured.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '\|\s*Requirement\s*\|\s*Evidence\s*\|'
+      - type: output-matches
+        config:
+          pattern: '(?is)(test_reserve|reserve).{0,160}(quantity|state)'
+      - type: output-matches
+        config:
+          pattern: '(?is)(test_shortage|shortage).{0,160}(quantity|unchanged)'
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -B
+            - -c
+            - >-
+              import hashlib,pathlib,subprocess,sys;
+              h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
+              assert h('.eval/composition-inputs.json')==sys.argv[1];
+              subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
+            - 48d403ddbeead3eaaac97404a07dd6d34e4b2fef9ce878716a9eb09d3a8695c5
+            - parcel
+            - quality
+          expected_exit_code: 0
+          stdout_matches: 'Composition verified: [1-9][0-9]* tests, 14 rejected mutations'
+          timeout: 2m
+      - type: prompt
+    rubric:
+      - Converted each concrete review finding into effective assertions or distinct missing cases, retaining sound checks
+      - Protected both results and state without deriving expected values from the actual result
+      - Closed the bounded findings with fresh execution evidence rather than only reporting a plan or green baseline
+      - Preserved runtime and configuration and did not claim measured coverage or mutation scores from static reasoning
+
+  - name: Preserve already effective focused tests without metrics
+    prompt: |
+      Check whether parcel/test_shipping.py needs stronger tests for the
+      documented quote contract. Make a change only for a concrete missing
+      behavior, and run the existing suite. Keep this focused on shipping;
+      do not change stock, production code or dependencies.
+    tags:
+      capability: composition-noop
+      risk: unnecessary-rewrite-or-metric-collection
+      journey: confirm-complete-focused-tests
+    constraints:
+      max_duration: 6m
+      reject_agents: [test-engineer]
+    environment:
+      files:
+        - src: fixtures/composition-python
+          dest: parcel
+        - src: fixtures/composition-evidence/test_shipping_complete.py
+          dest: parcel/test_shipping.py
+        - src: ../graders/authenticated_artifacts.py
+          dest: .eval/authenticated_artifacts.py
+        - src: graders/check_composition.py
+          dest: .eval/check_composition.py
+      commands:
+        - python -B .eval/check_composition.py snapshot parcel
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: composition-sound-noop
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              SUCCESS. No changes were needed for the documented quote contract.
+              Requirement coverage: ShippingTests.test_domestic_partitions and
+              test_remote_partitions pin 0, interior, 99, 100 and 101 subtotals
+              and both remote modes; test_negative checks rejection in both modes.
+              `python -B -m unittest discover -v` passed all 6 tests.
+              All files, including stock tests and production, remain unchanged.
+              Coverage and risk metrics were not measured or needed; no tools
+              or dependencies were installed.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(no changes|unchanged|already.{0,40}(cover|protect|complete))'
+      - type: output-matches
+        config:
+          pattern: '(?i)test_(domestic|remote)_partitions'
+      - type: run-command
+        config:
+          command: python
+          args:
+            - -B
+            - -c
+            - >-
+              import hashlib,pathlib,subprocess,sys;
+              h=lambda p:hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest();
+              assert h('.eval/check_composition.py')=='ccc8c37f76bd1a89772fbeef0cf1f852331f17de7301476bb1e1198c208ff7e1';
+              assert h('.eval/composition-inputs.json')==sys.argv[1];
+              subprocess.run([sys.executable,'-B','.eval/check_composition.py','verify',*sys.argv[2:]],check=True)
+            - c5c3b63bb7b124de59f92ad5249f6ba1d349053b5fc2f446414d6dd7c8e7fbce
+            - parcel
+            - noop
+          expected_exit_code: 0
+          stdout_matches: 'Composition verified: [1-9][0-9]* tests, 2 rejected mutations'
+          timeout: 2m
+      - type: prompt
+    rubric:
+      - Recognized that existing assertions protect the documented boundaries and combined remote behavior
+      - Preserved the entire supplied workspace instead of adding redundant tests or expanding into stock
+      - Ran the existing suite without installing tools or treating missing optional metrics as a blocker

@@ -20,6 +20,11 @@ Inventory public outcomes first, then verify only credible gaps.
 
 ## Composition dispatch
 
+Reuse the caller's scope, bodies and evidence. For composition, read
+`references/analysis-context.md` relative to the supplied/runtime-listed
+`test-analysis-extensions` catalog when available. Do not let an unavailable
+reference or the standalone workflow expand permissions or repeat inventory.
+
 Before entering the decision flow, check the caller's mode. An explicit
 `per-test-read-only` request (including composition from `grade-tests`) uses
 only [references/per-test-read-only.md](references/per-test-read-only.md).
@@ -69,8 +74,8 @@ If absent, state the limitation and use the pinned APIs and rules here.
 For a source-only advisory review, skip execution and label empirical survival
 unverified. A baseline is required when the user requests execution or survivor
 verification, or when closing gaps with tests. Run the narrowest existing test
-command once. Choose it from the project
-manifest; Microsoft.Testing.Platform executables may require `dotnet run`.
+command once. Reuse the repository command; use `run-tests` for unresolved
+.NET runner/mode/filter syntax and native language guidance elsewhere.
 Confirm tests executed: exit 0 with build-only output is not green. If that one
 attempt cannot run the suite, do not troubleshoot the runner or try alternate
 commands for an advisory review; continue statically and label all candidates

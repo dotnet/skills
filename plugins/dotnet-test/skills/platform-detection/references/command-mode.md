@@ -5,6 +5,10 @@ supplies a `dotnet test mode:` output label.
 
 Command mode and executed test platform are separate axes. Command mode controls
 CLI syntax; VSTest mode can still bridge to an MTP test application.
+Bridge availability is version-dependent: MTP 2+ does not support VSTest-mode
+bridging on SDK 10+, while SDK 8/9 retains that path. Native SDK 10+ mode requires
+MTP 1.7+. A configured bridge with incompatible packages remains unavailable;
+do not report it as an executed platform.
 
 ## Selection
 

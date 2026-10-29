@@ -36,8 +36,14 @@ framework idioms, and fixes native to the codebase.
 
 ## Audit Workflow
 
-1. Search for and read the staged tests; detect language, framework, boundaries,
-   and integration markers. This is the first action even when no path is named.
+Reuse the caller's inventory and evidence. For composition, read
+`references/analysis-context.md` relative to the supplied/runtime-listed
+`test-analysis-extensions` catalog when available. Retain this skill's formal
+taxonomy and read-only scope even if that reference is unavailable.
+
+1. Reuse the bounded inventory or search for and read the staged/named tests;
+   detect language, framework, boundaries and integration markers. Do not
+   rediscover tests already provided by the caller.
 2. Read the tests and only verdict-changing production context.
 3. For each candidate, verify the executed check, choose the formal category,
    calibrate, then assign severity. Report proven non-catalog test-validity

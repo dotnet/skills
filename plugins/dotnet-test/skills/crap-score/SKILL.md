@@ -58,6 +58,15 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 
 ## Workflow
 
+For composition from a test-generation owner, require explicit risk-ranking
+intent and reliable coverage/complexity mapped to the same .NET target before
+entering this workflow. Reuse those inputs and return the score, provenance and
+bounded test priorities. Caller no-collection limits override the standalone
+collection/retry path: missing, stale or unsupported evidence remains unknown.
+Do not install tools, collect metrics or turn a refactoring recommendation into
+production edits. A high minimum score is a metric limitation, not permission
+to expand a test-only task.
+
 ### Step 1: Collect code coverage data
 
 If the user supplies a valid Cobertura report that contains the requested
