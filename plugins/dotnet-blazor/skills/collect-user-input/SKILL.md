@@ -1,7 +1,7 @@
 ---
 license: MIT
 name: collect-user-input
-description: Build forms, validate data, and react to user input in Blazor. USE FOR adding forms, search boxes, filter panels, inline editing, data-entry UI, file uploads, validation (annotations or custom), handling form submissions, and binding input controls. Covers EditForm, built-in input components, DataAnnotationsValidator, custom validation, SSR form patterns (SupplyParameterFromForm, FormName, AntiforgeryToken, Enhance), and @bind for simple interactive controls. DO NOT USE for project scaffolding (see create-blazor-project) or prerendering issues (see support-prerendering).
+description: Build forms, validate data, and collect or edit user-entered values in Blazor. USE ONLY WHEN form submission, validation, field errors, editable values, upload, or search/filter binding is the primary task. Covers EditForm, built-in input components, DataAnnotationsValidator, custom validation, SSR form patterns (SupplyParameterFromForm, FormName, AntiforgeryToken, Enhance), and @bind. NEVER USE for display-only selection components or when an input is incidental to a reusable component whose primary challenge is lifecycle, async cancellation, or disposal (use author-component). DO NOT USE for project scaffolding (see create-blazor-project) or prerendering issues (see support-prerendering).
 ---
 
 # Collect User Input
@@ -316,7 +316,8 @@ When using raw `<form>` instead of `EditForm` in SSR, add the antiforgery token 
 </form>
 ```
 
-`EditForm` includes the antiforgery token automatically.
+In static SSR, `@onsubmit` is dispatched by the server-side form handling pipeline on the POST; it
+does not require an interactive render mode. `EditForm` includes the antiforgery token automatically.
 
 ## File Upload
 
