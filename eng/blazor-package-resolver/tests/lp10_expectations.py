@@ -60,7 +60,7 @@ DECLARATIVE_FULL_PATH = re.compile(
     r"\$\(\[System\.IO\.Path\]::GetFullPath\('\$\(MSBuildThisFileDirectory\)"
     r"([A-Za-z0-9_.\-/\\]+)'\)\)")
 PROJECT_START = re.compile(
-    r"\A\s*(?:(?:<\?xml\b[^?]*\?>|<!--.*?-->)\s*)*"
+    r"\A\s*(?:(?:<\?xml(?=\s)[^?]*\?>|<!--.*?-->)\s*)*"
     r"<(?:[A-Za-z_][\w.-]*:)?Project(?=[\s/>])", re.DOTALL)
 PROJECT_TOKEN = re.compile(r"<(?:[A-Za-z_][\w.-]*:)?Project(?=[\s/>])")
 XML_UNSAFE_TOKEN = re.compile(r"<!\s*(?:DOCTYPE|ENTITY)\b", re.IGNORECASE)
@@ -634,6 +634,13 @@ CASES = (
         ("build/run.txt", b"<?foo bar?>\n" + build_xml(
             '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
     ), branch="incomplete-inventory"),
+    spec("xml-stylesheet-project-caller", (
+        ("build/P.targets", build_xml(
+            '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
+            'Targets="Go" /></Target>'), None),
+        ("build/run.txt", b'<?xml-stylesheet href="theme.css"?>\n' + build_xml(
+            '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
+    ), branch="incomplete-inventory"),
     spec("dtd-project-caller", (
         ("build/P.targets", build_xml(
             '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
@@ -987,7 +994,7 @@ def starts_project(content):
         return False
     if PROJECT_START.match(text):
         return True
-    prelude = re.match(r"\A\s*(?:(?:<\?xml\b[^?]*\?>|<!--.*?-->)\s*)*",
+    prelude = re.match(r"\A\s*(?:(?:<\?xml(?=\s)[^?]*\?>|<!--.*?-->)\s*)*",
                        text, re.DOTALL)
     cursor = prelude.end()
     unsupported = False
@@ -1631,6 +1638,14 @@ def verify_case(case, document, writing):
             if name == "html-doctype-project-comment-decoy":
                 require(starts_project(raw) is False,
                         "A Project token inside an HTML comment is not an XML root.")
+            if name == "xml-stylesheet-project-caller" and entry_name == "build/run.txt":
+                try:
+                    starts_project(raw)
+                except ValueError as error:
+                    require(str(error) == "build-xml-unsupported-prolog",
+                            "An XML-prefixed PI is not an XML declaration.")
+                else:
+                    raise ValueError("An XML-prefixed PI hid an unsupported Project root.")
             if name in ("dtd-subset-comment-quote-caller",
                         "dtd-subset-comment-quote-over-limit-caller") and entry_name == "build/run.txt":
                 reason = ("build-xml-root-limit" if "over-limit" in name else
