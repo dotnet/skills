@@ -1,4 +1,4 @@
-# LP-07 expectation freeze (before resolver implementation)
+# LP-07 expectation freeze (cross-row metadata correction)
 
 The normative `repository-wide` LP-07 row is **NuGet `RepositoryCommit`
 identifies the commit SHA**, a `Licensing and provenance` decomposition
@@ -54,7 +54,21 @@ An unreadable ZIP and a case with no supplied package likewise escalate.
 A missing *file on disk* or a changed checked-input digest is a foundation
 replay-loader error, not the `no-package` case.
 
-`cases.json` freezes 53 complete structured `CaseResult` expectations (52
+The cross-row `foreign-metadata-before` and `foreign-metadata-after` controls
+place an empty `urn:other` metadata sibling beside recognized metadata with
+a valid full commit SHA. NuGet's
+[`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
+selects the first root child by local name `metadata`, ignoring namespace;
+the shared reader selects only root-namespace metadata. Foreign-first makes
+the readers inspect different nodes; recognized-first still contains
+competing root metadata despite agreeing on the field. Both freeze
+`ambiguous-metadata` / `escalated` / `unknown`, no finding or field evidence,
+an archive-level evidence pointer and `unambiguous-nuspec` requested from the
+package owner. This is well-formed but reader-ambiguous XML, not an absent
+commit. All earlier bytes/expectations and retained outcomes remain intact;
+the two new cases intentionally mismatch the current shared reader.
+
+`cases.json` freezes 55 complete structured `CaseResult` expectations (54
 synthetic archives and one absent-input case):
 full-form SHA-1/SHA-256 (case and whitespace variants), all recognized
 namespaces, unrelated URL/type/branch/foreign sibling content, missing and
@@ -93,10 +107,8 @@ required mode fails closed. `--check-negative-bindings` proves missing or
 misspelled environment variables fail before reading any bound archive,
 including under `python -O`.
 
-Only **after** this expectation commit receives separate approval may Phase B
-add a resolver and registry implementation. Copy verified retained inputs
-to a temporary `packages\` directory beside a copy of `acceptance.json` for
-the future acceptance replay; record it in
-`acceptance-receipt.template.json`. This validator is not a retained resolver
-replay. In Phase A, LP-07 remains `tbd`, and its synthetic replay must
-predictably mismatch these expectations. LP-05 and LP-06 remain unchanged.
+For an opt-in retained resolver replay, copy verified retained inputs to a
+temporary `packages\` directory beside a copy of `acceptance.json`; record
+results in `acceptance-receipt.template.json`. This validator is not a
+retained resolver replay. LP-05 through LP-09 are implemented; the cross-row
+metadata controls above are deliberately ahead of their shared reader.

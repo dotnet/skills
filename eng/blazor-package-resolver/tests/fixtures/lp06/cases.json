@@ -792,6 +792,78 @@
       ]
     },
     {
+      "case_id": "lp06-foreign-metadata-before",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata-before.nupkg",
+          "sha256": "97c5da7d7f05a02d034f4eea317aaf519f10ee6f14e6ef6114fa76f604e0f8c4"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-metadata",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata-before.nupkg",
+            "sha256": "97c5da7d7f05a02d034f4eea317aaf519f10ee6f14e6ef6114fa76f604e0f8c4"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 foreign-metadata-before: a foreign metadata sibling makes NuGet's first-local-name and namespace-strict metadata selection ambiguous; archive-level evidence cannot establish RepositoryUrl.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-foreign-metadata-after",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata-after.nupkg",
+          "sha256": "f925317e2394e85debbcf5710dd6477984ba85449b330006bb7b3609a83da39b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-metadata",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata-after.nupkg",
+            "sha256": "f925317e2394e85debbcf5710dd6477984ba85449b330006bb7b3609a83da39b"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 foreign-metadata-after: a foreign metadata sibling makes NuGet's first-local-name and namespace-strict metadata selection ambiguous; archive-level evidence cannot establish RepositoryUrl.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
       "case_id": "lp06-unknown-attribute",
       "row_id": "LP-06",
       "inputs": [

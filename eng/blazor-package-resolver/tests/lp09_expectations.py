@@ -165,6 +165,12 @@ CASES = (
     ("foreign-metadata", PROJECT, "invalid-xml", None,
      "The nuspec requires exactly one recognized metadata element.",
      "valid-nuspec", "package-owner", NAMESPACES[-1]),
+    ("foreign-metadata-before", PROJECT, "ambiguous-metadata", None,
+     "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+     "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
+    ("foreign-metadata-after", PROJECT, "ambiguous-metadata", None,
+     "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+     "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
     ("unknown-attribute", f'<projectUrl extra="unknown">{URL}</projectUrl>',
      "malformed-project-url", None,
      "The projectUrl element has unsupported attributes or child elements.",
@@ -218,6 +224,7 @@ RATIONALES = {
     "ambiguous": "Multiple projectUrl elements cannot establish one authoritative value, even when equal.",
     "foreign-project-url": "A foreign-namespace projectUrl is not recognized NuGet metadata.",
     "foreign-root": "An unrecognized package root cannot establish NuGet metadata.",
+    "ambiguous-metadata": "A foreign root-level metadata sibling makes first-local-name and namespace-strict readers disagree on the authoritative element.",
     "malformed-project-url": "ProjectUrl has simple text content; unsupported attributes or children need correction.",
     "invalid-xml": "Malformed XML or missing/ambiguous recognized metadata cannot establish one field.",
     "unsafe-nuspec": "DTD/entity declarations must not be expanded or trusted.",
@@ -228,7 +235,8 @@ RATIONALES = {
     "missing-package": "No checked package input was supplied.",
 }
 UNKNOWN = {
-    "foreign-root", "foreign-metadata", "missing-metadata", "duplicate-metadata",
+    "foreign-root", "foreign-metadata", "foreign-metadata-before", "foreign-metadata-after",
+    "missing-metadata", "duplicate-metadata",
     "invalid-xml", "undefined-entity", "dtd-entity", "no-nuspec",
     "multiple-root-nuspec", "subfolder-only-nuspec", "corrupt-archive", "no-package",
 }
@@ -266,6 +274,11 @@ def archive(name, metadata, namespace):
             f"<metadata{metadata_attribute}><id>Sample.LP09</id><version>1.0.0</version>"
             f"{metadata}</metadata>" + ("<metadata />" if name == "duplicate-metadata" else "")
         )
+    foreign_metadata = '<other:metadata xmlns:other="urn:other" />'
+    if name == "foreign-metadata-before":
+        metadata_element = foreign_metadata + metadata_element
+    elif name == "foreign-metadata-after":
+        metadata_element += foreign_metadata
     nuspec = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         f"{declaration}<package{attribute}>{metadata_element}{outside}</package>\n"
@@ -505,7 +518,8 @@ def main():
                     raise ValueError(f"Malformed XML control parsed successfully: {name}")
             if (url is not None or branch in ("missing-project-url", "blank-project-url",
                                                "ambiguous", "case-variant-project-url",
-                                               "foreign-project-url", "malformed-project-url")
+                                               "foreign-project-url", "malformed-project-url",
+                                               "ambiguous-metadata")
                     or name == "foreign-metadata"):
                 root = ET.fromstring(raw)
                 ns = f"{{{namespace}}}" if namespace else ""
@@ -517,7 +531,15 @@ def main():
                     continue
                 require(len(metadata_nodes) == 1, f"Fixture metadata differs: {name}")
                 projects = metadata_nodes[0].findall(f"{ns}projectUrl")
-                if branch == "ambiguous":
+                if branch == "ambiguous-metadata":
+                    foreign = "{urn:other}metadata"
+                    expected_order = ([foreign, ns + "metadata"] if name.endswith("before")
+                                      else [ns + "metadata", foreign])
+                    require([node.tag for node in root] == expected_order and
+                            len(projects) == 1 and projects[0].text == URL and
+                            not list(root.find(foreign)),
+                            f"Foreign metadata sibling order or recognized ProjectUrl differs: {name}")
+                elif branch == "ambiguous":
                     require(len(projects) == 2, f"Duplicate fixture lacks two projectUrl elements: {name}")
                     values = {"".join(node.itertext()).strip() for node in projects}
                     reason = "Conflicting" if len(values) > 1 else "Multiple"

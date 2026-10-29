@@ -896,6 +896,78 @@
       ]
     },
     {
+      "case_id": "lp05-foreign-metadata-before",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata-before.nupkg",
+          "sha256": "73f7bcacc5d249c8de11eb8c3a4a5df65fdc95c91dd21b2e90ff6754e8ca602f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-metadata",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata-before.nupkg",
+            "sha256": "73f7bcacc5d249c8de11eb8c3a4a5df65fdc95c91dd21b2e90ff6754e8ca602f"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "A foreign metadata sibling before recognized metadata makes NuGet's first-local-name selection disagree with the namespace-strict reader; neither can establish the license fact safely.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp05-foreign-metadata-after",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata-after.nupkg",
+          "sha256": "731cf06d2d2c882ad6f2ceed7ffd0e3da808577254915a073b93b31580560f91"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-metadata",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata-after.nupkg",
+            "sha256": "731cf06d2d2c882ad6f2ceed7ffd0e3da808577254915a073b93b31580560f91"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "A foreign metadata sibling after recognized metadata leaves competing reader selection rules; do not establish the license fact from ambiguous package structure.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
       "case_id": "lp05-no-nuspec",
       "row_id": "LP-05",
       "inputs": [

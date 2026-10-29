@@ -1,4 +1,4 @@
-# LP-09 expectation freeze (before resolver implementation)
+# LP-09 expectation freeze (cross-row metadata correction)
 
 The normative `repository-wide` LP-09 row is **NuGet `ProjectUrl` is populated**,
 a `Licensing and provenance` decomposition evidence check from clause 1.4:
@@ -87,8 +87,23 @@ an unavailable package escalate with a named missing fact. A missing *file on
 disk* or a changed checked-input digest is a foundation loader error before
 LP-09 dispatch, not the `no-package` case.
 
-`cases.json` freezes **65 complete structured CaseResult expectations**
-(64 synthetic archives and one absent-input case). The branch matrix covers:
+The cross-row `foreign-metadata-before` and `foreign-metadata-after` controls
+place empty `urn:other` metadata beside one recognized metadata element with
+a populated ProjectUrl. NuGet's
+[`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
+selects the first root child by local name `metadata` regardless of namespace,
+while the shared resolver reader selects only root-namespace metadata.
+Foreign-first makes NuGet report no ProjectUrl while the shared reader reports
+the recognized URL; recognized-first can appear to agree, but still has
+competing root metadata. Both orderings freeze `ambiguous-metadata` /
+`escalated` / `unknown`, no field finding or field evidence, an archive-level
+evidence pointer and `unambiguous-nuspec` requested from the package owner.
+This is a well-formed XML structure/reader ambiguity, not a missing or blank
+ProjectUrl. Earlier bytes/expectations and retained outcomes are unchanged;
+the two new cases intentionally mismatch the current shared reader.
+
+`cases.json` freezes **67 complete structured CaseResult expectations**
+(66 synthetic archives and one absent-input case). The branch matrix covers:
 
 | Branch family | Controls |
 |---|---|
@@ -96,7 +111,7 @@ LP-09 dispatch, not the `no-package` case.
 | Namespace and field separation | unqualified and six historical namespaces; same-namespace prefix and namespace declaration; project plus different/malformed repository URL; unrelated foreign sibling |
 | Not populated | absent, repository-only/attribute-only, metadata attribute, nested/outside-metadata, empty, whitespace including U+00A0, comment-only, PI-only, empty CDATA |
 | Field ambiguity/shape | standalone or mixed exact-plus-case-variant, identical/padded/conflicting/blank duplicates; foreign-only/alongside/different-recognized-namespace/`xmlns=""` child; ordinary/namespaced attributes; nested content |
-| Input safety/availability | foreign root/metadata, missing/duplicate metadata, malformed XML/undefined entity, DTD, missing/multiple/nested-only root nuspec, corrupt archive, no supplied package |
+| Input safety/availability | foreign root/metadata, both orderings of foreign plus recognized metadata, missing/duplicate metadata, malformed XML/undefined entity, DTD, missing/multiple/nested-only root nuspec, corrupt archive, no supplied package |
 
 These controls prevent whole-document searches, first-element selection,
 local-name-only XML matching, and treating LP-06 RepositoryUrl as ProjectUrl.
@@ -129,12 +144,9 @@ check explicitly prints `skipped`; required mode fails closed. Run
 `--check-negative-bindings` to prove that missing, misspelled and wrong
 existing files cannot pass, including under `python -O`.
 
-Only **after** separate approval of this expectation freeze may Phase B add a
-resolver, registry entry and implementation tests. For future retained
-acceptance replay, copy verified vendor packages into a temporary `packages\`
-directory beside a copy of `acceptance.json`, then record results in
-`acceptance-receipt.template.json`. This validator is not that replay. In
-Phase A LP-05/06/07/08 remain implemented and unchanged; LP-09 and the other
-55 package rows remain `tbd`. An LP-09 synthetic replay must therefore
-predictably mismatch these expectations as `package-dispatcher/unimplemented`,
-not because the fixtures or schema are invalid.
+For an opt-in retained acceptance replay, copy verified vendor packages into
+a temporary `packages\` directory beside a copy of `acceptance.json`, then
+record results in `acceptance-receipt.template.json`. This validator is not
+that replay. LP-05 through LP-09 are implemented, and the other 55 package
+rows remain `tbd`; the new cross-row metadata controls are deliberately ahead
+of the shared reader pending separately approved implementation work.

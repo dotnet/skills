@@ -1,4 +1,4 @@
-# LP-06 expectation freeze (before resolver implementation)
+# LP-06 expectation freeze (cross-row metadata correction)
 
 The normative `repository-wide` LP-06 row is **NuGet `RepositoryUrl` is
 populated**, decomposed from requirement-basis clause 1.4: "NuGet packages must
@@ -32,6 +32,21 @@ NuGet 2010/07, 2011/08, 2011/10, 2012/06, 2013/01, and 2013/05 namespaces.
 Missing physical files or changed digests are errors in the foundation
 replay loader; `no-package` is a checked-input absence case, not a missing
 file. Findings describe field population only, **not** release readiness.
+
+The cross-row `foreign-metadata-before` and `foreign-metadata-after` controls
+place empty `urn:other` metadata beside one recognized metadata element
+containing a populated repository URL. NuGet's
+[`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
+selects the first root child by local name `metadata`, regardless of namespace;
+the shared resolver reader selects only root-namespace metadata. Foreign-first
+selects different nodes, while recognized-first can appear to agree yet still
+leaves competing root metadata. Both freeze `ambiguous-metadata` / `escalated`
+/ `unknown`, no field finding or field evidence, an archive-level evidence
+pointer and a request for an `unambiguous-nuspec` from the package owner.
+Well-formed XML with a recognized sibling must not silently establish a
+field. The suite now has 33 cases and 32 pinned archives; all earlier
+bytes/expectations and retained outcomes remain unchanged. The new cases
+intentionally mismatch the current shared reader pending a separate fix.
 
 `cases.json` freezes the full structured `CaseResult` for each branch. Every
 generated synthetic archive fixes its ZIP creator, version, mode, timestamp,
@@ -69,10 +84,11 @@ Without bindings the ordinary check prints `skipped` for each; required mode
 fails closed. `--check-negative-bindings` proves missing or misspelled
 required-mode bindings fail before archive access, also under `python -O`.
 
-For **Phase B only**, after this expectation commit is approved, verify both
-sources and copy them under a temporary `packages/` directory next to a copy
-of `acceptance.json`; then run the foundation `replay` command on that
-temporary suite. `acceptance-receipt.template.json` records expectation
-commit, checked identities, exit codes and exact expected-result comparisons
-separately. The validator is **not** a retained resolver replay. Phase A
-leaves LP-06 `tbd`, so its synthetic and vendor replays must still mismatch.
+For an opt-in retained resolver replay, verify both sources and copy them
+under a temporary `packages/` directory next to a copy of `acceptance.json`;
+then run the foundation `replay` command on that temporary suite.
+`acceptance-receipt.template.json` records expectation commit, checked
+identities, exit codes and exact expected-result comparisons separately.
+The validator is **not** a retained resolver replay. LP-05 through LP-09
+are implemented; the cross-row metadata controls above are deliberately
+ahead of their shared reader.
