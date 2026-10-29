@@ -137,7 +137,13 @@ certificate-table bytes but does **not** establish publisher identity or
 certificate-chain trust (the separate PI-02 requirement). Complete metadata
 table/signature/CustomAttribute decoding and full assembly-qualified enum
 identity checks precede decisive signing states; untrusted packaged code is
-never executed or loaded. The 130-case frozen matrix, evidence contracts and
+never executed or loaded. Valid managed modules with no Assembly table are
+non-assemblies; malformed modules or modules claiming strong-name signing
+cannot establish a complete inventory. ZIP names require flagged valid UTF-8
+or unflagged ASCII with matching local and central records. PI-01 alias checks
+fail closed for unsupported Unicode folds, and its evidence uses Python-style
+lowercase ASCII escapes and Unicode scalar path ordering without changing
+other rows' canonical JSON. The 138-case frozen matrix, evidence contracts and
 opt-in retained identities are in `tests/fixtures/pi01/README.md`.
 `tests/Pi01BoundaryChecks.cs` checks the package-only byte/count thresholds,
 culture and checked-buffer path independence; when both `PI01_SYNCFUSION_NUPKG`

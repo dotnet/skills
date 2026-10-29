@@ -1,5 +1,7 @@
+using System.Buffers.Binary;
 using System.Globalization;
 using System.IO.Compression;
+using System.Reflection.PortableExecutable;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -35,7 +37,15 @@ internal static class Pi01BoundaryChecks
             "pi01-prefixed-nested-with-passive-name",
             "pi01-native-bundle-shaped",
             "pi01-verified-signed",
-            "pi01-signed-content-changed"
+            "pi01-signed-content-changed",
+            "pi01-module-alternate",
+            "pi01-module-changed-mvid",
+            "pi01-module-empty-mvid",
+            "pi01-module-false-signed-flag",
+            "pi01-utf8-non-ascii-assembly-name",
+            "pi01-nonutf8-non-ascii-assembly-name",
+            "pi01-utf8-local-flag-mismatch",
+            "pi01-utf8-local-name-mismatch"
         };
         var previousCulture = CultureInfo.CurrentCulture;
         var previousUiCulture = CultureInfo.CurrentUICulture;
@@ -91,6 +101,42 @@ internal static class Pi01BoundaryChecks
             "unsafe-package", "Over-limit ZIP entry count");
         CheckBranch(registry, Pack([("lib/A.dll", []), ("LIB/a.dll", [])]),
             "unsafe-package", "Case-folded ZIP path alias");
+        CheckBranch(registry, Pack([("lib/\u0130.dll", []), ("lib/i\u0307.dll", [])]),
+            "unsafe-package", "Expanded Unicode lower-case ZIP path alias");
+        CheckBranch(registry, Pack([("lib/\u00c9.dll", []), ("lib/\u00e9.dll", [])]),
+            "unsafe-package", "Accented Unicode lower-case ZIP path alias");
+        CheckBranch(registry, Pack([("lib/\u00df.dll", [])]),
+            "unsafe-package", "Unsupported Unicode casefold shape fails closed");
+        CheckBranch(registry, Pack([("lib/\u0345.dll", [])]),
+            "unsafe-package", "Unsupported combining Unicode casefold fails closed");
+        var unsigned = File.ReadAllBytes(Path.Combine(directory, "templates", "unsigned.dll"));
+        CheckBranch(registry, Pack([("lib/\u00c9.dll", unsigned)]),
+            "unsigned-assembly", "Supported non-ASCII UTF-8 ZIP entry name");
+        var ordered = Resolve(registry, Pack([
+            ("lib/\U0001d400.dll", unsigned), ("lib/\uff41.dll", unsigned)
+        ]), "Unicode scalar evidence ordering");
+        var contract = ordered.EvidenceContract ?? "";
+        int fullwidth = contract.IndexOf(@"lib/\uff41.dll", StringComparison.Ordinal);
+        int astral = contract.IndexOf(@"lib/\ud835\udc00.dll", StringComparison.Ordinal);
+        Check(ordered.BranchId == "unsigned-assembly" &&
+            fullwidth >= 0 && astral > fullwidth,
+            "PI-01 evidence sorts fullwidth before astral by Unicode scalar value");
+        var utf8 = Pack([("lib/S\u00e9.dll", [])]);
+        CheckBranch(registry, CorruptUtf8Name(utf8, 0xff), "unsafe-package",
+            "Invalid flagged UTF-8 ZIP entry name");
+        CheckBranch(registry, CorruptUtf8Name(utf8, 0xc0), "unsafe-package",
+            "Overlong flagged UTF-8 ZIP entry name");
+        var module = File.ReadAllBytes(Path.Combine(directory, "templates", "module.netmodule"));
+        using (var pe = new PEReader(new MemoryStream(module)))
+        {
+            int cli = pe.PEHeaders.CorHeaderStartOffset;
+            Check(cli >= 0 && BinaryPrimitives.ReadInt64LittleEndian(module.AsSpan(cli + 32)) == 0,
+                "Pinned module has no signature reservation");
+            BinaryPrimitives.WriteInt32LittleEndian(module.AsSpan(cli + 32), 1);
+            BinaryPrimitives.WriteInt32LittleEndian(module.AsSpan(cli + 36), 1);
+        }
+        CheckBranch(registry, Pack([("lib/Signature.netmodule", module)]),
+            "unsafe-assembly", "Module with a nonzero signature directory");
         var damagedCrc = Pack([("data.txt", "safe"u8.ToArray())]);
         var central = damagedCrc.AsSpan().LastIndexOf("PK\x01\x02"u8);
         Check(central >= 0, "Generated ZIP central entry");
@@ -99,7 +145,7 @@ internal static class Pi01BoundaryChecks
         CheckBranch(registry, new byte[64 * 1024 * 1024 + 1], "unsafe-package",
             "Over-limit package byte count");
         CheckRetained(registry, Path.Combine(directory, "acceptance.json"));
-        Console.WriteLine("PI-01 supplemental culture, checked-byte, resource, crypto and metadata checks passed.");
+        Console.WriteLine("PI-01 supplemental module, ZIP name, alias, ordering, culture, resource, crypto and metadata checks passed.");
     }
 
     private static byte[] Pack(IEnumerable<(string Name, byte[] Bytes)> entries)
@@ -123,11 +169,30 @@ internal static class Pi01BoundaryChecks
 
     private static void CheckBranch(Registry registry, byte[] bytes, string branch, string label)
     {
+        var actual = Resolve(registry, bytes, label);
+        Check(actual.BranchId == branch, $"{label}: {actual.BranchId} != {branch}");
+    }
+
+    private static CaseResult Resolve(Registry registry, byte[] bytes, string label)
+    {
         var identity = new PinnedInput("package", "absent-but-checked.nupkg", Catalog.Digest(bytes));
         var input = new ResolverCase(label, "PI-01", [identity],
             new Dictionary<string, CheckedInput> { ["package"] = new(identity, bytes) });
-        var actual = registry.Dispatch(input);
-        Check(actual.BranchId == branch, $"{label}: {actual.BranchId} != {branch}");
+        return registry.Dispatch(input);
+    }
+
+    private static byte[] CorruptUtf8Name(byte[] package, byte replacement)
+    {
+        var result = (byte[])package.Clone();
+        var encoded = Encoding.UTF8.GetBytes("lib/S\u00e9.dll");
+        int first = result.AsSpan().IndexOf(encoded);
+        int next = first < 0 ? -1 : result.AsSpan(first + encoded.Length).IndexOf(encoded);
+        Check(first >= 0 && next >= 0, "Generated local and central UTF-8 names");
+        int accent = encoded.AsSpan().IndexOf((byte)0xc3);
+        Check(accent >= 0, "Expected two-byte UTF-8 accent");
+        result[first + accent] = replacement;
+        result[first + encoded.Length + next + accent] = replacement;
+        return result;
     }
 
     private static void CheckRetained(Registry registry, string acceptance)
