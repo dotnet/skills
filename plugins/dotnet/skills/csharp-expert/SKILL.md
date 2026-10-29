@@ -4,10 +4,10 @@ description: >-
   Route C# and .NET requests to the exact installed specialist or smallest dotnet/skills
   marketplace plugin. USE FOR: "which specialist should own this" or "how do I add the skill"
   requests involving ASP.NET Core endpoints, Blazor, MAUI binding, Windows Forms specialist
-  selection or installation, EF Core queries, test or framework migration, runtime
-  CPU/allocation evidence, file-based C#, editor/compiler defects, a surviving MSBuild
-  `.binlog`, or a plugin missing from `/skills`; also use for C# semantics
-  when no narrower specialist exists. DO NOT USE FOR: requests that already name the exact
+  selection or installation, EF Core queries, test framework migration (NUnit, xUnit, MSTest),
+  framework migration, runtime CPU/allocation evidence, file-based C#, editor/compiler defects,
+  a surviving MSBuild `.binlog`, or a plugin missing from `/skills`; also use for C# semantics
+  when no narrower specialist exists, including "do I need another specialist?" questions. DO NOT USE FOR: requests that already name the exact
   installed specialist to invoke, or work unrelated to C# or .NET.
 license: MIT
 ---
@@ -137,11 +137,15 @@ Rank candidates in this order:
    setup, or runtime diagnostics.
 4. A cross-cutting specialist matching the actual mechanism, such as interop, vectorization,
    serialization, AOT, or microbenchmarking.
-5. `csharp-refactoring` for behavior-preserving structural change.
-6. The C# language fallback below when no narrower available skill owns the work.
+5. `dotnet-breaking-changes` when the edit touches a contract with callers outside the repo: shipped
+   public API (`PublicAPI.*.txt`, ApiCompat), `InternalsVisibleTo` friends, multiple target
+   frameworks, or generated partials. Pair it with `csharp-refactoring` for a structural change.
+6. `csharp-refactoring` for behavior-preserving structural change.
+7. The C# language fallback below when no narrower available skill owns the work.
 
 Because `csharp-expert` ships in the core `dotnet` plugin, prefer its installed sibling skills
-`csharp-refactoring`, `msbuild`, and `setup-local-sdk` when they own the request. Do not require the
+`csharp-refactoring`, `dotnet-breaking-changes`, `msbuild`, and `setup-local-sdk` when they own the
+request. Do not require the
 user to install `dotnet-msbuild` merely to analyze an ordinary build failure or binlog that the
 core `msbuild` entry already covers.
 

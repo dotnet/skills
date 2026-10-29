@@ -29,6 +29,8 @@ on:
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
       - "tests/**/eval.yaml"
+      - "tests/**/fixtures/grading/**"
+      - "tests/dotnet/dotnet-breaking-changes/**"
   push:
     branches: [main]
     paths:
@@ -58,6 +60,7 @@ on:
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
       - "tests/**/eval.yaml"
+      - "tests/**/fixtures/grading/**"
   workflow_dispatch:
 
 permissions:
@@ -80,6 +83,9 @@ jobs:
 
       - name: Run adapter fault-injection and report tests
         run: node --test eng/vally-adapter/*.test.mjs eng/dashboard/*.test.js
+
+      - name: Run eval grader-script regression tests
+        run: node --test tests/*/*/fixtures/grading/*.test.mjs
 
   evaluation-tools:
     runs-on: ubuntu-latest

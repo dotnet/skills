@@ -1,0 +1,82 @@
+diff --git a/src/Billing/AppSettingsHelper.cs b/src/Billing/AppSettingsHelper.cs
+index f8923ed..75f745e 100644
+--- a/src/Billing/AppSettingsHelper.cs
++++ b/src/Billing/AppSettingsHelper.cs
+@@ -6,8 +6,8 @@ public static class AppSettingsHelper
+     public static int ParseIntSetting(string? raw, int fallback)
+         => int.TryParse(raw, out var v) ? v : fallback;
+ 
+-    public static bool ParseBoolSetting(string? raw, bool fallback)
+-        => bool.TryParse(raw, out var v) ? v : fallback;
++    public static bool ParseBoolSetting(string? raw, bool fallback, bool strict = false)
++        => bool.TryParse(strict ? raw : raw?.Trim(), out var v) ? v : fallback;
+ }
+ 
+ /// <summary>Reads configuration values, returning a fallback when the raw value is missing or invalid.</summary>
+diff --git a/src/Billing/Coupons.cs b/src/Billing/Coupons.cs
+index 79ceb96..b3f8adf 100644
+--- a/src/Billing/Coupons.cs
++++ b/src/Billing/Coupons.cs
+@@ -1,7 +1,7 @@
+ namespace Billing;
+ 
+ /// <summary>Hand-authored part of the <c>Coupons</c> partial type.</summary>
+-public partial class Coupons
++public sealed partial class Coupons
+ {
+     public decimal Redeem(string code, decimal amount)
+         => amount - (amount * RateFor(code));
+diff --git a/src/Billing/OrderProcessor.cs b/src/Billing/OrderProcessor.cs
+index 449ef77..9a3d06e 100644
+--- a/src/Billing/OrderProcessor.cs
++++ b/src/Billing/OrderProcessor.cs
+@@ -18,8 +18,8 @@ internal sealed class OrderProcessor
+ 
+         decimal shipping = subtotal >= 100m ? 0m : 9.99m;
+ 
+-        decimal rateA = tier == "gold" ? 0.10m : tier == "silver" ? 0.05m : 0.00m;
+-        decimal discountedA = subtotal - (subtotal * rateA);
++        decimal discountRate = tier == "gold" ? 0.10m : tier == "silver" ? 0.05m : 0.00m;
++        decimal discountedA = subtotal - (subtotal * discountRate);
+         decimal totalWithTax = discountedA + (discountedA * 0.08m);
+ 
+         decimal quoteBase = subtotal + shipping;
+diff --git a/src/Billing/PlatformInfo.cs b/src/Billing/PlatformInfo.cs
+index 62ab629..d73e44e 100644
+--- a/src/Billing/PlatformInfo.cs
++++ b/src/Billing/PlatformInfo.cs
+@@ -4,7 +4,7 @@ namespace Billing;
+ public static class PlatformInfo
+ {
+     private const string ModernTag = "net10";
+-    private const string LegacyTag = "net8";
++    private const string LegacyTag = "net8.0";
+ 
+     public static string Current()
+     {
+diff --git a/src/Billing/PublicAPI.Shipped.txt b/src/Billing/PublicAPI.Shipped.txt
+index 733c0c1..37927a3 100644
+--- a/src/Billing/PublicAPI.Shipped.txt
++++ b/src/Billing/PublicAPI.Shipped.txt
+@@ -1,7 +1,7 @@
+ #nullable enable
+ Billing.AppSettingsHelper
+ static Billing.AppSettingsHelper.ParseIntSetting(string? raw, int fallback) -> int
+-static Billing.AppSettingsHelper.ParseBoolSetting(string? raw, bool fallback) -> bool
++static Billing.AppSettingsHelper.ParseBoolSetting(string? raw, bool fallback, bool strict = false) -> bool
+ Billing.ConfigReader
+ static Billing.ConfigReader.ReadInt(string? raw, int fallback) -> int
+ static Billing.ConfigReader.ReadBool(string? raw, bool fallback) -> bool
+diff --git a/tests/Billing.Tests/BillingTests.cs b/tests/Billing.Tests/BillingTests.cs
+index 039ee93..4f4d4b5 100644
+--- a/tests/Billing.Tests/BillingTests.cs
++++ b/tests/Billing.Tests/BillingTests.cs
+@@ -81,7 +81,7 @@ public class BillingTests
+     public void PlatformInfo_Current_ReportsTargetTag()
+     {
+ #if NET8_0
+-        Assert.Equal("platform:net8", PlatformInfo.Current());
++        Assert.Equal("platform:net8.0", PlatformInfo.Current());
+ #else
+         Assert.Equal("platform:net10", PlatformInfo.Current());
+ #endif
