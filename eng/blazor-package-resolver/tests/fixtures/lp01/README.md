@@ -27,8 +27,8 @@ version and catalog hash must agree, categories must be disjoint, and every
 classified ID must be current and OSI-approved. Anything not classified,
 even when OSI-approved, escalates to the policy owner; it cannot silently
 inherit a permissive classification. Policy and corpus are checked, pinned
-inputs in *each* synthetic and retained case, except the missing-policy
-control. Missing or inconsistent policy fails closed; a changed file digest
+inputs in *each* synthetic and retained case, except the missing-policy and
+missing-corpus controls. Missing or inconsistent policy fails closed; a changed file digest
 fails at the foundation replay loader before row dispatch. The
 `no-corpus`, `policy-version-mismatch`, `policy-overlap` and `catalog-version-mismatch`
 controls have pinned, intentionally inconsistent bytes; no online lookup is
