@@ -92,6 +92,16 @@ class GraderTests(unittest.TestCase):
                 tree.write(path, encoding="utf-8")
                 self.grade(work, script)
 
+    def test_early_sdk_git_stamp_hooks_are_accepted(self):
+        for hook in ("BeforeBuild", "PrepareForBuild"):
+            with self.subTest(hook=hook):
+                work, script = self.workspace("invariant-per-project-exec")
+                path = work / "git-stamp" / "Directory.Build.targets"
+                tree = ET.parse(path)
+                tree.getroot().find("Target").set("BeforeTargets", hook)
+                tree.write(path, encoding="utf-8")
+                self.grade(work, script)
+
     def test_git_fallback_requires_the_property_to_be_absent(self):
         for condition in ("'true' == 'true'", "'false' == 'true'"):
             with self.subTest(condition=condition):
