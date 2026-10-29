@@ -1163,17 +1163,39 @@ sealed class MetadataTypeProvider(MetadataReader metadata) :
             activeTypeSpecs.Remove(index);
         }
     }
-    public string GetTypeFromSerializedName(string name) =>
-        string.IsNullOrWhiteSpace(name) ? throw new BadImageFormatException("Empty serialized type name.")
-        : name.Split(',')[0].Trim();
+    public string GetTypeFromSerializedName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new BadImageFormatException("Empty serialized type name.");
+        return name;
+    }
     public bool IsEnum(string type) => type is not ("System.Type" or "String" or "Object")
         && !Enum.TryParse<PrimitiveTypeCode>(type, out _);
     public PrimitiveTypeCode GetUnderlyingEnumType(string type)
     {
+        string name = type;
+        bool qualified = type.Contains(',', StringComparison.Ordinal);
+        if (qualified)
+        {
+            int separator = type.IndexOf(',');
+            name = type[..separator];
+            string identity = type[(separator + 1)..].Trim();
+            AssemblyName assembly;
+            try
+            {
+                assembly = new AssemblyName(identity);
+            }
+            catch (Exception error) when (error is ArgumentException or FileLoadException)
+            {
+                throw new BadImageFormatException("Invalid serialized enum assembly identity.", error);
+            }
+            if (identity != assembly.FullName || !IsSupportedEnumAssembly(name, assembly))
+                throw new BadImageFormatException($"Unsupported serialized enum assembly identity: {identity}.");
+        }
         foreach (var handle in metadata.TypeDefinitions)
         {
             var definition = metadata.GetTypeDefinition(handle);
-            if (GetTypeFromDefinition(metadata, handle, 0) != type)
+            if (qualified || GetTypeFromDefinition(metadata, handle, 0) != name)
                 continue;
             foreach (var fieldHandle in definition.GetFields())
             {
@@ -1190,11 +1212,13 @@ sealed class MetadataTypeProvider(MetadataReader metadata) :
                     return code;
             }
         }
-        if (type.StartsWith("System.", StringComparison.Ordinal))
+        if (name.StartsWith("System.", StringComparison.Ordinal) &&
+            (qualified || HasSupportedEnumReference(name)))
         {
-            Type? known = Type.GetType(type, throwOnError: false)
-                ?? typeof(System.ComponentModel.EditorBrowsableState).Assembly.GetType(type)
-                ?? typeof(System.Text.RegularExpressions.RegexOptions).Assembly.GetType(type);
+            Type? known = typeof(object).Assembly.GetType(name)
+                ?? typeof(System.ComponentModel.EditorBrowsableState).Assembly.GetType(name)
+                ?? typeof(System.Text.RegularExpressions.RegexOptions).Assembly.GetType(name)
+                ?? typeof(System.Text.Json.JsonSerializerOptions).Assembly.GetType(name);
             if (known?.IsEnum == true)
                 return Type.GetTypeCode(Enum.GetUnderlyingType(known)) switch
                 {
@@ -1210,5 +1234,58 @@ sealed class MetadataTypeProvider(MetadataReader metadata) :
                 };
         }
         throw new BadImageFormatException($"Unsupported external enum type {type}.");
+    }
+
+    private bool IsSupportedEnumAssembly(string name, AssemblyName identity)
+    {
+        string? token = identity.GetPublicKeyToken() is { Length: > 0 } key
+            ? Convert.ToHexString(key).ToLowerInvariant() : null;
+        if (!name.StartsWith("System.", StringComparison.Ordinal) ||
+            identity.Version is null ||
+            identity.Version.Major is < 8 or > 10 || identity.Version.Minor != 0 ||
+            identity.Version.Build != 0 || identity.Version.Revision != 0 ||
+            identity.CultureName is not (null or "" or "neutral") ||
+            (identity.Name, token) is not
+                (("System.Runtime" or "System.ComponentModel.Primitives" or
+                  "System.Text.RegularExpressions"), "b03f5f7f11d50a3a") and not
+                ("System.Text.Json", "cc7b13ffcd2ddd51") and not
+                ("System.Private.CoreLib", "7cec85d7bea7798e"))
+            return false;
+        return metadata.AssemblyReferences.Any(handle =>
+        {
+            var reference = metadata.GetAssemblyReference(handle);
+            return metadata.GetString(reference.Name) == identity.Name &&
+                reference.Version == identity.Version &&
+                metadata.GetString(reference.Culture) == (identity.CultureName == "neutral"
+                    ? "" : identity.CultureName ?? "") &&
+                Convert.ToHexString(metadata.GetBlobBytes(reference.PublicKeyOrToken))
+                    .Equals(token, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    private bool HasSupportedEnumReference(string name)
+    {
+        foreach (var handle in metadata.TypeReferences)
+        {
+            if (GetTypeFromReference(metadata, handle, 0) != name)
+                continue;
+            var reference = metadata.GetTypeReference(handle);
+            int depth = 0;
+            while (reference.ResolutionScope.Kind == HandleKind.TypeReference && depth++ < 32)
+                reference = metadata.GetTypeReference((TypeReferenceHandle)reference.ResolutionScope);
+            if (reference.ResolutionScope.Kind != HandleKind.AssemblyReference)
+                continue;
+            var assembly = metadata.GetAssemblyReference(
+                (AssemblyReferenceHandle)reference.ResolutionScope);
+            var identity = new AssemblyName(metadata.GetString(assembly.Name))
+            {
+                Version = assembly.Version,
+                CultureName = metadata.GetString(assembly.Culture),
+            };
+            identity.SetPublicKeyToken(metadata.GetBlobBytes(assembly.PublicKeyOrToken));
+            if (IsSupportedEnumAssembly(name, identity))
+                return true;
+        }
+        return false;
     }
 }

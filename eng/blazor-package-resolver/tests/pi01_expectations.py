@@ -293,6 +293,7 @@ def fixture(name):
 
 TEMPLATE_HASHES = {
     "unsigned.dll": "02f2bbb5fbd06ec2107e444a2446dfeda912bfa558c8f557a08653db7d1a7b5e",
+    "enum.dll": "eeb27bd0384de6a08160cdbf91470a535f4697b1772db6d70bfd3c437565bd40",
     "delay.dll": "4876361f6f04223c41d4e4bd7418388478a30b1d060c679bf28c497b77d0d06e",
     "public.dll": "44991a20437b38b0ce99f611ef8ad070d8156b656d35123b7e442d5354964809",
     "module.netmodule": "4a43543ca38712c0b62efe76b7bd07a39073b16582f1d021469f2f4fc2eb335f",
@@ -381,6 +382,7 @@ def spec(name, entries=(), branch="no-assemblies", problem=None):
 
 
 PE = fixture("unsigned.dll")
+ENUM = fixture("enum.dll")
 DELAY = fixture("delay.dll")
 PUBLIC = fixture("public.dll")
 MODULE = fixture("module.netmodule")
@@ -429,6 +431,33 @@ NAMED_BAD_KIND = expanded_attribute_blob(
     ATTRIBUTE_FIXED_ARGUMENT + b"\x01\x00\x55\x08\x01X\x01\x00\x00\x00")
 NAMED_TRUNCATED_VALUE = expanded_attribute_blob(
     ATTRIBUTE_FIXED_ARGUMENT + b"\x01\x00\x53\x08\x01X\x01\x00")
+SUPPORTED_ENUM_NAME = (b"System.DayOfWeek, System.Runtime, Version=10.0.0.0, "
+                       b"Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a")
+UNSUPPORTED_ENUM_NAME = b"System.DayOfWeek, Unsupported.Fake.Assembly"
+ENUM_NAME_OFFSET = ENUM.find(SUPPORTED_ENUM_NAME)
+require(ENUM.count(SUPPORTED_ENUM_NAME) == 1 and ENUM_NAME_OFFSET >= 8 and
+        ENUM[ENUM_NAME_OFFSET - 8] == 115 and
+        ENUM[ENUM_NAME_OFFSET - 1] == len(SUPPORTED_ENUM_NAME) and
+        ENUM[ENUM_NAME_OFFSET + len(SUPPORTED_ENUM_NAME):
+             ENUM_NAME_OFFSET + len(SUPPORTED_ENUM_NAME) + 8] == b"\x03Day\x01\x00\x00\x00",
+        "Pinned enum fixture CustomAttribute encoding changed")
+
+
+def unsupported_enum_identity():
+    gap = len(SUPPORTED_ENUM_NAME) - len(UNSUPPORTED_ENUM_NAME)
+    data = bytearray(ENUM)
+    data[ENUM_NAME_OFFSET - 8] -= gap
+    data[ENUM_NAME_OFFSET - 1] = len(UNSUPPORTED_ENUM_NAME)
+    tail = ENUM[ENUM_NAME_OFFSET + len(SUPPORTED_ENUM_NAME):
+                ENUM_NAME_OFFSET + len(SUPPORTED_ENUM_NAME) + 8]
+    data[ENUM_NAME_OFFSET:ENUM_NAME_OFFSET + len(SUPPORTED_ENUM_NAME) + 8] = (
+        UNSUPPORTED_ENUM_NAME + tail + bytes(gap))
+    return bytes(data)
+
+
+FAKE_ENUM_IDENTITY = unsupported_enum_identity()
+FAKE_ENUM_TOKEN = changed(
+    ENUM, ENUM_NAME_OFFSET + len(SUPPORTED_ENUM_NAME) - 1, b"b")
 SIGNATURE_BLOB_BASE = OFF["metadata"] + 744
 MEMBERREF_SIGNATURE = OFF["tables"] + 24 + 11 * 4 + 108 + 4
 PROPERTY_SIGNATURE = OFF["tables"] + 24 + 11 * 4 + 178 + 4
@@ -710,6 +739,12 @@ CASES = (
          ((EXAMPLE, NAMED_BAD_KIND),), "unsafe-assembly"),
     spec("metadata-named-custom-attribute-truncated-value",
          ((EXAMPLE, NAMED_TRUNCATED_VALUE),), "unsafe-assembly"),
+    spec("metadata-named-enum-supported-assembly",
+         ((EXAMPLE, ENUM),), "unsigned-assembly"),
+    spec("metadata-named-enum-unsupported-assembly",
+         ((EXAMPLE, FAKE_ENUM_IDENTITY),), "unsafe-assembly"),
+    spec("metadata-named-enum-invalid-framework-token",
+         ((EXAMPLE, FAKE_ENUM_TOKEN),), "unsafe-assembly"),
     spec("metadata-no-stream", ((EXAMPLE, changed(PE, OFF["stream_count"], bytes(2))),), "unsafe-assembly"),
     spec("metadata-bad-stream", ((EXAMPLE, changed(PE, OFF["stream_offset"],
                                                  b"\xff\xff\xff\x7f")),), "unsafe-assembly"),
@@ -1102,6 +1137,14 @@ def metadata_required_field_checks():
     for image in (NAMED_COUNT_NO_ARGUMENT, NAMED_BAD_KIND, NAMED_TRUNCATED_VALUE):
         require(inspect_managed(image)[0] == "unsafe",
                 "Incomplete or forged named CustomAttribute argument must fail closed")
+    require(inspect_managed(ENUM)[0] == "unsigned",
+            "Supported assembly-qualified enum must preserve the real unsigned state")
+    require(inspect_managed(FAKE_ENUM_IDENTITY) ==
+            ("unsafe", "Unsupported serialized enum assembly identity: "
+             "Unsupported.Fake.Assembly."),
+            "Fake assembly-qualified framework enum must fail closed")
+    require(inspect_managed(FAKE_ENUM_TOKEN)[0] == "unsafe",
+            "Framework enum with a mismatched public-key token must fail closed")
     for image in (BAD_METHOD_SIGNATURE_CONTENT, TRUNCATED_METHOD_SIGNATURE_CONTENT,
                   BAD_MEMBERREF_SIGNATURE_CONTENT, BAD_PROPERTY_SIGNATURE_CONTENT):
         require(inspect_managed(image)[0] == "unsafe",

@@ -1,0 +1,13 @@
+using System;
+
+[assembly: Pi01EnumFixture.DayAttribute(Day = DayOfWeek.Monday)]
+
+namespace Pi01EnumFixture;
+
+[AttributeUsage(AttributeTargets.Assembly)]
+public sealed class DayAttribute : Attribute
+{
+    public DayOfWeek Day { get; set; }
+}
+
+public sealed class Example { }
