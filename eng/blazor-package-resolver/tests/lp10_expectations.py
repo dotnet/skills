@@ -641,6 +641,13 @@ CASES = (
         ("build/run.txt", b'<?xml-stylesheet href="theme.css"?>\n' + build_xml(
             '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
     ), branch="incomplete-inventory"),
+    spec("xml-stylesheet-encoding-project-caller", (
+        ("build/P.targets", build_xml(
+            '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
+            'Targets="Go" /></Target>'), None),
+        ("build/run.txt", b'<?xml-stylesheet href="t.css" encoding="latin1"?>\n' + build_xml(
+            '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
+    ), branch="incomplete-inventory"),
     spec("dtd-project-caller", (
         ("build/P.targets", build_xml(
             '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
@@ -925,7 +932,7 @@ def xml_text(content, limit, label):
         raise ValueError(label + "-encoding") from error
     if "\x00" in text or text.startswith("\ufeff"):
         raise ValueError(label + "-encoding")
-    declaration = re.match(r"\A\s*<\?xml\b([^?]*)\?>", text, re.IGNORECASE)
+    declaration = re.match(r"\A\s*<\?xml(?=\s)([^?]*)\?>", text, re.IGNORECASE)
     if declaration:
         declared = re.search(r'\bencoding\s*=\s*["\']([^"\']+)["\']',
                              declaration.group(1), re.IGNORECASE)
@@ -1638,7 +1645,8 @@ def verify_case(case, document, writing):
             if name == "html-doctype-project-comment-decoy":
                 require(starts_project(raw) is False,
                         "A Project token inside an HTML comment is not an XML root.")
-            if name == "xml-stylesheet-project-caller" and entry_name == "build/run.txt":
+            if name in ("xml-stylesheet-project-caller",
+                        "xml-stylesheet-encoding-project-caller") and entry_name == "build/run.txt":
                 try:
                     starts_project(raw)
                 except ValueError as error:
