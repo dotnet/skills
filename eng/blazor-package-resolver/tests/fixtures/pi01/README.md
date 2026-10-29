@@ -109,8 +109,27 @@ prove the whole table traversal fails closed, not merely the first type
 definition. A valid null CustomAttribute.Value retains the unsigned
 assembly's real signing state; an out-of-range non-null value or an
 invalid non-null value prolog escalates.
-The `.cs.txt`
-sources are explicitly compiled by their projects; normal `ResolverChecks`
+Named CustomAttribute controls include an exact count of one with no
+following argument, an unsupported named-argument kind, and a truncated
+named field value. In-range MethodDef, MemberRef and Property signature
+controls corrupt the encoded call convention or truncate a method return
+type without changing the table row's #Blob index. These require semantic
+decoding, not just index bounds and blob-prolog checks; unsupported
+constructor and signature shapes must escalate before a decisive result.
+The expectation-only .NET validator decodes every non-null CustomAttribute
+against its actual instance `.ctor` signature, validates fixed arguments,
+named field/property kinds, types, names and values, requires the entire
+blob to be consumed, and also invokes
+`System.Reflection.Metadata.CustomAttribute.DecodeValue`. Null values
+remain valid. Field, MethodDef, MemberRef, StandAloneSig, Property,
+TypeSpec and MethodSpec signatures are decoded with
+`System.Reflection.Metadata.SignatureDecoder`, with complete consumption
+required; unsupported shapes escalate. The bounded type provider handles
+local enums and supported locally available framework enums; other
+external enums require further evidence rather than a guessed backing
+type. This is metadata validation, not assembly loading or code execution
+from the package. The `.cs.txt` sources are explicitly compiled by their
+projects; normal `ResolverChecks`
 does not accidentally compile them. Their intermediates go to its
 already-excluded `tests/obj` rather than nested fixture folders. Malformed
 synthetic PE headers remain escalation controls only; fake Assembly rows cannot
@@ -123,7 +142,7 @@ entry SHA-256 without copying either proprietary archive into this repo.
 Phase B must implement and replay this frozen verification contract; it
 must never promote structural signature presence to verified validity.
 
-The frozen matrix has 120 cases, of which 119 have independently pinned
+The frozen matrix has 127 cases, of which 126 have independently pinned
 synthetic archives. It covers empty and non-assembly archives, native PE
 and bundle-shaped input, nested/prefixed unsigned ZIP and archive-suffix controls,
 different assembly locations and suffixes, multiple framework variants,
@@ -165,7 +184,7 @@ The frozen branch counts are:
 `verified-signed` 10, `invalid-signature` 3,
 `signature-unverified` 1 (unsupported hash), `unsigned-assembly` 11,
 `delay-signed` 4, `public-signed` 4, `no-assemblies` 6,
-`opaque-container` 14, `unsafe-assembly` 50, `unsafe-package` 16, and
+`opaque-container` 14, `unsafe-assembly` 57, `unsafe-package` 16, and
 `missing-package` 1.
 The generator pins every archive byte and expected JSON document and
 rejects extra/missing synthetic `.nupkg` files. Resource bounds in this

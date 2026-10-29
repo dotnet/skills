@@ -3276,6 +3276,162 @@
       ]
     },
     {
+      "case_id": "pi01-metadata-bad-method-signature-content",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-bad-method-signature-content.nupkg",
+          "sha256": "8a43e88cf4d20703386383de4ed97e7df683b27d5b8483db49df713cffc0a623"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-bad-method-signature-content.nupkg",
+            "sha256": "8a43e88cf4d20703386383de4ed97e7df683b27d5b8483db49df713cffc0a623"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"c251b421ed784a36a5c26753216a249d702e7c25a536bbe9ef4651a29ba4b0fc\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-bad-method-signature-content: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-truncated-method-signature-content",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-truncated-method-signature-content.nupkg",
+          "sha256": "c2e56f260612cca87438bc157721a68ff7212cd4b0c79b76db23d7170a423346"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-truncated-method-signature-content.nupkg",
+            "sha256": "c2e56f260612cca87438bc157721a68ff7212cd4b0c79b76db23d7170a423346"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"20b2015319fd9a742b3c9b51209c14576ed566f6583b5ab6e289a945d26ad513\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-truncated-method-signature-content: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-bad-memberref-signature-content",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-bad-memberref-signature-content.nupkg",
+          "sha256": "855d3dcee15a0b3145790c9125448798b4f4a9137f6ffba90360e04eae9a9d5b"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-bad-memberref-signature-content.nupkg",
+            "sha256": "855d3dcee15a0b3145790c9125448798b4f4a9137f6ffba90360e04eae9a9d5b"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"d33b7083ac32c14348cdfacc65d0821c25e25503c9e35f2b78876d49299570dc\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-bad-memberref-signature-content: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-bad-property-signature-content",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-bad-property-signature-content.nupkg",
+          "sha256": "bccc9966b21e7f42c9d08ce4a4158eca1b8060fa9f814eaa2676d599e5a65154"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-bad-property-signature-content.nupkg",
+            "sha256": "bccc9966b21e7f42c9d08ce4a4158eca1b8060fa9f814eaa2676d599e5a65154"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"88053582c67dc38f0dda1d468f9ee4cb4ad5c83aefef9968b6dabd69421e23b7\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-bad-property-signature-content: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
       "case_id": "pi01-metadata-bad-custom-attribute-parent",
       "row_id": "PI-01",
       "inputs": [
@@ -3426,6 +3582,123 @@
         "next_category": "package-owner"
       },
       "rationale": "PI-01 metadata-bad-custom-attribute-value-content: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-named-custom-attribute-count-without-argument",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-named-custom-attribute-count-without-argument.nupkg",
+          "sha256": "5bb2be299235b484f7ffc0d281496fddd71d877e053c3d0cd3bf177aa05ee085"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-named-custom-attribute-count-without-argument.nupkg",
+            "sha256": "5bb2be299235b484f7ffc0d281496fddd71d877e053c3d0cd3bf177aa05ee085"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"5a4e240314612eb62bdaa4b4a19f648280e464113930b74dd0f19df0e783b107\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-named-custom-attribute-count-without-argument: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-named-custom-attribute-invalid-kind",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-named-custom-attribute-invalid-kind.nupkg",
+          "sha256": "496b7c892280fe23f3ded4a6993de990ddac2698c94b856953c4c30b6a8d89b4"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-named-custom-attribute-invalid-kind.nupkg",
+            "sha256": "496b7c892280fe23f3ded4a6993de990ddac2698c94b856953c4c30b6a8d89b4"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"f9a5d930261cca260ff92a35f0a17bb496ab51ba3b8748cab2e66d9d24b6a349\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-named-custom-attribute-invalid-kind: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-named-custom-attribute-truncated-value",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-named-custom-attribute-truncated-value.nupkg",
+          "sha256": "75b5a9f19d07732708ba0422eb4f6af6337cd9b2376a2fa8f05a9fb55951aae7"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-named-custom-attribute-truncated-value.nupkg",
+            "sha256": "75b5a9f19d07732708ba0422eb4f6af6337cd9b2376a2fa8f05a9fb55951aae7"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"27ae3e0e3fa5873349a3e7f1bed62b797e601925270b404bb792ce936abc8465\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-named-custom-attribute-truncated-value: a PE/CLI candidate cannot safely establish assembly signing.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"

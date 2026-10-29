@@ -398,10 +398,52 @@ METHOD_SIGNATURE = OFF["metadata"] + 266
 ATTRIBUTE_PARENT = OFF["metadata"] + 320
 ATTRIBUTE_VALUE = ATTRIBUTE_PARENT + 4
 ATTRIBUTE_BLOB_PROLOG = OFF["metadata"] + 744 + 152
+ATTRIBUTE_BLOB_SIZE = OFF["metadata"] + 92 + 4
 require(u16(PE, TYPEDEF2_METHOD_LIST) == 1 and u16(PE, METHOD_SIGNATURE) == 30 and
         u16(PE, ATTRIBUTE_PARENT) == 39 and u16(PE, ATTRIBUTE_VALUE) == 151 and
-        PE[ATTRIBUTE_BLOB_PROLOG:ATTRIBUTE_BLOB_PROLOG + 4] == b"\x01\x00\x0b\x00",
+        PE[ATTRIBUTE_BLOB_PROLOG:ATTRIBUTE_BLOB_PROLOG + 8] ==
+        b"\x01\x00\x0b\x00\x00\x00\x00\x00" and
+        PE[ATTRIBUTE_BLOB_SIZE + 4:ATTRIBUTE_BLOB_SIZE + 9] == b"#Blob" and
+        u32(PE, ATTRIBUTE_BLOB_SIZE) == 160 and
+        u32(PE, OFF["cli"] + 12) == 904 and
+        PE[ATTRIBUTE_BLOB_PROLOG + 8:ATTRIBUTE_BLOB_PROLOG + 16] == bytes(8),
         "Pinned unsigned fixture metadata reference layout changed")
+
+
+def expanded_attribute_blob(value):
+    require(8 < len(value) <= 16 and value[:6] == b"\x01\x00\x0b\x00\x00\x00",
+            "Invalid synthetic named-attribute blob")
+    delta = len(value) - 8
+    data = changed(PE, ATTRIBUTE_BLOB_PROLOG - 1, bytes([len(value)]))
+    data = changed(data, ATTRIBUTE_BLOB_PROLOG, value)
+    data = changed(data, ATTRIBUTE_BLOB_SIZE, struct.pack("<I", 160 + delta))
+    return changed(data, OFF["cli"] + 12, struct.pack("<I", 904 + delta))
+
+
+ATTRIBUTE_FIXED_ARGUMENT = b"\x01\x00\x0b\x00\x00\x00"
+ATTRIBUTE_NAMED_COUNT = ATTRIBUTE_BLOB_PROLOG + 6
+require(PE[ATTRIBUTE_NAMED_COUNT:ATTRIBUTE_NAMED_COUNT + 2] == bytes(2),
+        "Pinned CustomAttribute named-argument count differs")
+NAMED_COUNT_NO_ARGUMENT = changed(PE, ATTRIBUTE_NAMED_COUNT, b"\x01\x00")
+NAMED_BAD_KIND = expanded_attribute_blob(
+    ATTRIBUTE_FIXED_ARGUMENT + b"\x01\x00\x55\x08\x01X\x01\x00\x00\x00")
+NAMED_TRUNCATED_VALUE = expanded_attribute_blob(
+    ATTRIBUTE_FIXED_ARGUMENT + b"\x01\x00\x53\x08\x01X\x01\x00")
+SIGNATURE_BLOB_BASE = OFF["metadata"] + 744
+MEMBERREF_SIGNATURE = OFF["tables"] + 24 + 11 * 4 + 108 + 4
+PROPERTY_SIGNATURE = OFF["tables"] + 24 + 11 * 4 + 178 + 4
+require(u16(PE, MEMBERREF_SIGNATURE) == 1 and u16(PE, PROPERTY_SIGNATURE) == 34 and
+        PE[SIGNATURE_BLOB_BASE + 1:SIGNATURE_BLOB_BASE + 6] ==
+        b"\x04\x20\x01\x01\x08" and
+        PE[SIGNATURE_BLOB_BASE + 30:SIGNATURE_BLOB_BASE + 34] ==
+        b"\x03\x20\x00\x08" and
+        PE[SIGNATURE_BLOB_BASE + 34:SIGNATURE_BLOB_BASE + 38] ==
+        b"\x03\x28\x00\x08",
+        "Pinned method, member-reference or property signature layout changed")
+BAD_METHOD_SIGNATURE_CONTENT = changed(PE, SIGNATURE_BLOB_BASE + 31, b"\xff")
+TRUNCATED_METHOD_SIGNATURE_CONTENT = changed(PE, SIGNATURE_BLOB_BASE + 30, b"\x02")
+BAD_MEMBERREF_SIGNATURE_CONTENT = changed(PE, SIGNATURE_BLOB_BASE + 2, b"\xff")
+BAD_PROPERTY_SIGNATURE_CONTENT = changed(PE, SIGNATURE_BLOB_BASE + 35, b"\xff")
 AUTHENTICODE_CMS = (ROOT / "templates" / "authenticode.p7b").read_bytes()
 require(digest(AUTHENTICODE_CMS) == AUTHENTICODE_CMS_SHA256,
         "Compiled public-only Authenticode fixture differs")
@@ -646,6 +688,14 @@ CASES = (
          ((EXAMPLE, changed(PE, METHOD_SIGNATURE, bytes(2))),), "unsafe-assembly"),
     spec("metadata-bad-method-signature-blob",
          ((EXAMPLE, changed(PE, METHOD_SIGNATURE, b"\xff\xff")),), "unsafe-assembly"),
+    spec("metadata-bad-method-signature-content",
+         ((EXAMPLE, BAD_METHOD_SIGNATURE_CONTENT),), "unsafe-assembly"),
+    spec("metadata-truncated-method-signature-content",
+         ((EXAMPLE, TRUNCATED_METHOD_SIGNATURE_CONTENT),), "unsafe-assembly"),
+    spec("metadata-bad-memberref-signature-content",
+         ((EXAMPLE, BAD_MEMBERREF_SIGNATURE_CONTENT),), "unsafe-assembly"),
+    spec("metadata-bad-property-signature-content",
+         ((EXAMPLE, BAD_PROPERTY_SIGNATURE_CONTENT),), "unsafe-assembly"),
     spec("metadata-bad-custom-attribute-parent",
          ((EXAMPLE, changed(PE, ATTRIBUTE_PARENT, b"\xff\xff")),), "unsafe-assembly"),
     spec("metadata-null-custom-attribute-value",
@@ -654,6 +704,12 @@ CASES = (
          ((EXAMPLE, changed(PE, ATTRIBUTE_VALUE, b"\xff\xff")),), "unsafe-assembly"),
     spec("metadata-bad-custom-attribute-value-content",
          ((EXAMPLE, changed(PE, ATTRIBUTE_BLOB_PROLOG, b"\xff")),), "unsafe-assembly"),
+    spec("metadata-named-custom-attribute-count-without-argument",
+         ((EXAMPLE, NAMED_COUNT_NO_ARGUMENT),), "unsafe-assembly"),
+    spec("metadata-named-custom-attribute-invalid-kind",
+         ((EXAMPLE, NAMED_BAD_KIND),), "unsafe-assembly"),
+    spec("metadata-named-custom-attribute-truncated-value",
+         ((EXAMPLE, NAMED_TRUNCATED_VALUE),), "unsafe-assembly"),
     spec("metadata-no-stream", ((EXAMPLE, changed(PE, OFF["stream_count"], bytes(2))),), "unsafe-assembly"),
     spec("metadata-bad-stream", ((EXAMPLE, changed(PE, OFF["stream_offset"],
                                                  b"\xff\xff\xff\x7f")),), "unsafe-assembly"),
@@ -1043,6 +1099,13 @@ def metadata_required_field_checks():
     require(inspect_managed(changed(PE, ATTRIBUTE_BLOB_PROLOG, b"\xff")) ==
             ("unsafe", "Malformed CustomAttribute.Value in row 1."),
             "Malformed non-null CustomAttribute.Value content must fail closed")
+    for image in (NAMED_COUNT_NO_ARGUMENT, NAMED_BAD_KIND, NAMED_TRUNCATED_VALUE):
+        require(inspect_managed(image)[0] == "unsafe",
+                "Incomplete or forged named CustomAttribute argument must fail closed")
+    for image in (BAD_METHOD_SIGNATURE_CONTENT, TRUNCATED_METHOD_SIGNATURE_CONTENT,
+                  BAD_MEMBERREF_SIGNATURE_CONTENT, BAD_PROPERTY_SIGNATURE_CONTENT):
+        require(inspect_managed(image)[0] == "unsafe",
+                "Malformed in-range metadata signature blob must fail closed")
     print("PI-01 required metadata field controls passed.")
 
 
