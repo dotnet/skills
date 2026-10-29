@@ -3705,6 +3705,123 @@
       ]
     },
     {
+      "case_id": "pi01-metadata-named-enum-supported-assembly",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-named-enum-supported-assembly.nupkg",
+          "sha256": "e64720d5fcbf94f7545b54277254721483e20a0d899bf3159216f1f98de77072"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsigned-assembly",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-named-enum-supported-assembly.nupkg",
+            "sha256": "e64720d5fcbf94f7545b54277254721483e20a0d899bf3159216f1f98de77072"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"eeb27bd0384de6a08160cdbf91470a535f4697b1772db6d70bfd3c437565bd40\",\"size_bytes\":4096,\"state\":\"unsigned\"}]",
+        "finding": "At least one shipped .NET assembly has no strong-name signature reservation; PI-01 is not met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "PI-01 metadata-named-enum-supported-assembly: an Assembly metadata table has no strong-name reservation.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-named-enum-unsupported-assembly",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-named-enum-unsupported-assembly.nupkg",
+          "sha256": "a142163789dce1fa89943b900213dd01f14cb063ba499de4f57adfcc530c417a"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-named-enum-unsupported-assembly.nupkg",
+            "sha256": "a142163789dce1fa89943b900213dd01f14cb063ba499de4f57adfcc530c417a"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"65785fa8a1034491f15fb48d3db399d85ade812c2f1d9172c53d743ddc0b5044\",\"size_bytes\":4096,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-named-enum-unsupported-assembly: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-named-enum-invalid-framework-token",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-named-enum-invalid-framework-token.nupkg",
+          "sha256": "95735dcfc933f3073afcc73895264804177610d6c9b22b3cc01db0f987766864"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-named-enum-invalid-framework-token.nupkg",
+            "sha256": "95735dcfc933f3073afcc73895264804177610d6c9b22b3cc01db0f987766864"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"659d43e8cafaab37894c8a6d0450b843217d7510b18a71dcab32126216439d7e\",\"size_bytes\":4096,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-named-enum-invalid-framework-token: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
       "case_id": "pi01-metadata-no-stream",
       "row_id": "PI-01",
       "inputs": [

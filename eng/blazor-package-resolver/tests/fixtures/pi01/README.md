@@ -84,11 +84,12 @@ resolver. Decisive signing controls are real
 SDK-compiled managed images with one Module row and, except for the
 module-only control, one Assembly row. `template/Fixture.csproj`,
 `template/Fixture.cs.txt` and the **public-only** `template/public.snk`
-produce four pinned binaries under `templates/`; `nonzero.dll` is read
+produce four pinned binaries under `templates/`; the separate
+`template/EnumFixture.csproj` produces `enum.dll`. `nonzero.dll` is read
 directly from its pinned template (not reconstructed in memory) and was derived
 from the public-signed binary by changing one byte inside its reserved
 signature, without touching its valid Module or Assembly metadata. All
-six image hashes are pinned. `verified.dll` was fully signed with an
+seven image hashes are pinned. `verified.dll` was fully signed with an
 ephemeral 2048-bit RSA test key; its private material was deleted after
 the signed image was pinned. The fixture and its embedded public key suffice
 to verify it, but a rebuild with a new throwaway key changes its hash.
@@ -116,6 +117,18 @@ controls corrupt the encoded call convention or truncate a method return
 type without changing the table row's #Blob index. These require semantic
 decoding, not just index bounds and blob-prolog checks; unsupported
 constructor and signature shapes must escalate before a decisive result.
+The pinned `template/EnumFixture.csproj` builds a genuine unsigned assembly
+with a named `System.DayOfWeek` enum property. Its assembly-qualified
+`System.Runtime` type is a supported control; replacing that qualification
+with `Unsupported.Fake.Assembly`, while preserving the complete valid
+CustomAttribute blob and its subsequent heap indexes, must escalate.
+An otherwise accepted framework identity with one altered public-key
+token hex digit also escalates.
+Serialized enum names retain their full assembly identity: only exact
+supported framework names, versions and public-key tokens also present
+in the assembly's metadata references can use locally available trusted
+enum backing types. Unknown/external qualifications never resolve by
+type name alone.
 The expectation-only .NET validator decodes every non-null CustomAttribute
 against its actual instance `.ctor` signature, validates fixed arguments,
 named field/property kinds, types, names and values, requires the entire
@@ -125,7 +138,7 @@ remain valid. Field, MethodDef, MemberRef, StandAloneSig, Property,
 TypeSpec and MethodSpec signatures are decoded with
 `System.Reflection.Metadata.SignatureDecoder`, with complete consumption
 required; unsupported shapes escalate. The bounded type provider handles
-local enums and supported locally available framework enums; other
+local enums and explicitly supported framework identities; other
 external enums require further evidence rather than a guessed backing
 type. This is metadata validation, not assembly loading or code execution
 from the package. The `.cs.txt` sources are explicitly compiled by their
@@ -142,7 +155,7 @@ entry SHA-256 without copying either proprietary archive into this repo.
 Phase B must implement and replay this frozen verification contract; it
 must never promote structural signature presence to verified validity.
 
-The frozen matrix has 127 cases, of which 126 have independently pinned
+The frozen matrix has 130 cases, of which 129 have independently pinned
 synthetic archives. It covers empty and non-assembly archives, native PE
 and bundle-shaped input, nested/prefixed unsigned ZIP and archive-suffix controls,
 different assembly locations and suffixes, multiple framework variants,
@@ -182,9 +195,9 @@ The oracle pins its SHA-256
 `ea7d26478fd30cb5c56fe0845fa92a10d9de8a7a3ee6ac6e73a334e979f0f885`.
 The frozen branch counts are:
 `verified-signed` 10, `invalid-signature` 3,
-`signature-unverified` 1 (unsupported hash), `unsigned-assembly` 11,
+`signature-unverified` 1 (unsupported hash), `unsigned-assembly` 12,
 `delay-signed` 4, `public-signed` 4, `no-assemblies` 6,
-`opaque-container` 14, `unsafe-assembly` 57, `unsafe-package` 16, and
+`opaque-container` 14, `unsafe-assembly` 59, `unsafe-package` 16, and
 `missing-package` 1.
 The generator pins every archive byte and expected JSON document and
 rejects extra/missing synthetic `.nupkg` files. Resource bounds in this
@@ -195,7 +208,7 @@ its own safe limits. The oracle does not recursively inspect nested
 archives, and does not attest that an arbitrary ZIP without valid NuGet
 publication metadata is a published release.
 
-The six image SHA-256 digests are pinned in `pi01_expectations.py`;
+The seven image SHA-256 digests are pinned in `pi01_expectations.py`;
 `template/public.snk` is an RSA PUBLICKEYBLOB (`0x06`), not a private key.
 Rebuild from the `template` project with .NET 10 reference packs and
 compare hashes before replacing frozen binaries:
@@ -205,11 +218,13 @@ dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\Fixture.cs
 dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\Fixture.csproj -c Release -t:Rebuild -p:SignAssembly=true -p:DelaySign=true -p:AssemblyOriginatorKeyFile=public.snk
 dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\Fixture.csproj -c Release -t:Rebuild -p:SignAssembly=true -p:PublicSign=true -p:AssemblyOriginatorKeyFile=public.snk
 dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\Fixture.csproj -c Release -t:Rebuild -p:OutputType=Module -p:ProduceReferenceAssembly=false
+dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\EnumFixture.csproj -c Release -t:Rebuild
 ```
 
 Each build overwrites the same output by default: preserve each variant
 separately before building the next. The SDK's `PathMap` and deterministic
-compilation yield byte-identical images from those four pinned inputs.
+compilation yield byte-identical images from those four original pinned inputs;
+the enum project independently rebuilds the seventh pinned image.
 To create a **new** fully signed control, run
 `Validator.dll --generate-key <temporary-private-key.snk>` and rebuild
 with `-p:SignAssembly=true -p:AssemblyOriginatorKeyFile=<absolute-private-key-path>`;
