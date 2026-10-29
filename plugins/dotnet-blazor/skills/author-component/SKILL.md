@@ -2,14 +2,17 @@
 license: MIT
 name: author-component
 description: >
-  Create or review Blazor components (.razor files) with correct architecture.
-  USE FOR: writing new Blazor components that do NOT involve JavaScript interop,
-  implementing parameters and EventCallback, RenderFragment slots, component
-  lifecycle (OnInitializedAsync, OnParametersSet), async patterns, IAsyncDisposable,
-  CancellationToken, CSS isolation, code-behind.
+  Create or review non-data-entry Blazor components (.razor files) with correct architecture.
+  USE ONLY WHEN the primary task is reusable component architecture, parameter
+  and EventCallback flow, RenderFragment slots, lifecycle, async/cancellation
+  behavior, disposal, CSS isolation, or code-behind. A simple input may be
+  incidental to that component behavior.
   DO NOT USE FOR: creating new projects (use create-blazor-project), JavaScript
-  interop or calling browser APIs from Blazor (use use-js-interop), forms and
-  validation (use collect-user-input), prerendering issues (use support-prerendering),
+  interop or calling browser APIs from Blazor (use use-js-interop), tasks whose
+  primary problem is form submission, validation, field errors, or input/search
+  binding without a component lifecycle concern (use collect-user-input),
+  complex pages or multi-region feature decomposition (use plan-ui-change),
+  prerendering issues (use support-prerendering),
   HTTP data fetching patterns (use fetch-and-send-data), coordinating state between
   unrelated components (use coordinate-components).
 ---

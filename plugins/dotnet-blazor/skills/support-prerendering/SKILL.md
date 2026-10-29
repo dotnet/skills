@@ -1,7 +1,7 @@
 ---
 license: MIT
 name: support-prerendering
-description: Make interactive Blazor components work correctly with prerendering. USE FOR fixing duplicate data loads, UI flicker during prerender-to-interactive handoff, null references during prerender, persisting state across prerender, disabling prerendering, excluding pages from interactive routing, or detecting whether a component is currently prerendering. DO NOT USE for choosing which render mode to use (see create-blazor-project) or general component authoring (see author-component).
+description: Make interactive Blazor components work correctly across the prerender-to-interactive handoff. USE ONLY WHEN an interactive render mode exists and the task involves duplicate initialization, handoff flicker/nulls, persisted prerender state, disabling prerendering, interactive-routing exclusion, or renderer activation detection. NEVER USE for one-pass static server pages with no interactive runtime. DO NOT USE for choosing a render mode (see create-blazor-project) or general component authoring (see author-component).
 ---
 
 # Support Prerendering
