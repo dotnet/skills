@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "row_id": "LP-09",
+  "resolver_id": "lp09-project-url",
+  "resolver_version": "1.0.0",
+  "suite": "acceptance.json",
+  "cases": [
+    {
+      "case_id": "lp09-retained-syncfusion",
+      "package_id": "syncfusion.blazor.toolkit",
+      "package_version": "2.0.1",
+      "size_bytes": 4912251,
+      "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d",
+      "nuspec_entry": "Syncfusion.Blazor.Toolkit.nuspec",
+      "nuspec_sha256": "e9a55efdfc3385c1df49206839689f3f01c0bf5731b6130f05a601632a77acb7",
+      "expected": {
+        "branch_id": "populated",
+        "finding": "ProjectUrl is populated: https://www.syncfusion.com/blazor-toolkit.",
+        "evidence_references": ["package:nuspec/projectUrl"]
+      },
+      "actual": {
+        "branch_id": "populated",
+        "finding": "ProjectUrl is populated: https://www.syncfusion.com/blazor-toolkit.",
+        "evidence_references": ["package:nuspec/projectUrl"]
+      },
+      "replay_output_sha256": "05f91aa1e1ec296eadc7121bf769d659a33d60afb5f10533219d6b9c7c2e2cb9"
+    },
+    {
+      "case_id": "lp09-retained-infragistics",
+      "package_id": "igniteui.blazor.lite",
+      "package_version": "0.3.0",
+      "size_bytes": 1417667,
+      "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63",
+      "nuspec_entry": "IgniteUI.Blazor.Lite.nuspec",
+      "nuspec_sha256": "8399959e38391faa853f874f6d4c2d10a2724f3e978af5fc79fbd46a7a74833c",
+      "expected": {
+        "branch_id": "populated",
+        "finding": "ProjectUrl is populated: https://www.infragistics.com/products/ignite-ui-blazor.",
+        "evidence_references": ["package:nuspec/projectUrl"]
+      },
+      "actual": {
+        "branch_id": "populated",
+        "finding": "ProjectUrl is populated: https://www.infragistics.com/products/ignite-ui-blazor.",
+        "evidence_references": ["package:nuspec/projectUrl"]
+      },
+      "replay_output_sha256": "d0b45db6334d1572f0a20c485ff365f5c0206e992879555495049ce2e87e1dc1"
+    }
+  ]
+}
