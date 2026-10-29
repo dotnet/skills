@@ -398,6 +398,14 @@ class GraderTests(unittest.TestCase):
                 result = self.grade(work, script, accepted=False)
                 self.assertIn("clean:", result.stderr)
 
+    def test_anchored_schema_import_is_accepted(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Contoso.Schemas.csproj"
+        tree = ET.parse(path)
+        tree.getroot().find("Import").set("Project", "$(MSBuildThisFileDirectory)Schemas.targets")
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
     def test_schema_conditions_are_evaluated_by_msbuild(self):
         variants = (
             ("import", "Import", "Exists('Schemas.targets')", "Exists('Missing.targets')"),

@@ -520,8 +520,6 @@ stimuli:
                   for _ in range(len(properties) + 1):
                       value = re.sub(r'\$\(([^)]+)\)', lambda m: properties.get(m[1], m[0]), value)
                   return value.replace('\\', '/').rstrip('/')
-              assert any(str(pathlib.PurePosixPath(expand(i.get('Project', '')))) == 'Schemas.targets'
-                         for i in project.findall('Import')), 'the project must import Schemas.targets'
               properties.update({p.tag: p.text or '' for group in root.findall('PropertyGroup') for p in group})
               generators = [(target, task) for target in root.findall('Target') for task in target.findall('Exec')
                             if 'schemagen' in task.get('Command', '')]
