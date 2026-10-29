@@ -118,11 +118,50 @@ Check(lp05Output.SequenceEqual(Replay.Run(lp05Fixture, registry)),
 using (var doc = JsonDocument.Parse(lp05Output))
 {
     var cases = doc.RootElement.GetProperty("cases");
-    Check(cases.GetArrayLength() == 25 &&
+    Check(cases.GetArrayLength() == 30 &&
         cases.EnumerateArray().All(item =>
             item.GetProperty("result").GetProperty("row_id").GetString() == "LP-05"),
-        "Exact 25-case LP-05 synthetic branch matrix");
+        "Exact 30-case LP-05 synthetic branch matrix");
     NoClaims(doc.RootElement);
+}
+var lp05Directory = Path.GetDirectoryName(lp05Fixture)!;
+using (var receipt = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(lp05Directory, "acceptance-results.json"))))
+using (var frozen = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(lp05Directory, "acceptance.json"))))
+using (var retained = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(lp05Directory, "retained-inputs.json"))))
+{
+    var record = receipt.RootElement;
+    var runs = record.GetProperty("cases");
+    var expectations = frozen.RootElement.GetProperty("cases");
+    var vendors = retained.RootElement.GetProperty("vendors");
+    Check(record.GetProperty("schema_version").GetInt32() == 1 &&
+        record.GetProperty("row_id").GetString() == "LP-05" &&
+        record.GetProperty("resolver_id").GetString() == "lp05-license-expression" &&
+        record.GetProperty("resolver_version").GetString() == "1.0.0" &&
+        record.GetProperty("suite").GetString() == "acceptance.json" &&
+        runs.GetArrayLength() == expectations.GetArrayLength() &&
+        runs.GetArrayLength() == vendors.GetArrayLength() && runs.GetArrayLength() == 2,
+        "Portable LP-05 acceptance receipt identity");
+    for (var index = 0; index < runs.GetArrayLength(); index++)
+    {
+        var item = runs[index];
+        var expectedCase = expectations[index];
+        var vendor = vendors[index];
+        var frozenResult = expectedCase.GetProperty("expected");
+        Check(item.GetProperty("case_id").GetString() == expectedCase.GetProperty("case_id").GetString() &&
+            item.GetProperty("package_id").GetString() == vendor.GetProperty("package_id").GetString() &&
+            item.GetProperty("package_version").GetString() == vendor.GetProperty("version").GetString() &&
+            item.GetProperty("size_bytes").GetInt32() == vendor.GetProperty("size_bytes").GetInt32() &&
+            item.GetProperty("sha256").GetString() == vendor.GetProperty("sha256").GetString() &&
+            item.GetProperty("sha256").GetString() == expectedCase.GetProperty("inputs")[0]
+                .GetProperty("sha256").GetString() &&
+            item.GetProperty("nuspec_entry").GetString() == vendor.GetProperty("nuspec_entry").GetString() &&
+            item.GetProperty("nuspec_sha256").GetString() == vendor.GetProperty("nuspec_sha256").GetString() &&
+            System.Text.RegularExpressions.Regex.IsMatch(
+                item.GetProperty("replay_output_sha256").GetString() ?? "", "^[a-f0-9]{64}$") &&
+            ReceiptFieldsMatch(item.GetProperty("expected"), frozenResult) &&
+            ReceiptFieldsMatch(item.GetProperty("actual"), frozenResult),
+            "Portable retained replay receipt must match pinned input and frozen result.");
+    }
 }
 var lp05Bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
     "fixtures", "lp05", "packages", "expression.nupkg"));
@@ -147,6 +186,7 @@ Throws(() => registry.Dispatch(lp05Case with
 }));
 Check(lp05Output.SequenceEqual(Replay.Run(lp05Fixture, registry)),
     "LP-05 tamper rejection does not affect later deterministic replay");
+Lp05BoundaryChecks.Run(registry);
 Throws(() => Implemented(Fake("LP-01", input =>
     Result(input, "bad", "deterministic", "unknown", "guessed", null, null, null)))
     .Dispatch(new ResolverCase("invalid", "LP-01", [], new Dictionary<string, CheckedInput>())));
@@ -267,6 +307,11 @@ static void Check(bool success, string message)
 {
     if (!success) throw new Exception(message);
 }
+static bool ReceiptFieldsMatch(JsonElement receipt, JsonElement frozen) =>
+    receipt.GetProperty("branch_id").GetString() == frozen.GetProperty("branch_id").GetString() &&
+    receipt.GetProperty("finding").GetString() == frozen.GetProperty("finding").GetString() &&
+    receipt.GetProperty("evidence_references").EnumerateArray().Select(item => item.GetString())
+        .SequenceEqual(frozen.GetProperty("evidence_references").EnumerateArray().Select(item => item.GetString()));
 static void Throws(Action action)
 {
     try { action(); }
