@@ -234,6 +234,10 @@ RATIONALES = {
     "unreadable-package": "The checked input is not a readable ZIP package.",
     "missing-package": "No checked package input was supplied.",
 }
+AFTER_METADATA_RATIONALE = (
+    "A foreign root-level metadata sibling after recognized metadata leaves competing root metadata; "
+    "first-local-name and namespace-strict readers agree only by document order, so they do not establish the field."
+)
 UNKNOWN = {
     "foreign-root", "foreign-metadata", "foreign-metadata-before", "foreign-metadata-after",
     "missing-metadata", "duplicate-metadata",
@@ -320,7 +324,8 @@ def case(name, metadata, branch, url, missing, required, next_category, namespac
         "case_id": f"lp09-{name}", "row_id": "LP-09", "inputs": inputs,
         "expected": result(inputs, branch, url, missing, required, next_category,
                            evidence, name in UNKNOWN),
-        "rationale": f"LP-09 {name}: {RATIONALES[branch]}",
+        "rationale": f"LP-09 {name}: "
+        f"{AFTER_METADATA_RATIONALE if name == 'foreign-metadata-after' else RATIONALES[branch]}",
         "evidence_pointers": [evidence] if url is not None else (["package:archive"] if content else []),
     }
 
