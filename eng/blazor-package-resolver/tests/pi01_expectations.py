@@ -1,4 +1,4 @@
-"""Freeze PI-01 package-only expectations; no production resolver or signing oracle."""
+"""Freeze PI-01 package-only expectations, including cryptographic strong-name verification."""
 
 import argparse
 import hashlib
@@ -12,6 +12,7 @@ import sys
 import warnings
 import xml.etree.ElementTree as ET
 import zipfile
+from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).parent / "fixtures" / "pi01"
@@ -34,11 +35,15 @@ VENDORS = (
          filename="igniteui.blazor.lite.0.3.0.nupkg", size_bytes=1417667,
          sha256="e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63",
          cli_flags=9, signature_size=128, public_key_bytes=160,
+         key_sha256="16AB420C31409BD2F76D2CCA83E6CE241B05881805ABACEFF2B93662DDB88384",
+         image_digests=("F23D4DD925C45810FC9F62998C8623D3F9F07C46",
+                        "9DB3B776293FB2E3E6812331E85FC60CBBE984BF",
+                        "9139E2158DCECAC5D1443FDFBCA9871C3AA3CC64"),
          assembly_name="IgniteUI.Blazor.Lite", entries=(
              ("lib/net10.0/IgniteUI.Blazor.Lite.dll", 721912, "f7482cddc881c63b7be9368f1ab029c912142091085f10f4abafb85cd9846095"),
              ("lib/net8.0/IgniteUI.Blazor.Lite.dll", 721400, "56e82a1b906156465ce030a305e88f9d8dbabb4ad3fe3305557768e90f1ce878"),
              ("lib/net9.0/IgniteUI.Blazor.Lite.dll", 721912, "f9607b639ea89f0dcb125537b8bc0d39ec9e5d6432f8732291a7bb8a8ecfa001")),
-         branch="signature-unverified"),
+         branch="verified-signed"),
 )
 
 
@@ -53,6 +58,28 @@ def digest(content):
 
 def encoded(document):
     return (json.dumps(document, indent=2, ensure_ascii=True) + "\n").encode()
+
+
+VALIDATOR = Path(__file__).parent / "bin" / "pi01-validator" / "Release" / "net10.0" / "Validator.dll"
+
+
+def build_validator():
+    project = ROOT / "template" / "Validator.csproj"
+    run = subprocess.run(["dotnet", "build", str(project), "-c", "Release", "-v:q"],
+                         capture_output=True, text=True, check=False)
+    require(run.returncode == 0 and VALIDATOR.is_file(),
+            f"PI-01 metadata/cryptography validator unavailable: {run.stdout}\n{run.stderr}")
+
+
+@lru_cache(maxsize=64)
+def inspect_managed(data):
+    run = subprocess.run(["dotnet", str(VALIDATOR), "--inspect"], input=data,
+                         capture_output=True, check=False)
+    if run.returncode != 0:
+        raise SystemExit(f"PI-01 validator failed: {run.stderr.decode(errors='replace')}")
+    report = json.loads(run.stdout)
+    require(set(report) == {"state", "detail"}, "Unexpected PI-01 validator response")
+    return report["state"], report["detail"]
 
 
 def u16(data, offset):
@@ -71,7 +98,7 @@ def u64(data, offset):
 
 
 def assembly_state(data):
-    """Conservative PE/CLI inspection, not strong-name cryptographic verification."""
+    """Conservative PE/CLI preflight followed by independent .NET metadata and RSA verification."""
     require(data[:2] == b"MZ" and len(data) >= 0x40, "not a complete PE candidate")
     pe = u32(data, 0x3c)
     require(data[pe:pe + 4] == b"PE\x00\x00", "missing PE signature")
@@ -142,20 +169,30 @@ def assembly_state(data):
     if 32 not in counts:
         require(digest(data) == TEMPLATE_HASHES["module.netmodule"],
                 "module-only metadata needs independent validation")
-        return "module-only"
+        state, _ = inspect_managed(data)
+        require(state == "module-only", "Module metadata is incoherent")
+        return state
     require(counts[32] == 1 and rows + 32 <= tables_end,
             "not a complete single assembly definition")
     flags = u32(data, cli + 16)
     signature_rva, signature_size = u32(data, cli + 32), u32(data, cli + 36)
     if not signature_rva and not signature_size and not (flags & 8):
-        return "unsigned"
+        state, _ = inspect_managed(data)
+        require(state == "unsigned", "Assembly metadata is incoherent")
+        return state
     require(signature_rva and signature_size, "inconsistent strong-name flag and reservation")
     require(signature_size <= 4096, "oversized signature reservation")
     offset = locate(signature_rva, signature_size)
     if not any(data[offset:offset + signature_size]):
-        return "public-signed" if flags & 8 else "delay-signed"
+        state, _ = inspect_managed(data)
+        require(state == ("public-signed" if flags & 8 else "delay-signed"),
+                "Assembly metadata is incoherent")
+        return state
     require(flags & 8, "flag clear with nonzero signature")
-    return "signature-unverified"
+    state, _ = inspect_managed(data)
+    require(state in ("verified-signed", "invalid-signature", "signature-unverified"),
+            "Assembly metadata is incoherent")
+    return state
 
 
 def synthetic_pe(*, native=False):
@@ -186,6 +223,15 @@ def synthetic_pe(*, native=False):
     return bytes(data)
 
 
+def fake_module_assembly():
+    data = bytearray(synthetic_pe())
+    struct.pack_into("<I", data, 0x20c, 160)
+    struct.pack_into("<I", data, 0x29c, 96)
+    struct.pack_into("<Q", data, 0x2c8, 1 | (1 << 32))
+    struct.pack_into("<II", data, 0x2d8, 1, 1)
+    return bytes(data)
+
+
 def changed(data, offset, replacement):
     value = bytearray(data)
     value[offset:offset + len(replacement)] = replacement
@@ -205,6 +251,7 @@ TEMPLATE_HASHES = {
     "public.dll": "44991a20437b38b0ce99f611ef8ad070d8156b656d35123b7e442d5354964809",
     "module.netmodule": "4a43543ca38712c0b62efe76b7bd07a39073b16582f1d021469f2f4fc2eb335f",
     "nonzero.dll": "46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075",
+    "verified.dll": "6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34",
 }
 PUBLIC_KEY_SHA256 = "6e35fc4ec1a559fce1857d5400e378e255434d8ca12c79b4dd65a1903c4e20a8"
 
@@ -290,11 +337,13 @@ PE = fixture("unsigned.dll")
 DELAY = fixture("delay.dll")
 PUBLIC = fixture("public.dll")
 MODULE = fixture("module.netmodule")
-SIGNED = changed(PUBLIC, image_offsets(PUBLIC)["signature"], b"\x01")
-require(digest(SIGNED) == TEMPLATE_HASHES["nonzero.dll"],
-        "nonzero signature specimen differs")
+SIGNED = fixture("nonzero.dll")
+VERIFIED = fixture("verified.dll")
 OFF = image_offsets(PE)
 SIGNED_OFF = image_offsets(SIGNED)
+VERIFIED_OFF = image_offsets(VERIFIED)
+KEY_MAGIC = VERIFIED.find(b"RSA1")
+require(KEY_MAGIC >= 20, "Signed fixture has no RSA public-key blob")
 CASES = (
     spec("empty"),
     spec("readme", (("README.md", b"Package documentation\n"),)),
@@ -314,6 +363,9 @@ CASES = (
          "opaque-container"),
     spec("nested-with-passive-name", (("README.md", package((("inner.dll", PE),))),),
          "opaque-container"),
+    spec("prefixed-nested-with-passive-name",
+         (("README.md", b"README prefix\n" + package((("inner.dll", PE),))),),
+         "opaque-container"),
     spec("known-archive-extension", (("content/vendor.jar", b"no signature"),),
          "opaque-container"),
     spec("compressed-container", (("assets/data.dat", b"\x1f\x8b" + bytes(8)),),
@@ -328,23 +380,32 @@ CASES = (
     spec("unsigned-multiple", (("lib/net8.0/B.dll", PE), ("lib/net9.0/A.dll", PE)), "unsigned-assembly"),
     spec("module-with-unsigned", (("lib/net8.0/A.netmodule", MODULE),
                                    ("lib/net8.0/B.dll", PE)), "unsigned-assembly"),
-    spec("mixed-unsigned-and-signature", (("lib/net8.0/A.dll", SIGNED), ("lib/net9.0/B.dll", PE)), "unsigned-assembly"),
+    spec("mixed-unsigned-and-signature", (("lib/net8.0/A.dll", VERIFIED), ("lib/net9.0/B.dll", PE)), "unsigned-assembly"),
     spec("unsigned-and-native", ((EXAMPLE, PE), ("tools/native.exe", synthetic_pe(native=True))),
          "opaque-container"),
-    spec("signature-present", ((EXAMPLE, SIGNED),), "signature-unverified"),
-    spec("signature-and-dependency", ((EXAMPLE, SIGNED), ("package.json", b'{"name":"sample"}')), "signature-unverified"),
-    spec("signature-with-nuspec-repo", ((EXAMPLE, SIGNED),), "signature-unverified",
+    spec("signature-present", ((EXAMPLE, SIGNED),), "invalid-signature"),
+    spec("signature-and-dependency", ((EXAMPLE, VERIFIED), ("package.json", b'{"name":"sample"}')), "verified-signed"),
+    spec("signature-with-nuspec-repo", ((EXAMPLE, VERIFIED),), "verified-signed",
          "repository-claim"),
-    spec("signature-multiple", (("lib/net8.0/A.dll", SIGNED), ("lib/net9.0/A.dll", SIGNED)), "signature-unverified"),
-    spec("signature-changed", ((EXAMPLE, changed(SIGNED, SIGNED_OFF["signature"], b"\xfe")),), "signature-unverified"),
-    spec("signature-with-native", ((EXAMPLE, SIGNED), ("tools/native.exe", synthetic_pe(native=True))), "opaque-container"),
+    spec("signature-multiple", (("lib/net8.0/A.dll", VERIFIED), ("lib/net9.0/A.dll", VERIFIED)), "verified-signed"),
+    spec("signature-changed", ((EXAMPLE, changed(VERIFIED, VERIFIED_OFF["signature"],
+                                              bytes([VERIFIED[VERIFIED_OFF["signature"]] ^ 1]))),),
+         "invalid-signature"),
+    spec("signed-content-changed", ((EXAMPLE, changed(VERIFIED, VERIFIED_OFF["option"] + 2,
+                                                   bytes([VERIFIED[VERIFIED_OFF["option"] + 2] ^ 1]))),),
+         "invalid-signature"),
+    spec("verified-signed", ((EXAMPLE, VERIFIED),), "verified-signed"),
+    spec("signature-unsupported-hash", ((EXAMPLE, changed(VERIFIED, KEY_MAGIC - 16,
+                                                         struct.pack("<I", 0x8005))),),
+         "signature-unverified"),
+    spec("signature-with-native", ((EXAMPLE, VERIFIED), ("tools/native.exe", synthetic_pe(native=True))), "opaque-container"),
     spec("delay-signed", ((EXAMPLE, DELAY),), "delay-signed"),
-    spec("delay-and-signature", (("lib/net8.0/A.dll", SIGNED),
+    spec("delay-and-signature", (("lib/net8.0/A.dll", VERIFIED),
                                  ("lib/net9.0/B.dll", DELAY)), "delay-signed"),
     spec("public-signed", ((EXAMPLE, PUBLIC),), "public-signed"),
     spec("module-with-public", (("lib/net8.0/A.netmodule", MODULE),
                                  ("lib/net8.0/B.dll", PUBLIC)), "public-signed"),
-    spec("public-and-signature", (("lib/net8.0/A.dll", SIGNED),
+    spec("public-and-signature", (("lib/net8.0/A.dll", VERIFIED),
                                    ("lib/net9.0/B.dll", PUBLIC)), "public-signed"),
     spec("public-and-delay", (("lib/net8.0/A.dll", PUBLIC),
                                ("lib/net9.0/B.dll", DELAY)), "delay-signed"),
@@ -364,6 +425,7 @@ CASES = (
     spec("metadata-bad-stream", ((EXAMPLE, changed(PE, OFF["stream_offset"],
                                                  b"\xff\xff\xff\x7f")),), "unsafe-assembly"),
     spec("fake-assembly-table", ((EXAMPLE, synthetic_pe()),), "unsafe-assembly"),
+    spec("fake-module-and-assembly", ((EXAMPLE, fake_module_assembly()),), "unsafe-assembly"),
     spec("cli-missing-signature-rva", ((EXAMPLE, changed(SIGNED, SIGNED_OFF["cli"] + 32,
                                                        bytes(4))),), "unsafe-assembly"),
     spec("cli-oversized-signature", ((EXAMPLE, changed(SIGNED, SIGNED_OFF["cli"] + 36,
@@ -376,7 +438,7 @@ CASES = (
     spec("bad-pe-magic", ((EXAMPLE, changed(PE, OFF["option"], bytes(2))),), "unsafe-assembly"),
     spec("bad-section-table", ((EXAMPLE, changed(PE, 0x86, b"\xff\x00")),), "unsafe-assembly"),
     spec("unsafe-with-unsigned", ((EXAMPLE, PE), ("lib/net9.0/Unknown.dll", b"\x00")), "unsafe-assembly"),
-    spec("wrong-extension-pe", (("content/Blob.bin", SIGNED),), "signature-unverified"),
+    spec("wrong-extension-pe", (("content/Blob.bin", VERIFIED),), "verified-signed"),
     spec("path-traversal", (("../evil.dll", PE),), "unsafe-package"),
     spec("absolute-path", (("/evil.dll", PE),), "unsafe-package"),
     spec("backslash-path", (("lib\\net8.0\\a.dll", PE),), "unsafe-package"),
@@ -389,9 +451,9 @@ CASES = (
     spec("corrupt-zip", branch="unsafe-package", problem="corrupt-zip"),
     spec("missing-nuspec", ((EXAMPLE, PE),), "unsafe-package", "missing-nuspec"),
     spec("two-nuspec", ((EXAMPLE, PE),), "unsafe-package", "two-nuspec"),
-    spec("utf16-benign", ((EXAMPLE, SIGNED),), "signature-unverified", "utf16-benign"),
+    spec("utf16-benign", ((EXAMPLE, VERIFIED),), "verified-signed", "utf16-benign"),
     spec("utf16-dtd", ((EXAMPLE, PE),), "unsafe-package", "utf16-dtd"),
-    spec("comment-decoy", ((EXAMPLE, SIGNED),), "signature-unverified", "comment-decoy"),
+    spec("comment-decoy", ((EXAMPLE, VERIFIED),), "verified-signed", "comment-decoy"),
     spec("dtd", ((EXAMPLE, PE),), "unsafe-package", "dtd"),
     spec("invalid-xml", ((EXAMPLE, PE),), "unsafe-package", "invalid-xml"),
 )
@@ -466,7 +528,8 @@ def scan(content):
                 require(len(raw) <= 8 * 1024 * 1024 and len(raw) == entry.file_size,
                         "actual payload byte limit or inconsistent size")
                 lower = name.lower()
-                if (raw.startswith((b"PK\x03\x04", b"PK\x05\x06", b"\x1f\x8b",
+                if (any(magic in raw for magic in (b"PK\x03\x04", b"PK\x01\x02", b"PK\x05\x06"))
+                    or raw.startswith((b"\x1f\x8b",
                                     b"7z\xbc\xaf\x27\x1c", b"MSCF", b"!<arch>\n",
                                     b"\x7fELF", b"\x00asm", b"\xfd7zXZ\x00",
                                     b"BZh", b"Rar!\x1a\x07", b"\xd0\xcf\x11\xe0",
@@ -484,7 +547,10 @@ def scan(content):
                         state = assembly_state(raw)
                     except ValueError:
                         state = "unsafe"
-                    records.append(dict(path=name, sha256=digest(raw), size_bytes=len(raw), state=state))
+                    record = dict(path=name, sha256=digest(raw), size_bytes=len(raw), state=state)
+                    if state in ("verified-signed", "invalid-signature", "signature-unverified"):
+                        record["cryptographic_evidence"] = inspect_managed(raw)[1]
+                    records.append(record)
                 elif raw and not (lower.endswith((".rels", ".txt", ".md", ".png",
                                                   ".jpg", ".jpeg", ".gif", ".svg",
                                                   ".css", ".js", ".d.ts", ".xml",
@@ -504,8 +570,12 @@ def scan(content):
                 return "public-signed", records
             if "unsigned" in states:
                 return "unsigned-assembly", records
+            if "invalid-signature" in states:
+                return "invalid-signature", records
             if "signature-unverified" in states:
                 return "signature-unverified", records
+            if "verified-signed" in states:
+                return "verified-signed", records
             return "no-assemblies", records
     except (ValueError, UnicodeError, zipfile.BadZipFile, RuntimeError,
             OSError, ET.ParseError, NotImplementedError):
@@ -515,7 +585,8 @@ def scan(content):
 def result(inputs, branch, records):
     structural = branch in ("missing-package", "unsafe-package",
                             "unsafe-assembly", "opaque-container")
-    decisive = branch in ("no-assemblies", "unsigned-assembly", "delay-signed", "public-signed")
+    decisive = branch in ("no-assemblies", "unsigned-assembly", "delay-signed",
+                         "public-signed", "invalid-signature", "verified-signed")
     evidence = [] if branch == "missing-package" else ["package:archive"]
     contract = ("Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): "
                 + json.dumps(records, sort_keys=True, separators=(",", ":"))) if records else None
@@ -524,6 +595,8 @@ def result(inputs, branch, records):
         "unsigned-assembly": "At least one shipped .NET assembly has no strong-name signature reservation; PI-01 is not met for this package.",
         "delay-signed": "At least one shipped .NET assembly has a zero-filled strong-name reservation with the CLR signed flag clear (delay signing); PI-01 is not met for this package.",
         "public-signed": "At least one shipped .NET assembly has a zero-filled strong-name reservation with the CLR signed flag set (public signing); PI-01 is not met for this package.",
+        "invalid-signature": "At least one shipped .NET assembly has a cryptographically invalid strong-name signature; PI-01 is not met for this package.",
+        "verified-signed": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
     }.get(branch)
     missing, required, category = {
         "missing-package": ("No checked package was supplied.", "pinned-package", "input-owner"),
@@ -533,8 +606,8 @@ def result(inputs, branch, records):
                             "inspectable-complete-pe-cli-assembly", "package-owner"),
         "opaque-container": ("An opaque entry, nested container or native PE could contain assemblies; packaged assembly inventory is incomplete.",
                              "complete-safe-bundle-and-nested-container-inventory", "package-owner"),
-        "signature-unverified": ("A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-                                 "cryptographic-strong-name-verification-of-each-assembly",
+        "signature-unverified": ("The strong-name algorithm or key shape is unsupported; cryptographic validity is undetermined.",
+                                 "supported-strong-name-algorithm-and-key-evidence",
                                  "package-owner"),
     }.get(branch, (None, None, None))
     return dict(row_id="PI-01", resolver_id="pi01-strong-name", resolver_version="1.0.0",
@@ -557,7 +630,9 @@ def documents():
             "unsigned-assembly": "an Assembly metadata table has no strong-name reservation.",
             "delay-signed": "a flag-clear reservation contains only zero bytes.",
             "public-signed": "a flag-set reservation contains only zero bytes.",
-            "signature-unverified": "flag and nonzero reservation do not validate RSA signature bytes.",
+            "invalid-signature": "RSA verification of the signed PE image failed.",
+            "verified-signed": "every assembly RSA signature verifies against its metadata public key.",
+            "signature-unverified": "the metadata strong-name algorithm/key shape is unsupported.",
             "unsafe-assembly": "a PE/CLI candidate cannot safely establish assembly signing.",
             "opaque-container": "a nested container or native PE could conceal assemblies.",
             "unsafe-package": "unsafe ZIP or nuspec takes precedence over assembly claims.",
@@ -569,23 +644,31 @@ def documents():
                           expected=result(inputs, branch, records),
                           rationale=f"PI-01 {case['name']}: {explanation}",
                           evidence_pointers=pointers))
-    retained = dict(schema_version=1, row_id="PI-01", vendors=[
-        {key: value for key, value in vendor.items() if key != "entries"} | {
-            "assemblies": [dict(path=path, size_bytes=size, sha256=sha, state=(
-                "unsigned" if vendor["branch"] == "unsigned-assembly" else "signature-unverified"))
-                           for path, size, sha in vendor["entries"]]}
-        for vendor in VENDORS])
+    retained_vendors = []
+    for vendor in VENDORS:
+        assemblies = []
+        for index, (path, size, sha) in enumerate(vendor["entries"]):
+            item = dict(path=path, size_bytes=size, sha256=sha,
+                        state="unsigned" if vendor["branch"] == "unsigned-assembly"
+                        else "verified-signed")
+            if item["state"] == "verified-signed":
+                item["cryptographic_evidence"] = (
+                    f"RSA PKCS#1 v1.5; SHA-1; 1024-bit key; PE digest={vendor['image_digests'][index]}; "
+                    f"key SHA-256={vendor['key_sha256']}; signature valid=True.")
+            assemblies.append(item)
+        retained_vendors.append({key: value for key, value in vendor.items()
+                                 if key not in ("entries", "image_digests", "key_sha256")} |
+                                {"assemblies": assemblies})
+    retained = dict(schema_version=1, row_id="PI-01", vendors=retained_vendors)
     acceptance = dict(schema_version=1, cases=[])
     for vendor, frozen in zip(VENDORS, retained["vendors"]):
         inputs = [dict(role="package", path="packages/" + vendor["filename"],
                        sha256=vendor["sha256"])]
-        records = [dict(path=item["path"], sha256=item["sha256"],
-                        size_bytes=item["size_bytes"], state=item["state"])
-                   for item in frozen["assemblies"]]
+        records = [dict(item) for item in frozen["assemblies"]]
         acceptance["cases"].append(dict(
             case_id="pi01-retained-" + vendor["vendor"], row_id="PI-01",
             inputs=inputs, expected=result(inputs, vendor["branch"], records),
-            rationale="Pinned retained package assembly inventory; signature presence is not cryptographic validity.",
+            rationale="Pinned retained package inventory and cryptographic strong-name verification.",
             evidence_pointers=["package:archive", "package:nuspec/metadata"]))
     receipt = dict(schema_version=1, row_id="PI-01", expectation_commit=None,
                    suite="acceptance.json", resolver_id="pi01-strong-name",
@@ -691,13 +774,13 @@ def main():
     if args.check_negative_bindings:
         check_negative_bindings()
         return
+    build_validator()
     docs = documents()
     public_key = (ROOT / "template" / "public.snk").read_bytes()
     require(public_key[:1] == b"\x06" and digest(public_key) == PUBLIC_KEY_SHA256,
             "Public-only fixture key differs")
     if args.write_fixtures:
         (ROOT / "packages").mkdir(parents=True, exist_ok=True)
-        (ROOT / "templates" / "nonzero.dll").write_bytes(SIGNED)
     for case, frozen in zip(CASES, docs["cases.json"]["cases"]):
         content = package(case["entries"], case["problem"])
         if content is None:

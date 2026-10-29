@@ -34,7 +34,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "Pinned retained package assembly inventory; signature presence is not cryptographic validity.",
+      "rationale": "Pinned retained package inventory and cryptographic strong-name verification.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -54,8 +54,8 @@
         "row_id": "PI-01",
         "resolver_id": "pi01-strong-name",
         "resolver_version": "1.0.0",
-        "branch_id": "signature-unverified",
-        "decision": "escalated",
+        "branch_id": "verified-signed",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
@@ -67,13 +67,13 @@
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net10.0/IgniteUI.Blazor.Lite.dll\",\"sha256\":\"f7482cddc881c63b7be9368f1ab029c912142091085f10f4abafb85cd9846095\",\"size_bytes\":721912,\"state\":\"signature-unverified\"},{\"path\":\"lib/net8.0/IgniteUI.Blazor.Lite.dll\",\"sha256\":\"56e82a1b906156465ce030a305e88f9d8dbabb4ad3fe3305557768e90f1ce878\",\"size_bytes\":721400,\"state\":\"signature-unverified\"},{\"path\":\"lib/net9.0/IgniteUI.Blazor.Lite.dll\",\"sha256\":\"f9607b639ea89f0dcb125537b8bc0d39ec9e5d6432f8732291a7bb8a8ecfa001\",\"size_bytes\":721912,\"state\":\"signature-unverified\"}]",
-        "finding": null,
-        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
-        "next_category": "package-owner"
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 1024-bit key; PE digest=F23D4DD925C45810FC9F62998C8623D3F9F07C46; key SHA-256=16AB420C31409BD2F76D2CCA83E6CE241B05881805ABACEFF2B93662DDB88384; signature valid=True.\",\"path\":\"lib/net10.0/IgniteUI.Blazor.Lite.dll\",\"sha256\":\"f7482cddc881c63b7be9368f1ab029c912142091085f10f4abafb85cd9846095\",\"size_bytes\":721912,\"state\":\"verified-signed\"},{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 1024-bit key; PE digest=9DB3B776293FB2E3E6812331E85FC60CBBE984BF; key SHA-256=16AB420C31409BD2F76D2CCA83E6CE241B05881805ABACEFF2B93662DDB88384; signature valid=True.\",\"path\":\"lib/net8.0/IgniteUI.Blazor.Lite.dll\",\"sha256\":\"56e82a1b906156465ce030a305e88f9d8dbabb4ad3fe3305557768e90f1ce878\",\"size_bytes\":721400,\"state\":\"verified-signed\"},{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 1024-bit key; PE digest=9139E2158DCECAC5D1443FDFBCA9871C3AA3CC64; key SHA-256=16AB420C31409BD2F76D2CCA83E6CE241B05881805ABACEFF2B93662DDB88384; signature valid=True.\",\"path\":\"lib/net9.0/IgniteUI.Blazor.Lite.dll\",\"sha256\":\"f9607b639ea89f0dcb125537b8bc0d39ec9e5d6432f8732291a7bb8a8ecfa001\",\"size_bytes\":721912,\"state\":\"verified-signed\"}]",
+        "finding": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "Pinned retained package assembly inventory; signature presence is not cryptographic validity.",
+      "rationale": "Pinned retained package inventory and cryptographic strong-name verification.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"

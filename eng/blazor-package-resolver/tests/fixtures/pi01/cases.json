@@ -546,6 +546,45 @@
       ]
     },
     {
+      "case_id": "pi01-prefixed-nested-with-passive-name",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/prefixed-nested-with-passive-name.nupkg",
+          "sha256": "a59cbab58ff22174b52d3d4b8735a711d5b94990db79590b644ad8e58d330f85"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "opaque-container",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/prefixed-nested-with-passive-name.nupkg",
+            "sha256": "a59cbab58ff22174b52d3d4b8735a711d5b94990db79590b644ad8e58d330f85"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"README.md\",\"sha256\":\"01804c901274c78d87db494b60bea1b40674ff8a1fbeb1edb3dc65221e386591\",\"size_bytes\":3976,\"state\":\"opaque-container\"}]",
+        "finding": null,
+        "missing_fact": "An opaque entry, nested container or native PE could contain assemblies; packaged assembly inventory is incomplete.",
+        "required_input": "complete-safe-bundle-and-nested-container-inventory",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 prefixed-nested-with-passive-name: a nested container or native PE could conceal assemblies.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
       "case_id": "pi01-known-archive-extension",
       "row_id": "PI-01",
       "inputs": [
@@ -981,7 +1020,7 @@
         {
           "role": "package",
           "path": "packages/mixed-unsigned-and-signature.nupkg",
-          "sha256": "3b9a1e7be9201b40e30b49e01e5841ce2aeb8307ca1e31f81d36f7159d6432ee"
+          "sha256": "bbc838d6b489d00b7ec5c4df17bbdcab006072f08d50e045658fcc24d0f902f4"
         }
       ],
       "expected": {
@@ -995,13 +1034,13 @@
           {
             "role": "package",
             "path": "packages/mixed-unsigned-and-signature.nupkg",
-            "sha256": "3b9a1e7be9201b40e30b49e01e5841ce2aeb8307ca1e31f81d36f7159d6432ee"
+            "sha256": "bbc838d6b489d00b7ec5c4df17bbdcab006072f08d50e045658fcc24d0f902f4"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/A.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"},{\"path\":\"lib/net9.0/B.dll\",\"sha256\":\"02f2bbb5fbd06ec2107e444a2446dfeda912bfa558c8f557a08653db7d1a7b5e\",\"size_bytes\":3584,\"state\":\"unsigned\"}]",
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/A.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"},{\"path\":\"lib/net9.0/B.dll\",\"sha256\":\"02f2bbb5fbd06ec2107e444a2446dfeda912bfa558c8f557a08653db7d1a7b5e\",\"size_bytes\":3584,\"state\":\"unsigned\"}]",
         "finding": "At least one shipped .NET assembly has no strong-name signature reservation; PI-01 is not met for this package.",
         "missing_fact": null,
         "required_input": null,
@@ -1066,8 +1105,8 @@
         "row_id": "PI-01",
         "resolver_id": "pi01-strong-name",
         "resolver_version": "1.0.0",
-        "branch_id": "signature-unverified",
-        "decision": "escalated",
+        "branch_id": "invalid-signature",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
@@ -1079,13 +1118,13 @@
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"}]",
-        "finding": null,
-        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
-        "next_category": "package-owner"
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=1AB3F72DBD38F372F5E2B9AF5BAC6041BD0B45E1; key SHA-256=ABA4901725F24EE6CA99FB9AEFB59B369A9902D444D94A64DDE78142D0942983; signature valid=False.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"invalid-signature\"}]",
+        "finding": "At least one shipped .NET assembly has a cryptographically invalid strong-name signature; PI-01 is not met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "PI-01 signature-present: flag and nonzero reservation do not validate RSA signature bytes.",
+      "rationale": "PI-01 signature-present: RSA verification of the signed PE image failed.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -1098,33 +1137,33 @@
         {
           "role": "package",
           "path": "packages/signature-and-dependency.nupkg",
-          "sha256": "d7ddc3080b5552cb581b3b039b0cd6e6981c1b4e07007bdc1310a2740efb6627"
+          "sha256": "253665ddd75c21da3bf1fb5f49324f8bf30dc7cfc1720e7ac17967c958897f53"
         }
       ],
       "expected": {
         "row_id": "PI-01",
         "resolver_id": "pi01-strong-name",
         "resolver_version": "1.0.0",
-        "branch_id": "signature-unverified",
-        "decision": "escalated",
+        "branch_id": "verified-signed",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
             "role": "package",
             "path": "packages/signature-and-dependency.nupkg",
-            "sha256": "d7ddc3080b5552cb581b3b039b0cd6e6981c1b4e07007bdc1310a2740efb6627"
+            "sha256": "253665ddd75c21da3bf1fb5f49324f8bf30dc7cfc1720e7ac17967c958897f53"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"}]",
-        "finding": null,
-        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
-        "next_category": "package-owner"
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"}]",
+        "finding": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "PI-01 signature-and-dependency: flag and nonzero reservation do not validate RSA signature bytes.",
+      "rationale": "PI-01 signature-and-dependency: every assembly RSA signature verifies against its metadata public key.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -1137,33 +1176,33 @@
         {
           "role": "package",
           "path": "packages/signature-with-nuspec-repo.nupkg",
-          "sha256": "91cdea3ba4b5f1757ceca74ee786fe0a38197a07fe0427f98c99916bb1b13cc2"
+          "sha256": "2575de4d2c4a75198f1c670811efba1a8fc6393afba80df94a457b408aa8e7eb"
         }
       ],
       "expected": {
         "row_id": "PI-01",
         "resolver_id": "pi01-strong-name",
         "resolver_version": "1.0.0",
-        "branch_id": "signature-unverified",
-        "decision": "escalated",
+        "branch_id": "verified-signed",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
             "role": "package",
             "path": "packages/signature-with-nuspec-repo.nupkg",
-            "sha256": "91cdea3ba4b5f1757ceca74ee786fe0a38197a07fe0427f98c99916bb1b13cc2"
+            "sha256": "2575de4d2c4a75198f1c670811efba1a8fc6393afba80df94a457b408aa8e7eb"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"}]",
-        "finding": null,
-        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
-        "next_category": "package-owner"
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"}]",
+        "finding": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "PI-01 signature-with-nuspec-repo: flag and nonzero reservation do not validate RSA signature bytes.",
+      "rationale": "PI-01 signature-with-nuspec-repo: every assembly RSA signature verifies against its metadata public key.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -1176,33 +1215,33 @@
         {
           "role": "package",
           "path": "packages/signature-multiple.nupkg",
-          "sha256": "6cbc028699fd4ec4a145d506bdb035c16bfebc0f1147a7f213afbacfaba41d23"
+          "sha256": "e061b278122ba043452c7f75f7445f9e00e195e5eb223f82fec6a2c6b8b5b33f"
         }
       ],
       "expected": {
         "row_id": "PI-01",
         "resolver_id": "pi01-strong-name",
         "resolver_version": "1.0.0",
-        "branch_id": "signature-unverified",
-        "decision": "escalated",
+        "branch_id": "verified-signed",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
             "role": "package",
             "path": "packages/signature-multiple.nupkg",
-            "sha256": "6cbc028699fd4ec4a145d506bdb035c16bfebc0f1147a7f213afbacfaba41d23"
+            "sha256": "e061b278122ba043452c7f75f7445f9e00e195e5eb223f82fec6a2c6b8b5b33f"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/A.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"},{\"path\":\"lib/net9.0/A.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"}]",
-        "finding": null,
-        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
-        "next_category": "package-owner"
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/A.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"},{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net9.0/A.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"}]",
+        "finding": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "PI-01 signature-multiple: flag and nonzero reservation do not validate RSA signature bytes.",
+      "rationale": "PI-01 signature-multiple: every assembly RSA signature verifies against its metadata public key.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -1215,7 +1254,124 @@
         {
           "role": "package",
           "path": "packages/signature-changed.nupkg",
-          "sha256": "084f9e47436e7a6cc09ef2d99f2d5ab5e2f63c76614c403f4b3ad14f671cd3e2"
+          "sha256": "ee1bcfef080b1f780c2ddf23d3713f0fe2340bd308bb865b195452e65c88bf7e"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-signature",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signature-changed.nupkg",
+            "sha256": "ee1bcfef080b1f780c2ddf23d3713f0fe2340bd308bb865b195452e65c88bf7e"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=False.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"69890eb56ac7a1c0c06ce0915cce3783b2969fd64873b09ff533bb71fe4141e9\",\"size_bytes\":4096,\"state\":\"invalid-signature\"}]",
+        "finding": "At least one shipped .NET assembly has a cryptographically invalid strong-name signature; PI-01 is not met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "PI-01 signature-changed: RSA verification of the signed PE image failed.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-content-changed",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-content-changed.nupkg",
+          "sha256": "66b73e8df36f919bf440375b6081270e1a6fd6de5af2755bb8c335d4af3e7d3e"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-signature",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-content-changed.nupkg",
+            "sha256": "66b73e8df36f919bf440375b6081270e1a6fd6de5af2755bb8c335d4af3e7d3e"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=9502171AD0BCD8F7B8B88EFE29BF74BC9884EA63; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=False.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"0928398eb002c85ef01a7aad5aca17e45417148ba92a4f84d7ace2e90d56f4be\",\"size_bytes\":4096,\"state\":\"invalid-signature\"}]",
+        "finding": "At least one shipped .NET assembly has a cryptographically invalid strong-name signature; PI-01 is not met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "PI-01 signed-content-changed: RSA verification of the signed PE image failed.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-verified-signed",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/verified-signed.nupkg",
+          "sha256": "630ed8e659f417058ee684d7c8fd341b09eec5a9be31f6c4151010f4105baf93"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "verified-signed",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/verified-signed.nupkg",
+            "sha256": "630ed8e659f417058ee684d7c8fd341b09eec5a9be31f6c4151010f4105baf93"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"}]",
+        "finding": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "PI-01 verified-signed: every assembly RSA signature verifies against its metadata public key.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signature-unsupported-hash",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signature-unsupported-hash.nupkg",
+          "sha256": "bcac0976184af42b764b4d71ad909940fcd6489fbd21dbfc65676d3aa3b9a33b"
         }
       ],
       "expected": {
@@ -1228,20 +1384,20 @@
         "inputs": [
           {
             "role": "package",
-            "path": "packages/signature-changed.nupkg",
-            "sha256": "084f9e47436e7a6cc09ef2d99f2d5ab5e2f63c76614c403f4b3ad14f671cd3e2"
+            "path": "packages/signature-unsupported-hash.nupkg",
+            "sha256": "bcac0976184af42b764b4d71ad909940fcd6489fbd21dbfc65676d3aa3b9a33b"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"4eee17ef24af3d63070b5b737b78047db559c70304d814c8a9845e58f6931073\",\"size_bytes\":4096,\"state\":\"signature-unverified\"}]",
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"Unsupported strong-name algorithm/key shape: signature=0x2400, hash=0x8005, blob=276; key SHA-256=0D8FEDF1F73DD358C574C036B202F24A4765A9D45146CD02074A0CDAB106A2F3.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"98002bc327c7a431318303103453f4a12181be695fd761000b7ce387a41a5d34\",\"size_bytes\":4096,\"state\":\"signature-unverified\"}]",
         "finding": null,
-        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
+        "missing_fact": "The strong-name algorithm or key shape is unsupported; cryptographic validity is undetermined.",
+        "required_input": "supported-strong-name-algorithm-and-key-evidence",
         "next_category": "package-owner"
       },
-      "rationale": "PI-01 signature-changed: flag and nonzero reservation do not validate RSA signature bytes.",
+      "rationale": "PI-01 signature-unsupported-hash: the metadata strong-name algorithm/key shape is unsupported.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -1254,7 +1410,7 @@
         {
           "role": "package",
           "path": "packages/signature-with-native.nupkg",
-          "sha256": "ab85d45a95db29c49fbb540663db2f670728adff7468b2e9e2b6312da9f98ef3"
+          "sha256": "b6cc56a966a8b6ed14c30c7f55888808544e317ef82df10fd65bcb7d309f279c"
         }
       ],
       "expected": {
@@ -1268,13 +1424,13 @@
           {
             "role": "package",
             "path": "packages/signature-with-native.nupkg",
-            "sha256": "ab85d45a95db29c49fbb540663db2f670728adff7468b2e9e2b6312da9f98ef3"
+            "sha256": "b6cc56a966a8b6ed14c30c7f55888808544e317ef82df10fd65bcb7d309f279c"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"},{\"path\":\"tools/native.exe\",\"sha256\":\"d0186fbdbd602933aec7b4db373ebbd0ccd9a5351846448e6595d7d0713e9d72\",\"size_bytes\":1024,\"state\":\"native-pe\"}]",
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"},{\"path\":\"tools/native.exe\",\"sha256\":\"d0186fbdbd602933aec7b4db373ebbd0ccd9a5351846448e6595d7d0713e9d72\",\"size_bytes\":1024,\"state\":\"native-pe\"}]",
         "finding": null,
         "missing_fact": "An opaque entry, nested container or native PE could contain assemblies; packaged assembly inventory is incomplete.",
         "required_input": "complete-safe-bundle-and-nested-container-inventory",
@@ -1332,7 +1488,7 @@
         {
           "role": "package",
           "path": "packages/delay-and-signature.nupkg",
-          "sha256": "4b4f82ac000ff5ca4cf899097ed387cd2e1bc921a3ce07017361901f9d40b920"
+          "sha256": "fc79e06d925cd03371b7ddad3e4704ff8abfc8f13e85b862a2c919dfb595f517"
         }
       ],
       "expected": {
@@ -1346,13 +1502,13 @@
           {
             "role": "package",
             "path": "packages/delay-and-signature.nupkg",
-            "sha256": "4b4f82ac000ff5ca4cf899097ed387cd2e1bc921a3ce07017361901f9d40b920"
+            "sha256": "fc79e06d925cd03371b7ddad3e4704ff8abfc8f13e85b862a2c919dfb595f517"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/A.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"},{\"path\":\"lib/net9.0/B.dll\",\"sha256\":\"4876361f6f04223c41d4e4bd7418388478a30b1d060c679bf28c497b77d0d06e\",\"size_bytes\":4096,\"state\":\"delay-signed\"}]",
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/A.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"},{\"path\":\"lib/net9.0/B.dll\",\"sha256\":\"4876361f6f04223c41d4e4bd7418388478a30b1d060c679bf28c497b77d0d06e\",\"size_bytes\":4096,\"state\":\"delay-signed\"}]",
         "finding": "At least one shipped .NET assembly has a zero-filled strong-name reservation with the CLR signed flag clear (delay signing); PI-01 is not met for this package.",
         "missing_fact": null,
         "required_input": null,
@@ -1449,7 +1605,7 @@
         {
           "role": "package",
           "path": "packages/public-and-signature.nupkg",
-          "sha256": "c61ec2e59b70a212f2c36ec4ff5dec6e07c83b3f87e7937f7f526f617090ac23"
+          "sha256": "3403cd94f2fc0e4e1fff31db1ead937d32abd5f87c735fb12f79cd107a33aadd"
         }
       ],
       "expected": {
@@ -1463,13 +1619,13 @@
           {
             "role": "package",
             "path": "packages/public-and-signature.nupkg",
-            "sha256": "c61ec2e59b70a212f2c36ec4ff5dec6e07c83b3f87e7937f7f526f617090ac23"
+            "sha256": "3403cd94f2fc0e4e1fff31db1ead937d32abd5f87c735fb12f79cd107a33aadd"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/A.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"},{\"path\":\"lib/net9.0/B.dll\",\"sha256\":\"44991a20437b38b0ce99f611ef8ad070d8156b656d35123b7e442d5354964809\",\"size_bytes\":4096,\"state\":\"public-signed\"}]",
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/A.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"},{\"path\":\"lib/net9.0/B.dll\",\"sha256\":\"44991a20437b38b0ce99f611ef8ad070d8156b656d35123b7e442d5354964809\",\"size_bytes\":4096,\"state\":\"public-signed\"}]",
         "finding": "At least one shipped .NET assembly has a zero-filled strong-name reservation with the CLR signed flag set (public signing); PI-01 is not met for this package.",
         "missing_fact": null,
         "required_input": null,
@@ -1911,6 +2067,45 @@
       ]
     },
     {
+      "case_id": "pi01-fake-module-and-assembly",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/fake-module-and-assembly.nupkg",
+          "sha256": "e7359d0a1dbbf1400f55cefb3387b94b0c82e4565d5f50f0777ece71533e276b"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/fake-module-and-assembly.nupkg",
+            "sha256": "e7359d0a1dbbf1400f55cefb3387b94b0c82e4565d5f50f0777ece71533e276b"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"900749f664b3aea6ffbe4b2daf70fe75f02abd9bb9963efce49b2d115c5c8853\",\"size_bytes\":1024,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 fake-module-and-assembly: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
       "case_id": "pi01-cli-missing-signature-rva",
       "row_id": "PI-01",
       "inputs": [
@@ -2307,33 +2502,33 @@
         {
           "role": "package",
           "path": "packages/wrong-extension-pe.nupkg",
-          "sha256": "50ee9edee2c8b9279201cec9a8fbcb25affd8a998cf89ab0fd5e5acec57b75ee"
+          "sha256": "93a96e55dd006f0c1ebfcbd6293c8fa5d840e56eeb09b02e2d5f4b68308e889c"
         }
       ],
       "expected": {
         "row_id": "PI-01",
         "resolver_id": "pi01-strong-name",
         "resolver_version": "1.0.0",
-        "branch_id": "signature-unverified",
-        "decision": "escalated",
+        "branch_id": "verified-signed",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
             "role": "package",
             "path": "packages/wrong-extension-pe.nupkg",
-            "sha256": "50ee9edee2c8b9279201cec9a8fbcb25affd8a998cf89ab0fd5e5acec57b75ee"
+            "sha256": "93a96e55dd006f0c1ebfcbd6293c8fa5d840e56eeb09b02e2d5f4b68308e889c"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"content/Blob.bin\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"}]",
-        "finding": null,
-        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
-        "next_category": "package-owner"
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"content/Blob.bin\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"}]",
+        "finding": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "PI-01 wrong-extension-pe: flag and nonzero reservation do not validate RSA signature bytes.",
+      "rationale": "PI-01 wrong-extension-pe: every assembly RSA signature verifies against its metadata public key.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -2786,33 +2981,33 @@
         {
           "role": "package",
           "path": "packages/utf16-benign.nupkg",
-          "sha256": "e4403ac5f2288de18d03bbb80152120450866aee19d594fd3b289436962f2731"
+          "sha256": "d296f489fa69b67cd4a80ac7f5943787b0344a7a5a67e62df1758e1ccfd06201"
         }
       ],
       "expected": {
         "row_id": "PI-01",
         "resolver_id": "pi01-strong-name",
         "resolver_version": "1.0.0",
-        "branch_id": "signature-unverified",
-        "decision": "escalated",
+        "branch_id": "verified-signed",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
             "role": "package",
             "path": "packages/utf16-benign.nupkg",
-            "sha256": "e4403ac5f2288de18d03bbb80152120450866aee19d594fd3b289436962f2731"
+            "sha256": "d296f489fa69b67cd4a80ac7f5943787b0344a7a5a67e62df1758e1ccfd06201"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"}]",
-        "finding": null,
-        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
-        "next_category": "package-owner"
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"}]",
+        "finding": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "PI-01 utf16-benign: flag and nonzero reservation do not validate RSA signature bytes.",
+      "rationale": "PI-01 utf16-benign: every assembly RSA signature verifies against its metadata public key.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -2863,33 +3058,33 @@
         {
           "role": "package",
           "path": "packages/comment-decoy.nupkg",
-          "sha256": "5dce14ff20748a26448f81e077769c1450f715b0500a5a35476a215be090fcd0"
+          "sha256": "b65eb66d233f0a92f7b15ac4a51e282ebd244f5ce03b3baa23713894c770080b"
         }
       ],
       "expected": {
         "row_id": "PI-01",
         "resolver_id": "pi01-strong-name",
         "resolver_version": "1.0.0",
-        "branch_id": "signature-unverified",
-        "decision": "escalated",
+        "branch_id": "verified-signed",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
             "role": "package",
             "path": "packages/comment-decoy.nupkg",
-            "sha256": "5dce14ff20748a26448f81e077769c1450f715b0500a5a35476a215be090fcd0"
+            "sha256": "b65eb66d233f0a92f7b15ac4a51e282ebd244f5ce03b3baa23713894c770080b"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075\",\"size_bytes\":4096,\"state\":\"signature-unverified\"}]",
-        "finding": null,
-        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
-        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
-        "next_category": "package-owner"
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34\",\"size_bytes\":4096,\"state\":\"verified-signed\"}]",
+        "finding": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "PI-01 comment-decoy: flag and nonzero reservation do not validate RSA signature bytes.",
+      "rationale": "PI-01 comment-decoy: every assembly RSA signature verifies against its metadata public key.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"

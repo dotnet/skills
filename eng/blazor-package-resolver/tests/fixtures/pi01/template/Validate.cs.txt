@@ -2,10 +2,40 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
+using System.Text.Json;
+
+if (args.Length == 2 && args[0] == "--generate-key")
+{
+    using var rsa = new RSACryptoServiceProvider(2048);
+    File.WriteAllBytes(args[1], rsa.ExportCspBlob(true));
+    return;
+}
+
+if (args.Length == 1 && args[0] == "--inspect")
+{
+    using var input = new MemoryStream();
+    Console.OpenStandardInput().CopyTo(input);
+    var data = input.ToArray();
+    string state;
+    string? detail = null;
+    try
+    {
+        (state, detail) = Inspect(data);
+    }
+    catch (Exception error) when (error is BadImageFormatException or InvalidDataException
+                                  or ArgumentException or IndexOutOfRangeException)
+    {
+        state = "unsafe";
+        detail = error.Message;
+    }
+    Console.WriteLine(JsonSerializer.Serialize(new { state, detail }));
+    return;
+}
 
 if (args.Length == 3 && args[0] == "--retained")
 {
@@ -42,16 +72,19 @@ if (args.Length == 3 && args[0] == "--retained")
             if (vendor == 0 ? (signedFlag || signature.Size != 0 || publicKey.Length != 0)
                 : (!signedFlag || signature.Size != 128 || !hasSignatureBytes || publicKey.Length == 0))
                 throw new InvalidDataException($"Retained signing state differs: {entry.FullName}");
-            Console.WriteLine($"{entry.FullName}: flag={signedFlag}; signature bytes={signature.Size}; public key bytes={publicKey.Length}");
+            var (state, detail) = Inspect(bytes.ToArray());
+            if (state != (vendor == 0 ? "unsigned" : "verified-signed"))
+                throw new InvalidDataException($"Retained cryptographic state differs: {entry.FullName}; {state}; {detail}");
+            Console.WriteLine($"{entry.FullName}: flag={signedFlag}; signature bytes={signature.Size}; public key bytes={publicKey.Length}; crypto={state}; detail={detail}");
         }
     }
     return;
 }
 
-if (args.Length != 5)
-    throw new ArgumentException("Expected unsigned, delay-signed, public-signed, module and nonzero-signature images.");
+if (args.Length != 6)
+    throw new ArgumentException("Expected unsigned, delay-signed, public-signed, module, nonzero-signature and verified-signed images.");
 
-string[] states = ["unsigned", "delay", "public", "module", "nonzero"];
+string[] states = ["unsigned", "delay", "public", "module", "nonzero", "verified"];
 for (int index = 0; index < args.Length; index++)
 {
     using var stream = File.OpenRead(args[index]);
@@ -77,10 +110,167 @@ for (int index = 0; index < args.Length; index++)
     var header = pe.PEHeaders.CorHeader ?? throw new InvalidDataException("Missing CLR header.");
     var signature = header.StrongNameSignatureDirectory;
     bool flag = (header.Flags & CorFlags.StrongNameSigned) != 0;
-    if (flag != (index is 2 or 4) || (signature.Size > 0) != (index is 1 or 2 or 4))
+    if (flag != (index is 2 or 4 or 5) || (signature.Size > 0) != (index is 1 or 2 or 4 or 5))
         throw new InvalidDataException($"Wrong CLR strong-name flags/reservation: {states[index]}");
-    if (index is 1 or 2 or 4 && pe.GetSectionData(signature.RelativeVirtualAddress)
-            .GetContent(0, signature.Size).Any(value => value != 0) != (index == 4))
+    if (index is 1 or 2 or 4 or 5 && pe.GetSectionData(signature.RelativeVirtualAddress)
+            .GetContent(0, signature.Size).Any(value => value != 0) != (index is 4 or 5))
         throw new InvalidDataException($"Unexpected reservation content: {states[index]}");
+    var (classified, detail) = Inspect(File.ReadAllBytes(args[index]));
+    string expected = index switch
+    {
+        0 => "unsigned",
+        1 => "delay-signed",
+        2 => "public-signed",
+        3 => "module-only",
+        4 => "invalid-signature",
+        _ => "verified-signed",
+    };
+    if (classified != expected)
+        throw new InvalidDataException($"Unexpected {states[index]} cryptographic state: {classified}; {detail}");
     Console.WriteLine($"{states[index]}: valid PE/CLI metadata; Module=1; Assembly={(metadata.IsAssembly ? 1 : 0)}; strong-name flag={flag}; signature bytes={signature.Size}");
+}
+
+static (string state, string? detail) Inspect(byte[] data)
+{
+    using var pe = new PEReader(new MemoryStream(data));
+    if (!pe.HasMetadata)
+        throw new BadImageFormatException("Managed metadata absent.");
+    var peHeader = pe.PEHeaders.PEHeader ?? throw new BadImageFormatException("PE header absent.");
+    int lastSectionEnd = peHeader.SizeOfHeaders;
+    foreach (var section in pe.PEHeaders.SectionHeaders.OrderBy(item => item.PointerToRawData))
+    {
+        if (section.SizeOfRawData == 0)
+            continue;
+        if (section.PointerToRawData < lastSectionEnd || section.SizeOfRawData < 0 ||
+            section.PointerToRawData > data.Length - section.SizeOfRawData)
+            throw new BadImageFormatException("PE section overlaps headers, another section, or end of assembly.");
+        lastSectionEnd = section.PointerToRawData + section.SizeOfRawData;
+    }
+    var metadata = pe.GetMetadataReader();
+    if (metadata.GetTableRowCount(TableIndex.Module) != 1)
+        throw new BadImageFormatException("Module definition missing or ambiguous.");
+    var module = metadata.GetModuleDefinition();
+    if (module.Name.IsNil || string.IsNullOrWhiteSpace(metadata.GetString(module.Name)) ||
+        module.Mvid.IsNil || metadata.GetGuid(module.Mvid) == Guid.Empty ||
+        metadata.TypeDefinitions.Count == 0 ||
+        metadata.GetString(metadata.GetTypeDefinition(MetadataTokens.TypeDefinitionHandle(1)).Name) != "<Module>")
+        throw new BadImageFormatException("Module metadata is empty or incoherent.");
+    if (!metadata.IsAssembly)
+    {
+        if (metadata.GetTableRowCount(TableIndex.Assembly) != 0)
+            throw new BadImageFormatException("Assembly table is inconsistent.");
+        return ("module-only", null);
+    }
+    if (metadata.GetTableRowCount(TableIndex.Assembly) != 1)
+        throw new BadImageFormatException("Assembly definition is ambiguous.");
+    var assembly = metadata.GetAssemblyDefinition();
+    if (assembly.Name.IsNil || string.IsNullOrWhiteSpace(metadata.GetString(assembly.Name)))
+        throw new BadImageFormatException("Assembly name is absent.");
+    var key = assembly.PublicKey.IsNil ? [] : metadata.GetBlobBytes(assembly.PublicKey);
+    if (((assembly.Flags & AssemblyFlags.PublicKey) != 0) != (key.Length > 0))
+        throw new BadImageFormatException("Assembly public-key flag and blob disagree.");
+    var header = pe.PEHeaders.CorHeader ?? throw new BadImageFormatException("CLI header absent.");
+    var signature = header.StrongNameSignatureDirectory;
+    bool flag = (header.Flags & CorFlags.StrongNameSigned) != 0;
+    if (signature.Size == 0 && signature.RelativeVirtualAddress == 0)
+    {
+        if (flag || key.Length > 0)
+            throw new BadImageFormatException("Public key/flag without signature reservation.");
+        return ("unsigned", null);
+    }
+    if (signature.Size <= 0 || signature.Size > 4096 || signature.RelativeVirtualAddress == 0)
+        throw new BadImageFormatException("Signature reservation is incomplete.");
+    var start = FileOffset(pe, signature.RelativeVirtualAddress, signature.Size);
+    var signedBytes = data.AsSpan(start, signature.Size).ToArray();
+    if (!signedBytes.Any(value => value != 0))
+        return (flag ? "public-signed" : "delay-signed", null);
+    if (!flag)
+        throw new BadImageFormatException("Signature bytes present with signed flag clear.");
+    if (key.Length == 0)
+        throw new BadImageFormatException("Signed assembly lacks a public key.");
+    if (key.Length < 32)
+        return ("signature-unverified", $"Unsupported strong-name public-key blob length={key.Length}; key SHA-256={Convert.ToHexString(SHA256.HashData(key))}.");
+    uint sigAlg = BitConverter.ToUInt32(key, 0), hashAlg = BitConverter.ToUInt32(key, 4);
+    uint blobSize = BitConverter.ToUInt32(key, 8);
+    if (sigAlg != 0x2400 || hashAlg is not (0x8004 or 0x800c) ||
+        blobSize != key.Length - 12 || key[12] != 6 || key[13] != 2 ||
+        BitConverter.ToUInt32(key, 16) is not (0x2400 or 0xa400) ||
+        BitConverter.ToUInt32(key, 20) != 0x31415352)
+        return ("signature-unverified", $"Unsupported strong-name algorithm/key shape: signature=0x{sigAlg:x}, hash=0x{hashAlg:x}, blob={blobSize}; key SHA-256={Convert.ToHexString(SHA256.HashData(key))}.");
+    uint bitLength = BitConverter.ToUInt32(key, 24);
+    if (bitLength < 1024 || bitLength > 32768 || bitLength % 8 != 0 ||
+        key.Length != 32 + bitLength / 8 || signature.Size != bitLength / 8)
+        return ("signature-unverified", $"Unsupported RSA modulus/reservation: bits={bitLength}, blob={key.Length}, reservation={signature.Size}; key SHA-256={Convert.ToHexString(SHA256.HashData(key))}.");
+    int bits = (int)bitLength;
+    var exponent = BitConverter.ToUInt32(key, 28);
+    if (exponent < 3 || exponent % 2 == 0)
+        return ("signature-unverified", $"Unsupported RSA public exponent: {exponent}; key SHA-256={Convert.ToHexString(SHA256.HashData(key))}.");
+    byte[] modulus = key.AsSpan(32, bits / 8).ToArray();
+    Array.Reverse(modulus);
+    using var rsa = RSA.Create();
+    try
+    {
+        rsa.ImportParameters(new RSAParameters {
+            Exponent = BitConverter.GetBytes(exponent).Reverse().SkipWhile(value => value == 0).ToArray(),
+            Modulus = modulus,
+        });
+    }
+    catch (CryptographicException)
+    {
+        return ("signature-unverified", $"Unsupported RSA key material; key SHA-256={Convert.ToHexString(SHA256.HashData(key))}.");
+    }
+    byte[] image = (byte[])data.Clone();
+    int optional = pe.PEHeaders.PEHeaderStartOffset;
+    Array.Clear(image, optional + 64, 4); // PE checksum is not signed.
+    Array.Clear(image, optional + (peHeader.Magic == PEMagic.PE32 ? 128 : 144), 8); // Authenticode directory is not signed.
+    using var hash = IncrementalHash.CreateHash(hashAlg == 0x8004 ? HashAlgorithmName.SHA1 : HashAlgorithmName.SHA256);
+    int headersToSign = optional + pe.PEHeaders.CoffHeader.SizeOfOptionalHeader +
+                        pe.PEHeaders.CoffHeader.NumberOfSections * 40;
+    if (headersToSign > peHeader.SizeOfHeaders)
+        throw new BadImageFormatException("PE section headers exceed declared header size.");
+    hash.AppendData(image, 0, headersToSign);
+    bool foundSignature = false;
+    foreach (var section in pe.PEHeaders.SectionHeaders.OrderBy(item => item.PointerToRawData))
+    {
+        if (section.PointerToRawData < 0 || section.SizeOfRawData < 0 ||
+            section.PointerToRawData > image.Length - section.SizeOfRawData)
+            throw new BadImageFormatException("PE section falls outside the assembly.");
+        int sectionStart = section.PointerToRawData, sectionEnd = sectionStart + section.SizeOfRawData;
+        if (start >= sectionStart && start + signature.Size <= sectionEnd)
+        {
+            if (foundSignature)
+                throw new BadImageFormatException("Signature maps into multiple PE sections.");
+            foundSignature = true;
+            hash.AppendData(image, sectionStart, start - sectionStart);
+            hash.AppendData(image, start + signature.Size, sectionEnd - start - signature.Size);
+        }
+        else
+            hash.AppendData(image, sectionStart, section.SizeOfRawData);
+    }
+    if (!foundSignature)
+        throw new BadImageFormatException("Signature is outside PE section data.");
+    var imageHash = hash.GetHashAndReset();
+    Array.Reverse(signedBytes); // Strong-name RSA signature bytes are little-endian.
+    bool valid;
+    try
+    {
+        valid = rsa.VerifyHash(imageHash, signedBytes,
+            hashAlg == 0x8004 ? HashAlgorithmName.SHA1 : HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+    }
+    catch (CryptographicException)
+    {
+        valid = false;
+    }
+    return (valid ? "verified-signed" : "invalid-signature",
+            $"RSA PKCS#1 v1.5; {(hashAlg == 0x8004 ? "SHA-1" : "SHA-256")}; {bits}-bit key; PE digest={Convert.ToHexString(imageHash)}; key SHA-256={Convert.ToHexString(SHA256.HashData(key))}; signature valid={valid}.");
+}
+
+static int FileOffset(PEReader pe, int rva, int size)
+{
+    foreach (var section in pe.PEHeaders.SectionHeaders)
+        if (rva >= section.VirtualAddress && size <= section.SizeOfRawData &&
+            rva - section.VirtualAddress <= section.SizeOfRawData - size)
+            return section.PointerToRawData + rva - section.VirtualAddress;
+    throw new BadImageFormatException("Unmapped signature reservation RVA.");
 }
