@@ -580,6 +580,10 @@ CASES = (
     spec("html-doctype-script", (
         ("staticwebassets/index.html", b'<!DOCTYPE html><html><script>go()</script></html>', None),
     ), branch="unsupported-executable-content"),
+    spec("html-doctype-project-comment-decoy", (
+        ("wwwroot/x.html", b'<!DOCTYPE html><html><!-- <Project> is not the root -->'
+         b'<script>go()</script></html>', None),
+    ), branch="unsupported-executable-content"),
     spec("html-void-script", (
         ("staticwebassets/index.html", b'<html><img src="logo.png"><script>go()</script></html>', None),
     ), branch="unsupported-executable-content"),
@@ -645,6 +649,14 @@ CASES = (
          + build_xml("<PropertyGroup><N>'] </N></PropertyGroup>"
                      '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
     ), branch="incomplete-inventory"),
+    spec("dtd-subset-comment-quote-over-limit-caller", (
+        ("build/P.targets", build_xml(
+            '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
+            'Targets="Go" /></Target>'), None),
+        ("build/run.txt", b"<!DOCTYPE Project [ <!-- it's ' ]> " + b"X" * XML_LIMIT
+         + b" --> ]>\n" + build_xml(
+             '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
+    ), branch="incomplete-inventory", compress=True),
 )
 
 STRUCTURAL = {
@@ -978,6 +990,7 @@ def starts_project(content):
     prelude = re.match(r"\A\s*(?:(?:<\?xml\b[^?]*\?>|<!--.*?-->)\s*)*",
                        text, re.DOTALL)
     cursor = prelude.end()
+    unsupported = False
     while True:
         while cursor < len(text) and text[cursor].isspace():
             cursor += 1
@@ -987,18 +1000,28 @@ def starts_project(content):
                 raise ValueError("build-xml-root-limit")
             cursor = end + 3
         elif text.startswith("<?", cursor):
+            unsupported = True
+            if len(content) > XML_LIMIT:
+                raise ValueError("build-xml-root-limit")
             end = text.find("?>", cursor + 2)
             if end < 0:
                 raise ValueError("build-xml-root-limit")
-            if PROJECT_TOKEN.search(text[prelude.end():]):
-                raise ValueError("build-xml-unsupported-prolog")
             cursor = end + 2
         elif XML_UNSAFE_TOKEN.match(text, cursor):
-            if PROJECT_TOKEN.search(text[prelude.end():]):
-                raise ValueError("build-xml-unsupported-prolog")
+            unsupported = True
+            if len(content) > XML_LIMIT:
+                raise ValueError("build-xml-root-limit")
             depth = 0
             quote = None
-            for index in range(cursor + 2, len(text)):
+            index = cursor + 2
+            while index < len(text):
+                if quote is None and text.startswith(("<!--", "<?"), index):
+                    ending = "-->" if text.startswith("<!--", index) else "?>"
+                    end = text.find(ending, index + 2)
+                    if end < 0:
+                        raise ValueError("build-xml-root-limit")
+                    index = end + len(ending)
+                    continue
                 char = text[index]
                 if char == quote:
                     quote = None
@@ -1012,11 +1035,14 @@ def starts_project(content):
                     elif char == ">" and depth == 0:
                         cursor = index + 1
                         break
+                index += 1
             else:
                 raise ValueError("build-xml-root-limit")
         else:
             break
     remaining = text[cursor:]
+    if unsupported and PROJECT_TOKEN.match(remaining):
+        raise ValueError("build-xml-unsupported-prolog")
     if len(content) > XML_LIMIT and (not remaining or remaining.startswith(("<!--", "<?"))):
         raise ValueError("build-xml-root-limit")
     return False
@@ -1602,12 +1628,18 @@ def verify_case(case, document, writing):
                 require(b"<!-- <!DOCTYPE" in raw and b"<!ENTITY" in raw and
                         b"<![CDATA[<!DOCTYPE" in raw,
                         "MSBuild comment/CDATA decoy markers missing.")
-            if name == "dtd-subset-comment-quote-caller" and entry_name == "build/run.txt":
+            if name == "html-doctype-project-comment-decoy":
+                require(starts_project(raw) is False,
+                        "A Project token inside an HTML comment is not an XML root.")
+            if name in ("dtd-subset-comment-quote-caller",
+                        "dtd-subset-comment-quote-over-limit-caller") and entry_name == "build/run.txt":
+                reason = ("build-xml-root-limit" if "over-limit" in name else
+                          "build-xml-unsupported-prolog")
                 try:
                     starts_project(raw)
                 except ValueError as error:
-                    require(str(error) == "build-xml-unsupported-prolog",
-                            "Internal-subset comment must not hide the unsupported Project root.")
+                    require(str(error) == reason,
+                            "Internal-subset comment must not hide the unsupported Project root or limit.")
                 else:
                     raise ValueError("Internal-subset comment hid an unsupported Project root.")
             if hint is not None:
