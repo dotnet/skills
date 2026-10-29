@@ -90,6 +90,8 @@ processing instruction or an actual DOCTYPE/entity prolog is **not**
 passive: it escalates as incomplete/unknown, even when its only caller is
 a non-command MSBuild task. The synthetic caller controls pin both cases;
 DOCTYPE-prefixed HTML without a `Project` root remains unsupported markup.
+The internal-subset comment/quote control fails closed even when a quote in
+a DTD comment would move a naive delimiter scanner past the actual root.
 Nuspec inspection uses the same encoding-aware DTD/entity prohibition
 before metadata can be cited; UTF-16 benign, DTD and entity controls on
 both no-code and compiled archives pin structural precedence.
@@ -193,7 +195,7 @@ and still test *uncompressed* thresholds.
 
 ## Synthetic and retained controls
 
-`cases.json` freezes **168 synthetic cases, 167 pinned input files with 167
+`cases.json` freezes **169 synthetic cases, 168 pinned input files with 168
 distinct SHA-256 identities**, and one absent-input case. The controlled
 families cover separate and mixed code (including vendor-shaped PE+JS with
 and without repository/dependency claims), executable scripts and shebangs,
