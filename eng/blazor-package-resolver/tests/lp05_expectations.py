@@ -35,7 +35,7 @@ CASES = (
     ("legacy-url", URL, "missing-expression", "PackageLicenseExpression is not populated; the nuspec has no license expression.", None, None, None, NAMESPACE),
     ("missing", "", "missing-expression", "PackageLicenseExpression is not populated; the nuspec has no license expression.", None, None, None, NAMESPACE),
     ("blank-expression", '<license type="expression">  </license>', "malformed", None, "A nonblank license expression cannot be established from malformed metadata.", "corrected-nuspec", "package-owner", NAMESPACE),
-    ("blank-file", '<license type="file">  </license>', "malformed", None, "The license file declaration is blank.", "corrected-nuspec", "package-owner", NAMESPACE),
+    ("blank-file", '<license type="file">  </license>', "missing-expression", "PackageLicenseExpression is not populated; the nuspec has no license expression.", None, None, None, NAMESPACE),
     ("blank-legacy-url", "<licenseUrl>  </licenseUrl>", "missing-expression", "PackageLicenseExpression is not populated; the nuspec has no license expression.", None, None, None, NAMESPACE),
     ("unsupported-type", '<license type="url">MIT</license>', "malformed", None, "The license type is not a supported NuGet expression or file type.", "corrected-nuspec", "package-owner", NAMESPACE),
     ("missing-type", "<license>MIT</license>", "malformed", None, "The license element has no type attribute.", "corrected-nuspec", "package-owner", NAMESPACE),
@@ -226,7 +226,7 @@ def main():
         require(all(by_id[f"lp05-{name}"][key] == by_id["lp05-expression"][key]
                     for key in ("branch_id", "decision", "applicability", "finding")),
                 f"Legacy URL changed the LP-05 expression result: {name}")
-    for name in ("legacy-url", "blank-legacy-url"):
+    for name in ("legacy-url", "blank-legacy-url", "blank-file"):
         require(all(by_id[f"lp05-{name}"][key] == by_id["lp05-missing"][key]
                     for key in ("branch_id", "decision", "applicability", "finding")),
                 f"Legacy URL changed the LP-05 missing-expression result: {name}")

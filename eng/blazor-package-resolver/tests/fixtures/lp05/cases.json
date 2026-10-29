@@ -393,8 +393,8 @@
         "row_id": "LP-05",
         "resolver_id": "lp05-license-expression",
         "resolver_version": "1.0.0",
-        "branch_id": "malformed",
-        "decision": "escalated",
+        "branch_id": "missing-expression",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
@@ -403,16 +403,18 @@
             "sha256": "b9181f2f711faac5ce043359d01feeedcfe213f2fd489548576eb63495c046ed"
           }
         ],
-        "evidence_references": [],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
         "evidence_contract": null,
-        "finding": null,
-        "missing_fact": "The license file declaration is blank.",
-        "required_input": "corrected-nuspec",
-        "next_category": "package-owner"
+        "finding": "PackageLicenseExpression is not populated; the nuspec has no license expression.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
       "rationale": "Frozen LP-05 blank-file nuspec/availability branch; factual expression population only.",
       "evidence_pointers": [
-        "package:archive"
+        "package:nuspec/metadata"
       ]
     },
     {

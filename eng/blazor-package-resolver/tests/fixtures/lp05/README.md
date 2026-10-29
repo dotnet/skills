@@ -27,7 +27,7 @@ timestamp, compression and order; a platform-independent golden SHA-256 and
 the committed per-case digests reject host-dependent regeneration. The
 synthetic branches include expression (alone, with matching,
 conflicting or blank URL; unqualified and 2010/07 and 2011/08 namespaces),
-file, URL-only, blank-URL-only, absent expression, blank expression/file,
+file, blank-file, URL-only, blank-URL-only, absent expression, blank expression,
 missing/unsupported license type, invalid XML, duplicate license declarations,
 foreign child/root namespace, no root nuspec, multiple root nuspecs, a
 subfolder-only nuspec, DTD/entity-bearing nuspec, unreadable archive, and
@@ -37,7 +37,9 @@ foundation replay loader before row dispatch; the `no-package` case instead
 tests a valid but insufficient checked-input set. The expression finding is a
 factual population assertion, **not** a readiness status or score. Frozen
 escalations deliberately leave unsafe/ambiguous package and expression states
-unresolved; **a conflicting legacy URL is not an LP-05 conflict**.
+unresolved; **a blank license file declaration is a deterministic LP-05
+missing-expression finding**, not an LP-05 escalation. Its file metadata
+quality belongs to LP-04. A conflicting legacy URL is not an LP-05 conflict.
 
 `retained-inputs.json` binds two exact published package identities to
 environment-variable names, without checking proprietary binaries into the
