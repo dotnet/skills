@@ -6560,6 +6560,44 @@
       ]
     },
     {
+      "case_id": "lp10-xml-stylesheet-encoding-project-caller",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/xml-stylesheet-encoding-project-caller.nupkg",
+          "sha256": "c8f881a25730b7534cd72b9116dd8f48e3dc6ba9f6d97564b798d1f3999fa7c3"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/xml-stylesheet-encoding-project-caller.nupkg",
+            "sha256": "c8f881a25730b7534cd72b9116dd8f48e3dc6ba9f6d97564b798d1f3999fa7c3"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 xml-stylesheet-encoding-project-caller: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
       "case_id": "lp10-dtd-project-caller",
       "row_id": "LP-10",
       "inputs": [
