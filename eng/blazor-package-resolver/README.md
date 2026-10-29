@@ -21,8 +21,9 @@ handlers: `lp05-license-expression/1.0.0`, `lp06-repository-url/1.0.0`,
 LP-01 has a separate **Phase A expectation-only** package-license policy
 freeze at `tests/fixtures/lp01/README.md`. It pins SPDX license-list
 3.27.0 and an explicit versioned, conservative non-copyleft policy,
-66 synthetic cases/65 archives and two opt-in retained-package MIT
-classifications. This is not a production handler or a repository-wide
+85 synthetic cases/84 archives and two opt-in retained-package MIT
+classifications that **escalate** pending owner grant and release/source
+scope evidence. This is not a production handler or a repository-wide
 license verdict. LP-01 remains `tbd`; coverage remains seven implemented
 and 53 TBD. Run `python eng/blazor-package-resolver/tests/lp01_expectations.py`
 to check the frozen oracle and policy bytes without dispatching a resolver.
