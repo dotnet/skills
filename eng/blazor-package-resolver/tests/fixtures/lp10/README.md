@@ -88,7 +88,8 @@ this boundary without relaxing the UTF-16 DTD/entity safety controls.
 A nonstandard file whose `Project` root follows an otherwise valid
 processing instruction or an actual DOCTYPE/entity prolog is **not**
 passive: it escalates as incomplete/unknown, even when its only caller is
-a non-command MSBuild task. The synthetic caller controls pin both cases;
+a non-command MSBuild task. The caller controls include `<?xml-stylesheet?>`,
+which is a processing instruction, not an XML declaration;
 DOCTYPE-prefixed HTML without a `Project` root remains unsupported markup,
 even when a comment contains a decoy `<Project>` token. Root detection skips
 comments and processing instructions; `Project` strings in comments, CDATA,
@@ -200,7 +201,7 @@ and still test *uncompressed* thresholds.
 
 ## Synthetic and retained controls
 
-`cases.json` freezes **171 synthetic cases, 170 pinned input files with 170
+`cases.json` freezes **172 synthetic cases, 171 pinned input files with 171
 distinct SHA-256 identities**, and one absent-input case. The controlled
 families cover separate and mixed code (including vendor-shaped PE+JS with
 and without repository/dependency claims), executable scripts and shebangs,
