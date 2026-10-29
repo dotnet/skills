@@ -1,0 +1,4073 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp01-mit",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/mit.nupkg",
+          "sha256": "88ddfb3218961efff4c4626343a97f64c4455ed854f0a16d7c6d55ba29d7d3b9"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/mit.nupkg",
+            "sha256": "88ddfb3218961efff4c4626343a97f64c4455ed854f0a16d7c6d55ba29d7d3b9"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 mit policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-apache",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/apache.nupkg",
+          "sha256": "e3efb732b5246ebc62778c276feeb5e200e6bc809f284523a8a3446eeb6092c0"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/apache.nupkg",
+            "sha256": "e3efb732b5246ebc62778c276feeb5e200e6bc809f284523a8a3446eeb6092c0"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 apache policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-bsd",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/bsd.nupkg",
+          "sha256": "b9a73d528a9ea0ccf82c7eecb16ccdbcfdb342765f0973ccb78bfa3bbda8454d"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/bsd.nupkg",
+            "sha256": "b9a73d528a9ea0ccf82c7eecb16ccdbcfdb342765f0973ccb78bfa3bbda8454d"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 bsd policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-and-permissive",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/and-permissive.nupkg",
+          "sha256": "2621c09d563d2426d941ff1289def11af290529932160c920494a5baac4bd570"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/and-permissive.nupkg",
+            "sha256": "2621c09d563d2426d941ff1289def11af290529932160c920494a5baac4bd570"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 and-permissive policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-or-permissive",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/or-permissive.nupkg",
+          "sha256": "f0a3396f8358557f6c5bb1bbca823a4be2a2196a2540ef85eaa2a4001b154959"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/or-permissive.nupkg",
+            "sha256": "f0a3396f8358557f6c5bb1bbca823a4be2a2196a2540ef85eaa2a4001b154959"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 or-permissive policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-parenthesized",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/parenthesized.nupkg",
+          "sha256": "3bd9f3bb5f50d8468e6dfb2433fd92936f4a6f3eb4eced21138d37a4a7e08240"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/parenthesized.nupkg",
+            "sha256": "3bd9f3bb5f50d8468e6dfb2433fd92936f4a6f3eb4eced21138d37a4a7e08240"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 parenthesized policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-nested",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested.nupkg",
+          "sha256": "2b265c52867f36017585a8eee94c3439836744cb2b6030c8ca96bb4c093bcd67"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested.nupkg",
+            "sha256": "2b265c52867f36017585a8eee94c3439836744cb2b6030c8ca96bb4c093bcd67"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 nested policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-old-namespace",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/old-namespace.nupkg",
+          "sha256": "ef1f2a5eb22d6099bedf35bdc9b675af4fb26b7e96544ca1d2457cad8f3b896b"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/old-namespace.nupkg",
+            "sha256": "ef1f2a5eb22d6099bedf35bdc9b675af4fb26b7e96544ca1d2457cad8f3b896b"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 old-namespace policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-no-namespace",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-namespace.nupkg",
+          "sha256": "0eb234af63f5ce101bfb9ed54db4dc6a8a408e2109d8f140a0affa1928035d0c"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-namespace.nupkg",
+            "sha256": "0eb234af63f5ce101bfb9ed54db4dc6a8a408e2109d8f140a0affa1928035d0c"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 no-namespace policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-type-case",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/type-case.nupkg",
+          "sha256": "0cc4990628901fcece340e40c2c87e8829faa1a4f251781cbc2d0b12e747e3b6"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/type-case.nupkg",
+            "sha256": "0cc4990628901fcece340e40c2c87e8829faa1a4f251781cbc2d0b12e747e3b6"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 type-case policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-supported-version",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/supported-version.nupkg",
+          "sha256": "25c8d97dd747630588ca3c17783a739191f74367b86e9d9f464441e8b80a7cc5"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/supported-version.nupkg",
+            "sha256": "25c8d97dd747630588ca3c17783a739191f74367b86e9d9f464441e8b80a7cc5"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 supported-version policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-namespace-declaration",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-declaration.nupkg",
+          "sha256": "babb9a5797dfcfa42017e8d7f6a660ac0ba794134dabf3cbd1d98ee56dd89dd6"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-declaration.nupkg",
+            "sha256": "babb9a5797dfcfa42017e8d7f6a660ac0ba794134dabf3cbd1d98ee56dd89dd6"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 namespace-declaration policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-gpl",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/gpl.nupkg",
+          "sha256": "3116fe98f9ce22f9eafa68468a5f5d68017b261cc357c35398815f8eab936964"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/gpl.nupkg",
+            "sha256": "3116fe98f9ce22f9eafa68468a5f5d68017b261cc357c35398815f8eab936964"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a copyleft license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 gpl policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-agpl",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/agpl.nupkg",
+          "sha256": "10bb02e5f1f2b39e16ff16259ff5b746fe6ef6440d6a7a4266ebd179982ece75"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/agpl.nupkg",
+            "sha256": "10bb02e5f1f2b39e16ff16259ff5b746fe6ef6440d6a7a4266ebd179982ece75"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a copyleft license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 agpl policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-gpl-and-mit",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/gpl-and-mit.nupkg",
+          "sha256": "a1d3cc00eb76a5fdd6c1e8a68f882e39d0df035da4455333128e0046e6791107"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/gpl-and-mit.nupkg",
+            "sha256": "a1d3cc00eb76a5fdd6c1e8a68f882e39d0df035da4455333128e0046e6791107"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a copyleft license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 gpl-and-mit policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-gpl-or-agpl",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/gpl-or-agpl.nupkg",
+          "sha256": "536c268f11b0415aaaa6abc8c781ebae944e5c6271e68829f2b22e85b721cb59"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/gpl-or-agpl.nupkg",
+            "sha256": "536c268f11b0415aaaa6abc8c781ebae944e5c6271e68829f2b22e85b721cb59"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a copyleft license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 gpl-or-agpl policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-mpl",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/mpl.nupkg",
+          "sha256": "c0bbc135934051817a2981c7c414a260df3758f2bdb0535b25790b4d0a0a5123"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "weak-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/mpl.nupkg",
+            "sha256": "c0bbc135934051817a2981c7c414a260df3758f2bdb0535b25790b4d0a0a5123"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a weak-copyleft license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 mpl policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-lgpl",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/lgpl.nupkg",
+          "sha256": "faccf2e80cc8917a56109f22ac16ab67351994f2b1dbadda77880a94be7b32c4"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "weak-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/lgpl.nupkg",
+            "sha256": "faccf2e80cc8917a56109f22ac16ab67351994f2b1dbadda77880a94be7b32c4"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a weak-copyleft license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 lgpl policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-epl-and-mit",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/epl-and-mit.nupkg",
+          "sha256": "8da2a05d1f394556c3e9a08a9ee0b54338adbb9c6404ccc4748af08fabd2be93"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "weak-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/epl-and-mit.nupkg",
+            "sha256": "8da2a05d1f394556c3e9a08a9ee0b54338adbb9c6404ccc4748af08fabd2be93"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a weak-copyleft license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 epl-and-mit policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-mit-or-gpl",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/mit-or-gpl.nupkg",
+          "sha256": "4cf5b8998b229d6489eccbfb02ce6772c9b99662068bda291decc12df4aeeeb2"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "mixed-alternatives",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/mit-or-gpl.nupkg",
+            "sha256": "4cf5b8998b229d6489eccbfb02ce6772c9b99662068bda291decc12df4aeeeb2"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "An OR alternative is not established as OSI-approved and non-copyleft.",
+        "required_input": "binding-license-choice",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 mit-or-gpl policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-mit-or-mpl",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/mit-or-mpl.nupkg",
+          "sha256": "98640518f4bfc0332d0ba8b7991fe49687c8f93b5820f8692bb9518c2be887f8"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "mixed-alternatives",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/mit-or-mpl.nupkg",
+            "sha256": "98640518f4bfc0332d0ba8b7991fe49687c8f93b5820f8692bb9518c2be887f8"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "An OR alternative is not established as OSI-approved and non-copyleft.",
+        "required_input": "binding-license-choice",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 mit-or-mpl policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-cc0",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/cc0.nupkg",
+          "sha256": "407002c3f407e658ebdf9a50b154ed2a3022b999d189346e41f6cebf32d46428"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "non-osi",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/cc0.nupkg",
+            "sha256": "407002c3f407e658ebdf9a50b154ed2a3022b999d189346e41f6cebf32d46428"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a non-osi license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 cc0 policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-mit-and-cc0",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/mit-and-cc0.nupkg",
+          "sha256": "7c57b1140ae98a8e61a9cbfd908e163bb0fdb6b2426d7ea6a29af809ac1f578a"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "non-osi",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/mit-and-cc0.nupkg",
+            "sha256": "7c57b1140ae98a8e61a9cbfd908e163bb0fdb6b2426d7ea6a29af809ac1f578a"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a non-osi license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 mit-and-cc0 policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-mit-or-cc0",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/mit-or-cc0.nupkg",
+          "sha256": "9f18e89e3064999bd1a07a6b178e7cdc303bde8c415f50871883dcdd994ca77d"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "mixed-alternatives",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/mit-or-cc0.nupkg",
+            "sha256": "9f18e89e3064999bd1a07a6b178e7cdc303bde8c415f50871883dcdd994ca77d"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "An OR alternative is not established as OSI-approved and non-copyleft.",
+        "required_input": "binding-license-choice",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 mit-or-cc0 policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-osi-unclassified",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/osi-unclassified.nupkg",
+          "sha256": "1022a973c4c3673b91526a6a99f7c8e9cb57a569fc4035f7f3ad9105d9532707"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unclassified-osi",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/osi-unclassified.nupkg",
+            "sha256": "1022a973c4c3673b91526a6a99f7c8e9cb57a569fc4035f7f3ad9105d9532707"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "SPDX marks the identifier OSI-approved but this policy does not classify its copyleft obligations.",
+        "required_input": "reviewed-copyleft-classification",
+        "next_category": "policy-owner"
+      },
+      "rationale": "Frozen LP-01 osi-unclassified policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-custom",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/custom.nupkg",
+          "sha256": "3271c668c166e469d85025a77b7f9ecdfe9e5270c8fe7e2f83e5f8dedb2d31ad"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "custom-license",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/custom.nupkg",
+            "sha256": "3271c668c166e469d85025a77b7f9ecdfe9e5270c8fe7e2f83e5f8dedb2d31ad"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A custom LicenseRef has no pinned OSI/copy-left classification.",
+        "required_input": "reviewed-custom-license",
+        "next_category": "policy-owner"
+      },
+      "rationale": "Frozen LP-01 custom policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-exception",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/exception.nupkg",
+          "sha256": "fefad0e8a21e2408d4798f5940bd09e13a2594c7291df268c6b0f40a15ee62d7"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "exception-unreviewed",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/exception.nupkg",
+            "sha256": "fefad0e8a21e2408d4798f5940bd09e13a2594c7291df268c6b0f40a15ee62d7"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "WITH exception semantics have no pinned policy classification.",
+        "required_input": "reviewed-exception-policy",
+        "next_category": "policy-owner"
+      },
+      "rationale": "Frozen LP-01 exception policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-unknown",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unknown.nupkg",
+          "sha256": "485a40c609708e6d27b3a8e4f57ba8ccc0dba87fc65be59870f9340e11ebb10b"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unknown-license",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unknown.nupkg",
+            "sha256": "485a40c609708e6d27b3a8e4f57ba8ccc0dba87fc65be59870f9340e11ebb10b"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The identifier is not an exact SPDX 3.27.0 license ID.",
+        "required_input": "corrected-spdx-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 unknown policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-deprecated",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/deprecated.nupkg",
+          "sha256": "fba3a48cefc96d6300692fc3d6a2d2becc8dbcd360da50125b8920d2ef3cb83b"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "deprecated-license",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/deprecated.nupkg",
+            "sha256": "fba3a48cefc96d6300692fc3d6a2d2becc8dbcd360da50125b8920d2ef3cb83b"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Deprecated SPDX spelling cannot be silently normalized.",
+        "required_input": "current-spdx-expression-and-owner-confirmation",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 deprecated policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-case-sensitive",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/case-sensitive.nupkg",
+          "sha256": "546e554ab9e932c35eb5d90f903e5898e769c259f7b0103ebea820ed3ed888ee"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unknown-license",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/case-sensitive.nupkg",
+            "sha256": "546e554ab9e932c35eb5d90f903e5898e769c259f7b0103ebea820ed3ed888ee"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The identifier is not an exact SPDX 3.27.0 license ID.",
+        "required_input": "corrected-spdx-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 case-sensitive policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-plus-suffix",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/plus-suffix.nupkg",
+          "sha256": "7bab9a95b719bd7b6ad6fac998089cd064e4ee2824e8d18ce8280d63c86a0fe6"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "deprecated-license",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/plus-suffix.nupkg",
+            "sha256": "7bab9a95b719bd7b6ad6fac998089cd064e4ee2824e8d18ce8280d63c86a0fe6"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Deprecated SPDX spelling cannot be silently normalized.",
+        "required_input": "current-spdx-expression-and-owner-confirmation",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 plus-suffix policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-bad-operator",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/bad-operator.nupkg",
+          "sha256": "62d3cdc91b8f582fa12ed0e58d403c6de72be181c5e76f8f9dd426249793d85d"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-expression",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/bad-operator.nupkg",
+            "sha256": "62d3cdc91b8f582fa12ed0e58d403c6de72be181c5e76f8f9dd426249793d85d"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The expression is not valid under the frozen SPDX expression grammar.",
+        "required_input": "corrected-spdx-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 bad-operator policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-missing-operand",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/missing-operand.nupkg",
+          "sha256": "f4fbdff0c20637ce92a55624a381d74a49528d93afc8c3e7d7d97e529bc6ce82"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-expression",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/missing-operand.nupkg",
+            "sha256": "f4fbdff0c20637ce92a55624a381d74a49528d93afc8c3e7d7d97e529bc6ce82"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The expression is not valid under the frozen SPDX expression grammar.",
+        "required_input": "corrected-spdx-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 missing-operand policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-unclosed-group",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unclosed-group.nupkg",
+          "sha256": "ce7606685ba4fdd7e9a00ec2c3e88f5a6b370f706b5fe244118dc3fae2028784"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-expression",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unclosed-group.nupkg",
+            "sha256": "ce7606685ba4fdd7e9a00ec2c3e88f5a6b370f706b5fe244118dc3fae2028784"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The expression is not valid under the frozen SPDX expression grammar.",
+        "required_input": "corrected-spdx-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 unclosed-group policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-blank-expression",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/blank-expression.nupkg",
+          "sha256": "85a09106133150514b1e8e6b3250020489cf8aab54523832c491353dd9a353df"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-expression",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/blank-expression.nupkg",
+            "sha256": "85a09106133150514b1e8e6b3250020489cf8aab54523832c491353dd9a353df"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The expression is not valid under the frozen SPDX expression grammar.",
+        "required_input": "corrected-spdx-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 blank-expression policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-file-only",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/file-only.nupkg",
+          "sha256": "76151e1ba8534a627c3c08b31509376517fa7633953cd41cc70a77b7641c5762"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "file-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/file-only.nupkg",
+            "sha256": "76151e1ba8534a627c3c08b31509376517fa7633953cd41cc70a77b7641c5762"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A license file declaration without an unambiguous in-package SPDX identifier cannot establish its policy classification.",
+        "required_input": "owner-verified-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 file-only policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-file-declared",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/file-declared.nupkg",
+          "sha256": "d691d3484dce4bd92ff47145d2ced39c973dfd6d8cdf9dba41d1d08ac459e4fa"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "file-declared",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/file-declared.nupkg",
+            "sha256": "d691d3484dce4bd92ff47145d2ced39c973dfd6d8cdf9dba41d1d08ac459e4fa"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:LICENSE.txt",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Packaged license file explicitly declares MIT, classified OSI-approved and non-copyleft by pinned LP-01 policy; owner authority and repository-wide grant remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 file-declared policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:LICENSE.txt",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-file-missing",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/file-missing.nupkg",
+          "sha256": "0944ea7ac199e23610ecd2f9a438698a7be93fd0014251b58451ba885c0be583"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "file-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/file-missing.nupkg",
+            "sha256": "0944ea7ac199e23610ecd2f9a438698a7be93fd0014251b58451ba885c0be583"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A license file declaration without an unambiguous in-package SPDX identifier cannot establish its policy classification.",
+        "required_input": "owner-verified-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 file-missing policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-file-blank",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/file-blank.nupkg",
+          "sha256": "c2d9bc506ade21764994c89af300c255420793d2bccb62b265fc9ff326b6fe2e"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "file-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/file-blank.nupkg",
+            "sha256": "c2d9bc506ade21764994c89af300c255420793d2bccb62b265fc9ff326b6fe2e"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A license file declaration without an unambiguous in-package SPDX identifier cannot establish its policy classification.",
+        "required_input": "owner-verified-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 file-blank policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-file-unsafe-path",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/file-unsafe-path.nupkg",
+          "sha256": "c1df1cbeddc136c32d93ee53aa2fef8988611d080429caf8e79ce19fd68743c8"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "file-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/file-unsafe-path.nupkg",
+            "sha256": "c1df1cbeddc136c32d93ee53aa2fef8988611d080429caf8e79ce19fd68743c8"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A license file declaration without an unambiguous in-package SPDX identifier cannot establish its policy classification.",
+        "required_input": "owner-verified-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 file-unsafe-path policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-expression-file-match",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-file-match.nupkg",
+          "sha256": "0978b63253bb751ea79fce47d60295a7d20e26551e81463b8631d0f29001eef8"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-file-match.nupkg",
+            "sha256": "0978b63253bb751ea79fce47d60295a7d20e26551e81463b8631d0f29001eef8"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 expression-file-match policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-expression-file-conflict",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-file-conflict.nupkg",
+          "sha256": "fe663b4b23710307239e6c7a2ba8dcda766ee9f0db6405eebe76f72a6d95cc5f"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "conflicting-declarations",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-file-conflict.nupkg",
+            "sha256": "fe663b4b23710307239e6c7a2ba8dcda766ee9f0db6405eebe76f72a6d95cc5f"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:LICENSE.txt",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec expression and packaged explicit SPDX identifier conflict.",
+        "required_input": "reconciled-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 expression-file-conflict policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:LICENSE.txt",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-url-only",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/url-only.nupkg",
+          "sha256": "c9d18ad25d51977324605c824629777656cd66bdb7b5867bf1141f12b2d17fb6"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-license",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/url-only.nupkg",
+            "sha256": "c9d18ad25d51977324605c824629777656cd66bdb7b5867bf1141f12b2d17fb6"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "No authoritative license expression or supported file declaration was supplied.",
+        "required_input": "license-grant-and-owner-confirmation",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 url-only policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp01-expression-url",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-url.nupkg",
+          "sha256": "8ef51522d73ad28479df89c2250be30d3d39e81f7ac5fb8ffb4effebe808f12b"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-url.nupkg",
+            "sha256": "8ef51522d73ad28479df89c2250be30d3d39e81f7ac5fb8ffb4effebe808f12b"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 expression-url policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-expression-url-different",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-url-different.nupkg",
+          "sha256": "cfaffac74c1270820c78e0e96acc5d03b3c548b6256b8a9aeef5441bb24fe5a4"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-url-different.nupkg",
+            "sha256": "cfaffac74c1270820c78e0e96acc5d03b3c548b6256b8a9aeef5441bb24fe5a4"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-01 expression-url-different policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-missing",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/missing.nupkg",
+          "sha256": "04dcbfbc80c62da4bd36a794273a7c6da4a874869b25e84a4772d38ec888b779"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-license",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/missing.nupkg",
+            "sha256": "04dcbfbc80c62da4bd36a794273a7c6da4a874869b25e84a4772d38ec888b779"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "No authoritative license expression or supported file declaration was supplied.",
+        "required_input": "license-grant-and-owner-confirmation",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 missing policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp01-unsupported-type",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unsupported-type.nupkg",
+          "sha256": "59c892485d56818b14b41f29c754f8cb9da175159ab1b887f09618e4cb8a9758"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-metadata",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unsupported-type.nupkg",
+            "sha256": "59c892485d56818b14b41f29c754f8cb9da175159ab1b887f09618e4cb8a9758"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "License metadata is malformed, unsupported or ambiguous.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 unsupported-type policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-duplicate-license",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-license.nupkg",
+          "sha256": "b9bb3c697aadf2b7c931fb353a78d8ec784db30aa2cfc06a3798ae0e66fded31"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-metadata",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-license.nupkg",
+            "sha256": "b9bb3c697aadf2b7c931fb353a78d8ec784db30aa2cfc06a3798ae0e66fded31"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "License metadata is malformed, unsupported or ambiguous.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 duplicate-license policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-foreign-license",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-license.nupkg",
+          "sha256": "ce1d1763012bdabe397b4d6528379917311dd297280a2d5bd640d129a9dbe4a8"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-metadata",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-license.nupkg",
+            "sha256": "ce1d1763012bdabe397b4d6528379917311dd297280a2d5bd640d129a9dbe4a8"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "License metadata is malformed, unsupported or ambiguous.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 foreign-license policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-version-newer",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/version-newer.nupkg",
+          "sha256": "7ef5b0c5cefbe5b586dfe626b52681bc98a2995b69f87084cec92665e0827687"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-metadata",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/version-newer.nupkg",
+            "sha256": "7ef5b0c5cefbe5b586dfe626b52681bc98a2995b69f87084cec92665e0827687"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "License metadata is malformed, unsupported or ambiguous.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 version-newer policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-unknown-attribute",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unknown-attribute.nupkg",
+          "sha256": "0a40143c57a8bfc498e02b96d29518ea519f203b1ce4ae9c4160597a949b0480"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-metadata",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unknown-attribute.nupkg",
+            "sha256": "0a40143c57a8bfc498e02b96d29518ea519f203b1ce4ae9c4160597a949b0480"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "License metadata is malformed, unsupported or ambiguous.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 unknown-attribute policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-invalid-xml",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-xml.nupkg",
+          "sha256": "4dc75724dd480802a485afa7dd1db68239d04c16e9c484092071a0dda70a03eb"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-xml.nupkg",
+            "sha256": "4dc75724dd480802a485afa7dd1db68239d04c16e9c484092071a0dda70a03eb"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Package or nuspec cannot be safely and unambiguously inspected.",
+        "required_input": "valid-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 invalid-xml policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp01-dtd-entity",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/dtd-entity.nupkg",
+          "sha256": "ef6b71ab8f3c777e80e0d157c84a76cf76456c928dbaa6869787b1a2a3d39780"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/dtd-entity.nupkg",
+            "sha256": "ef6b71ab8f3c777e80e0d157c84a76cf76456c928dbaa6869787b1a2a3d39780"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Package or nuspec cannot be safely and unambiguously inspected.",
+        "required_input": "valid-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 dtd-entity policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-foreign-root",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-root.nupkg",
+          "sha256": "f4813539a7a3a6d7d6be59e0a136367fdd2e0f44805824b3c28358939ade892f"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-root.nupkg",
+            "sha256": "f4813539a7a3a6d7d6be59e0a136367fdd2e0f44805824b3c28358939ade892f"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Package or nuspec cannot be safely and unambiguously inspected.",
+        "required_input": "valid-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 foreign-root policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-foreign-metadata",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata.nupkg",
+          "sha256": "8f6eff8c92afcbe4ada2fcb694988073246f5357e79890d1da9e4c574b6c13c8"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata.nupkg",
+            "sha256": "8f6eff8c92afcbe4ada2fcb694988073246f5357e79890d1da9e4c574b6c13c8"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Package or nuspec cannot be safely and unambiguously inspected.",
+        "required_input": "valid-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 foreign-metadata policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-foreign-metadata-after",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata-after.nupkg",
+          "sha256": "d73b8a0f6043bd610329e9712f88e7fda80d8b46a8a34dde4f34212ed35d7f9e"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata-after.nupkg",
+            "sha256": "d73b8a0f6043bd610329e9712f88e7fda80d8b46a8a34dde4f34212ed35d7f9e"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Package or nuspec cannot be safely and unambiguously inspected.",
+        "required_input": "valid-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 foreign-metadata-after policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-no-nuspec",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-nuspec.nupkg",
+          "sha256": "7ee39fccaaf93411c158aa8f3a2953ec2b7c071ce48b06cb3c18564a79d2ad0d"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-nuspec.nupkg",
+            "sha256": "7ee39fccaaf93411c158aa8f3a2953ec2b7c071ce48b06cb3c18564a79d2ad0d"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Package or nuspec cannot be safely and unambiguously inspected.",
+        "required_input": "valid-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 no-nuspec policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-multiple-nuspec",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/multiple-nuspec.nupkg",
+          "sha256": "e1e14f8f52203bcd2830a81b23a9d5798dfb691b2a9814c3cdeb6c847204ea26"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/multiple-nuspec.nupkg",
+            "sha256": "e1e14f8f52203bcd2830a81b23a9d5798dfb691b2a9814c3cdeb6c847204ea26"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Package or nuspec cannot be safely and unambiguously inspected.",
+        "required_input": "valid-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 multiple-nuspec policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-subfolder-nuspec",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/subfolder-nuspec.nupkg",
+          "sha256": "143742c1363a4b7033763773c10eecd68c913e5dbc8c6cdd258f522f4c63c964"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/subfolder-nuspec.nupkg",
+            "sha256": "143742c1363a4b7033763773c10eecd68c913e5dbc8c6cdd258f522f4c63c964"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Package or nuspec cannot be safely and unambiguously inspected.",
+        "required_input": "valid-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 subfolder-nuspec policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-corrupt-archive",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/corrupt-archive.nupkg",
+          "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/corrupt-archive.nupkg",
+            "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Package or nuspec cannot be safely and unambiguously inspected.",
+        "required_input": "valid-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 corrupt-archive policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp01-no-package",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Checked package bytes were not supplied.",
+        "required_input": "package",
+        "next_category": "input-owner"
+      },
+      "rationale": "Frozen LP-01 no-package policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0"
+      ]
+    },
+    {
+      "case_id": "lp01-no-policy",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-policy.nupkg",
+          "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-policy",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-policy.nupkg",
+            "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Pinned LP-01 policy is missing.",
+        "required_input": "pinned-license-policy",
+        "next_category": "policy-owner"
+      },
+      "rationale": "Frozen LP-01 no-policy policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-no-corpus",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-corpus.nupkg",
+          "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-corpus",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-corpus.nupkg",
+            "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Pinned SPDX license catalog is missing.",
+        "required_input": "pinned-spdx-catalog",
+        "next_category": "policy-owner"
+      },
+      "rationale": "Frozen LP-01 no-corpus policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-policy-version-mismatch",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/policy-version-mismatch.nupkg",
+          "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+        },
+        {
+          "role": "policy",
+          "path": "policy/policy-version-mismatch.json",
+          "sha256": "0a6bd602e031b617a73fbf18c0cb315d0fe1197ec4cb55c60947af51d080dc8a"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-policy",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/policy-version-mismatch.nupkg",
+            "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+          },
+          {
+            "role": "policy",
+            "path": "policy/policy-version-mismatch.json",
+            "sha256": "0a6bd602e031b617a73fbf18c0cb315d0fe1197ec4cb55c60947af51d080dc8a"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Pinned LP-01 policy and SPDX catalog are inconsistent.",
+        "required_input": "consistent-pinned-license-policy",
+        "next_category": "policy-owner"
+      },
+      "rationale": "Frozen LP-01 policy-version-mismatch policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-policy-overlap",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/policy-overlap.nupkg",
+          "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+        },
+        {
+          "role": "policy",
+          "path": "policy/policy-overlap.json",
+          "sha256": "e0d77b853d7dfffe0a11b321c3d717ec9e6b40762156a45404e88b0a23344b49"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-policy",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/policy-overlap.nupkg",
+            "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+          },
+          {
+            "role": "policy",
+            "path": "policy/policy-overlap.json",
+            "sha256": "e0d77b853d7dfffe0a11b321c3d717ec9e6b40762156a45404e88b0a23344b49"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Pinned LP-01 policy and SPDX catalog are inconsistent.",
+        "required_input": "consistent-pinned-license-policy",
+        "next_category": "policy-owner"
+      },
+      "rationale": "Frozen LP-01 policy-overlap policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-catalog-version-mismatch",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/catalog-version-mismatch.nupkg",
+          "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/catalog-version-mismatch.json",
+          "sha256": "ccc991c7b802abb7e590e0725f52dc0ad33cd34b8e14c442dd4ff33ab4667be2"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-policy",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/catalog-version-mismatch.nupkg",
+            "sha256": "100666490da0963232d364198ddddeaaa304520afb68187f1f91356e2bea7c44"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/catalog-version-mismatch.json",
+            "sha256": "ccc991c7b802abb7e590e0725f52dc0ad33cd34b8e14c442dd4ff33ab4667be2"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Pinned LP-01 policy and SPDX catalog are inconsistent.",
+        "required_input": "consistent-pinned-license-policy",
+        "next_category": "policy-owner"
+      },
+      "rationale": "Frozen LP-01 catalog-version-mismatch policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    }
+  ]
+}
