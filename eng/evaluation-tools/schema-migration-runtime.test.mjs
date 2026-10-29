@@ -137,6 +137,31 @@ test("testing diagnosis dormancy survives the Vally runtime loader", async () =>
   assert.equal(item.tags.expect_activation, "false");
 });
 
+test("testing diagnosis output grader uses portable flags and preserves matching", async () => {
+  const spec = await loadEvalSpec(join("tests", "dotnet-test", "code-testing", "eval.yaml"));
+  const item = spec.stimuli.find(
+    (entry) => entry.name === "Retain a correct failing regression when production violates its contract",
+  );
+  assert.ok(item);
+  const grader = item.graders.find((entry) => entry.type === "output-matches");
+  assert.ok(grader);
+  assert.doesNotMatch(grader.config.pattern, /\(\?[ims-]+:/);
+  for (const [output, expected] of [
+    ["Production has a boundary defect at 10.", true],
+    ["The implementation is wrong at the inclusive boundary.", true],
+    ["This CONTRADICTS the documented contract.", true],
+    ["All tests passed without any problem.", false],
+    ["No changes were made.", false],
+  ]) {
+    const result = await gradeTrajectory(
+      { ...trajectory(), output },
+      [grader],
+      { stimulus: item },
+    );
+    assert.equal(result.passed, expected, output);
+  }
+});
+
 test("skill-invocation required list affects trajectory results", async () => {
   const required = {
     type: "skill-invocation",
