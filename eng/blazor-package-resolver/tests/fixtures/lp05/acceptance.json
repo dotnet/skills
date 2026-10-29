@@ -32,7 +32,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "The confirmed corrected package report cites the exact nuspec entry and its embedded SHA-256; independently inspected archived nuspec declares a nonblank MIT expression with a compatible legacy URL.",
+      "rationale": "The confirmed corrected package report cites the exact nuspec entry and its embedded SHA-256; independently inspected archived nuspec declares a nonblank MIT expression. The accompanying licenseUrl does not affect LP-05.",
       "evidence_pointers": ["package:nuspec/license"]
     },
     {
@@ -66,7 +66,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "New LP-05 expectation independently derived from the exact retained IgbCheckbox baseline package bytes and confirmed package manifest, NOT from a prior package assessment; its component report has no LP-05 authority.",
+      "rationale": "New LP-05 expectation derived from the nonblank MIT expression in exact retained IgbCheckbox baseline package bytes and confirmed package manifest, NOT from a prior package assessment; its component report and accompanying licenseUrl have no LP-05 authority.",
       "evidence_pointers": ["package:nuspec/license"]
     }
   ]
