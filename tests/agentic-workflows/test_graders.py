@@ -97,17 +97,21 @@ def case_path(case):
     return ROOT / PACKAGES[suite] / "fixtures" / name
 
 
-def evaluator_options(case):
+def evaluator_command(case):
     prefix, name = case.split("/")
     document = yaml.safe_load((ROOT / PACKAGES[prefix] / "eval.yaml").read_text(encoding="utf-8"))
     for stimulus in document["stimuli"]:
         fixture = next(item for item in stimulus["environment"]["files"] if item["dest"] == "inputs")
         if Path(fixture["src"]).name == name:
-            command = next(item["config"]["command"] for item in stimulus["graders"] if item["type"] == "run-command")
-            argument_text = command[command.index(" --expected-action "):]
-            tokens = [match[1] if match[1] is not None else match[2] for match in re.finditer(r'"([^"]*)"|(\S+)', argument_text)]
-            return GRADER.parse_options(tokens)
+            return next(item["config"]["command"] for item in stimulus["graders"] if item["type"] == "run-command")
     raise ValueError(f"Missing evaluator command for {case}")
+
+
+def evaluator_options(case):
+    command = evaluator_command(case)
+    argument_text = command[command.index(" --expected-action "):]
+    tokens = [match[1] if match[1] is not None else match[2] for match in re.finditer(r'"([^"]*)"|(\S+)', argument_text)]
+    return GRADER.parse_options(tokens)
 
 
 OPTIONS = {case: evaluator_options(case) for case in REASONS}
@@ -173,6 +177,13 @@ class GraderTests(unittest.TestCase):
         self.stage(case, result)
         with self.assertRaises((ValueError, TypeError, KeyError, OSError)):
             GRADER.validate_result(self.root, OPTIONS[case])
+
+    def run_shipping_grader(self, case, result):
+        self.stage(case, result)
+        staged = self.root / ".eval" / "check_result.py"
+        staged.parent.mkdir(exist_ok=True)
+        shutil.copyfile(ROOT / "graders" / "check_result.py", staged)
+        return subprocess.run(evaluator_command(case), shell=True, cwd=self.root, capture_output=True, text=True)
 
     def test_all_43_positive_outcomes(self):
         self.assertEqual(43, len(REASONS))
@@ -376,6 +387,209 @@ class GraderTests(unittest.TestCase):
             result["reason"] = reason
             self.stage(case, result)
             GRADER.validate_result(self.root, OPTIONS[case])
+
+    def test_recorded_equivalent_noops_pass_the_shipping_grader(self):
+        examples = {
+            "test/stale": [
+                "The latest PR read has head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and merge revision cccccccccccccccccccccccccccccccccccccccc, but the evidence tested SHA is bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb. The tested revision is no longer the current head or merge revision, so no visible result is safe.",
+                "Fail closed because the tested revision bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb matches neither the current PR head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa nor its merge commit cccccccccccccccccccccccccccccccccccccccc.",
+                "The tested revision does not equal the current merge commit.",
+            ],
+            "unskip/stale": [
+                "No candidate is safe to attempt because the manifest source_commit does not match the trusted source commit.",
+            ],
+            "test/empty": [
+                "Collector evidence is complete (metadata.json completeness.complete=true, all categories 'complete', no reasons) but lists zero evidence files (files: []). There are no failure, retry, hang, crash, or duration-regression records to analyze, so no visible comment is justified.",
+                "There are zero qualifying evidence records to cite. This is distinct from an affirmative 'all tests passed' signal: the collector supplies no record file at all.",
+                "No qualifying records were collected; this is not an explicit **all tests passed** result.",
+            ],
+        }
+        for case, reasons in examples.items():
+            for reason in reasons:
+                with self.subTest(case=case, reason=reason):
+                    result = good_result(case)
+                    result["reason"] = reason
+                    checked = self.run_shipping_grader(case, result)
+                    self.assertEqual(0, checked.returncode, checked.stderr)
+                    self.assertRegex(checked.stdout, "^PASS:")
+                    result["action"] = "comment"
+                    self.reject(case, result)
+
+    def test_revision_and_empty_noops_still_require_relevant_explanations(self):
+        for case, reason in (
+            ("test/stale", "The current revision is ready."),
+            ("unskip/stale", "The source commit is ready."),
+            ("test/empty", "The evidence is available."),
+            ("test/empty", "No-op: the collector recorded one failure record, but I chose not to report it."),
+            ("test/empty", "No visible update: one failure record is present."),
+        ):
+            with self.subTest(case=case):
+                result = good_result(case)
+                result["reason"] = reason
+                self.reject(case, result)
+
+    def test_empty_bundle_requires_aggregate_absence_through_shipping_command(self):
+        for reason in (
+            "No failure analysis was performed.",
+            "No crash records exist, but the collector recorded one failure record. I chose not to report it.",
+            "No failure records exist.",
+            "No failure, retry, hang, or crash records exist.",
+            "No records were omitted from the complete collector bundle; the collector recorded one failure record, but I chose not to report it.",
+            "No failure, retry, hang, crash, or duration-regression records were omitted from the complete bundle.",
+            "No records were omitted from the complete bundle.",
+            "No records were collected; the collector recorded one failure record.",
+            "No failure, retry, hang, crash, or duration-regression records exist; one failure record is present.",
+            "No records were collected; one failure record exists.",
+            "No records were collected; one failure record was omitted.",
+        ):
+            with self.subTest(reason=reason):
+                result = good_result("test/empty")
+                result["reason"] = reason
+                checked = self.run_shipping_grader("test/empty", result)
+                self.assertNotEqual(0, checked.returncode)
+                self.assertRegex(checked.stderr, "Missing whole-bundle record absence|Claimed positive records")
+        for reason in (
+            "No qualifying findings were collected; no preliminary response needs replacement.",
+            "No qualifying test records were collected; the metadata files array is empty. This does not prove that all tests passed.",
+            "No qualifying records were collected; the metadata files array is empty. This does not prove that all tests passed.",
+            "No\nqualifying findings were collected; no preliminary response needs replacement.",
+            "No \r\n **qualifying findings** were collected; no preliminary response needs replacement.",
+            "No failure, retry, hang, crash, or duration-regression records exist.",
+            "There are no qualifying failure, retry, hang, crash, or duration-regression records to report, and no prior comment to update.",
+            "Zero failures/retries/hangs/crashes/durations records are present.",
+        ):
+            with self.subTest(reason=reason):
+                result = good_result("test/empty")
+                result["reason"] = reason
+                checked = self.run_shipping_grader("test/empty", result)
+                self.assertEqual(0, checked.returncode, checked.stderr)
+                self.assertRegex(checked.stdout, "^PASS:")
+        result = good_result("test/empty")
+        result["limitations"] = ["The collector recorded one failure record."]
+        checked = self.run_shipping_grader("test/empty", result)
+        self.assertNotEqual(0, checked.returncode)
+        self.assertIn("Claimed positive records", checked.stderr)
+        result["limitations"] = ["Not one failure record exists."]
+        checked = self.run_shipping_grader("test/empty", result)
+        self.assertEqual(0, checked.returncode, checked.stderr)
+
+    def test_empty_bundle_denials_are_scoped_to_each_shipping_assertion(self):
+        absence = "No records were collected."
+        denials = (
+            "Not one failure record is present.",
+            "It is not true that a failure record is present.",
+            "There is no evidence that the collector recorded one failure record.",
+            "It is not true that the collector recorded one failure record.",
+            "There is no evidence that one failure record is present.",
+            "No evidence file contains a failure record.",
+            "No collector recorded a failure record.",
+        )
+        for denial in denials:
+            for field in ("reason", "limitations"):
+                with self.subTest(denial=denial, field=field):
+                    result = good_result("test/empty")
+                    result["reason"] = absence
+                    if field == "reason":
+                        result["reason"] += " " + denial
+                    else:
+                        result["limitations"] = [denial]
+                    checked = self.run_shipping_grader("test/empty", result)
+                    self.assertEqual(0, checked.returncode, checked.stderr)
+                    for affirmative in (
+                        "The collector recorded one failure record.",
+                        "One failure record is present.",
+                    ):
+                        for separator in (" ", "; ", ", but ", " and "):
+                            result[field] = (
+                                absence + " " + denial + separator + affirmative
+                                if field == "reason" else [denial + separator + affirmative]
+                            )
+                            checked = self.run_shipping_grader("test/empty", result)
+                            self.assertNotEqual(0, checked.returncode)
+                            self.assertIn("Claimed positive records", checked.stderr)
+                    result["reason"] = absence + " " + denial
+                    result["limitations"] = ["One failure record is present."]
+                    checked = self.run_shipping_grader("test/empty", result)
+                    self.assertNotEqual(0, checked.returncode)
+                    self.assertIn("Claimed positive records", checked.stderr)
+
+    def test_whole_bundle_records_to_report_is_explicit_absence(self):
+        for reason in (
+            "No qualifying records to report; no preliminary response needs replacement. This does not prove that all tests passed.",
+            "No qualifying test records to report.",
+            "No records to cite.",
+            "No failure, retry, hang, crash, or duration-regression records to analyze.",
+        ):
+            with self.subTest(reason=reason):
+                result = good_result("test/empty")
+                result["reason"] = reason
+                checked = self.run_shipping_grader("test/empty", result)
+                self.assertEqual(0, checked.returncode, checked.stderr)
+                result["reason"] += " The collector recorded one failure record."
+                checked = self.run_shipping_grader("test/empty", result)
+                self.assertNotEqual(0, checked.returncode)
+                self.assertIn("Claimed positive records", checked.stderr)
+
+    def test_explicit_denials_are_not_passing_test_claims(self):
+        for denial in (
+            "This is not an explicit 'all tests passed' result.",
+            "This is distinct from an affirmative 'all tests passed' signal.",
+            "The evidence does not prove that all tests passed.",
+            "We cannot conclude all tests passed.",
+            "'All tests passed' is not established.",
+            "We cannot conclude \u2018all tests passed\u2019.",
+            "We cannot conclude \u201call tests passed\u201d.",
+            "We cannot conclude **all tests passed**.",
+            "We cannot conclude *all tests passed*.",
+            "We cannot conclude __all tests passed__.",
+            "We cannot conclude `all tests passed`.",
+            "\u201cAll tests passed\u201d is not established.",
+            "**All tests passed** is not established.",
+            "There is no evidence that all tests passed.",
+            "There is no proof that **all tests passed**.",
+        ):
+            for key in ("reason", "body", "limitations", "summary", "next_step"):
+                with self.subTest(denial=denial, key=key):
+                    result = good_result("test/retry")
+                    if key in ("reason", "body"):
+                        result[key] += " " + denial
+                    elif key == "limitations":
+                        result[key].append(denial)
+                    else:
+                        result["findings"][0][key] += " " + denial
+                    self.stage("test/retry", result)
+                    GRADER.validate_result(self.root, OPTIONS["test/retry"])
+
+    def test_denial_does_not_mask_an_actual_success_claim(self):
+        claims = (
+            "All tests passed.",
+            "'All tests passed'.",
+            "Not only all tests passed, tests are clean.",
+            "We cannot conclude all tests passed, but all tests passed.",
+            "This is distinct from an affirmative 'all tests passed' signal. Tests are fixed.",
+            "'All tests passed' is not established; no historical recurrence.",
+            "There is no evidence that all tests passed. **All tests passed**.",
+            "We cannot conclude \u201call tests passed\u201d, but \u201call tests passed\u201d.",
+            "\u201cAll tests passed\u201d is not established. Tests are clean.",
+            "There is no evidence that some tests passed. All tests passed.",
+        )
+        for claim in claims:
+            for key in ("reason", "body", "limitations", "summary", "next_step"):
+                with self.subTest(claim=claim, key=key):
+                    result = good_result("test/retry")
+                    if key in ("reason", "body"):
+                        result[key] += " " + claim
+                    elif key == "limitations":
+                        result[key].append(claim)
+                    else:
+                        result["findings"][0][key] += " " + claim
+                    self.reject("test/retry", result)
+        result = good_result("test/empty")
+        result["reason"] += " This does not prove that all tests passed."
+        result["limitations"] = ["All tests passed."]
+        checked = self.run_shipping_grader("test/empty", result)
+        self.assertNotEqual(0, checked.returncode)
+        self.assertIn("Unsupported test-success claim", checked.stderr)
 
     def test_selection_metadata_keeps_identity_and_evidence_strict(self):
         for case in ("unskip/completed", "unskip/merged", "unskip/class", "unskip/modules", "unskip/zero"):
