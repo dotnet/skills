@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp06-retained-syncfusion",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+          "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+            "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://github.com/syncfusion/blazor-toolkit.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Expected URL independently read from the SHA-256-verified retained nuspec; not a prior assessment verdict.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-retained-infragistics",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+          "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+            "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://github.com/IgniteUI/igniteui-blazor.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Expected URL independently read from the SHA-256-verified retained nuspec; not a prior assessment verdict.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    }
+  ]
+}

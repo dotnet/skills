@@ -1,0 +1,1143 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp06-url",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/url.nupkg",
+          "sha256": "803dc6905abd0081a64175994ba1e0bcdfff57d8e3337a8f72fc99435d2badee"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/url.nupkg",
+            "sha256": "803dc6905abd0081a64175994ba1e0bcdfff57d8e3337a8f72fc99435d2badee"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 url: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-unqualified",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unqualified.nupkg",
+          "sha256": "9ae0e58365004f025e82992937e0b7fa0139d3ab72a1662e6ee29d3c95b647ea"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unqualified.nupkg",
+            "sha256": "9ae0e58365004f025e82992937e0b7fa0139d3ab72a1662e6ee29d3c95b647ea"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 unqualified: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-namespace-2010-07",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2010-07.nupkg",
+          "sha256": "420c42246c9b5f7ace2a7b7eee406276bc35ed5f3d03b2b3c3f509c7d3d0d1d4"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2010-07.nupkg",
+            "sha256": "420c42246c9b5f7ace2a7b7eee406276bc35ed5f3d03b2b3c3f509c7d3d0d1d4"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 namespace-2010-07: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-namespace-2011-08",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2011-08.nupkg",
+          "sha256": "4329cc278632c1c3c9b84c1f82675412d127072b985a04ab4449f166e2483b6b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2011-08.nupkg",
+            "sha256": "4329cc278632c1c3c9b84c1f82675412d127072b985a04ab4449f166e2483b6b"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 namespace-2011-08: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-namespace-2011-10",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2011-10.nupkg",
+          "sha256": "cd7e6dcca1b13b179075d8c0385854f711b38619fb35c3473669db26f351466d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2011-10.nupkg",
+            "sha256": "cd7e6dcca1b13b179075d8c0385854f711b38619fb35c3473669db26f351466d"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 namespace-2011-10: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-namespace-2012-06",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2012-06.nupkg",
+          "sha256": "fc023de56f9d7a1bc2d358443000db2ebd676706af786b8433f0cea0ef5d3acb"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2012-06.nupkg",
+            "sha256": "fc023de56f9d7a1bc2d358443000db2ebd676706af786b8433f0cea0ef5d3acb"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 namespace-2012-06: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-namespace-2013-01",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2013-01.nupkg",
+          "sha256": "1bb5a225a1c005e24c4f9fedfed2d5d7421f6c3b55f2b758ba8304664b0f4571"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2013-01.nupkg",
+            "sha256": "1bb5a225a1c005e24c4f9fedfed2d5d7421f6c3b55f2b758ba8304664b0f4571"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 namespace-2013-01: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-type-commit",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/type-commit.nupkg",
+          "sha256": "73e916a76dda8b7705c4a72bb9d1caf14f5ae93a48c11b51cb10e105e414288d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/type-commit.nupkg",
+            "sha256": "73e916a76dda8b7705c4a72bb9d1caf14f5ae93a48c11b51cb10e105e414288d"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 type-commit: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-unrelated-only",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unrelated-only.nupkg",
+          "sha256": "de899b373e74bb611a4a6c3ddd71dfb620eb91ca0039d4633bb8460050b10304"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unrelated-only.nupkg",
+            "sha256": "de899b373e74bb611a4a6c3ddd71dfb620eb91ca0039d4633bb8460050b10304"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is not populated; the nuspec has no repository URL.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 unrelated-only: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-relative-url",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/relative-url.nupkg",
+          "sha256": "4a8016efc0b2defeb26d78f8039acb089b3b67e622eab7e1dbdd25eef331756d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/relative-url.nupkg",
+            "sha256": "4a8016efc0b2defeb26d78f8039acb089b3b67e622eab7e1dbdd25eef331756d"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: ../source.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 relative-url: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-malformed-url",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/malformed-url.nupkg",
+          "sha256": "cc451f2dfc6b576df0894d86251f13f9a7664c81a86554ebe43bfaeab28a2029"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/malformed-url.nupkg",
+            "sha256": "cc451f2dfc6b576df0894d86251f13f9a7664c81a86554ebe43bfaeab28a2029"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: not a valid URL.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 malformed-url: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-padded-url",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/padded-url.nupkg",
+          "sha256": "84c600750d6f4299a4bb705a13cc2552c66af660fc6abc73cc889288b5cb1535"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/padded-url.nupkg",
+            "sha256": "84c600750d6f4299a4bb705a13cc2552c66af660fc6abc73cc889288b5cb1535"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 padded-url: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-absent",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/absent.nupkg",
+          "sha256": "e0fad4217fc26376687ae3428204f68d60c170aada52b3b4ecf58a46c188c737"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-repository",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/absent.nupkg",
+            "sha256": "e0fad4217fc26376687ae3428204f68d60c170aada52b3b4ecf58a46c188c737"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is not populated; the nuspec has no repository URL.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 absent: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp06-project-url-only",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/project-url-only.nupkg",
+          "sha256": "0a9a9ac64644b064a7b8c9c6e8fa942ef018b21757bba29f6ac542d68368b6de"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-repository",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/project-url-only.nupkg",
+            "sha256": "0a9a9ac64644b064a7b8c9c6e8fa942ef018b21757bba29f6ac542d68368b6de"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is not populated; the nuspec has no repository URL.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 project-url-only: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp06-missing-url",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/missing-url.nupkg",
+          "sha256": "acef82ef6a1e94c341c92d70e47432d56b2427231c3370b85a761b62177dcbce"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/missing-url.nupkg",
+            "sha256": "acef82ef6a1e94c341c92d70e47432d56b2427231c3370b85a761b62177dcbce"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is not populated; the nuspec has no repository URL.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 missing-url: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-empty-url",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/empty-url.nupkg",
+          "sha256": "ba930575154c125b55c72436b3cb5621dd807d94171fee885effff0503d60fc7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/empty-url.nupkg",
+            "sha256": "ba930575154c125b55c72436b3cb5621dd807d94171fee885effff0503d60fc7"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is not populated; the nuspec has no repository URL.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 empty-url: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-blank-url",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/blank-url.nupkg",
+          "sha256": "2cc45def9f93efa18e3fb9be46b28799b30c64eee77ca49618ea7ce253bfa906"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/blank-url.nupkg",
+            "sha256": "2cc45def9f93efa18e3fb9be46b28799b30c64eee77ca49618ea7ce253bfa906"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is not populated; the nuspec has no repository URL.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 blank-url: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-duplicate-identical",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-identical.nupkg",
+          "sha256": "96713a6425628665f8297f4159d8aa95f25c8ed7dafb6211d33f7630b2a40860"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-identical.nupkg",
+            "sha256": "96713a6425628665f8297f4159d8aa95f25c8ed7dafb6211d33f7630b2a40860"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Multiple repository elements prevent an unambiguous RepositoryUrl.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 duplicate-identical: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-duplicate-conflicting",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-conflicting.nupkg",
+          "sha256": "2d96a238e82cb0a2f5711c05fcb0a0f781adb50e5e434371db4271b16940f61a"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-conflicting.nupkg",
+            "sha256": "2d96a238e82cb0a2f5711c05fcb0a0f781adb50e5e434371db4271b16940f61a"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Conflicting repository elements prevent an unambiguous RepositoryUrl.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 duplicate-conflicting: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-foreign-repository",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-repository.nupkg",
+          "sha256": "783e32559a0e16e09ddaecbc5f8eca44d94388f11ef1920e0e2397b14cf741a7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-repository",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-repository.nupkg",
+            "sha256": "783e32559a0e16e09ddaecbc5f8eca44d94388f11ef1920e0e2397b14cf741a7"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace repository element cannot establish NuGet RepositoryUrl.",
+        "required_input": "recognized-repository-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 foreign-repository: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-foreign-root",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-root.nupkg",
+          "sha256": "c837a692f1afb4068825981566d3532ec74dfa503da70b04128fd61356a6e3d4"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-root",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-root.nupkg",
+            "sha256": "c837a692f1afb4068825981566d3532ec74dfa503da70b04128fd61356a6e3d4"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package root is not in a recognized NuGet namespace.",
+        "required_input": "recognized-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 foreign-root: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-unknown-attribute",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unknown-attribute.nupkg",
+          "sha256": "d48967b8ece91944fd379e610d27171c5252b3440137f07677a6ba863495e13e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-attribute",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unknown-attribute.nupkg",
+            "sha256": "d48967b8ece91944fd379e610d27171c5252b3440137f07677a6ba863495e13e"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "An unknown repository attribute is outside the recognized metadata contract.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 unknown-attribute: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-foreign-attribute",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-attribute.nupkg",
+          "sha256": "56cad3bfdbd78e880229a53bd8b07d9e4e95277cb8482fde2409c9f5f6209f24"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-attribute",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-attribute.nupkg",
+            "sha256": "56cad3bfdbd78e880229a53bd8b07d9e4e95277cb8482fde2409c9f5f6209f24"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "An unknown namespaced repository attribute is outside the recognized metadata contract.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 foreign-attribute: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-namespace-declaration",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-declaration.nupkg",
+          "sha256": "6eb3163ee063fdb73d5bcdc40fd0e67da70ad442a2170ee5bec64e44321a6611"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-declaration.nupkg",
+            "sha256": "6eb3163ee063fdb73d5bcdc40fd0e67da70ad442a2170ee5bec64e44321a6611"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryUrl is populated: https://example.test/source.git.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-06 namespace-declaration: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp06-invalid-xml",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-xml.nupkg",
+          "sha256": "d65e6fde57d5a7f74fd5ed84abe00ffc7031a83637726f50d8f66564c0d56302"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-xml.nupkg",
+            "sha256": "d65e6fde57d5a7f74fd5ed84abe00ffc7031a83637726f50d8f66564c0d56302"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec XML is not well formed.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 invalid-xml: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-dtd-entity",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/dtd-entity.nupkg",
+          "sha256": "c649e61d48894454a5c1805f6decede748d7d0287bdd5bf415d3d72825fe8032"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/dtd-entity.nupkg",
+            "sha256": "c649e61d48894454a5c1805f6decede748d7d0287bdd5bf415d3d72825fe8032"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec contains a DTD/entity declaration and cannot be safely inspected.",
+        "required_input": "safe-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 dtd-entity: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-no-nuspec",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-nuspec.nupkg",
+          "sha256": "1eacdeb56c1b45f079b3137db4ad24514120cce313d483aaf93abcf08fe29e56"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-nuspec.nupkg",
+            "sha256": "1eacdeb56c1b45f079b3137db4ad24514120cce313d483aaf93abcf08fe29e56"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The archive has no nuspec entry.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 no-nuspec: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-multiple-root-nuspec",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/multiple-root-nuspec.nupkg",
+          "sha256": "b30f934c0e731f2fe060809ec3307ca9ce29beba4a90f3741e355acdd6d352fa"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/multiple-root-nuspec.nupkg",
+            "sha256": "b30f934c0e731f2fe060809ec3307ca9ce29beba4a90f3741e355acdd6d352fa"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The archive has multiple root nuspec entries.",
+        "required_input": "unique-root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 multiple-root-nuspec: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-subfolder-only-nuspec",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/subfolder-only-nuspec.nupkg",
+          "sha256": "37b420ca6f8f20fb350edb10c9a3459f3042397bca9041f419426fc5c554812c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-root-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/subfolder-only-nuspec.nupkg",
+            "sha256": "37b420ca6f8f20fb350edb10c9a3459f3042397bca9041f419426fc5c554812c"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The only nuspec entry is nested in a subfolder.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 subfolder-only-nuspec: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-corrupt-archive",
+      "row_id": "LP-06",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/corrupt-archive.nupkg",
+          "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "unreadable-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/corrupt-archive.nupkg",
+            "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The supplied checked bytes are not a readable NuGet archive.",
+        "required_input": "valid-nupkg",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-06 corrupt-archive: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp06-no-package",
+      "row_id": "LP-06",
+      "inputs": [],
+      "expected": {
+        "row_id": "LP-06",
+        "resolver_id": "lp06-repository-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package bytes required for LP-06 were not supplied.",
+        "required_input": "package",
+        "next_category": "input-owner"
+      },
+      "rationale": "LP-06 no-package: only a single recognized nonblank repository URL establishes field population.",
+      "evidence_pointers": []
+    }
+  ]
+}
