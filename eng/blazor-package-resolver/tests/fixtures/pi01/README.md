@@ -39,8 +39,15 @@ sections as incomplete inventory unless it is exactly a bounded,
 well-formed DER PKCS#7 SignedData containing Authenticode
 `SpcIndirectDataContent` (`1.3.6.1.4.1.311.2.1.4`) for a PE image.
 It parses the supported digest, X.509 certificate and signer structures,
-rejects unknown signed/unsigned attributes and unsupported content OIDs,
-and screens certificate bytes for nested PE, ZIP, gzip, CAB and 7z content.
+rejects unknown signed/unsigned attributes, unsupported attribute-value
+shapes and unsupported content OIDs, and traverses the complete DER tree:
+universal SEQUENCE/SET must be constructed; supported universal primitive
+types (including OCTET/BIT STRING, UTF8/character strings, times, OIDs,
+integers, booleans and NULL) must never be constructed. Other universal
+tags escalate. This forbids an unsigned PE split across primitive OCTET
+segments inside a constructed OCTET STRING, even when raw-byte scanning
+does not see a contiguous `MZ`. The validator also screens certificate
+bytes for nested PE, ZIP, gzip, CAB and 7z content.
 An arbitrary `id-data` SignedData envelope is not fully inventoried.
 This validates the certificate **structure only**, not Authenticode
 publisher identity or trust (the separate PI-02 row); bytes before or
@@ -91,13 +98,17 @@ tables, public-key presence, flags and reservations. Before *any* decisive
 assembly state it checks all present rows in the supported table schemas,
 row lengths, #Strings/#Blob/#GUID heap indices, direct/coded table
 references, ordered nonzero list starts, required names, signatures, MVIDs
-and public keys; optional null constants and absent public keys are
+and public keys; optional null constants, null CustomAttribute.Value
+blobs and absent public keys are
 permitted only where the metadata schema allows them. Unexpected table
 shapes escalate. In particular a later TypeDef Name index 65535 outside
 the 310-byte #Strings heap is unsafe, not unsigned.
-Companion controls corrupt a MethodDef #blob signature index, a missing MethodDef.Signature, and a
-CustomAttribute coded parent reference to prove the whole table traversal
-fails closed, not merely the first type definition.
+Companion controls corrupt a MethodDef #blob signature index, a missing
+MethodDef.Signature, and a CustomAttribute coded parent reference to
+prove the whole table traversal fails closed, not merely the first type
+definition. A valid null CustomAttribute.Value retains the unsigned
+assembly's real signing state; an out-of-range non-null value or an
+invalid non-null value prolog escalates.
 The `.cs.txt`
 sources are explicitly compiled by their projects; normal `ResolverChecks`
 does not accidentally compile them. Their intermediates go to its
@@ -112,7 +123,7 @@ entry SHA-256 without copying either proprietary archive into this repo.
 Phase B must implement and replay this frozen verification contract; it
 must never promote structural signature presence to verified validity.
 
-The frozen matrix has 104 cases, of which 103 have independently pinned
+The frozen matrix has 120 cases, of which 119 have independently pinned
 synthetic archives. It covers empty and non-assembly archives, native PE
 and bundle-shaped input, nested/prefixed unsigned ZIP and archive-suffix controls,
 different assembly locations and suffixes, multiple framework variants,
@@ -135,17 +146,26 @@ certificate record, a PE hidden inside certificate data, arbitrary
 `id-data` and unknown eContent OIDs, gzip/CAB/7z payloads (including
 gzip-like content under an otherwise supported Authenticode OID), and both
 nonzero and MZ bytes in certificate alignment padding (including exact
-`dwLength=45` with three alignment bytes). The CMS fixture is signed
+`dwLength=45` with three alignment bytes). Canonical signer attribute
+controls remain decisive; malformed/unknown attribute values and eight
+constructed primitive-universal tag types escalate. A segmented
+constructed OCTET STRING reassembles the exact pinned unsigned PE from
+`M` and `Z...` chunks without contiguous `MZ` bytes in the CMS; it
+must remain unsafe rather than produce a package-wide signed result.
+The base CMS fixture is signed
 with a disposable throwaway key and contains its public X.509 certificate,
 but never its private key. Its indirect-data PE digest is a synthetic
 placeholder, not an Authenticode verification of the enclosing PE.
+Mutation controls that insert signer attributes do not assert valid CMS
+signatures; PI-01 verifies the enclosing assembly's strong-name signature,
+not the certificate's publisher signature or trust chain.
 The oracle pins its SHA-256
 `ea7d26478fd30cb5c56fe0845fa92a10d9de8a7a3ee6ac6e73a334e979f0f885`.
 The frozen branch counts are:
-`verified-signed` 8, `invalid-signature` 3,
-`signature-unverified` 1 (unsupported hash), `unsigned-assembly` 10,
+`verified-signed` 10, `invalid-signature` 3,
+`signature-unverified` 1 (unsupported hash), `unsigned-assembly` 11,
 `delay-signed` 4, `public-signed` 4, `no-assemblies` 6,
-`opaque-container` 14, `unsafe-assembly` 37, `unsafe-package` 16, and
+`opaque-container` 14, `unsafe-assembly` 50, `unsafe-package` 16, and
 `missing-package` 1.
 The generator pins every archive byte and expected JSON document and
 rejects extra/missing synthetic `.nupkg` files. Resource bounds in this

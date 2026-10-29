@@ -332,6 +332,7 @@ static void ValidateCertificates(ReadOnlyMemory<byte> data)
             throw new BadImageFormatException("Potential PE or nested container in certificate data.");
         var reader = new AsnReader(content, AsnEncodingRules.DER);
         ReadOnlyMemory<byte> encoded = reader.ReadEncodedValue();
+        ValidateDerTree(encoded);
         var padding = content.Span.Slice(encoded.Length);
         if (padding.Length >= 8 || padding.ContainsAnyExcept((byte)0))
             throw new BadImageFormatException("Uninventoried bytes in Authenticode certificate.");
@@ -525,6 +526,80 @@ static void ValidateSignerAttributes(AsnReader attributes, bool unsigned, bool t
             }
             else if (oid == "1.2.840.113549.1.9.5")
                 _ = value.ReadUtcTime();
+            else if (oid == "1.3.6.1.4.1.311.2.1.12")
+            {
+                var opus = value.ReadSequence();
+                for (int field = 0; field <= 1; field++)
+                    if (opus.HasData && opus.PeekTag().HasSameClassAndValue(
+                        new Asn1Tag(TagClass.ContextSpecific, field)))
+                    {
+                        var text = opus.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, field, true));
+                        _ = text.ReadOctetString(new Asn1Tag(TagClass.ContextSpecific, 0));
+                        text.ThrowIfNotEmpty();
+                    }
+                opus.ThrowIfNotEmpty();
+            }
+            else if (oid == "1.2.840.113549.1.9.16.2.15")
+                value.ReadNull();
+            else if (oid == "1.2.840.113549.1.9.16.2.47")
+            {
+                var signingCertificate = value.ReadSequence();
+                var certs = signingCertificate.ReadSequence();
+                if (!certs.HasData)
+                    throw new BadImageFormatException("Empty timestamp signing certificate list.");
+                while (certs.HasData)
+                {
+                    var cert = certs.ReadSequence();
+                    string algorithm = cert.PeekTag().HasSameClassAndValue(
+                        new Asn1Tag(UniversalTagNumber.Sequence)) ?
+                        ReadDigestAlgorithm(cert.ReadSequence()) : "2.16.840.1.101.3.4.2.1";
+                    if (cert.ReadOctetString().Length != (algorithm == "1.3.14.3.2.26" ? 20 : 32))
+                        throw new BadImageFormatException("Invalid timestamp certificate digest.");
+                    if (cert.HasData)
+                    {
+                        var issuerSerial = cert.ReadSequence();
+                        var issuers = issuerSerial.ReadSequence();
+                        if (!issuers.HasData)
+                            throw new BadImageFormatException("Empty timestamp certificate issuer.");
+                        while (issuers.HasData)
+                        {
+                            var directoryName = issuers.ReadSequence(
+                                new Asn1Tag(TagClass.ContextSpecific, 4, true));
+                            _ = directoryName.ReadSequence();
+                            directoryName.ThrowIfNotEmpty();
+                        }
+                        _ = issuerSerial.ReadInteger();
+                        issuerSerial.ThrowIfNotEmpty();
+                    }
+                    cert.ThrowIfNotEmpty();
+                }
+                signingCertificate.ThrowIfNotEmpty();
+            }
+            else if (oid == "1.2.840.113549.1.9.16.2.18")
+            {
+                var certificateValues = value.ReadSequence();
+                if (!certificateValues.HasData)
+                    throw new BadImageFormatException("Empty timestamp certificate values.");
+                while (certificateValues.HasData)
+                {
+                    var certificate = certificateValues.ReadSequence(
+                        new Asn1Tag(TagClass.ContextSpecific, 1, true));
+                    var description = certificate.ReadSequence();
+                    var fields = description.ReadSequence();
+                    while (fields.HasData)
+                        ValidateDerTree(fields.ReadEncodedValue());
+                    var signature = description.ReadSequence();
+                    if (signature.ReadObjectIdentifier() != "1.2.840.113549.1.1.11")
+                        throw new BadImageFormatException("Unsupported timestamp certificate-value signature.");
+                    if (signature.HasData)
+                        signature.ReadNull();
+                    signature.ThrowIfNotEmpty();
+                    if (description.ReadBitString(out _).Length == 0)
+                        throw new BadImageFormatException("Missing timestamp certificate-value signature.");
+                    description.ThrowIfNotEmpty();
+                    certificate.ThrowIfNotEmpty();
+                }
+            }
             else if (oid == "1.3.6.1.4.1.311.3.3.1")
             {
                 var timestampContentInfo = value.ReadSequence();
@@ -538,7 +613,7 @@ static void ValidateSignerAttributes(AsnReader attributes, bool unsigned, bool t
                 timestampContentInfo.ThrowIfNotEmpty();
             }
             else
-                _ = value.ReadEncodedValue();
+                throw new BadImageFormatException("Unsupported Authenticode signer attribute value.");
             value.ThrowIfNotEmpty();
         }
         attribute.ThrowIfNotEmpty();
@@ -595,11 +670,19 @@ static void ValidateTimestampSignedData(AsnReader signedData)
 static void ValidateDerTree(ReadOnlyMemory<byte> encoded, int depth = 0)
 {
     if (depth > 32)
-        throw new BadImageFormatException("Authenticator certificate DER nesting is too deep.");
+        throw new BadImageFormatException("Authenticode certificate DER nesting is too deep.");
     var tag = AsnDecoder.ReadEncodedValue(encoded.Span, AsnEncodingRules.DER,
         out int offset, out int length, out int consumed);
     if (consumed != encoded.Length)
         throw new BadImageFormatException("Uninventoried bytes in certificate DER field.");
+    if (tag.TagClass == TagClass.Universal)
+    {
+        bool constructed = tag.TagValue is 16 or 17;
+        bool primitive = tag.TagValue is 1 or 2 or 3 or 4 or 5 or 6 or 10 or
+            12 or 18 or 19 or 20 or 22 or 23 or 24 or 26 or 27 or 28 or 30;
+        if (!(constructed && tag.IsConstructed || primitive && !tag.IsConstructed))
+            throw new BadImageFormatException("Noncanonical or unsupported universal DER tag.");
+    }
     if (!tag.IsConstructed)
         return;
     int cursor = offset;
@@ -711,7 +794,7 @@ static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
                         break;
                     case "blob":
                         bool requiredBlob = (table, column) is (4, 2) or (6, 4) or (10, 2) or
-                            (12, 2) or (14, 2) or (17, 0) or (23, 2) or (27, 0) or (43, 1);
+                            (14, 2) or (17, 0) or (23, 2) or (27, 0) or (43, 1);
                         // Null string/class constants have no Value blob; primitive constants do.
                         if (table == 11 && column == 2 &&
                             content[offset + row * size] is not (0x0e or 0x12))
@@ -732,6 +815,9 @@ static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
                                     (27, 0) or (35, 5) or (43, 1) ||
                                  (table == 11 && content[offset + row * size] is not (0x0e or 0x12))))
                                 throw new BadImageFormatException($"Empty metadata blob in table {table}, row {row + 1}.");
+                            if ((table, column) == (12, 2) &&
+                                (blob.Length < 4 || blob[0] != 1 || blob[1] != 0))
+                                throw new BadImageFormatException($"Malformed CustomAttribute.Value in row {row + 1}.");
                         }
                         break;
                     case "guid":
@@ -785,6 +871,12 @@ static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
             if (position != offset + (row + 1) * size)
                 throw new BadImageFormatException($"Unsupported trailing metadata columns in table {table}.");
         }
+    }
+    for (int row = 1; row <= metadata.GetTableRowCount(TableIndex.CustomAttribute); row++)
+    {
+        var attribute = metadata.GetCustomAttribute(MetadataTokens.CustomAttributeHandle(row));
+        if (!attribute.Value.IsNil)
+            _ = metadata.GetBlobBytes(attribute.Value);
     }
 }
 
