@@ -19,6 +19,12 @@ CATALOG_SHA = "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
 NS = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd"
 LICENSE = '<license type="expression">{}</license>'
 ZIP_DATE = (2020, 1, 1, 0, 0, 0)
+MAX_EXPRESSION_BYTES = 4096
+MAX_EXPRESSION_TOKENS = 255
+MAX_EXPRESSION_DEPTH = 16
+MAX_ALTERNATIVES = 256
+TERM = r"(?:DocumentRef-[A-Za-z0-9.-]+:)?LicenseRef-[A-Za-z0-9.-]+|[A-Za-z0-9][A-Za-z0-9.+-]*"
+LEXEME = re.compile(rf"(?:{TERM})|[()]")
 VENDORS = (
     ("syncfusion", "syncfusion.blazor.toolkit.2.0.1.nupkg",
      "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d",
@@ -71,54 +77,80 @@ def validate_policy(policy, catalog, catalog_digest):
         "LP-01 policy classifications overlap, are deprecated or lack OSI approval.")
 
 
+class ExpressionLimitError(ValueError):
+    pass
+
+
 def expression_state(text, policy, licenses):
     """Evaluate every SPDX alternative; an unreviewed choice cannot become a positive."""
-    tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9.+-]*|[()]|\S", text)
-    require("".join(tokens) == re.sub(r"\s+", "", text), "Invalid SPDX token spacing.")
+    if len(text) > MAX_EXPRESSION_BYTES or len(text.encode("utf-8")) > MAX_EXPRESSION_BYTES:
+        raise ExpressionLimitError("SPDX expression exceeds the character/byte cap.")
+    require(all(ord(char) < 128 and (char.isalnum() or char in ".+-(): \t\r\n")
+                for char in text), "Invalid SPDX character or non-ASCII whitespace.")
+    tokens = []
+    offset = 0
+    while offset < len(text):
+        if text[offset] in " \t\r\n":
+            offset += 1
+            continue
+        token = LEXEME.match(text, offset)
+        require(token is not None, "Invalid SPDX token.")
+        tokens.append(token.group())
+        if len(tokens) > MAX_EXPRESSION_TOKENS:
+            raise ExpressionLimitError("SPDX expression exceeds the token cap.")
+        offset = token.end()
     position = 0
 
-    def atom():
+    def atom(depth):
         nonlocal position
         require(position < len(tokens), "Incomplete SPDX expression.")
         if tokens[position] == "(":
+            if depth >= MAX_EXPRESSION_DEPTH:
+                raise ExpressionLimitError("SPDX expression exceeds the nesting cap.")
             position += 1
-            value = alternatives()
+            value = alternatives(depth + 1)
             require(position < len(tokens) and tokens[position] == ")", "Unclosed SPDX group.")
             position += 1
             return value
         token = tokens[position]
-        require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+-]*", token) and
+        require(re.fullmatch(TERM, token) is not None and
                 token not in ("AND", "OR", "WITH"), "Invalid SPDX license term.")
         position += 1
         if position < len(tokens) and tokens[position] == "WITH":
             position += 1
             require(position < len(tokens) and
-                    re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+-]*", tokens[position]),
+                    re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+-]*", tokens[position]) is not None and
+                    tokens[position] not in ("AND", "OR", "WITH"),
                     "Missing SPDX exception.")
             exception = tokens[position]
             position += 1
             return [frozenset((token, "WITH:" + exception))]
         return [frozenset((token,))]
 
-    def conjunction():
+    def conjunction(depth):
         nonlocal position
-        result = atom()
+        result = atom(depth)
         while position < len(tokens) and tokens[position] == "AND":
             position += 1
-            right = atom()
+            right = atom(depth)
+            if len(result) * len(right) > MAX_ALTERNATIVES:
+                raise ExpressionLimitError("SPDX expression exceeds the alternative cap.")
             result = [left | term for left in result for term in right]
         return result
 
-    def alternatives():
+    def alternatives(depth):
         nonlocal position
-        result = conjunction()
+        result = conjunction(depth)
         while position < len(tokens) and tokens[position] == "OR":
             position += 1
-            result += conjunction()
+            right = conjunction(depth)
+            if len(result) + len(right) > MAX_ALTERNATIVES:
+                raise ExpressionLimitError("SPDX expression exceeds the alternative cap.")
+            result += right
         return result
 
     require(tokens, "Empty SPDX expression.")
-    options = alternatives()
+    options = alternatives(0)
     require(position == len(tokens), "Trailing or misplaced SPDX tokens.")
     terms = set().union(*options)
     if any(term.startswith("WITH:") for term in terms):
@@ -139,9 +171,9 @@ def expression_state(text, policy, licenses):
     weak = set(policy["weak_copyleft"])
     if all(option <= allowed for option in options):
         return "approved-non-copyleft"
-    if all(option & weak and not option & strong for option in options):
-        return "weak-copyleft"
-    if all(option & strong for option in options):
+    if all(option & (strong | weak) for option in options):
+        if all(option & weak and not option & strong for option in options):
+            return "weak-copyleft"
         return "copyleft"
     if any(option & (strong | weak) for option in options) and any(
             option <= allowed for option in options):
@@ -168,6 +200,7 @@ SPECS = (
     ("agpl", LICENSE.format("AGPL-3.0-only"), "copyleft", None),
     ("gpl-and-mit", LICENSE.format("MIT AND GPL-3.0-only"), "copyleft", None),
     ("gpl-or-agpl", LICENSE.format("GPL-3.0-only OR AGPL-3.0-only"), "copyleft", None),
+    ("gpl-or-mpl", LICENSE.format("GPL-3.0-only OR MPL-2.0"), "copyleft", None),
     ("mpl", LICENSE.format("MPL-2.0"), "weak-copyleft", None),
     ("lgpl", LICENSE.format("LGPL-2.1-only"), "weak-copyleft", None),
     ("epl-and-mit", LICENSE.format("EPL-2.0 AND MIT"), "weak-copyleft", None),
@@ -178,15 +211,35 @@ SPECS = (
     ("mit-or-cc0", LICENSE.format("MIT OR CC0-1.0"), "mixed-alternatives", None),
     ("osi-unclassified", LICENSE.format("Artistic-2.0"), "unclassified-osi", None),
     ("custom", LICENSE.format("LicenseRef-Private"), "custom-license", None),
+    ("document-custom", LICENSE.format("DocumentRef-other:LicenseRef-local"), "custom-license", None),
     ("exception", LICENSE.format("GPL-3.0-only WITH Classpath-exception-2.0"), "exception-unreviewed", None),
+    ("exception-or", LICENSE.format("MIT WITH OR"), "invalid-expression", None),
+    ("exception-with", LICENSE.format("MIT WITH WITH"), "invalid-expression", None),
+    ("exception-and", LICENSE.format("MIT WITH AND"), "invalid-expression", None),
     ("unknown", LICENSE.format("Unknown-1.0"), "unknown-license", None),
     ("deprecated", LICENSE.format("GPL-2.0+"), "deprecated-license", None),
     ("case-sensitive", LICENSE.format("mit"), "unknown-license", None),
     ("plus-suffix", LICENSE.format("GPL-3.0+"), "deprecated-license", None),
     ("bad-operator", LICENSE.format("MIT XOR Apache-2.0"), "invalid-expression", None),
+    ("bad-operator-case", LICENSE.format("MIT and Apache-2.0"), "invalid-expression", None),
+    ("trailing-term", LICENSE.format("MIT MIT"), "invalid-expression", None),
+    ("reserved-term", LICENSE.format("OR"), "invalid-expression", None),
     ("missing-operand", LICENSE.format("MIT AND"), "invalid-expression", None),
     ("unclosed-group", LICENSE.format("(MIT OR Apache-2.0"), "invalid-expression", None),
     ("blank-expression", LICENSE.format("  "), "invalid-expression", None),
+    ("nbsp-whitespace", LICENSE.format("MIT\u00a0OR Apache-2.0"), "invalid-expression", None),
+    ("em-whitespace", LICENSE.format("MIT\u2003OR Apache-2.0"), "invalid-expression", None),
+    ("ascii-whitespace", LICENSE.format("MIT\tAND\nApache-2.0"), "approved-non-copyleft", None),
+    ("bytes-at-limit", LICENSE.format("MIT" + " " * (MAX_EXPRESSION_BYTES - 3)), "approved-non-copyleft", None),
+    ("bytes-over-limit", LICENSE.format("MIT" + " " * (MAX_EXPRESSION_BYTES - 2)), "expression-limit", None),
+    ("tokens-at-limit", LICENSE.format(" OR ".join(["MIT"] * 128)), "approved-non-copyleft", None),
+    ("tokens-over-limit", LICENSE.format(" OR ".join(["MIT"] * 129)), "expression-limit", None),
+    ("depth-at-limit", LICENSE.format("(" * MAX_EXPRESSION_DEPTH + "MIT" + ")" * MAX_EXPRESSION_DEPTH), "approved-non-copyleft", None),
+    ("depth-over-limit", LICENSE.format("(" * (MAX_EXPRESSION_DEPTH + 1) + "MIT" + ")" * (MAX_EXPRESSION_DEPTH + 1)), "expression-limit", None),
+    ("alternatives-at-limit", LICENSE.format("(" + " OR ".join(["MIT"] * 16) +
+     ") AND (" + " OR ".join(["Apache-2.0"] * 16) + ")"), "approved-non-copyleft", None),
+    ("alternatives-over-limit", LICENSE.format("(" + " OR ".join(["MIT"] * 16) +
+     ") AND (" + " OR ".join(["Apache-2.0"] * 17) + ")"), "expression-limit", None),
     ("file-only", '<license type="file">LICENSE.txt</license>', "file-unverified", b"License text alone is not an SPDX grant.\n"),
     ("file-declared", '<license type="file">LICENSE.txt</license>', "file-declared", b"SPDX-License-Identifier: MIT\n"),
     ("file-missing", '<license type="file">LICENSE.txt</license>', "file-unverified", None),
@@ -277,11 +330,20 @@ def policy_variant(name, policy_bytes, catalog_bytes):
 
 def disposition(branch):
     if branch == "approved-non-copyleft":
-        return "deterministic", "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.", None, None, None
+        return "escalated", None, (
+            "An OSI-approved, non-copyleft package declaration does not establish an owner-authorized "
+            "repository license grant or correspondence to the checked release/source scope."
+        ), "owner-license-grant-and-release-scope", "package-owner"
     if branch == "file-declared":
-        return "deterministic", "Packaged license file explicitly declares MIT, classified OSI-approved and non-copyleft by pinned LP-01 policy; owner authority and repository-wide grant remain unverified.", None, None, None
+        return "escalated", None, (
+            "The packaged SPDX-License-Identifier classifies MIT but is not license grant text; "
+            "owner authorization and repository/release scope are also missing."
+        ), "complete-owner-license-grant-and-release-scope", "package-owner"
     if branch in ("copyleft", "weak-copyleft", "non-osi"):
-        return "deterministic", f"Checked package declares a {branch} license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.", None, None, None
+        return "deterministic", (
+            f"The authoritative checked package declaration offers no OSI-approved non-copyleft "
+            f"alternative ({branch}); this is a package-scoped negative, not a repository-wide verdict."
+        ), None, None, None
     explanations = {
         "mixed-alternatives": ("An OR alternative is not established as OSI-approved and non-copyleft.", "binding-license-choice", "package-owner"),
         "unclassified-osi": ("SPDX marks the identifier OSI-approved but this policy does not classify its copyleft obligations.", "reviewed-copyleft-classification", "policy-owner"),
@@ -290,7 +352,8 @@ def disposition(branch):
         "unknown-license": ("The identifier is not an exact SPDX 3.27.0 license ID.", "corrected-spdx-expression", "package-owner"),
         "deprecated-license": ("Deprecated SPDX spelling cannot be silently normalized.", "current-spdx-expression-and-owner-confirmation", "package-owner"),
         "invalid-expression": ("The expression is not valid under the frozen SPDX expression grammar.", "corrected-spdx-expression", "package-owner"),
-        "file-unverified": ("A license file declaration without an unambiguous in-package SPDX identifier cannot establish its policy classification.", "owner-verified-license-grant", "package-owner"),
+        "file-unverified": ("A license file declaration alone does not establish a complete, authoritative package grant or repository/release scope.", "owner-verified-license-grant-and-release-scope", "package-owner"),
+        "expression-limit": ("The SPDX expression exceeds the pinned parsing resource limits and cannot be classified safely.", "bounded-owner-confirmed-license-expression", "package-owner"),
         "conflicting-declarations": ("The nuspec expression and packaged explicit SPDX identifier conflict.", "reconciled-license-grant", "package-owner"),
         "missing-license": ("No authoritative license expression or supported file declaration was supplied.", "license-grant-and-owner-confirmation", "package-owner"),
         "unsafe-metadata": ("License metadata is malformed, unsupported or ambiguous.", "corrected-nuspec", "package-owner"),
@@ -306,6 +369,12 @@ def disposition(branch):
 
 def result(branch, inputs, reference, contract=None):
     decision, finding, missing, required, owner = disposition(branch)
+    if contract is None and branch == "approved-non-copyleft":
+        contract = ("Checked package SPDX expression: all alternatives OSI-approved by SPDX 3.27.0 "
+                    "and non-copyleft under pinned policy 1.0.0; owner grant and release/source scope not established.")
+    if contract is None and branch == "file-declared":
+        contract = ("Checked LICENSE.txt contains only SPDX-License-Identifier: MIT; MIT is OSI-approved "
+                    "and allowlisted non-copyleft, but the file supplies no actual license grant text.")
     unavailable = ("unsafe-package", "missing-package", "missing-policy", "missing-corpus", "invalid-policy")
     unknown = branch in unavailable
     citations = [] if branch in unavailable else [
@@ -334,12 +403,14 @@ def suite_data(policy_bytes, catalog_bytes, policy, licenses):
         if name != "no-corpus":
             inputs.append(dict(role="corpus", path="policy/" + (
                 f"{name}.json" if cbytes != catalog_bytes else CATALOG.name), sha256=sha(cbytes)))
-        if metadata.startswith('<license type="expression">') and branch not in (
+        if "<license " in metadata and 'type="expression"' in metadata.lower() and branch not in (
                 "conflicting-declarations", "unsafe-metadata", "unsafe-package",
                 "missing-policy", "missing-corpus", "invalid-policy"):
-            text = metadata.split(">", 1)[1].split("</license>", 1)[0].strip()
+            text = metadata.split(">", 1)[1].split("</license>", 1)[0]
             try:
                 actual = expression_state(text, policy, licenses)
+            except ExpressionLimitError:
+                actual = "expression-limit"
             except ValueError:
                 actual = "invalid-expression"
             require(actual == branch, f"SPDX grammar/policy disagrees with frozen {name}: {actual} != {branch}")
@@ -360,6 +431,9 @@ def suite_data(policy_bytes, catalog_bytes, policy, licenses):
         if branch in ("file-declared", "conflicting-declarations"):
             expected["evidence_references"].insert(0, "package:nuspec/license")
             pointers.append("package:nuspec/license")
+        if name == "expression-file-match":
+            expected["evidence_references"].append("package:LICENSE.txt")
+            pointers.append("package:LICENSE.txt")
         case = dict(case_id="lp01-" + name, row_id="LP-01", inputs=inputs,
                     expected=expected,
                     rationale=f"Frozen LP-01 {name} policy/metadata branch; package-only license evidence, not release-wide compliance.",
@@ -521,6 +595,20 @@ def main():
             "LP-01 archive inventory differs.")
     require(len({case["case_id"] for case in synthetic["cases"]}) == len(SPECS),
             "Duplicate LP-01 cases.")
+    for name in ("bytes", "tokens", "depth", "alternatives"):
+        at = by_id[f"lp01-{name}-at-limit"]["expected"]
+        over = by_id[f"lp01-{name}-over-limit"]["expected"]
+        require(at["branch_id"] == "approved-non-copyleft" and
+                at["decision"] == "escalated" and
+                over["branch_id"] == "expression-limit" and
+                over["decision"] == "escalated",
+                f"LP-01 expression resource threshold changed: {name}")
+    metadata_by_name = {name: metadata for name, metadata, _, _ in SPECS}
+    require(len(metadata_by_name["bytes-at-limit"].split(">", 1)[1].split("</license>", 1)[0]) ==
+            MAX_EXPRESSION_BYTES and
+            len(metadata_by_name["bytes-over-limit"].split(">", 1)[1].split("</license>", 1)[0]) ==
+            MAX_EXPRESSION_BYTES + 1,
+            "Expression byte/character boundary controls changed.")
     for case in synthetic["cases"] + acceptance["cases"]:
         expected = case["expected"]
         require(expected["inputs"] == case["inputs"] and case["row_id"] == expected["row_id"] == "LP-01",
@@ -531,6 +619,17 @@ def main():
                 "LP-01 finding/decision mismatch.")
         require(all(expected[key] is not None for key in ("missing_fact", "required_input", "next_category")) ==
                 (expected["decision"] == "escalated"), "LP-01 escalation contract mismatch.")
+        if expected["branch_id"] in ("approved-non-copyleft", "file-declared"):
+            require(expected["decision"] == "escalated" and expected["applicability"] == "applicable" and
+                    expected["finding"] is None and expected["evidence_contract"] and
+                    expected["next_category"] == "package-owner" and
+                    "grant-and-release-scope" in expected["required_input"] and
+                    "grant" in expected["missing_fact"],
+                    f"Package classification resolved repository-wide LP-01: {case['case_id']}")
+        if expected["branch_id"] in ("copyleft", "weak-copyleft", "non-osi"):
+            require(expected["decision"] == "deterministic" and
+                    "package-scoped negative" in expected["finding"],
+                    f"LP-01 negative lost its package scope: {case['case_id']}")
     missing = ["LP01_" + vendor.upper() + "_NUPKG" for vendor, *_ in VENDORS
                if not os.environ.get("LP01_" + vendor.upper() + "_NUPKG")]
     if args.require_retained and missing:

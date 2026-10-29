@@ -34,29 +34,52 @@ fails at the foundation replay loader before row dispatch. The
 controls have pinned, intentionally inconsistent bytes; no online lookup is
 necessary or authorized to substitute for them.
 
-SPDX IDs are exact and case-sensitive. Whitespace outside IDs may be
-normalized; `AND` binds more tightly than `OR`, parentheses group, and
+SPDX IDs are exact and case-sensitive. Only ASCII space, tab, CR and LF
+are accepted as expression whitespace; NBSP and em-space are not silently
+normalized. `AND` binds more tightly than `OR`, parentheses group, and
 every possible `OR` alternative must consist **entirely** of approved,
-explicitly non-copyleft licenses for a positive package-level finding.
+explicitly non-copyleft licenses for an *eligible package declaration*.
 `MIT OR GPL-3.0-only` is an unresolved choice, not a pass; `MIT AND GPL`
-is a negative; an all-copyleft OR is negative. Weak copyleft is not
-silently treated as non-copyleft. Non-OSI IDs are negative when every
-alternative contains one; mixed alternatives escalate. `WITH` exceptions,
-deprecated IDs/`+` aliases, `LicenseRef`/`DocumentRef`, unknown IDs,
-invalid operator casing, incomplete expressions and unclassified OSI IDs
-escalate with a named missing fact. No normalization turns deprecated
-identifiers into current ones or strips an exception. These decisions
-are bounded to the pinned catalog and local policy, not legal opinions.
+is a package-scoped negative; an OR whose *every* alternative contains
+strong/weak copyleft is also negative, including `GPL-3.0-only OR MPL-2.0`.
+Weak copyleft is not silently treated as non-copyleft. Non-OSI IDs are
+negative when every alternative contains one; mixed alternatives escalate.
+Syntactically valid `DocumentRef-other:LicenseRef-local` is a custom
+reference and escalates, as do `WITH` exceptions, deprecated IDs/`+`
+aliases, unknown IDs and unclassified OSI IDs. Reserved operators cannot
+appear as exception identifiers (`MIT WITH OR`, `MIT WITH WITH`); these,
+invalid operator casing and incomplete/trailing expressions are malformed
+and escalate. No normalization turns deprecated identifiers into current
+ones or strips an exception. The oracle caps the UTF-8 expression at
+**4096 bytes and 4096 characters**, **255 tokens**, **16 parenthesis
+levels** and **256 expanded alternatives**. At/over fixtures for all four
+bounds test fail-closed `expression-limit`; limits are expectation-contract
+choices for Phase B, not an assertion that the current reader already
+enforces them. These decisions are bounded to the pinned catalog and local
+policy, not legal opinions.
+
+**No positive package classification resolves the repository-wide LP-01
+obligation.** Every allowlisted expression, including retained MIT,
+escalates with applicable scope, explicit missing owner-authorized license
+grant and release/source correspondence, and package policy classification
+in the evidence contract. Neither a populated expression nor a matching
+URL removes that missing fact. Decisive negatives report only that an
+authoritative *package declaration* offers no acceptable alternative; they
+are not repository-wide conclusions.
 
 A URL alone, including `https://licenses.nuget.org/MIT`, is not package
 license evidence. A URL beside a recognized expression is not independently
 parsed as a license grant, even if its string hints at a different license.
 A `type=file` declaration without exact supported in-package evidence
-escalates. One synthetic file explicitly carries
-`SPDX-License-Identifier: MIT`; its package-level declaration can be
-classified. A different synthetic file explicitly declares GPL against
+escalates. One synthetic file carries *only*
+`SPDX-License-Identifier: MIT`: that tag permits classification of the
+identifier but provides **no MIT grant text**, so `file-declared` remains
+escalated pending a complete owner-authorized grant and release/source
+scope. Full license text interpretation is deliberately **not supported**
+by this oracle; a file-only text/filename is no deterministic fallback.
+A different synthetic file explicitly declares GPL against
 a nuspec MIT expression, so the conflict escalates; filenames and vague
-license prose are not a safe fallback or conflict detector. No real
+license prose are not a safe conflict detector. No real
 retained notice is silently promoted into an SPDX annotation. Shared
 nuspec-reader safety and namespace rules take precedence over individual
 license facts: malformed XML/DTD, foreign/duplicate metadata, missing or
@@ -65,7 +88,7 @@ or a missing/inconsistent policy produces `unknown` applicability.
 Unbound/incorrect SHA-256 input paths fail in the shared replay loader;
 they are not equivalent to a valid case with no package role.
 
-`cases.json` freezes 66 cases and 65 reproducible, SHA-256-pinned synthetic
+`cases.json` freezes 85 cases and 84 reproducible, SHA-256-pinned synthetic
 archives. `lp01_expectations.py` checks the exact JSON, ZIP bytes and
 portable entry metadata; `--write-fixtures` only regenerates these
 reviewed expectation artifacts. No shipping resolver, registry entry,
@@ -77,7 +100,7 @@ safe bounded ZIP and SPDX parser; the Python oracle is not production code.
 
 ## Retained package identities (local opt-in)
 
-| Vendor | SHA-256 | Nuspec SHA-256 | Package-level policy finding |
+| Vendor | SHA-256 | Nuspec SHA-256 | Package policy evidence (LP-01 escalated) |
 |---|---|---|---|
 | Syncfusion `Syncfusion.Blazor.Toolkit` 2.0.1 | `87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d` | `e9a55efdfc3385c1df49206839689f3f01c0bf5731b6130f05a601632a77acb7` | MIT is OSI-approved and on local non-copyleft allowlist |
 | Infragistics `IgniteUI.Blazor.Lite` 0.3.0 | `e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63` | `8399959e38391faa853f874f6d4c2d10a2724f3e978af5fc79fbd46a7a74833c` | MIT is OSI-approved and on local non-copyleft allowlist |
@@ -89,9 +112,9 @@ dependency coverage belongs to LP-03. `retained-inputs.json` pins the
 archives, nuspec and notice entry identities, without storing proprietary
 bytes or absolute workstation paths in Git. Its source hints are not
 identities. The component baseline report is not an LP-01 package verdict.
-`acceptance.json` freezes **two package-only deterministic MIT
-classifications**, with the repository-wide grant, owner authority and
-release correspondence still unresolved. An owner-authorized license grant
+`acceptance.json` freezes **two applicable escalations** with independent
+MIT classification in `evidence_contract` and an explicit missing owner
+grant and release/source correspondence. An owner-authorized license grant
 and release-to-repository scope evidence are needed before asserting the
 full normative row. A future policy decision must review all remaining
 OSI IDs and exception interactions explicitly rather than loosening
