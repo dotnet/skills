@@ -540,8 +540,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"tools/install.ps1\",\"reason\":\"executable-source-text\",\"sha256\":\"946a8ec1fd152e4667c22d7245fe6f83b01c0485100bcaf8202b5923778ec831\",\"size_bytes\":22}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 script-tool: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -579,8 +579,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/app.bundle.js\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 bundled-js: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -618,8 +618,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"contentFiles/any/any/init.js\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 content-js: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -891,8 +891,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/vendor.js\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 npm-metadata-bundled: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -1433,7 +1433,7 @@
         ],
         "evidence_contract": null,
         "finding": null,
-        "missing_fact": "The nuspec contains a DTD/entity declaration and cannot be safely inspected.",
+        "missing_fact": "The nuspec has a DTD/entity declaration or unsupported encoding and cannot be safely inspected.",
         "required_input": "safe-nuspec",
         "next_category": "package-owner"
       },
@@ -1721,8 +1721,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"build/do.cmd\",\"reason\":\"executable-source-text\",\"sha256\":\"c134b2f85415ba5cfce3e3fe4745688335745a9bb22152ac8f5c77f190d8aee3\",\"size_bytes\":11},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"build/test.BAT\",\"reason\":\"executable-source-text\",\"sha256\":\"46506ae4852b47de4321c824f77cb29445006eea73d689a0c7516052301e16e3\",\"size_bytes\":13},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"content/run.SH\",\"reason\":\"shebang-at-start\",\"sha256\":\"b4d644d4279594903f1a9911956432d9473041f2984fc6014c14d7402c7d126c\",\"size_bytes\":18},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"tools/install.psm1\",\"reason\":\"executable-source-text\",\"sha256\":\"946a8ec1fd152e4667c22d7245fe6f83b01c0485100bcaf8202b5923778ec831\",\"size_bytes\":22},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"tools/setup.ps1\",\"reason\":\"executable-source-text\",\"sha256\":\"946a8ec1fd152e4667c22d7245fe6f83b01c0485100bcaf8202b5923778ec831\",\"size_bytes\":22}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 multi-scripts: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -1760,8 +1760,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"tools/runner\",\"reason\":\"shebang-at-start\",\"sha256\":\"3ab9f954e88d36b7dd4e4d07f010d4dbe7bcbb5899b38945a22de7673444b68c\",\"size_bytes\":22}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 shebang-extensionless: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -1799,8 +1799,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"tools/runner.dat\",\"reason\":\"shebang-at-start\",\"sha256\":\"cba510b9dcc64317fcecfc0fe27a23ef2251116926ef3b9ff02d3483cc4730ca\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 shebang-bom: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -1856,7 +1856,7 @@
         {
           "role": "package",
           "path": "packages/declarative-build.nupkg",
-          "sha256": "e27b62b61e6c22b69bbed55397ba08277d5bd3e65312b28589240db5ab77cbd7"
+          "sha256": "0dce3fa9c87678b512190d4b2ea857a15d4db6f9625d0b348516071c31281912"
         }
       ],
       "expected": {
@@ -1870,7 +1870,7 @@
           {
             "role": "package",
             "path": "packages/declarative-build.nupkg",
-            "sha256": "e27b62b61e6c22b69bbed55397ba08277d5bd3e65312b28589240db5ab77cbd7"
+            "sha256": "0dce3fa9c87678b512190d4b2ea857a15d4db6f9625d0b348516071c31281912"
           }
         ],
         "evidence_references": [
@@ -1896,7 +1896,7 @@
         {
           "role": "package",
           "path": "packages/reference-only-build.nupkg",
-          "sha256": "24bf66d95dec082a8951d15273d50727a4d68e80177b7693712b4deede12f913"
+          "sha256": "2bd244187901273445cfc390402ba5d9d2995f53a82a10e079cd4ad31f23b3e7"
         }
       ],
       "expected": {
@@ -1910,7 +1910,7 @@
           {
             "role": "package",
             "path": "packages/reference-only-build.nupkg",
-            "sha256": "24bf66d95dec082a8951d15273d50727a4d68e80177b7693712b4deede12f913"
+            "sha256": "2bd244187901273445cfc390402ba5d9d2995f53a82a10e079cd4ad31f23b3e7"
           }
         ],
         "evidence_references": [
@@ -1997,8 +1997,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/UsingTask[1]/Task[1]/Code[1]#text\",\"locator_count\":1,\"locators_sha256\":\"c592903b2a822569323fa3822317ffaeff9ead789e69528c24ec3073314e8e9e\",\"path\":\"build/Tasks.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"57609da50cee92f1d22e1189ef341f320447010a6b51b3ec66563054560c58da\",\"size_bytes\":185}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 inline-task: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -2036,8 +2036,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/UsingTask[1]/Task[1]/Code[1]@Source\",\"locator_count\":1,\"locators_sha256\":\"c35a0d04859aefa4ee4b365190e0584e70532b91714a612ad11346274f44ec85\",\"path\":\"build/Tasks.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"afec0c257eef833e4c3c63b12fa5e26dfe21b68b64a1829fc81b7f43f6835cc8\",\"size_bytes\":187},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"build/inline.txt\",\"reason\":\"promoted-in-package-code-source\",\"sha256\":\"df1da5dc25ec573557928898833af0fca122939e4a048b4b262dd5b5ec187cbb\",\"size_bytes\":13}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 code-source-resolved: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -2060,7 +2060,7 @@
         "row_id": "LP-10",
         "resolver_id": "lp10-binary-attribution",
         "resolver_version": "1.0.0",
-        "branch_id": "text-code-attribution-unverified",
+        "branch_id": "unsupported-executable-content",
         "decision": "escalated",
         "applicability": "applicable",
         "inputs": [
@@ -2073,13 +2073,13 @@
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/UsingTask[1]/Task[1]/Code[1]@Source\",\"locator_count\":1,\"locators_sha256\":\"85356f2a15032213cf772f26d3c76cb6c631aa39562f1d401a9ac49b65b1f964\",\"path\":\"build/Tasks.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"57007432fcf49ab20f913dc833e81c5e71d26c52cc7b633e53cf1d7ca41a720b\",\"size_bytes\":166},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"build/inline.txt\",\"reason\":\"promoted-in-package-code-source\",\"sha256\":\"df1da5dc25ec573557928898833af0fca122939e4a048b4b262dd5b5ec187cbb\",\"size_bytes\":13}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/UsingTask[1]/Task[1]/Code[1]@Source\",\"locator_count\":1,\"locators_sha256\":\"85356f2a15032213cf772f26d3c76cb6c631aa39562f1d401a9ac49b65b1f964\",\"path\":\"build/Tasks.targets\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"57007432fcf49ab20f913dc833e81c5e71d26c52cc7b633e53cf1d7ca41a720b\",\"size_bytes\":166}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
-        "next_category": "source-owner"
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
       },
-      "rationale": "LP-10 code-source-literal: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "rationale": "LP-10 code-source-literal: checked package inventory requires a safe executable payload/source map.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -2112,7 +2112,7 @@
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/UsingTask[1]/Task[1]/Code[1]@Source\",\"locator_count\":1,\"locators_sha256\":\"6f656b509f6a6ec401c31bd431ce89da3c8676d21f31c73a13494c1f5c06b390\",\"path\":\"build/Tasks.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"44437cce1af39bfc8057eaf0c6d007e121086e22ceb13b29cd53a05164349c86\",\"size_bytes\":173}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/UsingTask[1]/Task[1]/Code[1]@Source\",\"locator_count\":1,\"locators_sha256\":\"6f656b509f6a6ec401c31bd431ce89da3c8676d21f31c73a13494c1f5c06b390\",\"path\":\"build/Tasks.targets\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"44437cce1af39bfc8057eaf0c6d007e121086e22ceb13b29cd53a05164349c86\",\"size_bytes\":173}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
         "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
         "required_input": "safely-inspectable-payload-and-per-entry-source-map",
@@ -2131,7 +2131,7 @@
         {
           "role": "package",
           "path": "packages/unsupported-factory.nupkg",
-          "sha256": "ae8691487f599d5732dc3cbc1d6575ca96b6d4a12b0bc9295a21ca47c27553fb"
+          "sha256": "baf559b7a1cf7f21fcee4e0c0a03604cbb1901f2c42f09e5890784264becddef"
         }
       ],
       "expected": {
@@ -2145,13 +2145,13 @@
           {
             "role": "package",
             "path": "packages/unsupported-factory.nupkg",
-            "sha256": "ae8691487f599d5732dc3cbc1d6575ca96b6d4a12b0bc9295a21ca47c27553fb"
+            "sha256": "baf559b7a1cf7f21fcee4e0c0a03604cbb1901f2c42f09e5890784264becddef"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/UsingTask[1]@TaskFactory\",\"locator_count\":1,\"locators_sha256\":\"0a7d80fb68d998f8bb873162ba847ad7d4ef86a263882543199bdc8e784bd1de\",\"path\":\"build/Tasks.tasks\",\"reason\":\"msbuild-active\",\"sha256\":\"acda91e34a49d46b44e21942c590ace18f3919d7e819fb1aa0870918e3145b61\",\"size_bytes\":102}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/UsingTask[1]/Task[1]/Code[1]#text\",\"locator_count\":2,\"locators_sha256\":\"ad33a3b022ad54400838aab476d6dc60d59240b4ffcdbae423b2abef972914e9\",\"path\":\"build/Tasks.tasks\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"ff03729c64f633789c0cca1bc98c0f1d42d1448a763c1010c37c678cb09aa6e1\",\"size_bytes\":150}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
         "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
         "required_input": "safely-inspectable-payload-and-per-entry-source-map",
@@ -2192,8 +2192,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"7fb8fe33ee4ace317fd79d4b33f5b36583b5261ea9d257197e51941b7d64c434\",\"path\":\"build/Commands.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"10365ec523190a64b648369f8cd56c7cd336dfa9c3c9d921c43ac65b29cb1b47\",\"size_bytes\":77}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 build-exec: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -2231,8 +2231,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/PropertyGroup[1]/PostBuildEvent[1]#text\",\"locator_count\":2,\"locators_sha256\":\"35238e6edce92e7074736a1e41be439b9bf2ed80bb9a0b8d4971f98b220531e5\",\"path\":\"build/Events.props\",\"reason\":\"msbuild-active\",\"sha256\":\"79a87afc7318670eefeca3076dce0b0c90eaa298613b651e323bb2b2a2baa318\",\"size_bytes\":135}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 build-event: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -2310,8 +2310,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"548c60ec1c5e15dc2e98fa2303294421d19f2d2a14c4e7d6c355e71fa6022046\",\"path\":\"assets/hidden.config\",\"reason\":\"msbuild-active\",\"sha256\":\"58f6bf5be2080ce491c611431b92d35c26ec7ba8a2b93282d23dc018a25ae652\",\"size_bytes\":80}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 imported-nonstandard-active: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -2349,8 +2349,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/PropertyGroup[1]/CLToolExe[1]#text\",\"locator_count\":5,\"locators_sha256\":\"5bf44e6cc00dd74f68a25371acac0deb8da943392ba9a2cb7be3ca50b0d80d92\",\"path\":\"build/Commands.props\",\"reason\":\"msbuild-active\",\"sha256\":\"652b22d4d44f8874d9cb4a7e0fa9f0508245150ded4820a9db91649f33f45d25\",\"size_bytes\":313}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 command-properties: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -2366,33 +2366,34 @@
         {
           "role": "package",
           "path": "packages/property-function.nupkg",
-          "sha256": "bc5e613229bbebfed753df2996353cc3034975cc0f1b3c50339f2fc5be77dd5f"
+          "sha256": "30c46bf773403e516e4242c6801dff425718400118b49c74e84318742c94120d"
         }
       ],
       "expected": {
         "row_id": "LP-10",
         "resolver_id": "lp10-binary-attribution",
         "resolver_version": "1.0.0",
-        "branch_id": "text-code-attribution-unverified",
-        "decision": "escalated",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
             "role": "package",
             "path": "packages/property-function.nupkg",
-            "sha256": "bc5e613229bbebfed753df2996353cc3034975cc0f1b3c50339f2fc5be77dd5f"
+            "sha256": "30c46bf773403e516e4242c6801dff425718400118b49c74e84318742c94120d"
           }
         ],
         "evidence_references": [
-          "package:archive"
+          "package:archive",
+          "package:nuspec/metadata"
         ],
-        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/PropertyGroup[1]/Result[1]#property-function\",\"locator_count\":1,\"locators_sha256\":\"6bf36ba38e1582b5bb8ff7974b0f100f64f73f5864ee24670f843481dc40dca0\",\"path\":\"build/Functions.props\",\"reason\":\"msbuild-active\",\"sha256\":\"5e2591631256d952a2fe95c4646f4a52a4ed071cd3f01a7460eb2f459954c980\",\"size_bytes\":104}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
-        "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
-        "next_category": "source-owner"
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "LP-10 property-function: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "rationale": "LP-10 property-function: checked package inventory matches only bounded passive/declaration forms.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -2412,8 +2413,8 @@
         "row_id": "LP-10",
         "resolver_id": "lp10-binary-attribution",
         "resolver_version": "1.0.0",
-        "branch_id": "text-code-attribution-unverified",
-        "decision": "escalated",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
@@ -2423,15 +2424,16 @@
           }
         ],
         "evidence_references": [
-          "package:archive"
+          "package:archive",
+          "package:nuspec/metadata"
         ],
-        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/PartnerTask[1]#task\",\"locator_count\":1,\"locators_sha256\":\"0412c67bd52878024660bc1e173d949c611c38afc620f00a232fc1bcddeb2898\",\"path\":\"build/Custom.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"61e16fb982eef54e807ce6af5044282013aef96ae6b1a5221d1e68cbf58b546d\",\"size_bytes\":72}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
-        "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
-        "next_category": "source-owner"
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
-      "rationale": "LP-10 custom-target-task: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "rationale": "LP-10 custom-target-task: checked package inventory matches only bounded passive/declaration forms.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
@@ -2466,8 +2468,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/script[1]\",\"locator_count\":1,\"locators_sha256\":\"b723e71d726475dd33bae802f4033ea648575dfaf8696d515213b1f97a3ee5d1\",\"path\":\"assets/filter.xslt\",\"reason\":\"markup-active\",\"sha256\":\"d34419a253da0107c57929d39b46ce400f6ab26e9eaa17bc9965a282c06bbe63\",\"size_bytes\":104},{\"classification\":\"text\",\"first_locator\":\"Project[1]@onload\",\"locator_count\":1,\"locators_sha256\":\"f1df1d964a3cb75809327ea3ccc03ec6d0b8c1f9151b1f9552e4f2aa7d7f94c8\",\"path\":\"staticwebassets/icon.svg\",\"reason\":\"markup-active\",\"sha256\":\"09eb7095277842af3af77c3fd1e3cf4eb65da27b66a69c9b47e668bd659d06ea\",\"size_bytes\":55},{\"classification\":\"text\",\"first_locator\":\"Project[1]/script[1]\",\"locator_count\":1,\"locators_sha256\":\"670fc9112351c87686e0e905213afda6d24651019dc808bed18a1e39112acb5c\",\"path\":\"staticwebassets/index.html\",\"reason\":\"markup-active\",\"sha256\":\"7ea62a07f94d6c78f1bdca1d3c94b3a9117e0038a19b5baa4090bbea716be790\",\"size_bytes\":39},{\"classification\":\"text\",\"first_locator\":\"Project[1]/Type[1]/ScriptBlock[1]\",\"locator_count\":1,\"locators_sha256\":\"34195b8c3c921e70f1cf5dd987a9981f42601a9d0269decb2b483c75736d025a\",\"path\":\"tools/types.ps1xml\",\"reason\":\"markup-active\",\"sha256\":\"6c04b073de7b538f5d96f0da6bf7c690821c4857bdd4e0cda6b0e9da82f137bb\",\"size_bytes\":60}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 active-markup: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -2599,7 +2601,7 @@
         {
           "role": "package",
           "path": "packages/unsupported-build-encoding.nupkg",
-          "sha256": "393a508817d9f0b202164e0782d6e72a6b6025131aca1642584993620a267ce8"
+          "sha256": "185241b44b918023df9d98a4bcb7f691995db9ca84fd9e6ac95fb3de3f158afc"
         }
       ],
       "expected": {
@@ -2613,7 +2615,7 @@
           {
             "role": "package",
             "path": "packages/unsupported-build-encoding.nupkg",
-            "sha256": "393a508817d9f0b202164e0782d6e72a6b6025131aca1642584993620a267ce8"
+            "sha256": "185241b44b918023df9d98a4bcb7f691995db9ca84fd9e6ac95fb3de3f158afc"
           }
         ],
         "evidence_references": [
@@ -2659,8 +2661,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"c804fb1163bfe1898041ec40f57e8fce96054a986d8e84510119c377caeb7d90\",\"path\":\"build/Namespaced.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"4c1e9b7dfaca599763122cdc2b11a45a9c3b07e5be341deec4b9f28cca30133c\",\"size_bytes\":130}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 utf8-msbuild-namespace: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -3127,8 +3129,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/APP.JS\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 upper-js: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -3166,8 +3168,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/app.mjs\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 module-js: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -3205,8 +3207,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/app.cjs\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 common-js: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -3440,7 +3442,7 @@
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"compiled\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"reason\":\"pe-signature\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/app.js\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
         "missing_fact": "Packaged compiled code and executable source-form text each lack verified per-entry source or referenced-upstream correspondence.",
-        "required_input": "per-entry-compiled-build-and-text-blob-or-upstream-byte-maps",
+        "required_input": "per-entry-compiled-build-and-text-blob-or-verified-transform-or-upstream-byte-maps",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 compiled-plus-js: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -3479,7 +3481,7 @@
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"compiled\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"reason\":\"pe-signature\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/app.js\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
         "missing_fact": "Packaged compiled code and executable source-form text each lack verified per-entry source or referenced-upstream correspondence.",
-        "required_input": "per-entry-compiled-build-and-text-blob-or-upstream-byte-maps",
+        "required_input": "per-entry-compiled-build-and-text-blob-or-verified-transform-or-upstream-byte-maps",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 compiled-js-metadata: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -3556,8 +3558,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"scripts/a.js\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"scripts/b.js\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 multi-script-reversed: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -3595,8 +3597,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"scripts/a.js\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34},{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"scripts/b.js\",\"reason\":\"executable-source-text\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 multi-script-sorted: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -4408,8 +4410,8 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"4d1d635221c44ae5daf1669b062eb15ea98ef649ad6bfc8a5dd0326cfb072780\",\"path\":\"build/Snippet.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"9dfe81fca1728384db12e4cb8c1f7efc4246272895d3bd5ff36abe6c64307f05\",\"size_bytes\":226}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 snippet-at-limit: checked package inventory requires per-entry attribution evidence outside the checked package.",
@@ -4447,11 +4449,1916 @@
         ],
         "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"31f588abd7516d9ddc2590996d0a3a2e4650367fe9d5ebd790165ffebe7fc3b9\",\"path\":\"build/Snippet.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"90213ae1b3d5bc0443c12b0e7b7b3ec68e7c215d00e345b6f4e9a6698e0231de\",\"size_bytes\":227}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
         "finding": null,
-        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "required_input": "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map",
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
         "next_category": "source-owner"
       },
       "rationale": "LP-10 snippet-over-limit: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-utf16-benign-no-code",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf16-benign-no-code.nupkg",
+          "sha256": "e2cc3b16675bd3d1c685f483b0da80d860eb1382488a97c6efb9b152b1d669ca"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf16-benign-no-code.nupkg",
+            "sha256": "e2cc3b16675bd3d1c685f483b0da80d860eb1382488a97c6efb9b152b1d669ca"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 utf16-benign-no-code: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-utf16-benign-compiled",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf16-benign-compiled.nupkg",
+          "sha256": "672ce9554d4a6cc505eca0f1a284603f49f3ed59ef2135806992e91b8504f42a"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "compiled-attribution-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf16-benign-compiled.nupkg",
+            "sha256": "672ce9554d4a6cc505eca0f1a284603f49f3ed59ef2135806992e91b8504f42a"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"compiled\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"reason\":\"pe-signature\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Packaged compiled code lacks verified per-entry ownership and correspondence to public release-commit builds or a referenced NuGet/npm upstream.",
+        "required_input": "per-entry-owner-and-public-release-commit-build-or-upstream-byte-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 utf16-benign-compiled: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-utf16be-benign-no-code",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf16be-benign-no-code.nupkg",
+          "sha256": "2364fd311bfdc1baf647d1c542c1d36766d5799212c2cfb0bb649953d9260403"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf16be-benign-no-code.nupkg",
+            "sha256": "2364fd311bfdc1baf647d1c542c1d36766d5799212c2cfb0bb649953d9260403"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 utf16be-benign-no-code: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-utf16be-benign-compiled",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf16be-benign-compiled.nupkg",
+          "sha256": "22b605b7ec3a8bff281baf85a09a35dcac1b290a25f96c945d6857f6b5763be8"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "compiled-attribution-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf16be-benign-compiled.nupkg",
+            "sha256": "22b605b7ec3a8bff281baf85a09a35dcac1b290a25f96c945d6857f6b5763be8"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"compiled\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"reason\":\"pe-signature\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Packaged compiled code lacks verified per-entry ownership and correspondence to public release-commit builds or a referenced NuGet/npm upstream.",
+        "required_input": "per-entry-owner-and-public-release-commit-build-or-upstream-byte-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 utf16be-benign-compiled: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-utf16-dtd-no-code",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf16-dtd-no-code.nupkg",
+          "sha256": "a8bf1d9f908c9448c66439793c734f6c81199082859c1fcb73259f1eb5602f6d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf16-dtd-no-code.nupkg",
+            "sha256": "a8bf1d9f908c9448c66439793c734f6c81199082859c1fcb73259f1eb5602f6d"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec has a DTD/entity declaration or unsupported encoding and cannot be safely inspected.",
+        "required_input": "safe-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 utf16-dtd-no-code: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-utf16-dtd-compiled",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf16-dtd-compiled.nupkg",
+          "sha256": "fe84728206b3eeb8b1b63705760e25d2c58d75e3c59e8fc382562477d82e7971"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf16-dtd-compiled.nupkg",
+            "sha256": "fe84728206b3eeb8b1b63705760e25d2c58d75e3c59e8fc382562477d82e7971"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec has a DTD/entity declaration or unsupported encoding and cannot be safely inspected.",
+        "required_input": "safe-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 utf16-dtd-compiled: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-utf16-entity-no-code",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf16-entity-no-code.nupkg",
+          "sha256": "d0e98aedafee9d9e5d1ec86e2dcd25b150ce014fb070009826185be4e8fed78e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf16-entity-no-code.nupkg",
+            "sha256": "d0e98aedafee9d9e5d1ec86e2dcd25b150ce014fb070009826185be4e8fed78e"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec has a DTD/entity declaration or unsupported encoding and cannot be safely inspected.",
+        "required_input": "safe-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 utf16-entity-no-code: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-utf16-entity-compiled",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf16-entity-compiled.nupkg",
+          "sha256": "cde23c592f854fe7fb011343f460235bf222c37c6818b63f24987111becdc4a9"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf16-entity-compiled.nupkg",
+            "sha256": "cde23c592f854fe7fb011343f460235bf222c37c6818b63f24987111becdc4a9"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec has a DTD/entity declaration or unsupported encoding and cannot be safely inspected.",
+        "required_input": "safe-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 utf16-entity-compiled: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-property-function-condition",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/property-function-condition.nupkg",
+          "sha256": "2fec986cd817718c6015b381f5765a584f529be93990fa6a423f12338123d819"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/property-function-condition.nupkg",
+            "sha256": "2fec986cd817718c6015b381f5765a584f529be93990fa6a423f12338123d819"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/ItemGroup[1]@Condition\",\"locator_count\":1,\"locators_sha256\":\"e39c4e4b1f677d66eea94ec40cb0c5b9af70dfa5430a91308d402ab3e4137333\",\"path\":\"build/Condition.props\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"600c58748958d030e1c5b4716dae9d441386e88c9a607d6ed43b84a0e9ac64e8\",\"size_bytes\":156}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 property-function-condition: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-property-function-item-condition",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/property-function-item-condition.nupkg",
+          "sha256": "a2f4b3300c77a68eb7e9d6dbe50e5e6479c0fd181fa9d70dd47ee5012cd146fc"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/property-function-item-condition.nupkg",
+            "sha256": "a2f4b3300c77a68eb7e9d6dbe50e5e6479c0fd181fa9d70dd47ee5012cd146fc"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/ItemGroup[1]/Asset[1]@Condition\",\"locator_count\":1,\"locators_sha256\":\"5d3affea70ffdfd40deaa2756d067af5673e01454773b3ce09129c5b29149155\",\"path\":\"build/Condition.props\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"ad3485bfe28149c6053474a664d24ce7ebaea23d4ed9d2f57b8ec33067cbcd3a\",\"size_bytes\":156}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 property-function-item-condition: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-property-function-property",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/property-function-property.nupkg",
+          "sha256": "1a76bfc18ed4f06bb1f4e800c6f1a2267d93a492a72d76f2f61c2259bb42ac94"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/property-function-property.nupkg",
+            "sha256": "1a76bfc18ed4f06bb1f4e800c6f1a2267d93a492a72d76f2f61c2259bb42ac94"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/PropertyGroup[1]/Path[1]#property-function\",\"locator_count\":1,\"locators_sha256\":\"66ae774432032695210cb1725388f1eeec3cbed0dc81ee933e2d434063c00030\",\"path\":\"build/Property.props\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"cf54ce704792cab167f3f13fd1b4ba49dac545d10b7252614f8d5fa407039e33\",\"size_bytes\":135}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 property-function-property: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-property-function-instance",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/property-function-instance.nupkg",
+          "sha256": "4e70ab5856696cfc65a66afca743127affbae367096cd780e5615ea61399a054"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/property-function-instance.nupkg",
+            "sha256": "4e70ab5856696cfc65a66afca743127affbae367096cd780e5615ea61399a054"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/ItemGroup[1]/Asset[1]@Include\",\"locator_count\":1,\"locators_sha256\":\"82edb237204dc80b4c407a0af8414d622ac461c022e47569b2e871c4630fadab\",\"path\":\"build/Instance.props\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"b1c818340e775bd6824f8f21a4689e920327f00de027605df00ee19702e39fc8\",\"size_bytes\":88}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 property-function-instance: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-property-function-unknown",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/property-function-unknown.nupkg",
+          "sha256": "8f1998cd5d5b6e5488ef59aa40191bfce0e529a9619e2488d059dc4108f6d8c0"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/property-function-unknown.nupkg",
+            "sha256": "8f1998cd5d5b6e5488ef59aa40191bfce0e529a9619e2488d059dc4108f6d8c0"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/ItemGroup[1]/Asset[1]@Include\",\"locator_count\":1,\"locators_sha256\":\"da23bee969e786f58c7953f764afc231706f8caa62c3662c6b37b0506190f757\",\"path\":\"build/Unknown.props\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"e6955e7e747ec778fc49b6f1c17fa7861146fce4eefb074ecaf4a07b455eaac4\",\"size_bytes\":134}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 property-function-unknown: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-property-function-nested",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/property-function-nested.nupkg",
+          "sha256": "e6612e281713b4e41363c0a5031e739191955bc7e98bb1551cfe4456d771c771"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/property-function-nested.nupkg",
+            "sha256": "e6612e281713b4e41363c0a5031e739191955bc7e98bb1551cfe4456d771c771"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/ItemGroup[1]/Asset[1]@Include\",\"locator_count\":1,\"locators_sha256\":\"d89a59500e891b8c6166a99bf43c22d94cbb58e52a3805f93b5297bb7842eb6c\",\"path\":\"build/Nested.props\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"98e3a0fb02d7850970721a897af3f704bcbee30e5c414617da45fb753d1ff6f5\",\"size_bytes\":162}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 property-function-nested: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-property-function-escape",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/property-function-escape.nupkg",
+          "sha256": "cc7d92bd8a7bead150eb0a5c55d73899e7f6f217a92ff9dd0e605dd16c2fe520"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/property-function-escape.nupkg",
+            "sha256": "cc7d92bd8a7bead150eb0a5c55d73899e7f6f217a92ff9dd0e605dd16c2fe520"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/ItemGroup[1]/Asset[1]@Include\",\"locator_count\":1,\"locators_sha256\":\"e6393fcc058ab1f6c04e337997327c69af5079c34773cea2ba5244a25da18ee5\",\"path\":\"build/Escape.props\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"8e189e06ff550ba324cccbc9999189a7dafa1577f0b924bbe0e783070d5bd982\",\"size_bytes\":142}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 property-function-escape: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-taskhost-reference",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/taskhost-reference.nupkg",
+          "sha256": "7a58f4fe3e972cae73d71c3aeeb264372f160b10283986f2e9b00ada58d2bba1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/taskhost-reference.nupkg",
+            "sha256": "7a58f4fe3e972cae73d71c3aeeb264372f160b10283986f2e9b00ada58d2bba1"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 taskhost-reference: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-unknown-factory-reference",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unknown-factory-reference.nupkg",
+          "sha256": "db2766b8ee78db2c15c63a94558272e564563e480e44b1316c707da02ef28048"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unknown-factory-reference.nupkg",
+            "sha256": "db2766b8ee78db2c15c63a94558272e564563e480e44b1316c707da02ef28048"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 unknown-factory-reference: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-unsupported-inline-syntax",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unsupported-inline-syntax.nupkg",
+          "sha256": "d0d13e7853063db835e1aae3fea0e40708c7c934456a1a3dbff939529cefbec0"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unsupported-inline-syntax.nupkg",
+            "sha256": "d0d13e7853063db835e1aae3fea0e40708c7c934456a1a3dbff939529cefbec0"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/UsingTask[1]/Task[1]#unsupported-inline\",\"locator_count\":1,\"locators_sha256\":\"c1a8dd69fa4ba87c83439f9a957931e8568a5f4057df1d9e4954a51c845c6438\",\"path\":\"build/Task.tasks\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"ebe662cecdfea1552bf387dcc404ea0ef2a2ebbf5909887c38322ae15e607b7c\",\"size_bytes\":120}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 unsupported-inline-syntax: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-imported-utf16-txt",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/imported-utf16-txt.nupkg",
+          "sha256": "a5d46cab571fe06ae9044a8b17c47e3a24b078f55eb9fcda57f105e8bbe009e5"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "text-code-attribution-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/imported-utf16-txt.nupkg",
+            "sha256": "a5d46cab571fe06ae9044a8b17c47e3a24b078f55eb9fcda57f105e8bbe009e5"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"1c53ef486fdcc35d183bba1c3d3b2e13995a00780056f63511406438dc8941b3\",\"path\":\"assets/hidden.txt\",\"reason\":\"msbuild-active\",\"sha256\":\"9801136faef91a54a9197dbe034e35d899cde0018bb49a6b02d5a4635e9a30a3\",\"size_bytes\":240}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 imported-utf16-txt: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-imported-utf8-bom-txt",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/imported-utf8-bom-txt.nupkg",
+          "sha256": "8a011e5dfe822d921eae6807c59888107998c35b90e1b1af3338f81eb81cd24c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "text-code-attribution-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/imported-utf8-bom-txt.nupkg",
+            "sha256": "8a011e5dfe822d921eae6807c59888107998c35b90e1b1af3338f81eb81cd24c"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"1c53ef486fdcc35d183bba1c3d3b2e13995a00780056f63511406438dc8941b3\",\"path\":\"assets/hidden.txt\",\"reason\":\"msbuild-active\",\"sha256\":\"202c45f64ed6fdec08f72a3f7265bb2960dfb1438337593133aa6d6a7e49b541\",\"size_bytes\":121}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 imported-utf8-bom-txt: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-bom-project-direct",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/bom-project-direct.nupkg",
+          "sha256": "ebd4f4282b3076559fd6f9584bc542dfba5cccffba0fbea6186efbc73339d807"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "text-code-attribution-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/bom-project-direct.nupkg",
+            "sha256": "ebd4f4282b3076559fd6f9584bc542dfba5cccffba0fbea6186efbc73339d807"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"efff482903d340e33077caaf42c2d60dcfccdba5e103697d90ac820cb66097c0\",\"path\":\"assets/hidden.md\",\"reason\":\"msbuild-active\",\"sha256\":\"a8ffb03624ea34f539223100ec6df89b26014d63433d97fb12de60b48343318f\",\"size_bytes\":111}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 bom-project-direct: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-imported-late-roots",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/imported-late-roots.nupkg",
+          "sha256": "e88720cec1a985b7960e455aafaea4b0c78d7ae00bd84f052dc43c793b01dffc"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "text-code-attribution-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/imported-late-roots.nupkg",
+            "sha256": "e88720cec1a985b7960e455aafaea4b0c78d7ae00bd84f052dc43c793b01dffc"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"1c53ef486fdcc35d183bba1c3d3b2e13995a00780056f63511406438dc8941b3\",\"path\":\"assets/hidden.md\",\"reason\":\"msbuild-active\",\"sha256\":\"12e38db38d340766acd053e35c3cf9dfeb30a4850a05fabe26df16f208b442b3\",\"size_bytes\":686},{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"1c53ef486fdcc35d183bba1c3d3b2e13995a00780056f63511406438dc8941b3\",\"path\":\"assets/hidden.txt\",\"reason\":\"msbuild-active\",\"sha256\":\"12e38db38d340766acd053e35c3cf9dfeb30a4850a05fabe26df16f208b442b3\",\"size_bytes\":686},{\"classification\":\"text\",\"first_locator\":\"Project[1]/Target[1]/Exec[1]@Command\",\"locator_count\":1,\"locators_sha256\":\"1c53ef486fdcc35d183bba1c3d3b2e13995a00780056f63511406438dc8941b3\",\"path\":\"assets/hidden.xml\",\"reason\":\"msbuild-active\",\"sha256\":\"12e38db38d340766acd053e35c3cf9dfeb30a4850a05fabe26df16f208b442b3\",\"size_bytes\":686}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 imported-late-roots: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-readme-project-decoy",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/readme-project-decoy.nupkg",
+          "sha256": "c40e3027819db325ae977dee9cc3262ef9b1b98d40834cc2ea45deb592a843ac"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/readme-project-decoy.nupkg",
+            "sha256": "c40e3027819db325ae977dee9cc3262ef9b1b98d40834cc2ea45deb592a843ac"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 readme-project-decoy: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-js-project-decoy",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/js-project-decoy.nupkg",
+          "sha256": "0b3704a49e909dca5fa8e14d883d4a5696a06acc8a2df356114648f360fd9966"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "text-code-attribution-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/js-project-decoy.nupkg",
+            "sha256": "0b3704a49e909dca5fa8e14d883d4a5696a06acc8a2df356114648f360fd9966"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/app.js\",\"reason\":\"executable-source-text\",\"sha256\":\"52f2fdf33155c2d004d54544c061b5470c6bf460b63da4e38bc949219ca4709f\",\"size_bytes\":80}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 js-project-decoy: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-import-cycle",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-cycle.nupkg",
+          "sha256": "dd72204465ae66ce42138fe27556814561c7a5d508c6629d156fe6321d288e25"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-cycle.nupkg",
+            "sha256": "dd72204465ae66ce42138fe27556814561c7a5d508c6629d156fe6321d288e25"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 import-cycle: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-import-depth-at-limit",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-depth-at-limit.nupkg",
+          "sha256": "0ecf9661c8e32cafee8c3281a621f9e68097c9168af6b950ae0632d76def519f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-depth-at-limit.nupkg",
+            "sha256": "0ecf9661c8e32cafee8c3281a621f9e68097c9168af6b950ae0632d76def519f"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 import-depth-at-limit: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-import-depth-over-limit",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-depth-over-limit.nupkg",
+          "sha256": "f724851a5d38edf89602b311c759c5825651a14a1ecf3aa692abf2d554c681a2"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-depth-over-limit.nupkg",
+            "sha256": "f724851a5d38edf89602b311c759c5825651a14a1ecf3aa692abf2d554c681a2"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 import-depth-over-limit: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-import-count-at-limit",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-count-at-limit.nupkg",
+          "sha256": "96ddc26cb0f60e5e39aa24fb9285aeea9814b88fab834349c08927ddfd483171"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-count-at-limit.nupkg",
+            "sha256": "96ddc26cb0f60e5e39aa24fb9285aeea9814b88fab834349c08927ddfd483171"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 import-count-at-limit: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-import-count-over-limit",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-count-over-limit.nupkg",
+          "sha256": "770496a896618ac7feb1a989b8ced5adce6633327ea2198a034bbd9f25269d66"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-count-over-limit.nupkg",
+            "sha256": "770496a896618ac7feb1a989b8ced5adce6633327ea2198a034bbd9f25269d66"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 import-count-over-limit: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-import-wildcard",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-wildcard.nupkg",
+          "sha256": "a0c7e61c3dee5e79d3df32a30d02215ab85a64d7ada6ac39cab77931433b1956"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-wildcard.nupkg",
+            "sha256": "a0c7e61c3dee5e79d3df32a30d02215ab85a64d7ada6ac39cab77931433b1956"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 import-wildcard: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-import-property",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-property.nupkg",
+          "sha256": "b127696bc584a5209f7d6eab3064f3fb39be7e3b4ffe83d2603e1e94361d1731"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-property.nupkg",
+            "sha256": "b127696bc584a5209f7d6eab3064f3fb39be7e3b4ffe83d2603e1e94361d1731"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 import-property: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-import-outside",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-outside.nupkg",
+          "sha256": "b52972a829474ee2941f6822d5a0688f576c682b3e0cbc4278174d6485663d25"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-outside.nupkg",
+            "sha256": "b52972a829474ee2941f6822d5a0688f576c682b3e0cbc4278174d6485663d25"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 import-outside: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-import-target-invalid",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-target-invalid.nupkg",
+          "sha256": "5c92d832ef3c5bd2b15eb0c6f0033c970eedd9491b37f6c50c10de1c77f09725"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-target-invalid.nupkg",
+            "sha256": "5c92d832ef3c5bd2b15eb0c6f0033c970eedd9491b37f6c50c10de1c77f09725"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 import-target-invalid: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-sevenzip-magic-png",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/sevenzip-magic-png.nupkg",
+          "sha256": "783ace45f22c33ed785cef7540ca8a890ceeea9a531b5b15b0552f72b151c726"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/sevenzip-magic-png.nupkg",
+            "sha256": "783ace45f22c33ed785cef7540ca8a890ceeea9a531b5b15b0552f72b151c726"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"images/logo.png\",\"reason\":\"7z-container\",\"sha256\":\"87055e1ae6d3db78b31bea243fc79291b05b8af65ac8eaaa0227c44abe698a7c\",\"size_bytes\":14}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 sevenzip-magic-png: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-xz-magic-pdb",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/xz-magic-pdb.nupkg",
+          "sha256": "be756098822bd10c3f0c5b3b6ef32703fb0c82a1d53ab4c2806d2584e5584fa5"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/xz-magic-pdb.nupkg",
+            "sha256": "be756098822bd10c3f0c5b3b6ef32703fb0c82a1d53ab4c2806d2584e5584fa5"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"symbols/file.pdb\",\"reason\":\"xz-container\",\"sha256\":\"025ec95c54451f9994091718f6d0dd0df5c30dabc62c3a5bb5bc43a8c65c87c8\",\"size_bytes\":14}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 xz-magic-pdb: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-zstd-magic-map",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/zstd-magic-map.nupkg",
+          "sha256": "cc4526ce5c377c3a12bcc37130f5d0f4b356b52e85128ba1ea4bc2d85f636b56"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/zstd-magic-map.nupkg",
+            "sha256": "cc4526ce5c377c3a12bcc37130f5d0f4b356b52e85128ba1ea4bc2d85f636b56"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/app.js.map\",\"reason\":\"zstd-container\",\"sha256\":\"4cc55316c9c658efb7960bbc1b06c9ff2615a1d5f674070732f8dca7049f2aa0\",\"size_bytes\":12}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 zstd-magic-map: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-bzip2-magic-txt",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/bzip2-magic-txt.nupkg",
+          "sha256": "1970bc73b2f7b02fdea8b210260d60f6c4f0f4519dc995a48b079457ba6504fe"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/bzip2-magic-txt.nupkg",
+            "sha256": "1970bc73b2f7b02fdea8b210260d60f6c4f0f4519dc995a48b079457ba6504fe"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"README.txt\",\"reason\":\"bzip2-container\",\"sha256\":\"76ae72bf0edffa7995c93128aeeea5e89cf562362087f9c1994197640b9ff40d\",\"size_bytes\":12}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 bzip2-magic-txt: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-rar4-magic-png",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/rar4-magic-png.nupkg",
+          "sha256": "acbab99f50a7f3be5eed0b06f10d85f227353105c21682478530b4108337e235"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/rar4-magic-png.nupkg",
+            "sha256": "acbab99f50a7f3be5eed0b06f10d85f227353105c21682478530b4108337e235"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"images/logo.png\",\"reason\":\"rar4-container\",\"sha256\":\"5f1fdf93b9f297915ee2847404162d3b14ed8a3f0e7744b1472cb68b4d2bfca4\",\"size_bytes\":15}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 rar4-magic-png: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-rar5-magic-pdb",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/rar5-magic-pdb.nupkg",
+          "sha256": "9a5cd37be2226976c94132ff9ea5775e6e549b319572c1df2e782c8097847917"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/rar5-magic-pdb.nupkg",
+            "sha256": "9a5cd37be2226976c94132ff9ea5775e6e549b319572c1df2e782c8097847917"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"symbols/file.pdb\",\"reason\":\"rar5-container\",\"sha256\":\"38bb701595ba204730152f53ea24fd1cda133cb1b9cc1cdcb440c628f5e72d6a\",\"size_bytes\":16}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 rar5-magic-pdb: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-html-doctype-script",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/html-doctype-script.nupkg",
+          "sha256": "c22b5e93928ca47ee61741b6c7684d63fb4a4d8db9b52a830fa27445b300a8a7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/html-doctype-script.nupkg",
+            "sha256": "c22b5e93928ca47ee61741b6c7684d63fb4a4d8db9b52a830fa27445b300a8a7"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/index.html\",\"reason\":\"markup-build-xml-dtd\",\"sha256\":\"eaa4c41c97fa00c9791b5083f7f56d7b5bb3f23dd9ff9fde4adf90f9bb3653a5\",\"size_bytes\":49}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 html-doctype-script: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-html-void-script",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/html-void-script.nupkg",
+          "sha256": "f7dd0e3a15ac98d461d0083e85e2797082ee3ff2604e60a47b3c5b2775dac3b5"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/html-void-script.nupkg",
+            "sha256": "f7dd0e3a15ac98d461d0083e85e2797082ee3ff2604e60a47b3c5b2775dac3b5"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":null,\"locator_count\":0,\"locators_sha256\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"path\":\"staticwebassets/index.html\",\"reason\":\"markup-build-xml-parse\",\"sha256\":\"e57c37d03bedcd74ce9f2467d0ea84157f837f22c4d5104cbedbe6ea716567f7\",\"size_bytes\":54}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 html-void-script: checked package inventory requires a safe executable payload/source map.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-inline-parameter-group",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/inline-parameter-group.nupkg",
+          "sha256": "8f405d375c7fcfc7383c73c8d43eb2e361df4c214576887b5d4bf15b6989324c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "text-code-attribution-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/inline-parameter-group.nupkg",
+            "sha256": "8f405d375c7fcfc7383c73c8d43eb2e361df4c214576887b5d4bf15b6989324c"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"text\",\"first_locator\":\"Project[1]/UsingTask[1]/Task[1]/Code[1]#text\",\"locator_count\":1,\"locators_sha256\":\"c592903b2a822569323fa3822317ffaeff9ead789e69528c24ec3073314e8e9e\",\"path\":\"build/Tasks.targets\",\"reason\":\"msbuild-active\",\"sha256\":\"8fb796b1fe2f1a189332218c3891c01df22f63669311210e49ae35793083667b\",\"size_bytes\":261}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "required_input": "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 inline-parameter-group: checked package inventory requires per-entry attribution evidence outside the checked package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-non-command-task-and-property",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/non-command-task-and-property.nupkg",
+          "sha256": "c0be3385701d05abc11df6c63e0178a97552f0090102798487284c4530d2fb7d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/non-command-task-and-property.nupkg",
+            "sha256": "c0be3385701d05abc11df6c63e0178a97552f0090102798487284c4530d2fb7d"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 non-command-task-and-property: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-import-target-unsupported-encoding",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/import-target-unsupported-encoding.nupkg",
+          "sha256": "b2419a1a078eb58509a85c09548157a82d7a20957c9e4b7fbafd37e14978a838"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/import-target-unsupported-encoding.nupkg",
+            "sha256": "b2419a1a078eb58509a85c09548157a82d7a20957c9e4b7fbafd37e14978a838"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 import-target-unsupported-encoding: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-nonstandard-root-at-limit",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nonstandard-root-at-limit.nupkg",
+          "sha256": "81206a19ba624101eb19ad5fcb4fd21318af65bd6376bfd0295f1a21e9bb9707"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nonstandard-root-at-limit.nupkg",
+            "sha256": "81206a19ba624101eb19ad5fcb4fd21318af65bd6376bfd0295f1a21e9bb9707"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 nonstandard-root-at-limit: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-nonstandard-root-over-limit",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nonstandard-root-over-limit.nupkg",
+          "sha256": "24a57197c4d81ca6bc480df366883ef83e74eb8c7ca2c2cf301030b8504e5261"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nonstandard-root-over-limit.nupkg",
+            "sha256": "24a57197c4d81ca6bc480df366883ef83e74eb8c7ca2c2cf301030b8504e5261"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 nonstandard-root-over-limit: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-nonstandard-utf16-without-bom",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nonstandard-utf16-without-bom.nupkg",
+          "sha256": "fbfb05884794cda9b74b3453314b0faa258c80774961a9ea3d41062f3a1e4410"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nonstandard-utf16-without-bom.nupkg",
+            "sha256": "fbfb05884794cda9b74b3453314b0faa258c80774961a9ea3d41062f3a1e4410"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 nonstandard-utf16-without-bom: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-nonstandard-invalid-utf8-root",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nonstandard-invalid-utf8-root.nupkg",
+          "sha256": "fa525a5a77e97ed1a2234b370cf1bfc9ab955ec1db402b770292502b4a972d52"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nonstandard-invalid-utf8-root.nupkg",
+            "sha256": "fa525a5a77e97ed1a2234b370cf1bfc9ab955ec1db402b770292502b4a972d52"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 nonstandard-invalid-utf8-root: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-nested-target-exec",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested-target-exec.nupkg",
+          "sha256": "477991320a19e5de41a0757ef62b204f02e1e94712e0a334743c9097d1f09a4d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-executable-content",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested-target-exec.nupkg",
+            "sha256": "477991320a19e5de41a0757ef62b204f02e1e94712e0a334743c9097d1f09a4d"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (exact bytes hashed; locator snippets are display-only): [{\"classification\":\"unsupported\",\"first_locator\":\"Project[1]/Target[1]/PartnerTask[1]/Exec[1]#unsupported-nested-exec\",\"locator_count\":1,\"locators_sha256\":\"bc0c21a2dda2239f64e7506fe1e7ac2916f4f6c407f0cbed7f7694ffdb09ddbb\",\"path\":\"build/Tasks.targets\",\"reason\":\"msbuild-unsupported\",\"sha256\":\"4f959ff345bbc7d22d65473c819efe12c6d1c173e69abb97dbc0184eae7d57bb\",\"size_bytes\":97}]. These checked bytes do not establish ownership, release-commit correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An executable-looking payload or active build/markup construct cannot be safely classified for attribution.",
+        "required_input": "safely-inspectable-payload-and-per-entry-source-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 nested-target-exec: checked package inventory requires a safe executable payload/source map.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
