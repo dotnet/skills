@@ -1,0 +1,2113 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp09-plain",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/plain.nupkg",
+          "sha256": "fb6338ff44ac3b28dbcd09c25abce79e5306327320d2ac818e1b597505ecdf98"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/plain.nupkg",
+            "sha256": "fb6338ff44ac3b28dbcd09c25abce79e5306327320d2ac818e1b597505ecdf98"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 plain: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-padded",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/padded.nupkg",
+          "sha256": "f290fe52755e8a672c15c52cd7e30834a0a6adf284223a495d5f0e26deb4e666"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/padded.nupkg",
+            "sha256": "f290fe52755e8a672c15c52cd7e30834a0a6adf284223a495d5f0e26deb4e666"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 padded: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-internal-space",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/internal-space.nupkg",
+          "sha256": "418acb8602f448c07877cd44cd7beae023c20611e9f79d3abe84ea7c5106d1ed"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/internal-space.nupkg",
+            "sha256": "418acb8602f448c07877cd44cd7beae023c20611e9f79d3abe84ea7c5106d1ed"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/a b.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 internal-space: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-internal-newline",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/internal-newline.nupkg",
+          "sha256": "cc33777d5c98ebfad9cd9e317180cceb64d533ea5f6bed0782984e626146900f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/internal-newline.nupkg",
+            "sha256": "cc33777d5c98ebfad9cd9e317180cceb64d533ea5f6bed0782984e626146900f"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/a\nb.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 internal-newline: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-unicode",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unicode.nupkg",
+          "sha256": "5fd33d95488eaa78b8a3e171756b30bf6965c4943db9605325248de3db9965f6"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unicode.nupkg",
+            "sha256": "5fd33d95488eaa78b8a3e171756b30bf6965c4943db9605325248de3db9965f6"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/caf\u00e9/\u674e.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 unicode: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-unicode-padding",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unicode-padding.nupkg",
+          "sha256": "f2465d6b4aa110f12274cbcfd701adee9512219045f46f8cf42961fdb60d0ea6"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unicode-padding.nupkg",
+            "sha256": "f2465d6b4aa110f12274cbcfd701adee9512219045f46f8cf42961fdb60d0ea6"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/\u00e9.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 unicode-padding: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-xml-entities",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/xml-entities.nupkg",
+          "sha256": "5ec0f51c7f264cea5aa7c22c4452f4c66e5ff0a0919499cf2f04d5e4bd856588"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/xml-entities.nupkg",
+            "sha256": "5ec0f51c7f264cea5aa7c22c4452f4c66e5ff0a0919499cf2f04d5e4bd856588"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/?a=1&b=2 docs.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 xml-entities: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-cdata",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/cdata.nupkg",
+          "sha256": "7de740f74ff68d0c470775473e520b7f0a4f8646094a4e6cfff1e0ec9790463c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/cdata.nupkg",
+            "sha256": "7de740f74ff68d0c470775473e520b7f0a4f8646094a4e6cfff1e0ec9790463c"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/?a=1&b=2.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 cdata: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-cdata-comment",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/cdata-comment.nupkg",
+          "sha256": "153dcef0b2997b90a672220ba9ac2ae5747a4923f1ef0767265a9fcd4b7914fa"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/cdata-comment.nupkg",
+            "sha256": "153dcef0b2997b90a672220ba9ac2ae5747a4923f1ef0767265a9fcd4b7914fa"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/docs.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 cdata-comment: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-namespace-declaration",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-declaration.nupkg",
+          "sha256": "3092af41b074526b19f3f32895f70deeb2de8261e0bcef8d34dda74e329abc39"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-declaration.nupkg",
+            "sha256": "3092af41b074526b19f3f32895f70deeb2de8261e0bcef8d34dda74e329abc39"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 namespace-declaration: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-relative",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/relative.nupkg",
+          "sha256": "2ff90dfd0a9822470b7b822277e936492a017f6ec84b7c0ee23accbcb0ce7d33"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/relative.nupkg",
+            "sha256": "2ff90dfd0a9822470b7b822277e936492a017f6ec84b7c0ee23accbcb0ce7d33"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: ../docs.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 relative: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-malformed-url",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/malformed-url.nupkg",
+          "sha256": "f2a015a126e3e8a99cebc221ffb44a41f621a67745b15f25ce9139e3914b0974"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/malformed-url.nupkg",
+            "sha256": "f2a015a126e3e8a99cebc221ffb44a41f621a67745b15f25ce9139e3914b0974"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: not a valid URL.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 malformed-url: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-non-http",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/non-http.nupkg",
+          "sha256": "f0a20fb565be1aa4205b26ca98f3398f9588497ade8799e4039f68fd0f7d164d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/non-http.nupkg",
+            "sha256": "f0a20fb565be1aa4205b26ca98f3398f9588497ade8799e4039f68fd0f7d164d"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: mailto:team@example.test.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 non-http: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-opaque-nonblank",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/opaque-nonblank.nupkg",
+          "sha256": "522e9b690e5a60fd250aa1b2574d60831ca561489ff31af8f560bd8817c93c01"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/opaque-nonblank.nupkg",
+            "sha256": "522e9b690e5a60fd250aa1b2574d60831ca561489ff31af8f560bd8817c93c01"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: ??.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 opaque-nonblank: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-project-and-repository",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/project-and-repository.nupkg",
+          "sha256": "9090460ecb1791f30f8a5316e66d4382101f7442e80b1d3e4303b9f89062c44c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/project-and-repository.nupkg",
+            "sha256": "9090460ecb1791f30f8a5316e66d4382101f7442e80b1d3e4303b9f89062c44c"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 project-and-repository: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-unrelated-repository",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unrelated-repository.nupkg",
+          "sha256": "c3a85313f580dee6c5c04f52b9c18b64a6266007ae0105b63a75ce27060a7db1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unrelated-repository.nupkg",
+            "sha256": "c3a85313f580dee6c5c04f52b9c18b64a6266007ae0105b63a75ce27060a7db1"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 unrelated-repository: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-foreign-unrelated-sibling",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-unrelated-sibling.nupkg",
+          "sha256": "159d5e801568592cf2c77adea2dc4837128fc79aee9486935138c90a971f4270"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-unrelated-sibling.nupkg",
+            "sha256": "159d5e801568592cf2c77adea2dc4837128fc79aee9486935138c90a971f4270"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 foreign-unrelated-sibling: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-unqualified",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unqualified.nupkg",
+          "sha256": "369b5064aee97ca31898119fa690a32b2f9b9fb2cb64c1110663c9838fc2aae8"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unqualified.nupkg",
+            "sha256": "369b5064aee97ca31898119fa690a32b2f9b9fb2cb64c1110663c9838fc2aae8"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 unqualified: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-namespace-2010-07",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2010-07.nupkg",
+          "sha256": "07a472347d334a342520ac3dcfc782689ba272f960359fc433126e69a0a8d525"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2010-07.nupkg",
+            "sha256": "07a472347d334a342520ac3dcfc782689ba272f960359fc433126e69a0a8d525"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 namespace-2010-07: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-namespace-2011-08",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2011-08.nupkg",
+          "sha256": "729c1bd250af227fa96de412a807836f1c27528ad78c2502a3f48776b532a3d7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2011-08.nupkg",
+            "sha256": "729c1bd250af227fa96de412a807836f1c27528ad78c2502a3f48776b532a3d7"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 namespace-2011-08: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-namespace-2011-10",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2011-10.nupkg",
+          "sha256": "e18d39bc54c52db6f7f9802c77ea39cede3b5f0963b7969fb1d0ef8cfd4890c3"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2011-10.nupkg",
+            "sha256": "e18d39bc54c52db6f7f9802c77ea39cede3b5f0963b7969fb1d0ef8cfd4890c3"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 namespace-2011-10: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-namespace-2012-06",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2012-06.nupkg",
+          "sha256": "da28f3d7d49733be5933ac4ca8bc622aa74f80743c68cb1716a8df9f08b4d2e0"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2012-06.nupkg",
+            "sha256": "da28f3d7d49733be5933ac4ca8bc622aa74f80743c68cb1716a8df9f08b4d2e0"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 namespace-2012-06: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-namespace-2013-01",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2013-01.nupkg",
+          "sha256": "495ef2adc77e68c80cc8395e7407ca40afb02e2e6819f5e51b790f46bd3a7906"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2013-01.nupkg",
+            "sha256": "495ef2adc77e68c80cc8395e7407ca40afb02e2e6819f5e51b790f46bd3a7906"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 namespace-2013-01: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-absent",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/absent.nupkg",
+          "sha256": "319fe8db0ba362849864ad83658dabd1609766ce6311844dcab9589d42fb580e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/absent.nupkg",
+            "sha256": "319fe8db0ba362849864ad83658dabd1609766ce6311844dcab9589d42fb580e"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the nuspec metadata has no direct projectUrl element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 absent: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp09-repository-only",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/repository-only.nupkg",
+          "sha256": "c0c80969e7b20ba56337fb20ebe41e4792ddf88ad88c5b1b046005ac5fe255a6"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/repository-only.nupkg",
+            "sha256": "c0c80969e7b20ba56337fb20ebe41e4792ddf88ad88c5b1b046005ac5fe255a6"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the nuspec metadata has no direct projectUrl element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 repository-only: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp09-repository-attribute",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/repository-attribute.nupkg",
+          "sha256": "b079c90e38c064e8ac002dd4e8099ce46a6ee8e8ebcfd28a89f569e5993a824c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/repository-attribute.nupkg",
+            "sha256": "b079c90e38c064e8ac002dd4e8099ce46a6ee8e8ebcfd28a89f569e5993a824c"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the nuspec metadata has no direct projectUrl element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 repository-attribute: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp09-metadata-attribute",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-attribute.nupkg",
+          "sha256": "f0a817fd32b6f264ebea874ae838d43409170e36bc73b593d41db2e5481d4edc"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-attribute.nupkg",
+            "sha256": "f0a817fd32b6f264ebea874ae838d43409170e36bc73b593d41db2e5481d4edc"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the nuspec metadata has no direct projectUrl element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 metadata-attribute: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp09-nested-project",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested-project.nupkg",
+          "sha256": "60b9e24c10847af47fdc0788e99cd91d51b865f15b00a90b66b94046e909a799"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested-project.nupkg",
+            "sha256": "60b9e24c10847af47fdc0788e99cd91d51b865f15b00a90b66b94046e909a799"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the nuspec metadata has no direct projectUrl element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 nested-project: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp09-outside-metadata",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/outside-metadata.nupkg",
+          "sha256": "237e3e865134a89dbe5fd30125d7f05b863e4c487d70c99e90096d0d70f6a86e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/outside-metadata.nupkg",
+            "sha256": "237e3e865134a89dbe5fd30125d7f05b863e4c487d70c99e90096d0d70f6a86e"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the nuspec metadata has no direct projectUrl element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 outside-metadata: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp09-wrong-case",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/wrong-case.nupkg",
+          "sha256": "bcbe430712e8dbde4790a06ca016d0387fa84677293a4926f135c8db0ba2c8b0"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/wrong-case.nupkg",
+            "sha256": "bcbe430712e8dbde4790a06ca016d0387fa84677293a4926f135c8db0ba2c8b0"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the nuspec metadata has no direct projectUrl element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 wrong-case: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp09-empty",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/empty.nupkg",
+          "sha256": "b1b7ce4da638fad1f12887678a3b84b745120a0708903e7ef7340e7e882fcf6d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/empty.nupkg",
+            "sha256": "b1b7ce4da638fad1f12887678a3b84b745120a0708903e7ef7340e7e882fcf6d"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the projectUrl element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 empty: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-whitespace",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/whitespace.nupkg",
+          "sha256": "0bbd6e215e8e3f9b5aa64a86d0aaad8279c6d45ac1b74c976b02efb0dbf6af99"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/whitespace.nupkg",
+            "sha256": "0bbd6e215e8e3f9b5aa64a86d0aaad8279c6d45ac1b74c976b02efb0dbf6af99"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the projectUrl element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 whitespace: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-unicode-whitespace",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unicode-whitespace.nupkg",
+          "sha256": "75b3dfd7835ade4ac4e6fa604ceeff07cc97aeb1f47eba85f3e02cd3c35de767"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unicode-whitespace.nupkg",
+            "sha256": "75b3dfd7835ade4ac4e6fa604ceeff07cc97aeb1f47eba85f3e02cd3c35de767"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the projectUrl element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 unicode-whitespace: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-comment-only",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/comment-only.nupkg",
+          "sha256": "f287e9d293931e2ff1daa1b7e5c880ac31f133d02f38c01b877a06109303343f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/comment-only.nupkg",
+            "sha256": "f287e9d293931e2ff1daa1b7e5c880ac31f133d02f38c01b877a06109303343f"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the projectUrl element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 comment-only: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-empty-cdata",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/empty-cdata.nupkg",
+          "sha256": "7f28a7b9f560112d0a94c42ab8dbdc7323a8fdd0897b171314635d0fe0f21034"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/empty-cdata.nupkg",
+            "sha256": "7f28a7b9f560112d0a94c42ab8dbdc7323a8fdd0897b171314635d0fe0f21034"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the projectUrl element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 empty-cdata: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-duplicate-identical",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-identical.nupkg",
+          "sha256": "0cdc6c78420fefd8388b3313429a8f9daa3dd46d3c14a2271053998a664c83ae"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-identical.nupkg",
+            "sha256": "0cdc6c78420fefd8388b3313429a8f9daa3dd46d3c14a2271053998a664c83ae"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Multiple projectUrl elements prevent an unambiguous ProjectUrl value.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 duplicate-identical: Multiple projectUrl elements cannot establish one authoritative value, even when equal.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-duplicate-padded",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-padded.nupkg",
+          "sha256": "8aad9ec84224fe633212cf0505d59c15814d78fdd8eb80b083abc7f19f4919aa"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-padded.nupkg",
+            "sha256": "8aad9ec84224fe633212cf0505d59c15814d78fdd8eb80b083abc7f19f4919aa"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Multiple projectUrl elements prevent an unambiguous ProjectUrl value.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 duplicate-padded: Multiple projectUrl elements cannot establish one authoritative value, even when equal.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-duplicate-conflicting",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-conflicting.nupkg",
+          "sha256": "bf3c2241902f89c50cbfe56b5f7f84a13d41eff6c643988f1a70dee348d8976c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-conflicting.nupkg",
+            "sha256": "bf3c2241902f89c50cbfe56b5f7f84a13d41eff6c643988f1a70dee348d8976c"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Conflicting projectUrl elements prevent an unambiguous ProjectUrl value.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 duplicate-conflicting: Multiple projectUrl elements cannot establish one authoritative value, even when equal.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-duplicate-blank",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-blank.nupkg",
+          "sha256": "fdc96cbe0507ed23bcb385de84fc30b75602e4c344976a0aaa04321fb12fda79"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-blank.nupkg",
+            "sha256": "fdc96cbe0507ed23bcb385de84fc30b75602e4c344976a0aaa04321fb12fda79"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Conflicting projectUrl elements prevent an unambiguous ProjectUrl value.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 duplicate-blank: Multiple projectUrl elements cannot establish one authoritative value, even when equal.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-foreign-project",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-project.nupkg",
+          "sha256": "0c423eb84b66f7bbab3573dba998cfba7ce43b3b8f066946c1816267c025c05f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-project-url",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-project.nupkg",
+            "sha256": "0c423eb84b66f7bbab3573dba998cfba7ce43b3b8f066946c1816267c025c05f"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace projectUrl element cannot establish NuGet ProjectUrl.",
+        "required_input": "recognized-project-url-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 foreign-project: A foreign-namespace projectUrl is not recognized NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-foreign-alongside",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-alongside.nupkg",
+          "sha256": "fe431df5a83a41f09426dcb6319975c1ab199defc24a8d301f5d9a0e111e653e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-project-url",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-alongside.nupkg",
+            "sha256": "fe431df5a83a41f09426dcb6319975c1ab199defc24a8d301f5d9a0e111e653e"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace projectUrl element cannot establish NuGet ProjectUrl.",
+        "required_input": "recognized-project-url-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 foreign-alongside: A foreign-namespace projectUrl is not recognized NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-foreign-child-default-namespace",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-child-default-namespace.nupkg",
+          "sha256": "0d3f03a9a3f9dcbf2ae4c970396085be1a1673088a072d789859dab23a4237ba"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-project-url",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-child-default-namespace.nupkg",
+            "sha256": "0d3f03a9a3f9dcbf2ae4c970396085be1a1673088a072d789859dab23a4237ba"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace projectUrl element cannot establish NuGet ProjectUrl.",
+        "required_input": "recognized-project-url-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 foreign-child-default-namespace: A foreign-namespace projectUrl is not recognized NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-foreign-root",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-root.nupkg",
+          "sha256": "629d6cee2f69131de95ad69e53ddf064017ce13c07d9d37fe922e6f4972005d6"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-root",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-root.nupkg",
+            "sha256": "629d6cee2f69131de95ad69e53ddf064017ce13c07d9d37fe922e6f4972005d6"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package root is not in a recognized NuGet namespace.",
+        "required_input": "recognized-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 foreign-root: An unrecognized package root cannot establish NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-foreign-metadata",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata.nupkg",
+          "sha256": "d38879caa7ea249927d6900c8a7c15d10db411ef128258edc502e9bdd46ab3de"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata.nupkg",
+            "sha256": "d38879caa7ea249927d6900c8a7c15d10db411ef128258edc502e9bdd46ab3de"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec requires exactly one recognized metadata element.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 foreign-metadata: Malformed XML or missing/ambiguous recognized metadata cannot establish one field.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-unknown-attribute",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unknown-attribute.nupkg",
+          "sha256": "57b962d5b532f4df64238128a7ffb9a1208f000a93d004f83bb6a219674a8f6f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed-project-url",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unknown-attribute.nupkg",
+            "sha256": "57b962d5b532f4df64238128a7ffb9a1208f000a93d004f83bb6a219674a8f6f"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The projectUrl element has unsupported attributes or child elements.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 unknown-attribute: ProjectUrl has simple text content; unsupported attributes or children need correction.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-foreign-attribute",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-attribute.nupkg",
+          "sha256": "17e5bf8cffe6c397b249992d97accfc31b8dcd983a0a020d24aaeba92f724f42"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed-project-url",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-attribute.nupkg",
+            "sha256": "17e5bf8cffe6c397b249992d97accfc31b8dcd983a0a020d24aaeba92f724f42"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The projectUrl element has unsupported attributes or child elements.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 foreign-attribute: ProjectUrl has simple text content; unsupported attributes or children need correction.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-nested-content",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested-content.nupkg",
+          "sha256": "c05f9b7e808368f1b5ec62a7bf0e78eb934cdcb5123ac34cafb684bd2c8c4086"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed-project-url",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested-content.nupkg",
+            "sha256": "c05f9b7e808368f1b5ec62a7bf0e78eb934cdcb5123ac34cafb684bd2c8c4086"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The projectUrl element has unsupported attributes or child elements.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 nested-content: ProjectUrl has simple text content; unsupported attributes or children need correction.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-missing-metadata",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/missing-metadata.nupkg",
+          "sha256": "e6a23d054660337d2a135ab4f3aa73ea51e8c4d4acae82a8b02867ac64cdd7bd"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/missing-metadata.nupkg",
+            "sha256": "e6a23d054660337d2a135ab4f3aa73ea51e8c4d4acae82a8b02867ac64cdd7bd"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec requires exactly one recognized metadata element.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 missing-metadata: Malformed XML or missing/ambiguous recognized metadata cannot establish one field.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-duplicate-metadata",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-metadata.nupkg",
+          "sha256": "dd0a6dc80ecbaff446547c2c974f09dcee3fd653ea8aa1d83717f8134c82248e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-metadata.nupkg",
+            "sha256": "dd0a6dc80ecbaff446547c2c974f09dcee3fd653ea8aa1d83717f8134c82248e"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec requires exactly one recognized metadata element.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 duplicate-metadata: Malformed XML or missing/ambiguous recognized metadata cannot establish one field.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-invalid-xml",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-xml.nupkg",
+          "sha256": "9682528ebb64d6c8fdcab3d0698fd1a90b50ec5a43471f9db7ddec1e3fa07d7c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-xml.nupkg",
+            "sha256": "9682528ebb64d6c8fdcab3d0698fd1a90b50ec5a43471f9db7ddec1e3fa07d7c"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec XML is not well formed.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 invalid-xml: Malformed XML or missing/ambiguous recognized metadata cannot establish one field.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-undefined-entity",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/undefined-entity.nupkg",
+          "sha256": "75bc31333765777e9bdf82a70d47498ccc411e87dd0d4a626e9dcbe4e1e300d1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/undefined-entity.nupkg",
+            "sha256": "75bc31333765777e9bdf82a70d47498ccc411e87dd0d4a626e9dcbe4e1e300d1"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec XML is not well formed.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 undefined-entity: Malformed XML or missing/ambiguous recognized metadata cannot establish one field.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-dtd-entity",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/dtd-entity.nupkg",
+          "sha256": "c9d27b7943d15d63d37f0f3a968d17b8fb8f5fbab45383dd79baf93bc28d2d06"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/dtd-entity.nupkg",
+            "sha256": "c9d27b7943d15d63d37f0f3a968d17b8fb8f5fbab45383dd79baf93bc28d2d06"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec contains a DTD/entity declaration and cannot be safely inspected.",
+        "required_input": "safe-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 dtd-entity: DTD/entity declarations must not be expanded or trusted.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-no-nuspec",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-nuspec.nupkg",
+          "sha256": "1eacdeb56c1b45f079b3137db4ad24514120cce313d483aaf93abcf08fe29e56"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-nuspec.nupkg",
+            "sha256": "1eacdeb56c1b45f079b3137db4ad24514120cce313d483aaf93abcf08fe29e56"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The archive has no nuspec entry.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 no-nuspec: No nuspec is available in the archive.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-multiple-root-nuspec",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/multiple-root-nuspec.nupkg",
+          "sha256": "696eff0d7d8213021a7f22b8942fc9d754dbef228274071885f06b4dee192ef7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/multiple-root-nuspec.nupkg",
+            "sha256": "696eff0d7d8213021a7f22b8942fc9d754dbef228274071885f06b4dee192ef7"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The archive has multiple root nuspec entries.",
+        "required_input": "unique-root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 multiple-root-nuspec: Multiple root nuspecs cannot identify one authoritative manifest.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-subfolder-only-nuspec",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/subfolder-only-nuspec.nupkg",
+          "sha256": "4a8ab8359fd799f6856e106d1d57d1ecec8082ea0f462ddcf6635c36f7ad536d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-root-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/subfolder-only-nuspec.nupkg",
+            "sha256": "4a8ab8359fd799f6856e106d1d57d1ecec8082ea0f462ddcf6635c36f7ad536d"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The only nuspec entry is nested in a subfolder.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 subfolder-only-nuspec: A nested nuspec is not an authoritative root manifest.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-corrupt-archive",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/corrupt-archive.nupkg",
+          "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "unreadable-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/corrupt-archive.nupkg",
+            "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The supplied checked bytes are not a readable NuGet archive.",
+        "required_input": "valid-nupkg",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 corrupt-archive: The checked input is not a readable ZIP package.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-no-package",
+      "row_id": "LP-09",
+      "inputs": [],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package bytes required for LP-09 were not supplied.",
+        "required_input": "package",
+        "next_category": "input-owner"
+      },
+      "rationale": "LP-09 no-package: No checked package input was supplied.",
+      "evidence_pointers": []
+    }
+  ]
+}
