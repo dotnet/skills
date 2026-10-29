@@ -24,7 +24,9 @@ NAMESPACES = (
 )
 SHA1 = "0123456789abcdef" * 2 + "01234567"
 SHA256 = "0123456789abcdef" * 4
-REPOSITORY = f'<repository type="git" url="https://example.test/source.git" commit="{SHA1}" />'
+URL = "https://example.test/source.git"
+REPOSITORY = f'<repository type="git" url="{URL}" commit="{SHA1}" />'
+ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 PORTABLE_SHA1_NUPKG_SHA256 = "c30ce8234e73b2d08f0eaa78aa081c575341e41647345b558d7e12da2183c348"
 VENDORS = (
     ("syncfusion", "LP07_SYNCFUSION_NUPKG", "syncfusion-toolkit-assessment",
@@ -90,9 +92,11 @@ CASES = (
      "blank-commit", False, None, None, None, NAMESPACES[-1]),
     ("abbreviated", repository(SHA1[:12]),
      "abbreviated-commit", False, None, None, None, NAMESPACES[-1]),
-    ("length-39", repository(SHA1[:-1]), "invalid-length", False, None, None, None, NAMESPACES[-1]),
-    ("length-41", repository(SHA1 + "a"), "invalid-length", False, None, None, None, NAMESPACES[-1]),
-    ("length-63", repository(SHA256[:-1]), "invalid-length", False, None, None, None, NAMESPACES[-1]),
+    ("length-3", repository(SHA1[:3]), "invalid-length", False, None, None, None, NAMESPACES[-1]),
+    ("length-4", repository(SHA1[:4]), "abbreviated-commit", False, None, None, None, NAMESPACES[-1]),
+    ("length-39", repository(SHA1[:-1]), "abbreviated-commit", False, None, None, None, NAMESPACES[-1]),
+    ("length-41", repository(SHA1 + "a"), "abbreviated-commit", False, None, None, None, NAMESPACES[-1]),
+    ("length-63", repository(SHA256[:-1]), "abbreviated-commit", False, None, None, None, NAMESPACES[-1]),
     ("length-65", repository(SHA256 + "a"), "invalid-length", False, None, None, None, NAMESPACES[-1]),
     ("nonhex", repository(SHA1[:-1] + "g"),
      "invalid-characters", False, None, None, None, NAMESPACES[-1]),
@@ -103,8 +107,14 @@ CASES = (
     ("duplicate-identical", REPOSITORY + REPOSITORY, "ambiguous", None,
      "Multiple repository elements prevent an unambiguous RepositoryCommit.",
      "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
-    ("duplicate-conflicting", REPOSITORY + repository(SHA256), "ambiguous", None,
+    ("duplicate-conflicting", REPOSITORY +
+     f'<repository type="git" url="{URL}" commit="{SHA256}" />', "ambiguous", None,
      "Conflicting repository elements prevent an unambiguous RepositoryCommit.",
+     "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
+    ("duplicate-same-commit-different-url", REPOSITORY +
+     f'<repository type="git" url="https://elsewhere.test/source.git" '
+     f'commit="  {SHA1.upper()} &#9; " />', "ambiguous", None,
+     "Multiple repository elements prevent an unambiguous RepositoryCommit.",
      "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
     ("foreign-repository", f'<other:repository xmlns:other="urn:other" commit="{SHA1}" />',
      "foreign-repository", None,
@@ -159,7 +169,7 @@ CASES = (
 )
 
 NEGATIVE_FINDINGS = {
-    "missing-repository": "RepositoryCommit does not identify a commit SHA; the nuspec has no repository element.",
+    "missing-repository": "RepositoryCommit does not identify a commit SHA; the nuspec metadata has no direct repository element.",
     "missing-commit": "RepositoryCommit does not identify a commit SHA; the repository has no commit attribute.",
     "blank-commit": "RepositoryCommit does not identify a commit SHA; the commit attribute is blank.",
     "abbreviated-commit": "RepositoryCommit does not identify a full commit SHA; abbreviated object IDs are repository-dependent.",
@@ -173,8 +183,8 @@ RATIONALES = {
     "missing-repository": "No direct recognized repository element supplies the commit attribute.",
     "missing-commit": "Repository metadata exists, but its commit attribute is absent.",
     "blank-commit": "An empty or whitespace-only attribute cannot identify a commit.",
-    "abbreviated-commit": "A prefix needs repository context to disambiguate and is not a full SHA.",
-    "invalid-length": "Neither Git object format has this full object ID length.",
+    "abbreviated-commit": "A 4-39 or 41-63 hex-digit prefix needs repository context to disambiguate.",
+    "invalid-length": "Fewer than four hex digits cannot form a Git abbreviation; more than 64 cannot form a full object ID.",
     "invalid-characters": "Internal whitespace and non-ASCII-hex characters are not object ID digits.",
     "null-oid": "The all-zero Git null sentinel does not name a commit.",
     "ambiguous": "Multiple repository declarations cannot establish one unambiguous commit.",
@@ -197,9 +207,28 @@ UNKNOWN = {
 
 
 def full_sha(value):
-    return bool(re.fullmatch(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})", value)) and any(
-        digit != "0" for digit in value
-    )
+    return commit_shape(value) in ("full-sha1", "full-sha256")
+
+
+def normalized_commit(value):
+    return value.strip().translate(ASCII_LOWER) if value is not None else None
+
+
+def commit_shape(value):
+    if value is None:
+        return "missing-commit"
+    value = value.strip()
+    if not value:
+        return "blank-commit"
+    if re.fullmatch(r"[0-9a-fA-F]+", value) is None:
+        return "invalid-characters"
+    if len(value) in (40, 64):
+        if all(digit == "0" for digit in value):
+            return "null-oid"
+        return "full-sha1" if len(value) == 40 else "full-sha256"
+    if 4 <= len(value) <= 39 or 41 <= len(value) <= 63:
+        return "abbreviated-commit"
+    return "invalid-length"
 
 
 def entry(name):
@@ -449,18 +478,32 @@ def main():
                 raw = package.read(location)
                 require(b"<!DOCTYPE package" in raw and b"&sha;" in raw,
                         "DTD/entity bytes must remain unexpanded.")
-            if sha is not None:
+            if sha is not None or branch == "ambiguous":
                 raw = package.read(location)
                 root = ET.fromstring(raw)
                 ns = f"{{{namespace}}}" if namespace else ""
                 repositories = root.findall(f"{ns}metadata/{ns}repository")
-                require(len(repositories) == (0 if branch == "missing-repository" else 1),
-                        f"Fixture repository placement differs: {name}")
-                if repositories:
+                if branch == "ambiguous":
+                    require(len(repositories) == 2, f"Duplicate fixture lacks two repositories: {name}")
+                    commits = {normalized_commit(node.get("commit")) for node in repositories}
+                    reason = ("Conflicting" if len(commits) > 1 else "Multiple")
+                    require(missing == f"{reason} repository elements prevent an unambiguous RepositoryCommit.",
+                            f"Duplicate classification must use normalized commit values: {name}")
+                    if name == "duplicate-conflicting":
+                        require(all({key: value for key, value in node.attrib.items() if key != "commit"} ==
+                                    {key: value for key, value in repositories[0].attrib.items()
+                                     if key != "commit"} for node in repositories),
+                                "Conflicting commits must be the only metadata difference.")
+                    if name == "duplicate-same-commit-different-url":
+                        require(repositories[0].get("url") != repositories[1].get("url"),
+                                "Same-commit duplicate must have different URLs.")
+                else:
+                    require(len(repositories) == (0 if branch == "missing-repository" else 1),
+                            f"Fixture repository placement differs: {name}")
+                if sha is not None and repositories:
                     value = repositories[0].get("commit")
-                    require((value is not None and value.strip().lower() == sha)
-                            if isinstance(sha, str) else
-                            not (value and full_sha(value.strip())),
+                    require(commit_shape(value) == branch and
+                            (normalized_commit(value) == sha if isinstance(sha, str) else True),
                             f"Fixture commit contradicts frozen branch: {name}")
     golden = hashlib.sha256(archive("sha1", REPOSITORY, NAMESPACES[-1])).hexdigest()
     if options.write_fixtures:
