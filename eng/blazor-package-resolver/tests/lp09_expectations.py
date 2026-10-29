@@ -67,16 +67,25 @@ CASES = (
      "populated", "https://example.test/?a=1&b=2", None, None, None, NAMESPACES[-1]),
     ("cdata-comment", "<projectUrl>https://example.test/<![CDATA[docs]]><!--ignored--></projectUrl>",
      "populated", URL.replace("project", "docs"), None, None, None, NAMESPACES[-1]),
+    ("pi-interleaved", "<projectUrl>https://example.test/fin<?lp09 ignored?>al</projectUrl>",
+     "populated", "https://example.test/final", None, None, None, NAMESPACES[-1]),
     ("namespace-declaration", f'<projectUrl xmlns:hint="urn:harmless">{URL}</projectUrl>',
+     "populated", URL, None, None, None, NAMESPACES[-1]),
+    ("prefixed-same-namespace",
+     f'<same:projectUrl xmlns:same="{NAMESPACES[-1]}">{URL}</same:projectUrl>',
      "populated", URL, None, None, None, NAMESPACES[-1]),
     ("relative", "<projectUrl>../docs</projectUrl>",
      "populated", "../docs", None, None, None, NAMESPACES[-1]),
     ("malformed-url", "<projectUrl>not a valid URL</projectUrl>",
      "populated", "not a valid URL", None, None, None, NAMESPACES[-1]),
+    ("invalid-uri", "<projectUrl>https://[invalid</projectUrl>",
+     "populated", "https://[invalid", None, None, None, NAMESPACES[-1]),
     ("non-http", "<projectUrl>mailto:team@example.test</projectUrl>",
      "populated", "mailto:team@example.test", None, None, None, NAMESPACES[-1]),
     ("opaque-nonblank", "<projectUrl>??</projectUrl>",
      "populated", "??", None, None, None, NAMESPACES[-1]),
+    ("zero-width-space", "<projectUrl>&#x200B;</projectUrl>",
+     "populated", "\u200b", None, None, None, NAMESPACES[-1]),
     ("project-and-repository", '<repository url="https://example.test/source.git" />' + PROJECT,
      "populated", URL, None, None, None, NAMESPACES[-1]),
     ("unrelated-repository", '<repository url="not a valid URL" />' + PROJECT,
@@ -99,7 +108,9 @@ CASES = (
      "missing-project-url", False, None, None, None, NAMESPACES[-1]),
     ("outside-metadata", "", "missing-project-url", False, None, None, None, NAMESPACES[-1]),
     ("wrong-case", f"<ProjectUrl>{URL}</ProjectUrl>",
-     "missing-project-url", False, None, None, None, NAMESPACES[-1]),
+     "case-variant-project-url", None,
+     "A case-variant ProjectUrl has conflicting interpretation: the schema and ManifestReader require exact projectUrl, but case-insensitive NuGet metadata readers recognize ProjectUrl.",
+     "corrected-nuspec", "package-owner", NAMESPACES[-1]),
     ("empty", "<projectUrl />", "blank-project-url", False, None, None, None, NAMESPACES[-1]),
     ("whitespace", "<projectUrl>  &#9;\n </projectUrl>",
      "blank-project-url", False, None, None, None, NAMESPACES[-1]),
@@ -109,6 +120,12 @@ CASES = (
      "blank-project-url", False, None, None, None, NAMESPACES[-1]),
     ("empty-cdata", "<projectUrl><![CDATA[  ]]></projectUrl>",
      "blank-project-url", False, None, None, None, NAMESPACES[-1]),
+    ("pi-only", "<projectUrl><?lp09 ignored?></projectUrl>",
+     "blank-project-url", False, None, None, None, NAMESPACES[-1]),
+    ("case-variant-alongside", PROJECT + "<ProjectUrl>https://example.test/other</ProjectUrl>",
+     "case-variant-project-url", None,
+     "An exact projectUrl beside a case-variant ProjectUrl has conflicting interpretation: the schema and ManifestReader require exact projectUrl, but case-insensitive NuGet metadata readers recognize both.",
+     "corrected-nuspec", "package-owner", NAMESPACES[-1]),
     ("duplicate-identical", PROJECT + PROJECT, "ambiguous", None,
      "Multiple projectUrl elements prevent an unambiguous ProjectUrl value.",
      "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
@@ -132,6 +149,15 @@ CASES = (
     ("foreign-child-default-namespace", f'<projectUrl xmlns="urn:other">{URL}</projectUrl>',
      "foreign-project-url", None,
      "A foreign-namespace projectUrl element cannot establish NuGet ProjectUrl.",
+     "recognized-project-url-metadata", "package-owner", NAMESPACES[-1]),
+    ("foreign-recognized-namespace",
+     f'<old:projectUrl xmlns:old="{NAMESPACES[1]}">{URL}</old:projectUrl>',
+     "foreign-project-url", None,
+     "A projectUrl in a different recognized NuGet namespace cannot establish ProjectUrl for this metadata.",
+     "recognized-project-url-metadata", "package-owner", NAMESPACES[-1]),
+    ("foreign-unqualified-child", f'<projectUrl xmlns="">{URL}</projectUrl>',
+     "foreign-project-url", None,
+     "An unqualified projectUrl child cannot establish ProjectUrl for namespaced metadata.",
      "recognized-project-url-metadata", "package-owner", NAMESPACES[-1]),
     ("foreign-root", PROJECT, "foreign-root", None,
      "The package root is not in a recognized NuGet namespace.",
@@ -186,8 +212,9 @@ NEGATIVE_FINDINGS = {
 }
 RATIONALES = {
     "populated": "One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
-    "missing-project-url": "Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
-    "blank-project-url": "Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+    "missing-project-url": "Repository metadata, attributes and misplaced elements do not supply ProjectUrl.",
+    "blank-project-url": "Empty text, whitespace, comments, processing instructions and whitespace-only CDATA do not populate ProjectUrl.",
+    "case-variant-project-url": "Exact-case and case-insensitive NuGet readers disagree; correct the ambiguous nuspec before deciding.",
     "ambiguous": "Multiple projectUrl elements cannot establish one authoritative value, even when equal.",
     "foreign-project-url": "A foreign-namespace projectUrl is not recognized NuGet metadata.",
     "foreign-root": "An unrecognized package root cannot establish NuGet metadata.",
@@ -476,7 +503,9 @@ def main():
                     pass
                 else:
                     raise ValueError(f"Malformed XML control parsed successfully: {name}")
-            if (url is not None or branch in ("ambiguous", "foreign-project-url", "malformed-project-url")
+            if (url is not None or branch in ("missing-project-url", "blank-project-url",
+                                               "ambiguous", "case-variant-project-url",
+                                               "foreign-project-url", "malformed-project-url")
                     or name == "foreign-metadata"):
                 root = ET.fromstring(raw)
                 ns = f"{{{namespace}}}" if namespace else ""
@@ -494,9 +523,25 @@ def main():
                     reason = "Conflicting" if len(values) > 1 else "Multiple"
                     require(missing == f"{reason} projectUrl elements prevent an unambiguous ProjectUrl value.",
                             f"Duplicate classification differs: {name}")
+                elif branch == "case-variant-project-url":
+                    variants = metadata_nodes[0].findall(f"{ns}ProjectUrl")
+                    require(len(variants) == 1 and len(projects) ==
+                            (1 if name == "case-variant-alongside" else 0) and
+                            variants[0].text and variants[0].text.strip() and
+                            not variants[0].attrib and not list(variants[0]) and
+                            (name != "case-variant-alongside" or
+                             (projects[0].text == URL and variants[0].text != URL)) and
+                            item["evidence_pointers"] == ["package:archive"] and
+                            required == "corrected-nuspec" and next_category == "package-owner",
+                            f"Case-variant control or escalation differs: {name}")
                 elif branch == "foreign-project-url":
-                    require(any(node.tag.rpartition("}")[2] == "projectUrl" and
-                                node.tag != ns + "projectUrl" for node in metadata_nodes[0]),
+                    foreign = [node for node in metadata_nodes[0]
+                               if node.tag.rpartition("}")[2] == "projectUrl" and
+                               node.tag != ns + "projectUrl"]
+                    require(foreign and
+                            (name != "foreign-recognized-namespace" or
+                             foreign[0].tag == f"{{{NAMESPACES[1]}}}projectUrl") and
+                            (name != "foreign-unqualified-child" or foreign[0].tag == "projectUrl"),
                             f"Foreign projectUrl control is missing: {name}")
                 elif branch == "malformed-project-url":
                     require(len(projects) == 1 and (bool(projects[0].attrib) or bool(list(projects[0]))),
@@ -508,6 +553,17 @@ def main():
                         require(not projects[0].attrib and not list(projects[0]) and
                                 "".join(projects[0].itertext()).strip() == (url if url else ""),
                                 f"Fixture projectUrl text contradicts frozen branch: {name}")
+            if name in ("pi-only", "pi-interleaved"):
+                require(b"<?lp09 ignored?>" in raw, f"Processing instruction control is missing: {name}")
+            if name == "prefixed-same-namespace":
+                require(b"<same:projectUrl xmlns:same=" in raw,
+                        "Same-namespace prefix control is missing.")
+            if name == "foreign-unqualified-child":
+                require(b'<projectUrl xmlns="">' in raw,
+                        "Empty-default-namespace control is missing.")
+            if name == "zero-width-space":
+                require(raw.count(b"&#x200B;") == 1 and not "\u200b".isspace() and
+                        "\u200b".strip() == "\u200b", "Invisible-format trim control differs.")
     golden = hashlib.sha256(archive("plain", PROJECT, NAMESPACES[-1])).hexdigest()
     if options.write_fixtures:
         print(f"Portable plain.nupkg SHA-256 to freeze: {golden}")
