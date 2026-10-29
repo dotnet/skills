@@ -10,6 +10,7 @@ stimuli:
       I'm writing a .NET 11 command-line tool that needs to run an external CLI (e.g. 'git status') and capture both stdout and stderr.
       I want to make sure I don't run into any OS pipe deadlock issues, and I want to write it in the cleanest way possible using new .NET 11 features.
       Show me the C# program and the `.csproj` XML targeting `net11.0` for this tool. Print both in your response.
+      Respond with code blocks; do not create or modify files.
     tags:
       capability: capture-process-output
       risk: redirected-stream-deadlock
@@ -49,24 +50,26 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: Process\.RunAndCaptureText(Async)?
+          pattern: Process\.RunAndCaptureText(Async)?|\.ReadAllText(Async)?\s*\(
       - type: output-matches
         config:
           pattern: net11\.0
       - type: output-matches
         config:
-          pattern: \.StandardOutput\b
+          # Match complete values in direct, formatted, or concatenated writes.
+          # Renamed tuple members are bound to their declared stdout/stderr position.
+          pattern: &printed-stdout 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*|(?:(?:"(?:[^"\\]|\\.)*"|\w+(?:\.\w+)*)\s*\+\s*)+)?\w+\.(?:StandardOutput|Item1)(?=\s*[+,)}:])|\(\s*(?:string\s+)?(\w+)\s*,\s*(?:string\s+)?\w+\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*|(?:(?:"(?:[^"\\]|\\.)*"|\w+(?:\.\w+)*)\s*\+\s*)+)?\1(?=\s*[+,)}:])|\(\s*string\s+(?<outputMember>\w+)\s*,\s*string\s+\w+\s*\)\s+(?<outputTuple>\w+)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*|(?:(?:"(?:[^"\\]|\\.)*"|\w+(?:\.\w+)*)\s*\+\s*)+)?\k<outputTuple>\.\k<outputMember>(?=\s*[+,)}:])'
       - type: output-matches
         config:
-          pattern: \.StandardError\b
+          pattern: &printed-stderr 'Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*|(?:(?:"(?:[^"\\]|\\.)*"|\w+(?:\.\w+)*)\s*\+\s*)+)?\w+\.(?:StandardError|Item2)(?=\s*[+,)}:])|\(\s*(?:string\s+)?\w+\s*,\s*(?:string\s+)?(\w+)\s*\)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*|(?:(?:"(?:[^"\\]|\\.)*"|\w+(?:\.\w+)*)\s*\+\s*)+)?\1(?=\s*[+,)}:])|\(\s*string\s+\w+\s*,\s*string\s+(?<outputMember>\w+)\s*\)\s+(?<outputTuple>\w+)\s*=\s*(?:await\s+)?\w+\.ReadAllText(?:Async)?\s*\([^;]*\)\s*;[\s\S]*?Console\.(?:(?:Out|Error)\.)?Write(?:Line)?\s*\(\s*(?:\$"(?:[^"\\]|\\.)*?\{\s*|"(?:[^"\\]|\\.)*\{0(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*|"(?:[^"\\]|\\.)*\{1(?:[,:][^}"\\]*)?\}(?:[^"\\]|\\.)*"\s*,\s*[^,;()]+,\s*|(?:(?:"(?:[^"\\]|\\.)*"|\w+(?:\.\w+)*)\s*\+\s*)+)?\k<outputTuple>\.\k<outputMember>(?=\s*[+,)}:])'
       - type: output-not-matches
         config:
           pattern: \.\s*Begin(Output|Error)ReadLine\s*\(|\.\s*(Output|Error)DataReceived\s*\+=
       - type: prompt
     rubric:
-      - Uses the new built-in Process.RunAndCaptureText or Process.RunAndCaptureTextAsync static method
+      - Uses built-in .NET 11 capture APIs that drain both streams concurrently; a combined start/capture/wait call is preferable when no independent Process interaction is needed, but correctly paired instance reading and waiting is valid
       - Targets net11.0 in the project file
-      - Captures both streams without event-callback plumbing; if using the ProcessStartInfo overload, enables both output and error redirection
+      - Captures and prints both streams without event-callback plumbing; if supplying ProcessStartInfo for capture, enables both output and error redirection and waits for termination
 
   # --- Stimulus 2: Auto-teardown child processes on parent exit ---
   - name: Auto-teardown child processes on parent exit in .NET 11
@@ -74,6 +77,7 @@ stimuli:
       In a .NET 11 application, I need to spawn a background daemon process.
       To prevent orphan processes, I want to ensure that this daemon process is automatically killed by the operating system if my main parent process crashes or exits.
       How do I configure this in .NET 11 using ProcessStartInfo? Show me a minimal example, and show the `.csproj` XML targeting `net11.0` in your response.
+      Respond with code blocks; do not create or modify files.
     tags:
       capability: child-process-lifetime
       risk: orphaned-child-process
@@ -87,25 +91,20 @@ stimuli:
           - step_id: 1
             source: agent
             message: |
-              Replace `daemon` with the executable to supervise.
+              This example requires Windows, Linux, or Android. Replace `daemon` with the executable to supervise.
 
               `Program.cs`:
               ```csharp
               using System;
               using System.Diagnostics;
 
-              var info = new ProcessStartInfo("daemon") { UseShellExecute = false };
-              if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsAndroid())
+              ProcessStartInfo info = new("daemon")
               {
-                  info.KillOnParentExit = true;
-              }
-              else
-              {
-                  throw new PlatformNotSupportedException("Automatic teardown is not supported here.");
-              }
+                  InheritedHandles = []
+              };
+              info.KillOnParentExit = true;
 
-              using Process child = Process.Start(info)
-                  ?? throw new InvalidOperationException("The child did not start.");
+              using Process child = Process.Start(info)!;
               Console.WriteLine("Press Enter to exit the parent.");
               Console.ReadLine();
               ```
@@ -120,7 +119,7 @@ stimuli:
               </Project>
               ```
 
-              The property assignment itself is guarded. Unsupported platforms fail before any child starts.
+              The operating system terminates the child if the parent exits or crashes. This feature is unsupported on other platforms; do not silently start an unprotected child there.
     graders:
       - type: exit-success
       - type: output-matches
@@ -132,17 +131,18 @@ stimuli:
       - type: prompt
     rubric:
       - Enables KillOnParentExit on ProcessStartInfo on a supported platform
-      - Guards the property assignment in cross-platform code and does not start an unprotected child on an unsupported platform when automatic teardown is required
+      - Identifies Windows, Linux, and Android support; either scopes the example to supported platforms or guards unsupported platforms without silently starting an unprotected child
       - Targets net11.0
 
   # --- Stimulus 3: deadlock-free full read via instance ReadAllText (tuple return) ---
   - name: Deadlock-free full-output read via instance ReadAllText in .NET 11
     prompt: |
-      In a .NET 11 app I start a child process myself with `Process.Start(...)` because I
-      need to configure `ProcessStartInfo` first. After it starts I want to read its ENTIRE
+      In a .NET 11 app my existing startup logic has already started a child process with
+      both output streams redirected. Without starting a second process, I want to read its ENTIRE
       standard output AND standard error to completion, without the classic deadlock where
       one buffer fills while I'm draining the other. Give me the simplest first-party .NET 11
       way to get both back at once. Show a minimal program and the `net11.0` `.csproj`.
+      Print both as code blocks in your response; do not create or modify files.
     tags:
       capability: read-complete-process-output
       risk: incorrect-tuple-return
@@ -161,19 +161,18 @@ stimuli:
               using System;
               using System.Diagnostics;
 
-              var info = new ProcessStartInfo("git", ["status"])
+              ProcessStartInfo info = new("git", ["status"])
               {
-                  UseShellExecute = false,
                   RedirectStandardOutput = true,
-                  RedirectStandardError = true
+                  RedirectStandardError = true,
+                  InheritedHandles = []
               };
-              using Process process = Process.Start(info)
-                  ?? throw new InvalidOperationException("The child did not start.");
-              var output = await process.ReadAllTextAsync();
+              using Process process = Process.Start(info)!;
+              (string StandardOutput, string StandardError) output = await process.ReadAllTextAsync();
               Console.Out.Write(output.StandardOutput);
               Console.Error.Write(output.StandardError);
-              await process.WaitForExitAsync();
-              Environment.ExitCode = process.ExitCode;
+              ProcessExitStatus status = await process.WaitForExitStatusAsync();
+              Environment.ExitCode = status.ExitCode;
               ```
 
               `ReadOutput.csproj`:
@@ -197,10 +196,10 @@ stimuli:
           pattern: ReadAllText(Async)?\s*\(
       - type: output-matches
         config:
-          pattern: \)\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(|\.(StandardOutput|Item1)\b
+          pattern: *printed-stdout
       - type: output-matches
         config:
-          pattern: \)\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(|\.(StandardError|Item2)\b
+          pattern: *printed-stderr
       - type: output-not-matches
         config:
           pattern: string\s+\w+\s*=\s*(await\s+)?\w+\.ReadAllText(Async)?\s*\(
@@ -219,6 +218,7 @@ stimuli:
       line I need to know whether it came from stdout or stderr. I want the cleanest first-party
       .NET 11 approach, with no event-callback plumbing and no deadlock risk. Show a minimal
       program and the `net11.0` `.csproj`.
+      Print both as code blocks in your response; do not create or modify files.
     tags:
       capability: stream-tagged-process-output
       risk: lost-stream-identity
@@ -240,21 +240,20 @@ stimuli:
               using System.Diagnostics;
               using System.IO;
 
-              var info = new ProcessStartInfo("worker")
+              ProcessStartInfo info = new("worker")
               {
-                  UseShellExecute = false,
                   RedirectStandardOutput = true,
-                  RedirectStandardError = true
+                  RedirectStandardError = true,
+                  InheritedHandles = []
               };
-              using Process process = Process.Start(info)
-                  ?? throw new InvalidOperationException("The child did not start.");
+              using Process process = Process.Start(info)!;
               await foreach (ProcessOutputLine line in process.ReadAllLinesAsync())
               {
                   TextWriter destination = line.StandardError ? Console.Error : Console.Out;
                   destination.WriteLine(line.Content);
               }
-              await process.WaitForExitAsync();
-              Environment.ExitCode = process.ExitCode;
+              ProcessExitStatus status = await process.WaitForExitStatusAsync();
+              Environment.ExitCode = status.ExitCode;
               ```
 
               `StreamOutput.csproj`:
@@ -301,6 +300,7 @@ stimuli:
       and immediately move on without holding onto process handles or having to manage its disposal.
       I just want to launch it without keeping process handle structures alive and obtain its process ID.
       Show me a minimal C# program and the `.csproj` XML targeting `net11.0` for this.
+      Print both as code blocks in your response; do not create or modify files.
     tags:
       capability: fire-and-forget-process
       risk: retained-process-handle
@@ -362,6 +362,7 @@ stimuli:
       To avoid leaking file descriptors to the child, I need to explicitly specify which handles get inherited
       by the child process using the new ProcessStartInfo handle inheritance features in .NET 11.
       Show me a minimal example configuring handle inheritance and the `.csproj` XML targeting `net11.0`.
+      Print both as code blocks in your response; do not create or modify files.
     tags:
       capability: control-handle-inheritance
       risk: leaked-file-descriptor
@@ -388,15 +389,13 @@ stimuli:
 
               using SafeFileHandle handle = File.OpenHandle("shared.txt", FileMode.Open, FileAccess.Read);
               string value = handle.DangerousGetHandle().ToInt64().ToString(CultureInfo.InvariantCulture);
-              var info = new ProcessStartInfo("handle-reader", [value])
+              ProcessStartInfo info = new("handle-reader", [value])
               {
-                  UseShellExecute = false,
                   InheritedHandles = [handle]
               };
-              using Process child = Process.Start(info)
-                  ?? throw new InvalidOperationException("The child did not start.");
-              child.WaitForExit();
-              Environment.ExitCode = child.ExitCode;
+              using Process child = Process.Start(info)!;
+              ProcessExitStatus status = child.WaitForExitStatus();
+              Environment.ExitCode = status.ExitCode;
               ```
 
               `InheritHandle.csproj`:
@@ -409,9 +408,9 @@ stimuli:
               </Project>
               ```
 
-              Only the explicit list is allowed to inherit; an empty list passes no extra handles.
+              Standard handles are included automatically; the list selects additional handles. An empty list passes no extra handles.
               Serialize starts that share this handle. Do not pre-enable inheritance or combine the list with a username.
-              This feature can reduce process-start performance on Unix systems without native inheritance control.
+              Supported Unix environments provide native inheritance control. Unsupported older Linux environments without the required facilities throw PlatformNotSupportedException; there is no slower fallback.
     graders:
       - type: exit-success
       - type: output-matches
@@ -422,7 +421,7 @@ stimuli:
           pattern: InheritedHandles\s*=
       - type: output-not-matches
         config:
-          pattern: InheritedHandles\s*=\s*(null\b|default\b)
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?\bInheritedHandles\s*=\s*(null\b|default\b)'
       - type: prompt
     rubric:
       - Restricts InheritedHandles on ProcessStartInfo to an explicit non-null collection instead of null or default
@@ -434,6 +433,7 @@ stimuli:
     prompt: |
       I have a .NET 8 console app and I need to start a process 'notepad.exe'.
       Show me a minimal C# program and the `.csproj` XML targeting `net8.0` that starts this process using the traditional Process.Start. Print both in your response.
+      Respond with code blocks; do not create or modify files.
     tags:
       expect_activation: "false"
       capability: framework-version-boundary
@@ -485,7 +485,7 @@ stimuli:
       - type: prompt
     rubric:
       - Solves the task using standard pre-.NET 11 APIs (Process.Start)
-      - Does NOT load or reference the process-api-net11 skill
+      - Does not introduce .NET 11 APIs or upgrade the target framework
       - Targets net8.0
 
   # --- Stimulus 8: Subtle negative — capture output on .NET 10 (APIs are net11-only) ---
@@ -494,6 +494,7 @@ stimuli:
       I'm on a `.NET 10` project (`net10.0`). I need to run `git` with the argument `status`
       and capture its standard output into a string. Show a minimal C# program and the
       `.csproj` XML targeting `net10.0`, and print both.
+      Respond with code blocks; do not create or modify files.
     tags:
       expect_activation: "false"
       capability: framework-version-boundary
@@ -556,4 +557,375 @@ stimuli:
     rubric:
       - Solves the task with pre-.NET 11 APIs (RedirectStandardOutput + ReadToEnd/ReadToEndAsync)
       - Recognizes the new .NET 11 Process convenience APIs are unavailable on net10.0 and does not use them
-      - Does NOT load the process-api-net11 skill; targets net10.0
+      - Preserves net10.0 without introducing .NET 11 APIs or upgrading the target framework
+
+  - name: Observe child termination independently of descendant output
+    prompt: |
+      My .NET 11 service starts a command that launches a long-running helper and then exits.
+      I use BeginOutputReadLine and BeginErrorReadLine for logging. The helper inherits those
+      output streams. Awaiting WaitForExitAsync never completes, although the original command
+      has exited. I need its exit status promptly, not all of the helper's output.
+      Explain why this happens and show the appropriate wait for the already-started Process
+      named process. Do not kill the helper. Respond inline without creating files.
+    tags:
+      capability: termination-versus-output-eof
+      risk: descendant-held-pipe-writer
+      journey: observe-launcher-exit
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-exit-status
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              WaitForExitAsync also waits for active event readers to reach EOF. The helper retains
+              inherited write handles, so EOF can remain pending after the original command exits.
+              Wait for termination independently:
+              ```csharp
+              ProcessExitStatus status = await process.WaitForExitStatusAsync();
+              int exitCode = status.ExitCode;
+              ```
+              This does not drain output or kill the helper. Keep the logging readers and Process
+              alive for as long as logging is needed; define a separate output-reader lifetime policy.
+              Restricted inheritance in the parent does not stop the child passing its standard handles onward.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: 'await\s+process\.(?:WaitForExitStatusAsync|SafeHandle\.WaitForExitAsync)\s*\(|\b(?:SafeProcessHandle|var)\s+(\w+)\s*=\s*process\.SafeHandle\s*;[\s\S]*?\bawait\s+\1\.WaitForExitAsync\s*\('
+      - type: output-matches
+        config:
+          pattern: '(?i)\bEOF\b|end.of.(?:file|stream)'
+      - type: prompt
+    rubric:
+      - Explains that inherited writers held by the helper delay event-reader EOF after the original command terminates
+      - Awaits termination independently of output completion and reads the returned exit status
+      - Does not kill the helper or promise that restricting inheritance in the parent prevents standard-handle inheritance by grandchildren
+
+  - name: Discard child output without creating unread pipes
+    prompt: |
+      This .NET 11 console tool sometimes hangs when builder produces lots of output.
+      I do not need any input or output, just the exit code:
+      ```csharp
+      ProcessStartInfo info = new("builder")
+      {
+          RedirectStandardInput = true,
+          RedirectStandardOutput = true,
+          RedirectStandardError = true
+      };
+      using Process process = Process.Start(info)!;
+      process.WaitForExit();
+      ```
+      Explain the failure and replace this with the simplest synchronous .NET 11 solution.
+      Respond inline without creating files.
+    tags:
+      capability: discard-standard-streams
+      risk: unread-output-pipes
+      journey: run-silent-build-tool
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-silent
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Redirection creates output pipes that nobody drains. Once a pipe fills, the child blocks
+              writing while the parent waits for exit. Redirected stdin can also leave it waiting for
+              input or EOF. Discard all three streams through the null device instead:
+              ```csharp
+              ProcessExitStatus status = Process.Run("builder", silent: true);
+              int exitCode = status.ExitCode;
+              ```
+              This creates no parent-side capture pipes, buffers no output, and gives the child EOF on input.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: 'Process\.Run\s*\([^;]*\bsilent\s*:\s*true\b|\bFile\.OpenNullHandle\s*\('
+      - type: prompt
+    rubric:
+      - Explains the full-output-pipe deadlock rather than blaming synchronous waiting alone
+      - Discards stdin, stdout, and stderr without capturing output in memory or creating pipes that require draining
+      - Uses a synchronous operation that returns the exit status without sync-over-async
+
+  - name: Write binary child output directly to a file
+    prompt: |
+      In .NET 11, I need to launch an encoder whose stdout is a potentially huge binary artifact.
+      Save those bytes unchanged to artifact.bin, leave stderr visible, and wait for the encoder
+      to finish. The parent never inspects or transforms the output. Avoid buffering or copying
+      the output through the parent. Show a minimal C# snippet inline; do not create files.
+    tags:
+      capability: direct-standard-handle-redirection
+      risk: unnecessary-binary-capture
+      journey: export-large-artifact
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-direct-file
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              ```csharp
+              using System.Diagnostics;
+              using System.IO;
+              using Microsoft.Win32.SafeHandles;
+
+              using SafeFileHandle output = File.OpenHandle("artifact.bin", FileMode.Create, FileAccess.Write);
+              ProcessStartInfo info = new("encoder")
+              {
+                  StandardOutputHandle = output,
+                  InheritedHandles = []
+              };
+              ProcessExitStatus status = Process.Run(info);
+              ```
+              The child writes bytes directly to the file. Leave RedirectStandardOutput false;
+              do not set UseShellExecute. Stderr remains inherited. The child receives its own
+              copy of the file handle at creation; this using scope safely covers the combined call.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: '\bStandardOutputHandle\s*='
+      - type: output-matches
+        config:
+          pattern: '\bFile\.OpenHandle\s*\(|\.\s*SafeFileHandle\b'
+      - type: prompt
+    rubric:
+      - Connects the child's stdout directly to a writable file handle and preserves binary bytes without parent-side capture or copying
+      - Leaves stderr inherited and does not also enable RedirectStandardOutput
+      - Waits for termination and manages the parent file handle lifetime without manually marking it inheritable
+
+  - name: Bound memory when consuming untrusted process output
+    prompt: |
+      A .NET 11 service runs third-party plugins as child executables. A plugin can emit unlimited
+      stdout and stderr, including output with no newline characters. We only need to retain at most
+      1 MiB of output in total. Would full text capture with a two-second cancellation token make this
+      safe? Would reading lines fix it? Recommend a policy that actually bounds memory and handles a
+      plugin that exceeds the limit. Explain the design only; no code or file changes.
+    tags:
+      capability: bounded-untrusted-output
+      risk: parent-memory-exhaustion
+      journey: supervise-untrusted-plugin
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-memory-bound
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Neither a timeout nor line reading establishes this memory bound. Full-output capture
+              buffers everything until EOF; a fast writer can exhaust memory before two seconds.
+              One arbitrarily long line can also exhaust memory.
+
+              Drain stdout and stderr concurrently using fixed-size byte buffers. Enforce one shared
+              1 MiB (1,048,576 bytes) retention budget across both streams, limiting each retained chunk
+              to the remaining budget rather than checking only after an unbounded allocation.
+              When the combined limit is exceeded, either terminate the plugin and wait for termination,
+              or retain only the bounded prefix and continue draining both streams while discarding excess
+              bytes until EOF. Report the limit violation or truncation explicitly. Do not merely stop
+              reading and leave a live child blocked on full pipes. Give output draining its own
+              cancellation or timeout policy because descendants may retain pipe writers even after
+              the immediate child terminates.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: '(?i)\b(concurrent(?:ly)?|parallel|simultaneous(?:ly)?)\b|at\s+the\s+same\s+time'
+      - type: output-matches
+        config:
+          pattern: '1,?048,?576|1\s*MiB'
+      - type: prompt
+    rubric:
+      - Rejects timeout-based full capture as a memory guarantee and identifies an arbitrarily long line as a remaining risk for line readers
+      - Drains both streams concurrently with bounded byte buffers and one combined retention budget of at most 1 MiB
+      - Handles excess output by either terminating and waiting for the child or continuing concurrent bounded draining while discarding excess bytes; reports truncation or the limit violation rather than silently dropping output
+      - Does not leave a live child blocked on unread pipes or assume that immediate-child termination guarantees output EOF; treats execution and output-reader lifetimes separately
+
+  - name: Retain a process handle in a size-sensitive NativeAOT supervisor
+    prompt: |
+      I'm writing a size-sensitive NativeAOT supervisor targeting .NET 11. A factory must launch
+      a worker and return ownership to its caller, which needs the process ID and may wait for or
+      terminate that worker later. I don't need managed standard streams, output events, or the
+      component-based process API. This isn't a single combined launch-and-wait operation.
+      What first-party API fits this narrower lifecycle? Show a minimal factory and caller,
+      including the required namespaces and a net11.0 project file, and explain the ownership
+      and trimming implications. Print code blocks inline; do not create or modify files.
+    tags:
+      capability: owning-process-handle
+      risk: unnecessary-process-wrapper
+      journey: supervise-nativeaot-worker
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-owning-handle
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              `Program.cs`:
+              ```csharp
+              using System;
+              using System.Diagnostics;
+              using Microsoft.Win32.SafeHandles;
+
+              using SafeProcessHandle worker = StartWorker("worker");
+              Console.WriteLine(worker.ProcessId);
+              ProcessExitStatus status = await worker.WaitForExitAsync();
+              Environment.ExitCode = status.ExitCode;
+
+              static SafeProcessHandle StartWorker(string fileName)
+              {
+                  ProcessStartInfo info = new(fileName)
+                  {
+                      InheritedHandles = []
+                  };
+                  return SafeProcessHandle.Start(info);
+              }
+              ```
+
+              `Supervisor.csproj`:
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net11.0</TargetFramework>
+                  <PublishAot>true</PublishAot>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              SafeProcessHandle.Start returns an owning handle without the higher-level Process
+              wrapper. The caller disposes it; the factory must not dispose it before returning.
+              Disposal releases parent-side resources, not the child process. To terminate the
+              worker explicitly, call Kill and then wait to confirm termination.
+
+              Its focused API offers better trimmability, but binary-size savings depend on the
+              app and platform. Leave UseShellExecute unset so unused shell-execution code can
+              also be trimmed. Managed RedirectStandard* flags are unsupported here; use direct
+              standard handles or Process capture APIs if output requirements change.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: '\bSafeProcessHandle\s*\.\s*Start\s*\('
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: prompt
+    rubric:
+      - Starts the worker directly through the focused owning-handle API, without creating a higher-level Process wrapper or adding native interop
+      - Returns a valid owning handle from the factory and disposes it in the caller; does not return a borrowed handle invalidated by disposing its Process owner
+      - Provides the required namespaces, a net11.0 NativeAOT project, and a caller that obtains the process ID and waits without managed stream redirection
+      - Explains the trimming advantage without promising fixed size savings and distinguishes handle disposal from terminating the child
+
+  - name: Open a help URL in the default browser on .NET 11
+    prompt: |
+      My .NET 11 Windows desktop app has a Help button. Clicking it should open
+      https://learn.microsoft.com/dotnet/ in the user's default browser, not download the page
+      or run a browser-specific command. The app should continue immediately without waiting
+      for the browser to exit. Show the small C# snippet and net11.0 project XML inline;
+      do not create or modify files.
+    tags:
+      expect_activation: "false"
+      capability: shell-opening-boundary
+      risk: executable-launch-hijack
+      journey: open-online-help
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-shell-opening
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              ```csharp
+              using System.Diagnostics;
+
+              Process.Start(new ProcessStartInfo("https://learn.microsoft.com/dotnet/")
+              {
+                  UseShellExecute = true
+              })?.Dispose();
+              ```
+
+              ```xml
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <OutputType>Exe</OutputType>
+                  <TargetFramework>net11.0</TargetFramework>
+                </PropertyGroup>
+              </Project>
+              ```
+
+              Shell execution uses the operating system's URL association. There is no wait
+              or output capture. The returned Process may be null; disposing a returned wrapper
+              releases parent-side resources without closing the browser.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: 'UseShellExecute\s*=\s*true\b'
+      - type: output-not-matches
+        config:
+          # Skip string literals and line comments when looking for executable calls.
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```|//|").|"(?:\\.|[^"\\])*"|//[^\r\n]*(?:\r?\n|$))*?(?:\bProcess\.Run(Async)?\s*\(|\bRunAndCaptureText(Async)?\s*\(|\bStartAndForget\s*\(|\bSafeProcessHandle\.Start\s*\(|\.WaitForExit(?:Status)?(?:Async)?\s*\()'
+      - type: prompt
+    rubric:
+      - Opens the requested URL through the operating system's default-browser association with shell execution enabled
+      - Keeps this as shell opening rather than substituting .NET 11 executable-management APIs, capture, or a hard-coded browser executable
+      - Preserves net11.0 and returns without waiting for browser termination; does not assume shell-based Process.Start always returns a non-null Process
+
+  - name: Preserve an already-correct synchronous silent run
+    prompt: |
+      Please review this code from my .NET 11 synchronous deployment tool for pipe-buffer
+      deadlocks or unnecessary output buffering:
+      ```csharp
+      ProcessExitStatus status = Process.Run("builder", silent: true);
+      int exitCode = status.ExitCode;
+      ```
+      We intentionally discard all standard input/output and need the exit code before continuing.
+      Keep that behavior and the synchronous execution policy. Show the resulting code even if
+      nothing needs changing, and briefly explain your conclusion. Respond inline without files.
+    tags:
+      capability: preserve-correct-silent-run
+      risk: unnecessary-capture-rewrite
+      journey: review-synchronous-deployment
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-silent-no-op
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No change is needed:
+              ```csharp
+              ProcessExitStatus status = Process.Run("builder", silent: true);
+              int exitCode = status.ExitCode;
+              ```
+              The synchronous call waits for termination and returns the exit status.
+              Silent execution connects all three standard handles to the null device,
+              providing input EOF and discarding output without parent-side capture pipes
+              or output buffers. There are no redirected output pipes to fill.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: 'Process\.Run\s*\([^;]*\bsilent\s*:\s*true\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?(?:\bRunAndCaptureText(Async)?\s*\(|\bRunAsync\s*\(|RedirectStandard(Input|Output|Error)\s*=\s*true\b)'
+      - type: prompt
+    rubric:
+      - Recognizes that the original code already discards all three standard streams without capture pipes or output buffering and needs no behavioral change
+      - Preserves the synchronous silent execution and returned exit-code handling instead of introducing capture, output-draining work, async execution, or sync-over-async
