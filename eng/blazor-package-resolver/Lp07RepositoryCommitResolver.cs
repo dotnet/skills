@@ -40,6 +40,8 @@ public sealed class Lp07RepositoryCommitResolver : IDeterministicResolver
             NuspecStatus.InvalidMetadata => Escalate(input, "invalid-xml", "unknown",
                 "The nuspec requires exactly one recognized metadata element.",
                 "valid-nuspec", "package-owner"),
+            NuspecStatus.AmbiguousMetadata => Escalate(input, "ambiguous-metadata", "unknown",
+                NuGetNuspecReader.AmbiguousMetadataMissingFact, "unambiguous-nuspec", "package-owner"),
             NuspecStatus.ForeignRoot => Escalate(input, "foreign-root", "unknown",
                 "The package root is not in a recognized NuGet namespace.",
                 "recognized-nuspec", "package-owner"),

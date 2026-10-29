@@ -132,10 +132,10 @@ Check(lp05Output.SequenceEqual(Replay.Run(lp05Fixture, registry)),
 using (var doc = JsonDocument.Parse(lp05Output))
 {
     var cases = doc.RootElement.GetProperty("cases");
-    Check(cases.GetArrayLength() == 30 &&
+    Check(cases.GetArrayLength() == 32 &&
         cases.EnumerateArray().All(item =>
             item.GetProperty("result").GetProperty("row_id").GetString() == "LP-05"),
-        "Exact 30-case LP-05 synthetic branch matrix");
+        "Exact 32-case LP-05 synthetic branch matrix");
     NoClaims(doc.RootElement);
 }
 var lp05Directory = Path.GetDirectoryName(lp05Fixture)!;
@@ -208,10 +208,10 @@ Check(lp06Output.SequenceEqual(Replay.Run(lp06Fixture, registry)),
 using (var doc = JsonDocument.Parse(lp06Output))
 {
     var cases = doc.RootElement.GetProperty("cases");
-    Check(cases.GetArrayLength() == 31 &&
+    Check(cases.GetArrayLength() == 33 &&
         cases.EnumerateArray().All(item =>
             item.GetProperty("result").GetProperty("row_id").GetString() == "LP-06"),
-        "Exact 31-case LP-06 synthetic branch matrix");
+        "Exact 33-case LP-06 synthetic branch matrix");
     NoClaims(doc.RootElement);
 }
 var lp06Directory = Path.GetDirectoryName(lp06Fixture)!;
@@ -276,10 +276,10 @@ Check(lp07Output.SequenceEqual(Replay.Run(lp07Fixture, registry)),
 using (var doc = JsonDocument.Parse(lp07Output))
 {
     var cases = doc.RootElement.GetProperty("cases");
-    Check(cases.GetArrayLength() == 53 &&
+    Check(cases.GetArrayLength() == 55 &&
         cases.EnumerateArray().All(item =>
             item.GetProperty("result").GetProperty("row_id").GetString() == "LP-07"),
-        "Exact 53-case LP-07 synthetic branch matrix");
+        "Exact 55-case LP-07 synthetic branch matrix");
     NoClaims(doc.RootElement);
 }
 var lp07Directory = Path.GetDirectoryName(lp07Fixture)!;
@@ -344,10 +344,10 @@ Check(lp08Output.SequenceEqual(Replay.Run(lp08Fixture, registry)),
 using (var doc = JsonDocument.Parse(lp08Output))
 {
     var cases = doc.RootElement.GetProperty("cases");
-    Check(cases.GetArrayLength() == 50 &&
+    Check(cases.GetArrayLength() == 52 &&
         cases.EnumerateArray().All(item =>
             item.GetProperty("result").GetProperty("row_id").GetString() == "LP-08"),
-        "Exact 50-case LP-08 synthetic branch matrix");
+        "Exact 52-case LP-08 synthetic branch matrix");
     NoClaims(doc.RootElement);
 }
 var lp08Directory = Path.GetDirectoryName(lp08Fixture)!;
@@ -416,10 +416,10 @@ Check(lp09Output.SequenceEqual(Replay.Run(lp09Fixture, registry)),
 using (var doc = JsonDocument.Parse(lp09Output))
 {
     var cases = doc.RootElement.GetProperty("cases");
-    Check(cases.GetArrayLength() == 65 &&
+    Check(cases.GetArrayLength() == 67 &&
         cases.EnumerateArray().All(item =>
             item.GetProperty("result").GetProperty("row_id").GetString() == "LP-09"),
-        "Exact 65-case LP-09 synthetic branch matrix");
+        "Exact 67-case LP-09 synthetic branch matrix");
     NoClaims(doc.RootElement);
 }
 var lp09Directory = Path.GetDirectoryName(lp09Fixture)!;
@@ -481,6 +481,7 @@ Throws(() => registry.Dispatch(lp09Case with
 }));
 Check(lp09Output.SequenceEqual(Replay.Run(lp09Fixture, registry)),
     "LP-09 tamper rejection does not affect later deterministic replay");
+MetadataSiblingChecks.Run(registry);
 Throws(() => Implemented(Fake("LP-01", input =>
     Result(input, "bad", "deterministic", "unknown", "guessed", null, null, null)))
     .Dispatch(new ResolverCase("invalid", "LP-01", [], new Dictionary<string, CheckedInput>())));

@@ -17,6 +17,7 @@ internal enum NuspecStatus
     UnsafeNuspec,
     InvalidXml,
     InvalidMetadata,
+    AmbiguousMetadata,
     ForeignRoot
 }
 
@@ -24,6 +25,9 @@ internal readonly record struct NuspecRead(NuspecStatus Status, XElement? Metada
 
 internal static class NuGetNuspecReader
 {
+    internal const string AmbiguousMetadataMissingFact =
+        "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.";
+
     private const int MaxPackageBytes = 64 * 1024 * 1024;
     private const int MaxNuspecBytes = 1024 * 1024;
     private const int MaxDirectoryBytes = 8 * 1024 * 1024;
@@ -117,9 +121,16 @@ internal static class NuGetNuspecReader
         if (root is null || root.Name.LocalName != "package" ||
             !NuGetNamespaces.Contains(root.Name.NamespaceName))
             return new(NuspecStatus.ForeignRoot);
-        var metadata = root.Elements(root.Name.Namespace + "metadata").ToArray();
-        return metadata.Length == 1
-            ? new(NuspecStatus.Ready, metadata[0])
+        var metadata = root.Elements()
+            .Where(element => string.Equals(element.Name.LocalName, "metadata", StringComparison.Ordinal))
+            .ToArray();
+        var recognized = metadata.Where(element => element.Name.Namespace == root.Name.Namespace).ToArray();
+        if (recognized.Length == 0)
+            return new(NuspecStatus.InvalidMetadata);
+        if (recognized.Length != metadata.Length)
+            return new(NuspecStatus.AmbiguousMetadata);
+        return recognized.Length == 1
+            ? new(NuspecStatus.Ready, recognized[0])
             : new(NuspecStatus.InvalidMetadata);
     }
 
