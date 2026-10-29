@@ -312,6 +312,162 @@
       ]
     },
     {
+      "case_id": "pi01-module-alternate",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/module-alternate.nupkg",
+          "sha256": "891054c4dbf6f0f83fb938e953afecb92b7426c39b940ed1b313a3a5faf95f20"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-assemblies",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/module-alternate.nupkg",
+            "sha256": "891054c4dbf6f0f83fb938e953afecb92b7426c39b940ed1b313a3a5faf95f20"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Alternate.netmodule\",\"sha256\":\"4194c9c4aae6513d0f17f8acb58a7320c6bd1e4472eb24aa77f9aac53aad2208\",\"size_bytes\":3072,\"state\":\"module-only\"}]",
+        "finding": "No .NET assemblies found in the safely inspected package; PI-01 holds vacuously for this package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "PI-01 module-alternate: safe inventory has no CLI assemblies.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-module-changed-mvid",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/module-changed-mvid.nupkg",
+          "sha256": "c075a7d534c7cfff8b5eb785af794b7df9ee5e5fc2aa26e8113256358e24b93f"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-assemblies",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/module-changed-mvid.nupkg",
+            "sha256": "c075a7d534c7cfff8b5eb785af794b7df9ee5e5fc2aa26e8113256358e24b93f"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.netmodule\",\"sha256\":\"7ceb3707c2853d0b91121fdf314a4ccebe26def6342ffb1e9288ec00bff39ccd\",\"size_bytes\":3072,\"state\":\"module-only\"}]",
+        "finding": "No .NET assemblies found in the safely inspected package; PI-01 holds vacuously for this package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "PI-01 module-changed-mvid: safe inventory has no CLI assemblies.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-module-empty-mvid",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/module-empty-mvid.nupkg",
+          "sha256": "62bcb87a88409bd0c71c7dc70c207cf9cc5d092e3e1417abfe6c26f098b4052a"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/module-empty-mvid.nupkg",
+            "sha256": "62bcb87a88409bd0c71c7dc70c207cf9cc5d092e3e1417abfe6c26f098b4052a"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.netmodule\",\"sha256\":\"23444ba1563df2db217898b087cfdca29bab34357df076c31e8a3ce909d6cb8d\",\"size_bytes\":3072,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 module-empty-mvid: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-module-false-signed-flag",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/module-false-signed-flag.nupkg",
+          "sha256": "3b81672d46ef417b830a45ec21ebd1debc0584b6b7d86a6c975cfc8213725dc2"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/module-false-signed-flag.nupkg",
+            "sha256": "3b81672d46ef417b830a45ec21ebd1debc0584b6b7d86a6c975cfc8213725dc2"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.netmodule\",\"sha256\":\"abb49c2088e45e6e1efb9e1aaae29d3413af5915d26d11bf0bbe4eaee31d7c40\",\"size_bytes\":3072,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 module-false-signed-flag: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
       "case_id": "pi01-native-dll",
       "row_id": "PI-01",
       "inputs": [
@@ -933,6 +1089,159 @@
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-utf8-non-ascii-assembly-name",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf8-non-ascii-assembly-name.nupkg",
+          "sha256": "dd00c0b62470d1f7c65af20c9e8b5d871fd89c5797041adb203a617f99146475"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsigned-assembly",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf8-non-ascii-assembly-name.nupkg",
+            "sha256": "dd00c0b62470d1f7c65af20c9e8b5d871fd89c5797041adb203a617f99146475"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/S\\u00e9.dll\",\"sha256\":\"02f2bbb5fbd06ec2107e444a2446dfeda912bfa558c8f557a08653db7d1a7b5e\",\"size_bytes\":3584,\"state\":\"unsigned\"}]",
+        "finding": "At least one shipped .NET assembly has no strong-name signature reservation; PI-01 is not met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "PI-01 utf8-non-ascii-assembly-name: an Assembly metadata table has no strong-name reservation.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-nonutf8-non-ascii-assembly-name",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nonutf8-non-ascii-assembly-name.nupkg",
+          "sha256": "838c62b2b7ce68aa59bf792f3ce25444db584e1f81ea7ed01b29fddb1dd3b577"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nonutf8-non-ascii-assembly-name.nupkg",
+            "sha256": "838c62b2b7ce68aa59bf792f3ce25444db584e1f81ea7ed01b29fddb1dd3b577"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Archive or manifest cannot be safely and unambiguously inspected.",
+        "required_input": "safe-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 nonutf8-non-ascii-assembly-name: unsafe ZIP or nuspec takes precedence over assembly claims.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "pi01-utf8-local-flag-mismatch",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf8-local-flag-mismatch.nupkg",
+          "sha256": "7a7f209dd5b8094a7759a25ca31ceeba3dd2fd917947afe7c794f5c0002f98d5"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf8-local-flag-mismatch.nupkg",
+            "sha256": "7a7f209dd5b8094a7759a25ca31ceeba3dd2fd917947afe7c794f5c0002f98d5"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Archive or manifest cannot be safely and unambiguously inspected.",
+        "required_input": "safe-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 utf8-local-flag-mismatch: unsafe ZIP or nuspec takes precedence over assembly claims.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "pi01-utf8-local-name-mismatch",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/utf8-local-name-mismatch.nupkg",
+          "sha256": "bf964ac0b1065c851ee4035aceffa626159e01e0385a053801f01347ea234df5"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/utf8-local-name-mismatch.nupkg",
+            "sha256": "bf964ac0b1065c851ee4035aceffa626159e01e0385a053801f01347ea234df5"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Archive or manifest cannot be safely and unambiguously inspected.",
+        "required_input": "safe-unambiguous-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 utf8-local-name-mismatch: unsafe ZIP or nuspec takes precedence over assembly claims.",
+      "evidence_pointers": [
+        "package:archive"
       ]
     },
     {
