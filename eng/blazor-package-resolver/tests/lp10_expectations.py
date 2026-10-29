@@ -62,6 +62,7 @@ DECLARATIVE_FULL_PATH = re.compile(
 PROJECT_START = re.compile(
     r"\A\s*(?:(?:<\?xml\b[^?]*\?>|<!--.*?-->)\s*)*"
     r"<(?:[A-Za-z_][\w.-]*:)?Project(?=[\s/>])", re.DOTALL)
+XML_UNSAFE_TOKEN = re.compile(r"<!\s*(?:DOCTYPE|ENTITY)\b", re.IGNORECASE)
 
 
 def require(condition, message):
@@ -613,6 +614,28 @@ CASES = (
             '<Target Name="Run"><PartnerTask><Exec Command="echo" />'
             '</PartnerTask></Target>'), None),
     ), branch="unsupported-executable-content"),
+    spec("nuspec-comment-decoy", (("README.md", DOC, None),),
+         branch="no-code-payload", archive_problem="comment-decoy"),
+    spec("build-comment-decoy", (
+        ("build/Comments.props", build_xml(
+            '<!-- <!DOCTYPE Project [<!ENTITY x "comment">]> -->'
+            '<PropertyGroup><Notes><![CDATA[<!DOCTYPE Project [<!ENTITY x "text">]>]]>'
+            '</Notes></PropertyGroup>'), None),
+    ), branch="no-code-payload"),
+    spec("pi-project-caller", (
+        ("build/P.targets", build_xml(
+            '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
+            'Targets="Go" /></Target>'), None),
+        ("build/run.txt", b"<?foo bar?>\n" + build_xml(
+            '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
+    ), branch="incomplete-inventory"),
+    spec("dtd-project-caller", (
+        ("build/P.targets", build_xml(
+            '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
+            'Targets="Go" /></Target>'), None),
+        ("build/run.txt", b'<!DOCTYPE Project [<!ENTITY x "unused">]>\n' + build_xml(
+            '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
+    ), branch="incomplete-inventory"),
 )
 
 STRUCTURAL = {
@@ -803,6 +826,8 @@ def archive(case):
     declaration = ('<!DOCTYPE package [<!ENTITY x "unsafe">]>\n'
                    if problem in ("dtd-entity", "utf16-dtd") else
                    '<!ENTITY x "unsafe">\n' if problem == "utf16-entity" else "")
+    if problem == "comment-decoy":
+        declaration = '<!-- <!DOCTYPE package [<!ENTITY x "comment">]> -->\n'
     root_ns = "urn:foreign" if problem == "foreign-root" else NS
     utf16 = problem in ("utf16-benign", "utf16be-benign", "utf16-dtd", "utf16-entity")
     text = ('<?xml version="1.0" encoding="' + ("utf-16" if utf16 else "utf-8") +
@@ -881,9 +906,41 @@ def xml_text(content, limit, label):
     return text
 
 
+def has_unsafe_xml_declaration(text):
+    if XML_UNSAFE_TOKEN.search(text) is None:
+        return False
+    position = 0
+    while (start := text.find("<", position)) >= 0:
+        terminator = next(((prefix, ending) for prefix, ending in (
+            ("<!--", "-->"), ("<![CDATA[", "]]>"), ("<?", "?>"))
+            if text.startswith(prefix, start)), None)
+        if terminator:
+            end = text.find(terminator[1], start + len(terminator[0]))
+            if end < 0:
+                return False
+            position = end + len(terminator[1])
+            continue
+        if XML_UNSAFE_TOKEN.match(text, start):
+            return True
+        quote = None
+        for position in range(start + 1, len(text)):
+            char = text[position]
+            if char == quote:
+                quote = None
+            elif quote is None:
+                if char in ("'", '"'):
+                    quote = char
+                elif char == ">":
+                    position += 1
+                    break
+        else:
+            return False
+    return False
+
+
 def safe_xml_root(content, limit=XML_LIMIT, label="build-xml"):
     text = xml_text(content, limit, label)
-    if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", text, re.IGNORECASE):
+    if has_unsafe_xml_declaration(text):
         raise ValueError(label + "-dtd")
     try:
         return ET.fromstring(text)
@@ -911,8 +968,48 @@ def starts_project(content):
         return True
     prelude = re.match(r"\A\s*(?:(?:<\?xml\b[^?]*\?>|<!--.*?-->)\s*)*",
                        text, re.DOTALL)
-    remaining = text[prelude.end():]
-    if len(content) > XML_LIMIT and (not remaining or remaining.startswith(("<!--", "<?xml"))):
+    cursor = prelude.end()
+    unsupported = False
+    while True:
+        while cursor < len(text) and text[cursor].isspace():
+            cursor += 1
+        if text.startswith("<!--", cursor):
+            end = text.find("-->", cursor + 4)
+            if end < 0:
+                raise ValueError("build-xml-root-limit")
+            cursor = end + 3
+        elif text.startswith("<?", cursor):
+            end = text.find("?>", cursor + 2)
+            if end < 0:
+                raise ValueError("build-xml-root-limit")
+            unsupported = True
+            cursor = end + 2
+        elif XML_UNSAFE_TOKEN.match(text, cursor):
+            unsupported = True
+            depth = 0
+            quote = None
+            for index in range(cursor + 2, len(text)):
+                char = text[index]
+                if char == quote:
+                    quote = None
+                elif quote is None:
+                    if char in ("'", '"'):
+                        quote = char
+                    elif char == "[":
+                        depth += 1
+                    elif char == "]" and depth:
+                        depth -= 1
+                    elif char == ">" and depth == 0:
+                        cursor = index + 1
+                        break
+            else:
+                raise ValueError("build-xml-root-limit")
+        else:
+            break
+    remaining = text[cursor:]
+    if unsupported and PROJECT_START.match(remaining):
+        raise ValueError("build-xml-unsupported-prolog")
+    if len(content) > XML_LIMIT and (not remaining or remaining.startswith(("<!--", "<?"))):
         raise ValueError("build-xml-root-limit")
     return False
 
@@ -1493,6 +1590,10 @@ def verify_case(case, document, writing):
                 case["entries"], package.infolist()[len(expected_names) - len(case["entries"]):]):
             require(info.filename == entry_name.replace("\\", "/") and package.read(info) == raw,
                     f"Payload bytes differ: {name}/{entry_name}")
+            if name == "build-comment-decoy":
+                require(b"<!-- <!DOCTYPE" in raw and b"<!ENTITY" in raw and
+                        b"<![CDATA[<!DOCTYPE" in raw,
+                        "MSBuild comment/CDATA decoy markers missing.")
             if hint is not None:
                 classified, reason, _, _ = classify_payload(
                     entry_name, raw, {item[0] for item in case["entries"]})
@@ -1509,6 +1610,10 @@ def verify_case(case, document, writing):
         if case["archive_problem"] in ("no-nuspec", "corrupt-archive"):
             return
         raw_nuspec = package.read(package.infolist()[0])
+        if name == "nuspec-comment-decoy":
+            require("<!-- <!DOCTYPE" in xml_text(raw_nuspec, 1024 * 1024, "nuspec") and
+                    "<!ENTITY" in xml_text(raw_nuspec, 1024 * 1024, "nuspec"),
+                    "Nuspec comment decoy markers missing.")
         if case["archive_problem"] in ("dtd-entity", "utf16-dtd", "utf16-entity"):
             text = xml_text(raw_nuspec, 1024 * 1024, "nuspec")
             require(("<!DOCTYPE" in text if case["archive_problem"] != "utf16-entity"
@@ -1717,7 +1822,8 @@ def main():
                              "unknown-factory-reference", "custom-target-task",
                              "non-command-task-and-property", "readme-project-decoy",
                              "import-depth-at-limit", "import-count-at-limit",
-                             "utf16-benign-no-code")),
+                             "utf16-benign-no-code", "nuspec-comment-decoy",
+                             "build-comment-decoy")),
             "Recognized passive-only controls must stay vacuous.")
     require(all(by_name[name]["expected"]["branch_id"] != "no-code-payload"
                 for name in ("no-code-no-nuspec", "no-code-traversal", "no-code-duplicate-path",

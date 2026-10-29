@@ -81,7 +81,15 @@ decoded strictly; DTD/entities are prohibited, and the XML parser does not
 resolve external references. Unsupported encodings, malformed XML,
 foreign roots and limit exceedance escalate with unknown applicability;
 UTF-16 without a BOM and invalid UTF-8 `Project` roots cannot become
-passive documentation.
+passive documentation. DTD/entity detection checks actual XML declaration
+tokens, not matching words inside harmless XML comments or CDATA. No-code
+nuspec-comment and declaration-only `.props` comment/CDATA decoys preserve
+this boundary without relaxing the UTF-16 DTD/entity safety controls.
+A nonstandard file whose `Project` root follows an otherwise valid
+processing instruction or an actual DOCTYPE/entity prolog is **not**
+passive: it escalates as incomplete/unknown, even when its only caller is
+a non-command MSBuild task. The synthetic caller controls pin both cases;
+DOCTYPE-prefixed HTML without a `Project` root remains unsupported markup.
 Nuspec inspection uses the same encoding-aware DTD/entity prohibition
 before metadata can be cited; UTF-16 benign, DTD and entity controls on
 both no-code and compiled archives pin structural precedence.
@@ -185,7 +193,7 @@ and still test *uncompressed* thresholds.
 
 ## Synthetic and retained controls
 
-`cases.json` freezes **164 synthetic cases, 163 pinned input files with 163
+`cases.json` freezes **168 synthetic cases, 167 pinned input files with 167
 distinct SHA-256 identities**, and one absent-input case. The controlled
 families cover separate and mixed code (including vendor-shaped PE+JS with
 and without repository/dependency claims), executable scripts and shebangs,
