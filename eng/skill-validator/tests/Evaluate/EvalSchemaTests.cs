@@ -329,6 +329,28 @@ public class ParseEvalConfigTests
     }
 
     [TestMethod]
+    [DataRow("mstest-migration.eval.yaml")]
+    [DataRow("mtp-migration.eval.yaml")]
+    [DataRow("code-testing.eval.yaml")]
+    [DataRow("migration-agent.eval.yaml")]
+    public void ParsesCompleteTestingEvalsWithStringToolRestrictions(string fixture)
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", fixture)));
+
+        Assert.IsNotNull(config, $"Could not load {fixture}");
+        Assert.IsGreaterThan(0, config.Scenarios.Count);
+        var restrictions = config.Scenarios[0].RejectTools;
+        Assert.IsNotNull(restrictions);
+        foreach (var tool in new[]
+        {
+            "bash", "powershell", "execute", "shell", "run_shell_command",
+            "local_shell", "run_in_terminal", "run_command", "terminal", "task", "agent",
+        })
+            Assert.Contains(tool, restrictions);
+    }
+
+    [TestMethod]
     public void ParsesVallyOptInShellDenialTag()
     {
         var config = EvalSchema.ParseEvalConfigFlexible("""

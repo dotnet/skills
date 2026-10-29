@@ -23,6 +23,7 @@ namespace SkillValidator;
 [JsonSerializable(typeof(RubricScore))]
 [JsonSerializable(typeof(AssertionResult))]
 [JsonSerializable(typeof(Assertion))]
+[JsonSerializable(typeof(ProgramGraderResult))]
 [JsonSerializable(typeof(AgentEvent))]
 [JsonSerializable(typeof(MetricBreakdown))]
 [JsonSerializable(typeof(ConfidenceInterval))]

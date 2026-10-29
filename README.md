@@ -34,8 +34,8 @@ Plugin support is component-specific:
 | [dotnet-maui](plugins/dotnet-maui/) | Skills for .NET MAUI development: environment setup, diagnostics, and troubleshooting. |
 | [dotnet-ai](plugins/dotnet-ai/) | AI and ML skills for .NET: technology selection, LLM integration, agentic workflows, RAG pipelines, MCP, and classic ML with ML.NET. |
 | [dotnet-template-engine](plugins/dotnet-template-engine/) | .NET Template Engine skills: template discovery, project scaffolding, and template authoring. |
-| [dotnet-test](plugins/dotnet-test/) | Skills for running, generating, analyzing, and improving .NET tests: test execution, filtering, platform detection, coverage, testability, and MSTest workflows. |
-| [dotnet-test-migration](plugins/dotnet-test-migration/) | Skills and a GitHub Copilot orchestrator agent for migrating .NET test frameworks and platforms: MSTest and xUnit version upgrades, xUnit-to-MSTest conversion, and VSTest to Microsoft.Testing.Platform. |
+| [dotnet-test](plugins/dotnet-test/) | Polyglot test generation, repair, and quality analysis, with .NET-specific execution, coverage, testability, and MSTest workflows. See its language/runner capability matrix for boundaries. |
+| [dotnet-test-migration](plugins/dotnet-test-migration/) | Skills and a GitHub Copilot orchestrator agent for migrating .NET test frameworks and platforms: MSTest and xUnit version upgrades, xUnit/NUnit-to-MSTest conversion, and VSTest to Microsoft.Testing.Platform. |
 | [dotnet-aspnetcore](plugins/dotnet-aspnetcore/) | ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns. |
 | [dotnet-blazor](plugins/dotnet-blazor/) | Skills for Blazor development: component authoring, interactivity, and web application patterns. |
 | [dotnet-winforms](plugins/dotnet-winforms/) | Skills for Windows Forms development: project setup, UI design, data binding, accessibility, and modern .NET practices. |

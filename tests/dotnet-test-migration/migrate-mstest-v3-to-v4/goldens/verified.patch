@@ -1,0 +1,35 @@
+diff --git a/TestProject.csproj b/TestProject.csproj
+--- a/TestProject.csproj
++++ b/TestProject.csproj
+@@ -8,8 +8,8 @@
+   </PropertyGroup>
+
+   <ItemGroup>
+-    <PackageReference Include="MSTest.TestFramework" Version="3.8.0" />
+-    <PackageReference Include="MSTest.TestAdapter" Version="3.8.0" />
++    <PackageReference Include="MSTest.TestFramework" Version="4.4.1" />
++    <PackageReference Include="MSTest.TestAdapter" Version="4.4.1" />
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+   </ItemGroup>
+
+diff --git a/OrderServiceTests.cs b/OrderServiceTests.cs
+--- a/OrderServiceTests.cs
++++ b/OrderServiceTests.cs
+@@ -10,7 +10,7 @@
+     [ClassInitialize]
+     public static void Initialize(TestContext context) => fixture = new LifecycleProbe();
+
+-    [ClassCleanup(ClassCleanupBehavior.EndOfClass)]
++    [ClassCleanup]
+     public static void Cleanup() => fixture.Dispose();
+
+     [TestMethod]
+@@ -24,7 +24,7 @@
+     }
+
+     [TestMethod]
+-    [Timeout(TestTimeout.Infinite)]
++    [Timeout(int.MaxValue)]
+     public void ProcessOrder_LargePayload_Completes()
+     {
+         fixture.Enter(nameof(ProcessOrder_LargePayload_Completes));

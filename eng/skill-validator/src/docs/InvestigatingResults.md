@@ -43,6 +43,32 @@ permission contract version participates in baseline identity; recompute
 baselines recorded before this contract rather than comparing old denial
 behavior against the corrected executor.
 
+Native-agent evals also execute Vally `program` graders. They launch
+`config.program` with the explicit `args` array and `timeout` (60 seconds by
+default), without a shell. The native lane rejects `env`, `shell`, and
+`sub_path` options rather than silently ignoring them. Exit zero with empty
+stdout passes; otherwise stdout must be a valid Vally GraderResult JSON object,
+whose `passed` and `status` control the assertion. Nonzero exit, malformed
+output, a missing trajectory, and timeout fail the assertion.
+
+The evaluator writes `EVALUATE_GRADER_INPUT` outside the agent workspace only
+after execution, overrides inherited `EVALUATE_*` variables, and deletes the
+input after grading. `EVALUATE_WORKSPACE` identifies the scenario workspace.
+The input's `trajectory.events` retain native SDK event names
+(`tool.execution_start` / `tool.execution_complete`), while Vally supplies
+`tool_call` / `tool_result`; shared graders must handle both formats and
+correlate call/result identities. Native tool arguments are JSON strings.
+`trajectory.output` contains the final agent response. These assertions appear
+as `Program` in raw native results and participate in baseline identity.
+Agent-written reports alone are not evidence that a command ran: the binlog
+launch verifier additionally requires matching calls and observations from this
+evaluator-owned trajectory.
+Older native validators ignore unknown grader types, so these evals require the
+validator from the same revision. Before merge, dispatch `evaluation.yml` on the
+same-repository PR branch with its exact `pr_number` and `head_sha`; an ordinary
+`/evaluate` request uses trusted workflow source and may still build the older
+validator from the default branch.
+
 > The workflow token preflight tries another pool candidate for HTTP 429 or 402
 > quota exhaustion and for the paired heading and token-environment lines in
 > the Copilot CLI's no-authentication setup block. Unrelated service and

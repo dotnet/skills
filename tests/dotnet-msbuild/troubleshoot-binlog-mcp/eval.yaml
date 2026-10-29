@@ -11,6 +11,9 @@ stimuli:
       I have no startup log. Its host registration is in affected-workspace/host.json.
       The registered launcher is an offline stand-in for dotnet, including SDK
       and source queries; use it instead of the machine-wide SDK or live feeds.
+      Use direct shell invocations for the queries and registered launch, and
+      save the launch capture in a separate step. Keep each working-directory
+      change in the same shell call as its invocation.
       Investigate from the affected workspace and save the launch stdout, stderr,
       and numeric exitCode in affected-workspace/launch-result.json. Explain what
       failed and the smallest policy-safe next step, keeping private source URLs
@@ -27,9 +30,9 @@ stimuli:
     golden_trajectory:
       path: references/executable-launch.json
     graders:
-      - type: run-command
+      - type: program
         config:
-          command: node
+          program: node
           args:
             - -e
             - |
@@ -38,9 +41,8 @@ stimuli:
               const crypto = require('node:crypto');
               const content = fs.readFileSync('check-launch.cjs', 'utf8').replace(/\r\n/g, '\n');
               assert.equal(crypto.createHash('sha256').update(content).digest('hex'),
-                'b058d8c0d423ce33844c264a99c5f5ab9194ed2888a1af9f5950d5a76d9358c6', 'Changed or missing diagnostic input: check-launch.cjs');
+                'c7c1b8eb88663ea59ae68e1209ca7f237d9328d0df9b64591ee27f15caa78d4e', 'Changed or missing diagnostic input: check-launch.cjs');
               require('./check-launch.cjs');
-          expected_exit_code: 0
           timeout: 1m
       - type: output-matches
         config:

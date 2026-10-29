@@ -195,10 +195,28 @@ public static class EvalSchema
                 new Assertion(
                     AssertionType.RunCommandAndAssert,
                     CommandArgs: BuildShellCommandAssertion(config)),
+            "program" => new Assertion(
+                AssertionType.Program,
+                CommandArgs: BuildProgramCommandAssertion(config)),
             // The prompt grader is handled by the legacy evaluator's rubric judge.
             "prompt" => null,
             _ => null,
         };
+    }
+
+    private static CommandAssertionArgs BuildProgramCommandAssertion(RawVallyGraderConfig? config)
+    {
+        if (string.IsNullOrWhiteSpace(config?.Program))
+            throw new InvalidOperationException("The program grader requires config.program.");
+        if (config.Env is not null || config.Shell is not null || config.SubPath is not null)
+            throw new InvalidOperationException(
+                "The native program grader supports program, args, and timeout only; env, shell, and sub_path are not supported.");
+
+        return new CommandAssertionArgs(
+            config.Program,
+            ExpectedExitCode: 0,
+            Timeout: ParseDurationSeconds(config.Timeout) ?? 60,
+            ArgumentList: config.Args?.ToArray() ?? []);
     }
 
     private static CommandAssertionArgs BuildShellCommandAssertion(RawVallyGraderConfig config)
@@ -501,7 +519,11 @@ public static class EvalSchema
         public string? Path { get; set; }
         public string? Value { get; set; }
         public string? Command { get; set; }
+        public string? Program { get; set; }
         public List<string>? Args { get; set; }
+        public Dictionary<string, string>? Env { get; set; }
+        public bool? Shell { get; set; }
+        public string? SubPath { get; set; }
         public int? ExpectedExitCode { get; set; }
         public string? Timeout { get; set; }
         public string? StdoutContains { get; set; }

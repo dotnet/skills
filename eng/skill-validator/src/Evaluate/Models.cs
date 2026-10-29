@@ -55,6 +55,7 @@ public enum AssertionType
     ShellDenied,
     RejectAgents,
     RejectShellRetries,
+    Program,
 }
 
 public sealed record CommandAssertionArgs(
@@ -79,6 +80,15 @@ public sealed record AssertionResult(
     Assertion Assertion,
     bool Passed,
     string Message);
+
+internal sealed record ProgramGraderResult(
+    string? Name,
+    string? Kind,
+    bool? Passed,
+    double? Score,
+    string? Evidence,
+    string? Status,
+    IReadOnlyList<ProgramGraderResult>? Details);
 
 // --- Setup ---
 

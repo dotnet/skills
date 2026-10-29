@@ -10,6 +10,24 @@
           Link="fixtures\generator.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\..\tests\dotnet-test\agent.test-quality-auditor\eval.yaml"
           Link="fixtures\auditor.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\dotnet-test-migration\migrate-mstest-v3-to-v4\eval.yaml"
+          Link="fixtures\mstest-migration.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\dotnet-test-migration\migrate-vstest-to-mtp\eval.yaml"
+          Link="fixtures\mtp-migration.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\dotnet-test\code-testing\eval.yaml"
+          Link="fixtures\code-testing.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\dotnet-test-migration\agent.test-migration\eval.yaml"
+          Link="fixtures\migration-agent.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\dotnet-msbuild\agent.msbuild\eval.yaml"
+          Link="fixtures\msbuild-agent.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\dotnet-msbuild\agent.build-perf\eval.yaml"
+          Link="fixtures\build-perf-agent.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\dotnet-msbuild\troubleshoot-binlog-mcp\eval.yaml"
+          Link="fixtures\binlog-launch.eval.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\dotnet-msbuild\troubleshoot-binlog-mcp\fixtures\launch-failure\**\*"
+          Link="fixtures\launch-failure\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\dotnet-msbuild\troubleshoot-binlog-mcp\references\executable-launch.json"
+          Link="fixtures\launch-reference.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

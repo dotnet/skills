@@ -51,8 +51,9 @@ Apply these before the mechanical mapping:
 |---|---|
 | No xUnit package, namespace, attribute, or fixture remains | Stop. Make no file changes, report that migration is unnecessary, and run the existing `dotnet test` command once to prove the already-MSTest project is healthy. |
 | Source uses VSTest | Keep the existing VSTest property/configuration. Prefer retaining and updating a source project's explicit `Microsoft.NET.Test.Sdk` pin; a repository that intentionally relies on the MSTest metapackage's transitive dependency may keep that convention. Do not introduce MTP properties. |
-| Source uses MTP | Replace xUnit-specific MTP selection with MSTest MTP configuration. Prefer `MSTest.Sdk`; with the metapackage, set `EnableMSTestRunner=true` and `OutputType=Exe`. Preserve native-versus-bridged command integration, and do not add `<UseVSTest>true</UseVSTest>` or other VSTest-only configuration. |
-| Source relies on xUnit's default parallelization | Add `[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]` to a compiled `.cs` file when the current project has at least two independently runnable test classes. In a one-class project with no explicit parallel setting, omit it because class-level concurrency is not observable. Translate explicit `CollectionBehavior` or `xunit.runner.json` settings regardless of current class count. Before reporting completion, read the changed file back and name it in the result. |
+| Source uses MTP | Replace xUnit-specific MTP selection with MSTest MTP configuration. Prefer `MSTest.Sdk`; with the metapackage, set `EnableMSTestRunner=true` and `OutputType=Exe`. Preserve native-versus-bridged integration only when the target package/SDK combination supports it. MTP 2+ cannot bridge on SDK 10+; report the required separately authorized command-mode alignment instead of adding a bypass or silently switching platform. |
+| Source relies on xUnit's default collections mode | Use class-level MSTest parallelization for independently runnable classes, but preserve serialization between every member of a shared collection even without `DisableParallelization=true`. A one-class project with no explicit setting needs no assembly policy. Translate explicit settings and disclose any coarser target scheduling; inspect the compiled result. |
+| Source explicitly uses a newer parallel mode, custom orderer or runner-wide scheduling | Inspect the pinned framework/runner version and effective settings. Do not apply default-collection rules blindly or promise exact parity for unsupported scheduling. |
 
 For detailed mappings and examples, search [`references/mapping-cheatsheet.md`](references/mapping-cheatsheet.md) for constructs actually present in the project and read only the matching sections. Do not load or reproduce the whole reference.
 
@@ -101,6 +102,11 @@ The metapackage includes `Microsoft.NET.Test.Sdk`, `MSTest.TestAdapter`, `MSTest
 When preserving MTP, do not carry xUnit's `UseMicrosoftTestingPlatformRunner` property into the MSTest project. Prefer `MSTest.Sdk` at the resolved version. If repository conventions require the metapackage route, set `<EnableMSTestRunner>true</EnableMSTestRunner>` and `<OutputType>Exe</OutputType>`. Retain `TestingPlatformDotnetTestSupport=true` only for repositories that continue to invoke MTP applications through VSTest command mode; native .NET 10+ MTP mode does not require it. When preserving VSTest with `MSTest.Sdk`, set `<UseVSTest>true</UseVSTest>`.
 
 Do not change `TargetFramework`. Remove `xunit.runner.json` only after porting its relevant settings.
+Resolve transitive MTP/MSBuild versions before promising command-mode parity.
+For example, an MSTest upgrade that introduces MTP 2+ cannot retain a legacy
+SDK 10 bridge. Native mode requires MTP 1.7+; use `run-tests` when available
+for command selection, or the verified repository runner and official support
+matrix. Do not downgrade or switch command modes implicitly.
 
 ### 3. Perform the mechanical conversion
 
@@ -144,16 +150,44 @@ Apply the mechanical and semantic rewrites in one edit pass when the inventory m
 
 - Keep constructor setup and `IDisposable`/`IAsyncDisposable` when valid. Map `IAsyncLifetime` to `[TestInitialize]`/`[TestCleanup]`.
 - `IClassFixture<T>` means one fixture instance per test class, shared by all methods in that class. Map it to a static `T` field created once by a static `[ClassInitialize]` method that accepts `TestContext`, and dispose it once from static `[ClassCleanup]`. Never use `[TestInitialize]`/`[TestCleanup]` for this mapping because that creates one fixture per test method.
-- For `ICollectionFixture<T>`, preserve both sharing and serialization. Prefer a static `Lazy<T>` helper used by each member class; add `[DoNotParallelize]` only when the source collection disabled parallelization. Use assembly initialization only when the fixture is genuinely assembly-wide.
+- For `ICollectionFixture<T>` in default collections mode, preserve both sharing
+  and member serialization, including when `DisableParallelization` is absent.
+  A static `Lazy<T>` shares an instance but does not serialize tests or dispose
+  it. Never make cleanup depend on every declared member class running: filters
+  may select only one. Verify disposal in full and single-member filtered runs.
+  A lazy run-end cleanup fallback is valid only for an explicitly accepted
+  sole-collection assembly; otherwise report the unsupported lifetime mapping.
+  Preserve one initialization and one disposal after the last selected member,
+  including async lifecycle. Under class-level MSTest parallelization,
+  `[DoNotParallelize]` on member classes is a conservative serialization option,
+  not exact collection scheduling: disclose that it also prevents overlap with
+  unrelated classes. Where the installed MSTest version supports it, a common
+  exclusive `[ResourceLock]` can serialize members while allowing unrelated
+  classes to overlap; it does not manage fixture lifetime.
+  If exact grouping/lifetime cannot be preserved, flag that
+  decision rather than silently widening fixture scope. Use assembly lifecycle
+  only for a genuinely assembly-wide fixture or explicitly accepted scope change.
+- Preserve diagnostic-versus-enforcement semantics. `longRunningTestSeconds`
+  reports a diagnostic warning, not a failing timeout; do not convert it to
+  `[Timeout]`. Document an unavailable diagnostic equivalent.
 - Replace `ITestOutputHelper` with constructor-injected or property-based MSTest `TestContext`, and replace each `_output.WriteLine(...)` call with the corresponding `TestContext.WriteLine(...)`. In the final result, name both the `TestContext` injection/property and the `WriteLine` mapping explicitly; "migrated output" is not enough to demonstrate parity.
 
-xUnit runs classes in parallel by default; MSTest runs them serially. When the current project has two or more independently runnable test classes, preserve that effective behavior with:
+xUnit's default collections mode runs different collections in parallel and
+serializes members within a collection; by default each class is its own
+collection. MSTest runs serially unless configured otherwise. For independently
+runnable classes, use:
 
 ```csharp
 [assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]
 ```
 
-For a one-class project with no explicit xUnit parallel setting, do not add an assembly policy: there is no class-level concurrency to preserve. Always translate explicit `CollectionBehavior` or `xunit.runner.json` settings. Never use `ExecutionScope.MethodLevel` to emulate xUnit. Before applying a fixture-scope or parallelization decision, state what the source shared or serialized and how the target preserves it.
+For a one-class project with no explicit setting, omit an unnecessary assembly
+policy. Always inspect explicit `CollectionBehavior`, runner JSON and scheduling
+overrides. Do not use `ExecutionScope.MethodLevel` to emulate default collection
+semantics. xUnit v3 4.0+ can explicitly select `parallelMode: all`; treat that as
+a separate versioned case, not evidence that every xUnit project runs methods
+concurrently. State the source sharing/serialization and target constraints,
+including any accepted loss of unrelated-class concurrency.
 
 ### 6. Verify parity
 

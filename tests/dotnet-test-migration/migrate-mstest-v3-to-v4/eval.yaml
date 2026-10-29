@@ -1,10 +1,63 @@
 name: migrate-mstest-v3-to-v4
-description: Evaluates the dotnet-test/migrate-mstest-v3-to-v4 skill
+description: Evaluates the dotnet-test-migration/migrate-mstest-v3-to-v4 skill
 type: capability
 defaults:
   timeout: 4m
 stimuli:
+  - name: Leave an already current MSTest project unchanged
+    tags: {capability: already-current-noop, risk: unnecessary-migration, journey: assess-current-project}
+    prompt: |
+      Check whether work still needs an MSTest v3-to-v4 upgrade.
+      Only inspect the files: do not edit, restore packages, build, or run tests.
+    environment:
+      files:
+        - src: fixtures/already-current
+          dest: work
+        - src: ../graders/migration_evidence.py
+          dest: .eval/migration_evidence.py
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: mstest-current-noop
+        agent: {name: reference, version: "1.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: Both MSTest references are already 4.4.1. No v3-to-v4 migration is needed; I changed nothing and did not execute commands.
+    graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - powershell
+            - execute
+            - shell
+            - run_shell_command
+            - local_shell
+            - run_in_terminal
+            - run_command
+            - terminal
+            - task
+            - agent
+            - edit
+            - create
+            - apply_patch
+            - '(?i)(?:^|[.:])(?:bash|powershell|execute|shell|run_shell_command|local_shell|run_in_terminal|run_command|terminal|task|agent)$'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;p=pathlib.Path('.eval/migration_evidence.py');data=p.read_bytes();assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='5d406aa064f92dfb0f2c861f178f42e91b067ecfe7c3f30cf5ea335e578d026a','Evaluator code changed';sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})" preserve --root . --workspace
+            --file cbf50da5ba591ca235846a791d8218a617f1f7c6bfcaad835b78be17c0d02891:work/TestProject.csproj
+            --file c58be5fc9fb5fc2f65701bc29e70b74cd96dcc5a5fd4a080d49e3c6eed682429:work/ExistingTests.cs
+            --file 5d406aa064f92dfb0f2c861f178f42e91b067ecfe7c3f30cf5ea335e578d026a:.eval/migration_evidence.py
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Recognizes the already-v4 project and leaves the complete file set unchanged without executing the test toolchain.
+
   - name: Migrate custom TestMethodAttribute from Execute to ExecuteAsync
+    tags: {capability: custom-execution, risk: broken-extension, journey: repair-upgrade}
     prompt: |
       I upgraded my test project to MSTest v4 and now it won't compile. I have a custom
       RetryTestMethodAttribute that overrides Execute, and I get an error that Execute is
@@ -30,6 +83,7 @@ stimuli:
       - Recommends using Task.FromResult for synchronous logic or making the method properly async
       - Mentions that this change fixes deadlock bugs from the v3 synchronous API
   - name: Replace ExpectedExceptionAttribute with Assert.ThrowsExactly
+    tags: {capability: exception-assertion, risk: weakened-exception-check, journey: repair-upgrade}
     prompt: |
       I upgraded my test project to MSTest v4 and several test methods that use
       [ExpectedException] no longer compile. Help me fix this MSTest v4 breaking change:
@@ -54,6 +108,7 @@ stimuli:
       - Shows concrete code examples of the before/after transformation
       - Mentions that the MSTEST0006 analyzer in MSTest 3.2+ could have caught this earlier
   - name: "Fix multiple v4 breaking changes: Assert, ClassCleanup, TestContext, Timeout"
+    tags: {capability: coupled-api-changes, risk: partial-migration, journey: repair-upgrade}
     prompt: |
       I upgraded my test project to MSTest v4 (from 3.8 to 4.0) and now it won't compile.
       The errors mention ThrowsException, ClassCleanupBehavior, and TestTimeout. Help me
@@ -83,6 +138,7 @@ stimuli:
       - Identifies TestContext.Properties.Contains → ContainsKey change
       - Identifies TestTimeout.Infinite removal — recommends int.MaxValue
   - name: Handle net6.0 target framework dropped in MSTest v4
+    tags: {capability: target-compatibility, risk: unsupported-runtime, journey: assess-upgrade}
     prompt: |
       My test project targets net6.0 and I want to upgrade to MSTest v4.
       Will I run into compatibility issues?
@@ -103,6 +159,7 @@ stimuli:
       - Mentions that .NET Framework 4.6.2+ continues to be supported
       - Does not suggest staying on net6.0 with MSTest v4
   - name: Fix TestMethodAttribute CallerInfo constructor breaking change
+    tags: {capability: custom-constructor, risk: lost-source-identity, journey: repair-extension}
     prompt: |
       I have a custom attribute that inherits from TestMethodAttribute with a constructor
       that takes a string parameter for display name. After upgrading to MSTest v4, the
@@ -127,6 +184,7 @@ stimuli:
       - Identifies that [TestMethod("display name")] must change to [TestMethod(DisplayName = "display name")]
       - Provides concrete fixed code for the custom attribute
   - name: Understand behavioral changes after MSTest v4 upgrade
+    tags: {capability: runtime-compatibility, risk: lost-history-or-invalid-context, journey: diagnose-upgrade}
     prompt: |
       I upgraded my MSTest project to v4 and everything compiles, but some tests are
       behaving differently. In Azure DevOps, all of my tests appear as brand new tests
@@ -153,6 +211,7 @@ stimuli:
       - Suggests moving TestName access to TestInitialize or individual test methods
       - Mentions TreatDiscoveryWarningsAsErrors now defaults to true as another potential behavioral change
   - name: Handle MSTest.Sdk and MTP changes in v4
+    tags: {capability: sdk-discovery, risk: missing-test-host, journey: repair-ci-discovery}
     prompt: |
       I upgraded my test project to MSTest v4 -- it uses MSTest.Sdk/4.1.0 (previously
       MSTest.Sdk/3.8.0) with Microsoft.Testing.Platform. Now my CI pipeline that runs
@@ -178,6 +237,7 @@ stimuli:
       - Recommends adding an explicit PackageReference to Microsoft.NET.Test.Sdk if VSTest support is needed
       - Alternatively, recommends migrating the CI pipeline to use 'dotnet test' with MTP instead of vstest.console
   - name: Full MSTest v3 to v4 migration with multiple breaking changes
+    tags: {capability: migration-plan, risk: unsafe-upgrade-order, journey: plan-upgrade}
     prompt: |
       I need to migrate our test project from MSTest 3.x to MSTest 4.x. The project has
       custom test method attributes, uses ExpectedException, uses ClassCleanupBehavior,
@@ -212,6 +272,7 @@ stimuli:
       - Identifies TestTimeout.Infinite must become int.MaxValue
       - "Provides a logical migration order: TFM first, then packages, then code fixes"
   - name: Migrate MSTest.Sdk v3 project using ManagedType and TestTimeout
+    tags: {capability: sdk-source-compatibility, risk: obsolete-context-apis, journey: repair-sdk-upgrade}
     prompt: |
       I have a test project using MSTest.Sdk/3.8.0. The tests use TestContext.ManagedType,
       TestTimeout.Infinite, and TestContext.Properties.Contains. After upgrading to
@@ -240,6 +301,7 @@ stimuli:
       - Notes the project is using MSTest.Sdk/4.1.0 or confirms the SDK version upgrade
       - Mentions that MSTest.Sdk v4 no longer adds Microsoft.NET.Test.Sdk when using MTP
   - name: Correctly identify MSTest v3 project and recommend v4 migration
+    tags: {capability: version-routing, risk: wrong-upgrade-path, journey: assess-current-project}
     prompt: |
       My test project uses MSTest 3.8.0 on net8.0. I want to upgrade to the latest
       version. What breaking changes should I expect and how do I fix them?
@@ -266,16 +328,41 @@ stimuli:
       - Does not suggest v1→v3 migration steps since the project is already on v3
 
   - name: Verified MSTest v3 to v4 package update with build and test
+    tags: {capability: executable-upgrade, risk: lost-cases-or-lifecycle, journey: deliver-upgrade}
     prompt: |
       I need to upgrade my test project from MSTest 3.8.0 to MSTest 4.x.
       Please update the package references, fix any breaking changes, then
       build the project and run the tests to make sure everything works.
+      Preserve the test bodies and fixture behavior, changing only the required
+      framework API syntax.
     environment:
       files:
         - src: fixtures/v3-verified-migration/TestProject.csproj
           dest: TestProject.csproj
         - src: fixtures/v3-verified-migration/OrderServiceTests.cs
           dest: OrderServiceTests.cs
+        - src: ../graders/LifecycleProbe.cs
+          dest: LifecycleProbe.cs
+        - src: ../graders/global-vstest.json
+          dest: global.json
+        - src: ../graders/migration_evidence.py
+          dest: .eval/migration_evidence.py
+    golden_patch:
+      path: goldens/verified.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: mstest-upgrade-case-parity
+        agent: {name: reference, version: "1.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Upgraded both MSTest packages from 3.8.0 to 4.4.1, retained VSTest,
+              replaced TestTimeout.Infinite with int.MaxValue and removed the
+              obsolete ClassCleanup argument. dotnet test builds successfully:
+              five cases passed and DeferredService remains skipped with its
+              original reason. Both data rows and one setup/cleanup lifetime remain.
     graders:
       - type: file-contains
         config:
@@ -291,14 +378,29 @@ stimuli:
       - type: output-matches
         config:
           pattern: (int\.MaxValue|int\.Max)
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib,sys;p=pathlib.Path('.eval/migration_evidence.py');data=p.read_bytes();assert hashlib.sha256(data.replace(b'\r\n',b'\n')).hexdigest()=='5d406aa064f92dfb0f2c861f178f42e91b067ecfe7c3f30cf5ea335e578d026a','Evaluator code changed';sys.argv=[str(p),*sys.argv[1:]];exec(compile(data,str(p),'exec'),{'__name__':'__main__','__file__':str(p)})" run --project TestProject.csproj --runner vstest --mstest-major 4 --lifecycle
+            --expect CreateOrder_ValidInput_ReturnsOrder=Passed --expect ProcessOrder_LargePayload_Completes=Passed
+            --expect GetOrder_ReturnsExpectedType=Passed --expect sum-two-three=Passed --expect sum-negative=Passed
+            --expect DeferredService=NotExecuted --skip-reason "DeferredService=Requires tracked service TEST-42"
+            --unchanged-file bbadd2d5430f817f830d9a34899bc1bc9d99aae2dcd20815a4d1615b28c2f7b5:LifecycleProbe.cs
+            --source-contract mstest-upgrade:4de179dff2d773f9a294a505f76a5fe64258f49437e8f6d9921f7ee6099148c2:OrderServiceTests.cs
+            --compile-source TestProject.csproj=OrderServiceTests.cs
+            --compile-source TestProject.csproj=LifecycleProbe.cs
+          expected_exit_code: 0
+          timeout: 4m
       - type: prompt
     rubric:
       - Updated MSTest package references from 3.8.0 to a 4.x version
       - Fixed the TestTimeout.Infinite breaking change to int.MaxValue
       - Built the project and confirmed zero compilation errors
       - Ran the tests with dotnet test and confirmed all tests pass
+      - Preserved every parameterized case, the skip reason, and exactly one shared fixture lifetime without switching runners
 
   - name: Fix sealed custom TestMethodAttribute with Timeout changes
+    tags: {capability: sealed-extension, risk: broken-custom-timeout, journey: repair-extension}
     prompt: |
       After upgrading to MSTest 4.1.0, my test project fails to compile. I have a sealed
       custom TestMethodAttribute subclass that overrides Execute, and several tests use
@@ -327,6 +429,7 @@ stimuli:
       - Provides concrete fixed code for the sealed TimedTestMethodAttribute
 
   - name: Fix TestMethodAttribute and TestMethod display name constructor
+    tags: {capability: display-name, risk: changed-case-identity, journey: repair-upgrade}
     prompt: |
       I upgraded my test project to MSTest v4 and it no longer compiles. I use
       [TestMethod("display name")] and [TestMethodAttribute("display name")] to set custom
@@ -353,6 +456,7 @@ stimuli:
       - Provides corrected code for all three test methods in the fixture
 
   - name: Fix Assert.IsInstanceOfType out parameter removal
+    tags: {capability: typed-assert-return, risk: broken-type-assertion, journey: repair-upgrade}
     prompt: |
       I upgraded my test project to MSTest v4 and my tests that use Assert.IsInstanceOfType
       with an out parameter no longer compile. I get errors like:
@@ -380,6 +484,7 @@ stimuli:
       - Explains the typed variable is now assigned from the return value instead of an out parameter
 
   - name: Address TreatDiscoveryWarningsAsErrors and behavioral changes
+    tags: {capability: discovery-policy, risk: silently-missing-tests, journey: diagnose-upgrade}
     prompt: |
       I upgraded my MSTest project to v4 and the code compiles fine. But when I run
       dotnet test, some tests that used to be discovered are now failing with discovery

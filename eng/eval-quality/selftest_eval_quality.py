@@ -499,6 +499,25 @@ def execution_claim_with_command_grader(d):
             1))
 
 
+def execution_claim_with_program_grader(d):
+    execution_claim_with_command_grader(d)
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    with open(path, "w") as f:
+        f.write(raw.replace("type: run-command", "type: program")
+                .replace("command: dotnet", "program: dotnet"))
+
+
+def program_grader_missing_program(d):
+    execution_claim_with_program_grader(d)
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    with open(path, "w") as f:
+        f.write(raw.replace("program: dotnet", "program: ''"))
+
+
 def unsupported_workspace_claim(d):
     tracked_golden_trajectory(d)
     answer = os.path.join(
@@ -1984,6 +2003,10 @@ results = [
          curated_observed_execution_claim, expect_fail=True),
     case("run-command grader supports an execution claim",
          execution_claim_with_command_grader, expect_fail=False),
+    case("program grader supports an execution claim",
+         execution_claim_with_program_grader, expect_fail=False),
+    case("program grader requires its executable",
+         program_grader_missing_program, expect_fail=True),
     case("narrated workspace change needs a patch",
          unsupported_workspace_claim, expect_fail=True),
     failing_output_case("multipart workspace claim needs patch evidence",
