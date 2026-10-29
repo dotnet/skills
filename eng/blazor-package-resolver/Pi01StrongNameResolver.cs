@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Globalization;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
@@ -118,19 +119,59 @@ public sealed class Pi01StrongNameResolver : IDeterministicResolver
             {
                 writer.WriteStartObject();
                 if (item.CryptographicEvidence is not null)
-                    writer.WriteString("cryptographic_evidence", item.CryptographicEvidence);
+                    WriteAsciiString(writer, "cryptographic_evidence", item.CryptographicEvidence);
                 if (item.InventoryEvidence is not null)
-                    writer.WriteString("inventory_evidence", item.InventoryEvidence);
-                writer.WriteString("path", item.Path);
-                writer.WriteString("sha256", item.Sha256);
+                    WriteAsciiString(writer, "inventory_evidence", item.InventoryEvidence);
+                WriteAsciiString(writer, "path", item.Path);
+                WriteAsciiString(writer, "sha256", item.Sha256);
                 writer.WriteNumber("size_bytes", item.SizeBytes);
-                writer.WriteString("state", item.State);
+                WriteAsciiString(writer, "state", item.State);
                 writer.WriteEndObject();
             }
             writer.WriteEndArray();
         }
         return Encoding.UTF8.GetString(buffer.ToArray());
     }
+
+    private static void WriteAsciiString(Utf8JsonWriter writer, string property, string value)
+    {
+        writer.WritePropertyName(property);
+        var encoded = new StringBuilder("\"");
+        foreach (var rune in value.EnumerateRunes())
+        {
+            int scalar = rune.Value;
+            switch (scalar)
+            {
+                case '"': encoded.Append("\\\""); break;
+                case '\\': encoded.Append("\\\\"); break;
+                case '\b': encoded.Append("\\b"); break;
+                case '\f': encoded.Append("\\f"); break;
+                case '\n': encoded.Append("\\n"); break;
+                case '\r': encoded.Append("\\r"); break;
+                case '\t': encoded.Append("\\t"); break;
+                default:
+                    if (scalar < 0x20 || scalar >= 0x7f)
+                    {
+                        if (scalar <= 0xffff)
+                            AppendEscape(encoded, scalar);
+                        else
+                        {
+                            scalar -= 0x10000;
+                            AppendEscape(encoded, 0xd800 + (scalar >> 10));
+                            AppendEscape(encoded, 0xdc00 + (scalar & 0x3ff));
+                        }
+                    }
+                    else
+                        encoded.Append((char)scalar);
+                    break;
+            }
+        }
+        encoded.Append('"');
+        writer.WriteRawValue(encoded.ToString(), skipInputValidation: false);
+    }
+
+    private static void AppendEscape(StringBuilder output, int value) =>
+        output.Append("\\u").Append(value.ToString("x4", CultureInfo.InvariantCulture));
 
     private static (string Branch, List<EntryRecord> Records) InspectPackage(ReadOnlyMemory<byte> content)
     {
@@ -141,11 +182,12 @@ public sealed class Pi01StrongNameResolver : IDeterministicResolver
             using var stream = new MemoryStream(content.ToArray(), writable: false);
             using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
             var entries = archive.Entries;
+            var aliases = new HashSet<string>(StringComparer.Ordinal);
             if (entries.Count != rawNames.Count || entries.Count > CountLimit ||
                 entries.Where((entry, index) => entry.FullName != rawNames[index].Name).Any() ||
                 entries.Any(entry => !SafePath(entry.FullName)) ||
-                entries.Select(entry => entry.FullName.ToLowerInvariant())
-                    .Distinct(StringComparer.Ordinal).Count() != entries.Count)
+                entries.Any(entry => !TryAliasKey(entry.FullName, out var key) ||
+                    !aliases.Add(key)))
                 return ("unsafe-package", []);
             var roots = entries.Where(entry => !entry.FullName.Contains('/') &&
                 entry.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -201,7 +243,7 @@ public sealed class Pi01StrongNameResolver : IDeterministicResolver
                 if (state is not null)
                     records.Add(new(name, Catalog.Digest(bytes), bytes.Length, state, crypto, inventory));
             }
-            records.Sort((left, right) => StringComparer.Ordinal.Compare(left.Path, right.Path));
+            records.Sort((left, right) => CompareScalarPaths(left.Path, right.Path));
             foreach (var (state, branch) in new (string, string)[]
             {
                 ("unsafe", "unsafe-assembly"), ("opaque-container", "opaque-container"),
@@ -295,6 +337,62 @@ public sealed class Pi01StrongNameResolver : IDeterministicResolver
         return parts.All(part => part is not ("" or "." or ".."));
     }
 
+    private static bool TryAliasKey(string path, out string key)
+    {
+        var result = new StringBuilder(path.Length);
+        foreach (var rune in path.EnumerateRunes())
+        {
+            if (rune.Value == 0x0130)
+                result.Append("i\u0307");
+            else if (rune.Value < 0x80)
+                result.Append(char.ToLowerInvariant((char)rune.Value));
+            else if (UnsupportedAliasFold(rune.Value))
+            {
+                key = "";
+                return false;
+            }
+            else
+                result.Append(Rune.ToLowerInvariant(rune).ToString());
+        }
+        key = result.ToString();
+        return true;
+    }
+
+    // Casefold-only and contextual lowercase scalars cannot be represented safely
+    // by this bounded alias key.
+    private static bool UnsupportedAliasFold(int scalar) => scalar is
+        0x00b5 or 0x00df or 0x0149 or 0x017f or 0x01f0 or 0x0345 or 0x0390 or
+        0x03a3 or 0x03b0 or 0x03c2 or
+        >= 0x03d0 and <= 0x03d1 or >= 0x03d5 and <= 0x03d6 or
+        >= 0x03f0 and <= 0x03f1 or 0x03f5 or 0x0587 or
+        >= 0x13a0 and <= 0x13f5 or >= 0x13f8 and <= 0x13fd or
+        >= 0x1c80 and <= 0x1c88 or >= 0x1e96 and <= 0x1e9b or
+        0x1e9e or 0x1f50 or 0x1f52 or 0x1f54 or 0x1f56 or
+        >= 0x1f80 and <= 0x1faf or >= 0x1fb2 and <= 0x1fb4 or
+        >= 0x1fb6 and <= 0x1fb7 or 0x1fbc or 0x1fbe or
+        >= 0x1fc2 and <= 0x1fc4 or >= 0x1fc6 and <= 0x1fc7 or
+        0x1fcc or >= 0x1fd2 and <= 0x1fd3 or
+        >= 0x1fd6 and <= 0x1fd7 or >= 0x1fe2 and <= 0x1fe4 or
+        >= 0x1fe6 and <= 0x1fe7 or >= 0x1ff2 and <= 0x1ff4 or
+        >= 0x1ff6 and <= 0x1ff7 or 0x1ffc or
+        >= 0xab70 and <= 0xabbf or >= 0xfb00 and <= 0xfb06 or
+        >= 0xfb13 and <= 0xfb17;
+
+    private static int CompareScalarPaths(string left, string right)
+    {
+        var first = left.EnumerateRunes().GetEnumerator();
+        var second = right.EnumerateRunes().GetEnumerator();
+        while (true)
+        {
+            bool hasFirst = first.MoveNext(), hasSecond = second.MoveNext();
+            if (!hasFirst || !hasSecond)
+                return hasFirst.CompareTo(hasSecond);
+            int comparison = first.Current.Value.CompareTo(second.Current.Value);
+            if (comparison != 0)
+                return comparison;
+        }
+    }
+
     private static bool TryCentralNames(ReadOnlySpan<byte> content, out List<CentralEntry> names)
     {
         names = [];
@@ -324,7 +422,25 @@ public sealed class Pi01StrongNameResolver : IDeterministicResolver
             int next = cursor + 46 + nameSize + extraSize + commentSize;
             if ((long)next > (long)start + size)
                 return false;
-            names.Add(new(StrictUtf8.GetString(content.Slice(cursor + 46, nameSize)), crc));
+            int flags = BinaryPrimitives.ReadUInt16LittleEndian(content[(cursor + 8)..]);
+            var rawName = content.Slice(cursor + 46, nameSize);
+            if ((flags & 0x800) == 0)
+                foreach (byte value in rawName)
+                    if (value >= 0x80)
+                        return false;
+            uint local = BinaryPrimitives.ReadUInt32LittleEndian(content[(cursor + 42)..]);
+            if (local > content.Length - 30 ||
+                !content.Slice((int)local, 4).SequenceEqual("PK\x03\x04"u8))
+                return false;
+            int localFlags = BinaryPrimitives.ReadUInt16LittleEndian(content[((int)local + 6)..]);
+            int localNameSize = BinaryPrimitives.ReadUInt16LittleEndian(content[((int)local + 26)..]);
+            int localExtraSize = BinaryPrimitives.ReadUInt16LittleEndian(content[((int)local + 28)..]);
+            if (localFlags != flags || localNameSize != nameSize ||
+                (long)local + 30 + localNameSize + localExtraSize > content.Length ||
+                !content.Slice((int)local + 30, localNameSize).SequenceEqual(rawName))
+                return false;
+            names.Add(new((flags & 0x800) != 0
+                ? StrictUtf8.GetString(rawName) : Encoding.ASCII.GetString(rawName), crc));
             cursor = next;
         }
         return cursor == (long)start + size;

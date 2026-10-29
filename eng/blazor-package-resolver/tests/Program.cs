@@ -508,10 +508,10 @@ Check(pi01Output.SequenceEqual(Replay.Run(pi01Fixture, registry)),
 using (var doc = JsonDocument.Parse(pi01Output))
 {
     var cases = doc.RootElement.GetProperty("cases");
-    Check(cases.GetArrayLength() == 130 &&
+    Check(cases.GetArrayLength() == 138 &&
         cases.EnumerateArray().All(item =>
             item.GetProperty("result").GetProperty("row_id").GetString() == "PI-01"),
-        "Exact 130-case PI-01 synthetic branch matrix");
+        "Exact 138-case PI-01 synthetic branch matrix");
     NoClaims(doc.RootElement);
 }
 Pi01BoundaryChecks.Run(registry);
