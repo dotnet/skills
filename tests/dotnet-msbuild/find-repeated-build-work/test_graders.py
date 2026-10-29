@@ -82,6 +82,31 @@ class GraderTests(unittest.TestCase):
                     if not accepted:
                         self.assertIn("the commit and version must be ready", result.stderr)
 
+    def test_equivalent_git_fallback_conditions_are_accepted(self):
+        for condition in ("('$(GitCommit)' == '')", "'' == '$(GitCommit)'"):
+            with self.subTest(condition=condition):
+                work, script = self.workspace("invariant-per-project-exec")
+                path = work / "git-stamp" / "Directory.Build.targets"
+                tree = ET.parse(path)
+                tree.getroot().find("Target/Exec").set("Condition", condition)
+                tree.write(path, encoding="utf-8")
+                self.grade(work, script)
+
+    def test_git_fallback_requires_the_property_to_be_absent(self):
+        for condition in ("'true' == 'true'", "'false' == 'true'"):
+            with self.subTest(condition=condition):
+                work, script = self.workspace("invariant-per-project-exec")
+                path = work / "git-stamp" / "Directory.Build.targets"
+                tree = ET.parse(path)
+                tree.getroot().find("Target/Exec").set("Condition", condition)
+                tree.write(path, encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn(
+                    "the fallback must run once" if condition == "'true' == 'true'"
+                    else "the commit and version must be ready",
+                    result.stderr,
+                )
+
     def test_late_git_stamp_assignment_is_rejected(self):
         work, script = self.workspace("invariant-per-project-exec")
         path = work / "git-stamp" / "Directory.Build.targets"
@@ -329,6 +354,49 @@ class GraderTests(unittest.TestCase):
         tree.write(path, encoding="utf-8")
         result = self.grade(work, script, accepted=False)
         self.assertIn("clean: schema generation must execute exactly once", result.stderr)
+
+    def test_schema_compile_hooks_are_evaluated_by_msbuild(self):
+        for hook in ("property-before", "early-sdk", "property-dependency"):
+            with self.subTest(hook=hook):
+                work, script = self.workspace("per-item-exec")
+                path = work / "per-file-exec" / "Schemas.targets"
+                tree = ET.parse(path)
+                root = tree.getroot()
+                target = root.find("Target")
+                if hook == "property-before":
+                    properties = ET.Element("PropertyGroup")
+                    ET.SubElement(properties, "SchemaCompileHook").text = "CoreCompile"
+                    root.insert(0, properties)
+                    target.set("BeforeTargets", "$(SchemaCompileHook)")
+                elif hook == "early-sdk":
+                    target.set("BeforeTargets", "PrepareForBuild")
+                else:
+                    target.attrib.pop("BeforeTargets")
+                    properties = ET.Element("PropertyGroup")
+                    ET.SubElement(properties, "SchemaCompileDependencies").text = target.get("Name")
+                    root.insert(0, properties)
+                    ET.SubElement(
+                        root, "Target", Name="PrepareSchemas", BeforeTargets="CoreCompile",
+                        DependsOnTargets="$(SchemaCompileDependencies)",
+                    )
+                tree.write(path, encoding="utf-8")
+                self.grade(work, script)
+
+    def test_unreachable_and_late_schema_generation_are_rejected(self):
+        for hook in ("unreachable", "after-compilation"):
+            with self.subTest(hook=hook):
+                work, script = self.workspace("per-item-exec")
+                path = work / "per-file-exec" / "Schemas.targets"
+                tree = ET.parse(path)
+                target = tree.getroot().find("Target")
+                if hook == "unreachable":
+                    target.set("BeforeTargets", "_MissingCompileHook")
+                else:
+                    target.attrib.pop("BeforeTargets")
+                    target.set("AfterTargets", "CoreCompile")
+                tree.write(path, encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn("clean:", result.stderr)
 
     def test_schema_conditions_are_evaluated_by_msbuild(self):
         variants = (

@@ -61,8 +61,6 @@ stimuli:
               ]
               assert len(fallbacks) == 1, 'single-project builds need a commit lookup fallback'
               target, task = fallbacks[0]
-              guarded = lambda element: re.fullmatch(r"\s*'\$\(GitCommit\)'\s*==\s*''\s*", element.get('Condition', ''))
-              assert guarded(target) or guarded(task), 'the per-project git lookup must be skipped when GitCommit is supplied'
               assert any(o.get('TaskParameter') == 'ConsoleOutput' and o.get('PropertyName') == 'GitCommit'
                          for o in task.findall('Output')), 'the fallback must supply GitCommit'
               bash = shutil.which('bash')
@@ -529,18 +527,6 @@ stimuli:
                             if 'schemagen' in task.get('Command', '')]
               assert len(generators) == 1, 'use one generator invocation'
               target, task = generators[0]
-              targets = {t.get('Name'): t for t in root.findall('Target')}
-              pending = [name for name, t in targets.items()
-                         if {'BeforeCompile', 'CoreCompile'} & {n.strip() for n in t.get('BeforeTargets', '').split(';')}]
-              compile_path = set()
-              while pending:
-                  name = pending.pop()
-                  if name in compile_path:
-                      continue
-                  assert name in targets, 'compile dependencies must reference an existing target'
-                  compile_path.add(name)
-                  pending.extend(n.strip() for n in targets[name].get('DependsOnTargets', '').split(';') if n.strip())
-              assert target.get('Name') in compile_path, 'schema generation must run before compilation'
               command = expand(task.get('Command'))
               assert '%(' not in command, 'the generator still starts once per schema'
               args = shlex.split(command)
