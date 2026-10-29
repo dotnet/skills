@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "pi01-retained-syncfusion",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+          "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsigned-assembly",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+            "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net10.0/Syncfusion.Blazor.Toolkit.dll\",\"sha256\":\"b36556abb3d884fbff3f8ba96f94cba38f070da364ed3fabac1f9b84595efcf5\",\"size_bytes\":2957312,\"state\":\"unsigned\"},{\"path\":\"lib/net8.0/Syncfusion.Blazor.Toolkit.dll\",\"sha256\":\"924274553e3d2f15c0a7a94cceb93981429856004aaa5732c5f2e83e3ba1c55b\",\"size_bytes\":2954240,\"state\":\"unsigned\"},{\"path\":\"lib/net9.0/Syncfusion.Blazor.Toolkit.dll\",\"sha256\":\"53c39fd7e8a2e4028bc3ae1edb993d406f243f803d2d33aa6e95172a168301b4\",\"size_bytes\":2957312,\"state\":\"unsigned\"}]",
+        "finding": "At least one shipped .NET assembly has no strong-name signature reservation; PI-01 is not met for this package.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Pinned retained package assembly inventory; signature presence is not cryptographic validity.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-retained-infragistics",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+          "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "signature-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+            "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net10.0/IgniteUI.Blazor.Lite.dll\",\"sha256\":\"f7482cddc881c63b7be9368f1ab029c912142091085f10f4abafb85cd9846095\",\"size_bytes\":721912,\"state\":\"signature-unverified\"},{\"path\":\"lib/net8.0/IgniteUI.Blazor.Lite.dll\",\"sha256\":\"56e82a1b906156465ce030a305e88f9d8dbabb4ad3fe3305557768e90f1ce878\",\"size_bytes\":721400,\"state\":\"signature-unverified\"},{\"path\":\"lib/net9.0/IgniteUI.Blazor.Lite.dll\",\"sha256\":\"f9607b639ea89f0dcb125537b8bc0d39ec9e5d6432f8732291a7bb8a8ecfa001\",\"size_bytes\":721912,\"state\":\"signature-unverified\"}]",
+        "finding": null,
+        "missing_fact": "A strong-name flag and nonzero signature bytes do not prove a valid cryptographic signature.",
+        "required_input": "cryptographic-strong-name-verification-of-each-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "Pinned retained package assembly inventory; signature presence is not cryptographic validity.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    }
+  ]
+}
