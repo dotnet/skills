@@ -300,6 +300,8 @@ public class ParseEvalConfigTests
         Assert.IsFalse(scenario.DenyShell);
         Assert.AreSequenceEqual(["bash"], scenario.ExpectTools);
         Assert.AreSequenceEqual(["web"], scenario.RejectTools);
+        Assert.IsTrue(scenario.ExpectToolsArePatterns);
+        Assert.IsTrue(scenario.RejectToolsArePatterns);
         Assert.AreEqual(12, scenario.MaxTurns);
         Assert.AreEqual(4000, scenario.MaxTokens);
         Assert.AreEqual("../../plugins/demo/skills/migrate", Assert.ContainsSingle(scenario.Setup!.AdditionalRequiredSkills!));
@@ -326,6 +328,58 @@ public class ParseEvalConfigTests
             Assert.AreSequenceEqual(["-c", "dotnet test Project"], command.ArgumentList!);
             Assert.IsNull(command.CommandArguments);
         }
+    }
+
+    [TestMethod]
+    [DataRow("required")]
+    [DataRow("disallowed")]
+    public void RejectsInvalidNativeToolNamePattern(string field)
+    {
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            EvalSchema.ParseEvalConfigFlexible($$"""
+                stimuli:
+                  - name: Broken guard
+                    prompt: Give advice.
+                    graders:
+                      - type: tool-calls
+                        config:
+                          {{field}}: ['(']
+                """));
+
+        Assert.Contains("Broken guard", ex.Message);
+        Assert.Contains("invalid tool-calls name pattern", ex.Message);
+    }
+
+    [TestMethod]
+    public void NativeToolPatternsDoNotChangeLegacyFallbackMatchingMode()
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible("""
+            stimuli:
+              - name: Native required only
+                prompt: Give advice.
+                constraints:
+                  reject_tools: [edit]
+                graders:
+                  - type: tool-calls
+                    config:
+                      required: ['^bash$']
+              - name: Native disallowed only
+                prompt: Give advice.
+                constraints:
+                  expect_tools: [view]
+                graders:
+                  - type: tool-calls
+                    config:
+                      disallowed: ['^edit$']
+            """);
+
+        Assert.IsNotNull(config);
+        Assert.IsTrue(config.Scenarios[0].ExpectToolsArePatterns);
+        Assert.IsFalse(config.Scenarios[0].RejectToolsArePatterns);
+        Assert.AreSequenceEqual(["edit"], config.Scenarios[0].RejectTools);
+        Assert.IsFalse(config.Scenarios[1].ExpectToolsArePatterns);
+        Assert.IsTrue(config.Scenarios[1].RejectToolsArePatterns);
+        Assert.AreSequenceEqual(["view"], config.Scenarios[1].ExpectTools);
     }
 
     [TestMethod]

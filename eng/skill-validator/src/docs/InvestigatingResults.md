@@ -15,6 +15,61 @@
 > tool-call failures. Adaptation invalidates a scenario only for terminal
 > evidence: an explicit execution error, a missing or timed-out required arm, a
 > failed run, or a missing pairwise result.
+>
+> Ordinary Vally target comparisons run at most two at once in CI
+> (`adapt.mjs --compare-workers 2`), largest targets first, with unchanged judge
+> calls and validity gates. The 60-minute comparison watchdog remains inside
+> the 155-minute evaluation step; expiry is an incomplete measurement, not a
+> native-runner failure. See the current guide for grouped per-target timings.
+
+The evaluation matrix job installs the .NET SDK from the trusted tooling
+checkout's `global.json` for model-invoked tools. Building the trusted validator
+on the separate preparation runner does not install that SDK on matrix runners.
+A missing-SDK refusal is a prerequisite defect, not a measured quality result.
+
+Ordinary Vally readiness stimuli have a 19-minute agent working limit inside
+the unchanged 20-minute hard cap. A clean working-limit stop retains and grades
+partial work; it is not proof of completion. Adapted scenario JSON reports
+`baselineTimedOut`, isolated `timedOut`, and optional `pluginTimedOut`, with
+arm-specific consolidated warnings. A hard timeout with no trajectory remains
+measurement-invalid. These are adapted Vally fields, not new raw native-runner
+timeout semantics.
+
+Ordinary Vally adaptation also rejects observed baseline or isolated records
+whose status is not `success` or whose trajectory is null or missing, before
+comparison. This includes matching failures that Vally would otherwise omit
+from both arms without reporting an unmatched pair. The adapted verdict has
+`stateReason.code: "executor_records_incomplete"` and
+`stateReason.phase: "executor"`;
+`accounting.incompleteBaselineRecords` and `accounting.incompleteSkilledRecords`
+identify the rejected input counts. No comparison judge is invoked for that
+target. Retained successful working-limit partials remain gradeable, and
+optional plugin diagnostics are unchanged. This checks observed records, not
+whether entirely absent stimulus/trial slots were generated.
+
+Generic Blazor consumer examples should provide their item type, collection,
+and callback signature. A sortable-list trial built with an explicit item type
+but reverted it to match an implicit example and timed out debugging callback
+inference. Clarifying the shared consumer leaves the component implementation,
+graders, rubrics, task count, and existing three-minute hard cap unchanged;
+successful model-free compilation is not proof of future executor completion.
+
+Readiness guidance program graders distinguish instruction loading from probe
+execution. A builtin `skill` call does not execute its suggested tools, and
+native `apply_patch` arguments may be a freeform patch string. Both freeform
+and structured patches receive the same single-target, add/update-only checks.
+Unknown tools, incomplete tool evidence, disallowed execution/network/delegation,
+factual writes, and outside-target writes remain rejected. Successful trace
+classification does not establish artifact preservation or guidance correctness;
+inspect those separate checks before interpreting an old grader failure as a
+model-quality result. A model-free trace replay is not a rescored evaluation.
+
+Blazor's existing execution-shard metadata separates ordinary readiness (120
+executions), Ignite UI (165), and the nine smaller targets (81). No cases, runs,
+models, worker caps, or hard deadlines are removed or increased. Only the
+Ignite UI module-registration advisory stimulus also has a nine-minute working
+limit inside its ten-minute hard cap; a retained partial remains a cutoff, not
+proof that a background helper finished. Native-agent execution is unchanged.
 
 Executor sessions append the exact scenario workspace to the system context.
 Do not resolve fixture paths against a staged skill's base directory or the
@@ -42,6 +97,24 @@ language guidance without a failing skill-tool call. The workspace and typed
 permission contract version participates in baseline identity; recompute
 baselines recorded before this contract rather than comparing old denial
 behavior against the corrected executor.
+
+Native `tool-calls` grader `required`/`disallowed` string entries are case-sensitive
+tool-name regular expressions, not literal names. This runner preserves that
+distinction from legacy `expect_tools`/`reject_tools`, which still use exact names.
+Use anchors for exact bans, for example `disallowed: ['^(?:bash|edit|create|apply_patch)$']`;
+an unanchored `bash` also matches `read_bash`. Invalid native name patterns fail
+during scenario parsing, and pattern timeouts fail the constraint explicitly.
+The native-versus-legacy matching mode is part of baseline identity, so old
+exact-matching results are not reused for a native regex guard.
+
+This runner supports string name patterns using .NET regular expressions, not
+Vally's object entries or argument/result/sequence matching. Use the portable
+name-pattern subset when sharing evals between runners. Stock Vally 0.18 checks
+disallowed calls when their `tool_result` arrives; a dangling call is not by
+itself caught by a disallowed-only grader. This is not an execution sandbox.
+Vally 0.14's stock Copilot execution/grading path did not enforce the historical
+`constraints.reject_tools` list. Moving it to a native grader adds enforcement;
+preserving its text does not establish unchanged scores or runtime equivalence.
 
 > The workflow token preflight tries another pool candidate for HTTP 429 or 402
 > quota exhaustion and for the paired heading and token-environment lines in
@@ -78,6 +151,10 @@ behavior against the corrected executor.
 > `VALID_REGRESSION` even when preference evidence has fewer than five eligible
 > stimuli, including on a `tags.expect_activation: "false"` scenario. Execution,
 > timeout, missing-arm, and comparison-invalid evidence still takes precedence.
+> For stock Vally 0.18, new specs carry that annotation as the native string tag
+> `tags: {expect_activation: "false"}`. The shared adapter and quality reader
+> retain historical top-level Boolean annotations with identical activation
+> and preference-exclusion semantics; this does not migrate historical results.
 > Both completion values must be explicit booleans; a missing isolated
 > completion value remains measurement-invalid instead of becoming a regression.
 > `practicalSignificance` adds the 20% net-win floor. Objective completion is a
@@ -160,6 +237,20 @@ activation stays unknown rather than borrowing sibling-skill activity.
 This document is designed to be read by AI coding agents. When a skill evaluation has failures, the PR comment includes a ready-to-use prompt — just copy and paste it to your AI agent. The agent will download the artifacts, read this guide, analyze the results, and suggest fixes.
 
 If you need to run the investigation manually, follow the [Quick start](#quick-start) below.
+
+## When no jobs start
+
+Check the workflow run summary before looking for assessment artifacts. An
+`Exceeded max expression length 21000` error means GitHub Actions rejected the
+workflow before any job ran; there are no failing step logs or model results to
+rejudge. A large `run` block containing `${{ }}` substitutions can exceed this
+limit even when YAML parsing and actionlint succeed.
+
+Keep target discovery in its checked-in PowerShell script and pass gate-bound
+values through the step environment instead of interpolating the entire script.
+Validate the workflow syntax and the deterministic discovery tests before
+requesting another evaluation. This is a workflow-load failure, not a skill
+quality or authentication verdict.
 
 ## Quick start
 
@@ -278,11 +369,15 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > The evaluator captures `GH_TOKEN` or `GITHUB_TOKEN` for its SDK client, then
 > removes both aliases from the process and every setup-command or command-grader
 > child environment.
-> The session filesystem provider stores relative `session-state/*` paths under
-> the private config directory, permits SDK state I/O under the exact absolute
-> client session-state root in the private evaluator root, resolves relative
-> file-tool paths from the scenario workspace, limits all other absolute paths to explicit
-> per-session roots, and rejects any reparse-point or symbolic-link component
+> The session filesystem provider stores `session-state/*` under the private
+> config directory. The SDK also sends absolute state paths rooted at the
+> client's private evaluator directory, such as `session-state/temp`.
+> These virtual paths map to that session's private config directory, never to
+> shared physical state. Agent and judge/analyzer sessions use the same provider
+> factory so both receive this namespace mapping. Relative file-tool paths
+> resolve from the scenario workspace; other absolute paths are limited to
+> explicit per-session roots, and writable absolute roots must also be
+> allowlisted. The provider rejects any reparse-point or symbolic-link component
 > that escapes the selected root.
 > Evaluator clients use a process-private directory under the system temp
 > directory as their SDK filesystem root because the shared client is created
@@ -300,6 +395,9 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > an opened allowed root with OS no-follow semantics, so a path component
 > replaced after validation cannot redirect the operation through a symbolic
 > link or reparse point.
+> Built-in file-tool hooks and read/write permission callbacks reject both
+> relative and absolute SDK state paths; only evaluator-owned filesystem
+> callbacks may use this reserved namespace.
 > Permission requests fail closed: read/write paths use the same containment
 > checks, URL access is denied, shell requests without path or URL metadata
 > are limited to a small exact local-command allowlist, and MCP access is
@@ -639,7 +737,7 @@ empty set and report a clean run.
 **Cause:** The model already knows this topic well from training data. The skill can't improve on an already-excellent answer, and the overhead of loading the skill (extra tokens, tool calls) causes a net regression.
 
 **Fixes:**
-- **Add a `tool-calls` grader with `config.disallowed`** (for example, `["bash", "edit"]`) so the eval fails if either baseline or skilled agent uses those tools. This keeps the comparison focused on answer quality instead of tool-induced overhead.
+- **Add a `tool-calls` grader with `config.disallowed`** (for example, `["^bash$", "^edit$"]`) so the eval fails if either baseline or skilled agent uses those exact tools. These entries are name regexes; enumerate the relevant execution/write aliases for the evaluator's tool catalog rather than assuming the examples ban every write. This keeps the comparison focused on answer quality instead of tool-induced overhead.
 - **Make the scenario harder** so the baseline struggles — add complexity, edge cases, or constraints that require the skill's specific knowledge
 - **Rewrite the prompt** to be purely diagnostic (e.g., "Don't modify any files — just explain the root cause") to prevent the agent from spending time on tool calls
 - **Remove the scenario** if the model consistently scores 5.0/5 without the skill — it isn't testing the skill's value

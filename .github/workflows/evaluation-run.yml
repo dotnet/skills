@@ -644,6 +644,25 @@ jobs:
           rm -rf "$RUNNER_TEMP/trusted-validator-src"
           cp -a "$GITHUB_WORKSPACE/_trusted-validator-src" "$RUNNER_TEMP/trusted-validator-src"
 
+      - name: Setup .NET SDK for evaluated tools
+        if: steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: ${{ runner.temp }}/trusted-validator-src/global.json
+
+      - name: Verify .NET SDK for evaluated tools
+        if: steps.find-evals.outputs.has_evals == 'true'
+        working-directory: ${{ runner.temp }}
+        run: |
+          dotnet --list-sdks
+          REQUIRED_SDK=$(jq -er '.sdk.version' "$RUNNER_TEMP/trusted-validator-src/global.json")
+          REQUIRED_MAJOR=${REQUIRED_SDK%%.*}
+          ACTIVE_SDK=$(dotnet --version)
+          if [[ "$ACTIVE_SDK" != "$REQUIRED_MAJOR".* ]]; then
+            echo "::error::Expected active SDK major $REQUIRED_MAJOR for evaluated tools, found $ACTIVE_SDK"
+            exit 1
+          fi
+
       - name: Setup Node.js
         if: steps.find-evals.outputs.has_evals == 'true'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -1165,7 +1184,7 @@ jobs:
           # compare` per skill (in the adapter) to produce the per-skill
           # results.json downstream jobs consume. The adapter auto-detects the
           # `plugin` variant when present. `vally` is on PATH here.
-          # Comparisons are serial and depend on a remote judge. Bound this
+          # Compare at most two targets concurrently, largest first. Bound this
           # phase more tightly than the whole evaluation step so a stalled
           # comparison returns control before the step-level watchdog.
           set +e
@@ -1174,6 +1193,7 @@ jobs:
               --experiment-dir "$RUN_DIR" \
               --output-root "$RESULTS_DIR" \
               --vally "vally" \
+              --compare-workers 2 \
               --repo-root "$GITHUB_WORKSPACE" \
               --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
               --model "$MODEL" \

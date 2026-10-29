@@ -5,6 +5,10 @@ defaults:
   timeout: 20m
 stimuli:
   - name: University course catalog with enrollment form
+    tags:
+      capability: static-ssr-project
+      risk: unnecessary-interactivity
+      journey: catalog-enrollment
     prompt: |
       Create a Blazor Web App for a university course catalog.
 
@@ -15,6 +19,9 @@ stimuli:
       - Homepage shows featured courses and department links
       - No authentication — open to all students and visitors
       - Hosted on the university intranet with fast, reliable connectivity
+
+      If you start a development server to verify the app, stop only that server before
+      your final response. Do not leave it running or detach it.
     graders:
       - type: output-contains
         config:
@@ -38,6 +45,10 @@ stimuli:
       - Documents the static rendering choice — explains why the app uses no interactive render mode
       - Plans the domain features — identifies the pages/components needed for browsing courses and submitting enrollments
   - name: Recipe community with interactive ratings on static pages
+    tags:
+      capability: per-page-interactivity
+      risk: unnecessary-global-interactivity
+      journey: recipe-community
     prompt: |
       Create a new Blazor Web App project for a recipe sharing community.
       Run `dotnet new blazor` with the appropriate options, create the project structure,
@@ -49,6 +60,9 @@ stimuli:
       - A "Submit Recipe" page with a form (title, ingredients, steps)
       - Homepage displays recipe categories (static content)
       - Most pages are read-only; only the rating widget and submit form need interactivity
+
+      If you start a development server to verify the app, stop only that server before
+      your final response. Do not leave it running or detach it.
     graders:
       - type: output-contains
         config:
@@ -75,6 +89,10 @@ stimuli:
       - Documents the per-page strategy — explains why most pages are static and only specific features opt in to interactivity
       - Differentiates which features need interactivity (rating widget, form submission) vs which can be static (content browsing)
   - name: Global logistics tracking for worldwide users
+    tags:
+      capability: interactive-auto-project
+      risk: server-round-trip-latency
+      journey: global-logistics
     prompt: |
       Create a Blazor Web App for a logistics company that tracks shipments.
 
@@ -85,6 +103,9 @@ stimuli:
       - The app must load fast on first visit, then feel snappy without server round-trips
       - Every page involves interactive controls
       - Staff and customers authenticate with individual accounts
+
+      If you start a development server to verify the app, stop only that server before
+      your final response. Do not leave it running or detach it.
     graders:
       - type: output-contains
         config:

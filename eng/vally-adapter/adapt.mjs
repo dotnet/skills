@@ -36,13 +36,14 @@
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
-import { execFileSync } from "node:child_process";
-import { parseArgs } from "node:util";
+import { execFile } from "node:child_process";
+import { parseArgs, promisify } from "node:util";
 import { pathToFileURL } from "node:url";
 
 // True only when this file is the entry point (node adapt.mjs ...), false when
 // imported as a module (e.g. from a test). Gates arg-driven exits and main().
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const execFileAsync = promisify(execFile);
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -70,6 +71,7 @@ const { values: opts } = parseArgs({
     vally: { type: "string", default: "npx @microsoft/vally-cli" },
     model: { type: "string", default: "claude-opus-4.6" },
     "judge-model": { type: "string", default: "claude-opus-4.6" },
+    "compare-workers": { type: "string", default: "1" },
     // Repository root used to resolve each eval's relative path so the adapter
     // can read `expect_activation` annotations. Defaults to the current working
     // directory, which is the repo root during a CI experiment run.
@@ -107,6 +109,8 @@ Options:
                             (default: "npx @microsoft/vally-cli")
   --judge-model <model>     Comparison judge model (default: claude-opus-4.6)
   --model <model>           Agent model, recorded on the verdict (default: claude-opus-4.6)
+  --compare-workers <n>     Concurrent target comparisons, from 1 to 3 (default: 1).
+                            Parallel runs schedule the largest targets first.
   --overfitting <file>      Optional JSON file from 'skill-validator overfitting'
                             (array of {plugin, skill, overfittingResult}). Merged
                             onto each verdict as verdict.overfittingResult.
@@ -261,10 +265,10 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     }
     return t;
   };
-  const isFalsey = (v) => {
-    const withoutComment = v.trim().replace(/\s+#.*$/, "");
-    return /^(?:false|no|off)$/i.test(unquote(withoutComment));
-  };
+  const isFalsey = (v) =>
+    /^(?:false|False|FALSE|no|No|NO|off|Off|OFF)(?:\s+#.*)?$/.test(v.trim());
+  const isTruthy = (v) =>
+    /^(?:true|True|TRUE|yes|Yes|YES|on|On|ON)(?:\s+#.*)?$/.test(v.trim());
   const stripYamlComment = (value) => {
     let quote = null;
     let escaped = false;
@@ -336,30 +340,53 @@ function readNonActivationStimuli(evalFile, repoRoot) {
 
   let itemDashIndent = null; // indent of each stimulus item's leading dash
   let keyIndent = null; // column where an item's mapping keys begin
-  let tagsIndent = null;
-  let inTagsBlock = false;
   let curName = null;
-  let curNonActivation = false;
+  let curLegacyActivation = null;
+  let curTaggedActivation = null;
+  let inTags = false;
+  let tagIndent = null;
   const flush = () => {
-    if (curName != null && curNonActivation) result.add(curName);
+    if (curLegacyActivation !== null && curTaggedActivation !== null &&
+        curLegacyActivation !== curTaggedActivation) {
+      throw new Error(`conflicting expect_activation metadata for ${curName} in ${evalFile}`);
+    }
+    if (curName != null && (curLegacyActivation === false || curTaggedActivation === false)) {
+      result.add(curName);
+    }
     curName = null;
-    curNonActivation = false;
+    curLegacyActivation = null;
+    curTaggedActivation = null;
+    inTags = false;
+    tagIndent = null;
   };
-  const applyKey = (key, val) => {
-    if (key === "name" && curName === null) curName = unquote(val);
-    // Legacy direct metadata remains readable for old stored evals.
-    else if (key === "expect_activation") curNonActivation = isFalsey(val);
-  };
-  const applyTagKey = (key, val) => {
-    if (key === "expect_activation") curNonActivation = isFalsey(val);
+  const applyTagEntry = (entry) => {
+    const kv = /^\s*("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^:]+)\s*:\s?(.*?)\s*$/.exec(entry);
+    const key = kv?.[1].trim();
+    if (key === "<<" || /^[!&*?]/.test(entry.trim()) ||
+        (key?.startsWith('"') && key.includes("\\"))) {
+      throw new Error(`unsupported tags key for ${curName} in ${evalFile}; use literal keys without merges`);
+    }
+    if (!kv || unquote(key) !== "expect_activation") return;
+    const raw = stripYamlComment(kv[2]).trim();
+    let value;
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      value = JSON.parse(raw);
+    } else if (raw.startsWith("'") && raw.endsWith("'")) {
+      value = raw.slice(1, -1).replaceAll("''", "'");
+    } else if (/^(?:false|False|FALSE|no|No|NO|off|Off|OFF|true|True|TRUE|yes|Yes|YES|on|On|ON|null|Null|NULL|~)$/.test(raw) ||
+        /^(?:[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?|[-+]?\.inf|\.nan)$/i.test(raw) ||
+        /^[!&*{[|>]/.test(raw) || raw === "") {
+      throw new Error(`tags.expect_activation must be a string for ${curName} in ${evalFile}`);
+    } else {
+      value = raw;
+    }
+    const word = value.toLowerCase();
+    curTaggedActivation = /^(?:false|no|off)$/.test(word) ? false : word === "true" ? true : null;
   };
   const applyTags = (value) => {
     const entries = flowMappingEntries(value);
     if (!entries) return false;
-    for (const entry of entries) {
-      const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
-      if (kv) applyTagKey(kv[1], kv[2]);
-    }
+    for (const entry of entries) applyTagEntry(entry);
     return true;
   };
   const applyTagsValue = (value) => {
@@ -376,11 +403,24 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     }
     return true;
   };
+  const applyKey = (key, val) => {
+    if (key === "name" && curName === null) curName = unquote(val);
+    else if (key === "expect_activation") {
+      curLegacyActivation = isFalsey(val) ? false : isTruthy(val) ? true : null;
+    } else if (key === "tags") {
+      if (applyTagsValue(val)) return;
+      if (val.trim() === "" || val.trim().startsWith("#")) {
+        inTags = true;
+      } else {
+        throw new Error(`unsupported tags mapping for ${curName} in ${evalFile}; use a block or flow mapping`);
+      }
+    }
+  };
   // Skip a block scalar's body: every following line that is blank or indented
   // deeper than the owning key, so prompt text can't be misread as keys.
-  const skipBlockScalar = (val) => {
+  const skipBlockScalar = (val, ownerIndent = keyIndent) => {
     if (!/^[|>]/.test(val.trim())) return;
-    while (i + 1 < lines.length && (lines[i + 1].trim() === "" || indentOf(lines[i + 1]) > keyIndent)) {
+    while (i + 1 < lines.length && (lines[i + 1].trim() === "" || indentOf(lines[i + 1]) > ownerIndent)) {
       i++;
     }
   };
@@ -395,23 +435,16 @@ function readNonActivationStimuli(evalFile, repoRoot) {
       itemDashIndent = ind;
       const rest = dash[2];
       keyIndent = line.length - rest.length;
-      tagsIndent = null;
-      inTagsBlock = false;
       const flowEntries = flowMappingEntries(rest);
       if (flowEntries) {
         for (const entry of flowEntries) {
-          const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
-          if (kv?.[1] === "tags") applyTagsValue(kv[2]);
-          else if (kv) applyKey(kv[1], kv[2]);
+          const kv = /^\s*([A-Za-z0-9_]+)\s*:\s?(.*?)\s*$/.exec(entry);
+          if (kv) applyKey(kv[1], kv[2]);
         }
       } else {
-        const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(rest);
+        const kv = /^([A-Za-z0-9_]+)\s*:\s?(.*)$/.exec(rest);
         if (kv) {
-          if (kv[1] === "tags") {
-            inTagsBlock = !applyTagsValue(kv[2]);
-          } else {
-            applyKey(kv[1], kv[2]);
-          }
+          applyKey(kv[1], kv[2]);
           skipBlockScalar(kv[2]);
         }
       }
@@ -421,22 +454,25 @@ function readNonActivationStimuli(evalFile, repoRoot) {
       flush();
       break;
     }
+    if (inTags && ind > keyIndent) {
+      tagIndent ??= ind;
+      if (ind === tagIndent) {
+        const entry = line.slice(ind);
+        applyTagEntry(entry);
+        const kv = /^[A-Za-z0-9_]+:\s?(.*)$/.exec(entry);
+        if (kv) skipBlockScalar(kv[1], ind);
+      }
+      continue;
+    }
+    inTags = false;
 
     // Only mapping keys at the item's key column belong to the stimulus itself;
     // deeper lines (grader entries, block-scalar bodies) are ignored.
     if (keyIndent !== null && ind === keyIndent) {
-      const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(line.slice(keyIndent));
+      const kv = /^([A-Za-z0-9_]+)\s*:\s?(.*)$/.exec(line.slice(keyIndent));
       if (kv) {
-        inTagsBlock = kv[1] === "tags" && !applyTagsValue(kv[2]);
-        tagsIndent = null;
-        if (kv[1] !== "tags") applyKey(kv[1], kv[2]);
+        applyKey(kv[1], kv[2]);
         skipBlockScalar(kv[2]);
-      }
-    } else if (inTagsBlock && keyIndent !== null && ind > keyIndent) {
-      tagsIndent ??= ind;
-      if (ind === tagsIndent) {
-        const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(line.slice(tagsIndent));
-        if (kv) applyTagKey(kv[1], kv[2]);
       }
     }
   }
@@ -1211,7 +1247,7 @@ function transientComparisonSlots(report) {
  * the retry report must describe exactly one trial for the planned stimulus. Any
  * other shape is ambiguous and leaves the original error in place.
  */
-function recoverComparisonSlot(slot, config) {
+async function recoverComparisonSlot(slot, config) {
   const baselineSlot = recordsForComparisonSlot(
     config.baselineRecords,
     slot.stimulusName,
@@ -1294,7 +1330,7 @@ function recoverComparisonSlot(slot, config) {
 
   let retryReport;
   try {
-    retryReport = config.compare(baselineSliceFile, skilledSliceFile, outFile);
+    retryReport = await config.compare(baselineSliceFile, skilledSliceFile, outFile);
   } catch (err) {
     return {
       ok: false,
@@ -1353,7 +1389,7 @@ function recoverComparisonSlot(slot, config) {
  * slots, and leaves every successful judgment frozen. Unresolved slots stay
  * errored so the measurement-validity gate keeps failing the leg.
  */
-function recoverTransientComparisonSlots(primaryReport, config) {
+async function recoverTransientComparisonSlots(primaryReport, config) {
   const compare = config.compare ?? runCompare;
   const maxSlots = config.maxSlots ?? MAX_TARGETED_COMPARISON_SLOTS;
   const slots = transientComparisonSlots(primaryReport);
@@ -1396,7 +1432,7 @@ function recoverTransientComparisonSlots(primaryReport, config) {
     const identityError = identityErrors.get(slot.stimulusName);
     const outcome = identityError
       ? { ok: false, error: identityError }
-      : recoverComparisonSlot(slot, {
+      : await recoverComparisonSlot(slot, {
           ...config,
           compare,
           slotOrdinal: index + 1,
@@ -1477,7 +1513,7 @@ function recoverTransientComparisonSlots(primaryReport, config) {
  * Run `vally compare` in two-run mode over one eval's baseline vs skilled
  * slices and return the parsed comparison record (or null on failure).
  */
-function runCompare(baselineSlice, skilledSlice, outFile) {
+async function runCompare(baselineSlice, skilledSlice, outFile) {
   const { bin, prefix } = splitVallyCommand(opts.vally);
   const args = [
     ...prefix,
@@ -1492,11 +1528,23 @@ function runCompare(baselineSlice, skilledSlice, outFile) {
     outFile,
   ];
   let invocationError;
+  let output = "";
+  const started = Date.now();
   try {
-    execFileSync(bin, args, { stdio: ["ignore", "ignore", "inherit"] });
+    const result = await execFileAsync(bin, args, {
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    output = result.stdout + result.stderr;
   } catch (error) {
     invocationError = error;
+    output = String(error.stdout ?? "") + String(error.stderr ?? "");
   }
+  console.error(
+    `[comparison ${basename(outFile)}] ${Date.now() - started}ms` +
+      (invocationError ? " (nonzero invocation)" : "") +
+      (output ? `\n${output.trimEnd()}` : ""),
+  );
 
   // Vally 0.13 exits nonzero when every comparison trial errors, but it writes
   // the structured comparison report first. That report is exactly what the
@@ -1508,8 +1556,8 @@ function runCompare(baselineSlice, skilledSlice, outFile) {
   return null;
 }
 
-function runCompareWithRetry(baselineSlice, skilledSlice, outFile) {
-  const report = runCompare(baselineSlice, skilledSlice, outFile);
+async function runCompareWithRetry(baselineSlice, skilledSlice, outFile) {
+  const report = await runCompare(baselineSlice, skilledSlice, outFile);
   if (!report) return null;
   const errorCount = report.summary?.erroredCount ?? 0;
   if (errorCount === 0) {
@@ -1528,7 +1576,7 @@ function runCompareWithRetry(baselineSlice, skilledSlice, outFile) {
 
   let retryReport;
   try {
-    retryReport = runCompare(baselineSlice, skilledSlice, `${outFile}.retry`);
+    retryReport = await runCompare(baselineSlice, skilledSlice, `${outFile}.retry`);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     warn(`vally compare retry failed; keeping the original result (${detail})`);
@@ -1756,6 +1804,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
         : null,
       observedInAnyRole: observedStimulusNames.has(name),
       timedOut: Boolean(skilled?.timedOut),
+      baselineTimedOut: Boolean(baseline?.timedOut),
       skillActivationIsolated: {
         activated: Boolean(skilled?.activated),
         ...(skilled?.postActivation ?? {}),
@@ -1767,6 +1816,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
       scenario.agentActivationIsolated = { activated: Boolean(skilled?.activated) };
     }
     if (hasPlugin) {
+      scenario.pluginTimedOut = Boolean(plugin?.timedOut);
       scenario.skillActivationPlugin = {
         activated: Boolean(plugin?.activated),
         ...(plugin?.postActivation ?? {}),
@@ -2262,7 +2312,36 @@ function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEv
 // Main
 // ---------------------------------------------------------------------------
 
-function main() {
+function parseCompareWorkers(value) {
+  const workers = Number(value);
+  if (!Number.isSafeInteger(workers) || workers < 1 || workers > 3) {
+    throw new Error("--compare-workers must be an integer from 1 to 3");
+  }
+  return workers;
+}
+
+async function forEachConcurrent(items, workers, action) {
+  workers = parseCompareWorkers(workers);
+  let next = 0;
+  let failure;
+  await Promise.all(
+    Array.from({ length: Math.min(items.length, workers) }, async () => {
+      while (!failure && next < items.length) {
+        const index = next++;
+        try {
+          await action(items[index]);
+        } catch (error) {
+          failure ??= { error };
+        }
+      }
+    }),
+  );
+  // Drain in-flight work before the caller removes shared scratch files.
+  if (failure) throw failure.error;
+}
+
+async function main() {
+  const comparisonWorkers = parseCompareWorkers(opts["compare-workers"]);
   const runDir = resolve(opts["experiment-dir"]);
   const outputRoot = resolve(opts["output-root"]);
   const baselineFile = join(runDir, opts["baseline-variant"], "results.jsonl");
@@ -2313,8 +2392,17 @@ function main() {
       measurementInvalidEvals.push(evalFile);
     }
   };
+  const pairCount = (evalFile) =>
+    Math.min(
+      baselineByEval.get(evalFile)?.length ?? 0,
+      skilledByEval.get(evalFile)?.length ?? 0,
+    );
+  const scheduledEvals = comparisonWorkers === 1
+    ? allEvals
+    : [...allEvals].sort((left, right) => pairCount(right) - pairCount(left));
+  console.log(`Comparing targets with ${comparisonWorkers} worker(s)`);
   try {
-    for (const evalFile of allEvals) {
+    await forEachConcurrent(scheduledEvals, comparisonWorkers, async (evalFile) => {
       const { skill, plugin, skillPath } = evalIdentity(evalFile);
       const identity = { skill, plugin, skillPath };
       const expectedEval = !expectedManifestProvided || expectedSet.has(normalizeEvalFile(evalFile));
@@ -2339,7 +2427,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       if (skilled.length === 0) {
         const message = `${plugin}/${skill}: skilled variant produced no records`;
@@ -2355,7 +2443,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       if (baseline.length === 0) {
         const message = `${plugin}/${skill}: baseline variant produced no records — cannot compare`;
@@ -2371,7 +2459,41 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
+      }
+
+      // Compare can drop matching null trajectories from both arms before pairing.
+      const incompleteBaseline = baseline.filter((record) => !isCompleteExecutorRecord(record));
+      const incompleteSkilled = skilled.filter((record) => !isCompleteExecutorRecord(record));
+      if (incompleteBaseline.length > 0 || incompleteSkilled.length > 0) {
+        const details = [
+          ...incompleteBaseline.map((record) => ({ variant: opts["baseline-variant"], record })),
+          ...incompleteSkilled.map((record) => ({ variant: opts["skilled-variant"], record })),
+        ].map(({ variant, record }) =>
+          `${variant}: ${JSON.stringify(stimulusOf(record))} ` +
+          `(trial ${recordTrialIndex(record) ?? "unknown"}, status=${record.status ?? "missing"}, ` +
+          `trajectory=${record.trajectory == null ? "missing" : "present"})`
+        ).join("; ");
+        const message = `${plugin}/${skill}: incomplete executor records prevent comparison: ${details}`;
+        warn(message);
+        const verdict = invalidVerdict(
+          identity,
+          { code: "executor_records_incomplete", phase: "executor" },
+          message,
+          {
+            baselineRecords: baseline.length,
+            skilledRecords: skilled.length,
+            pluginRecords: pluginRecs.length,
+            incompleteBaselineRecords: incompleteBaseline.length,
+            incompleteSkilledRecords: incompleteSkilled.length,
+          },
+        );
+        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+        console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
+        recordInvalidEval(evalFile, verdict);
+        written++;
+        incomplete++;
+        return;
       }
 
       let nonActivationStimuli;
@@ -2396,29 +2518,30 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
 
-      const baselineSlice = join(workDir, `${plugin}__${skill}__baseline.jsonl`);
-      const skilledSlice = join(workDir, `${plugin}__${skill}__skilled.jsonl`);
-      const compareOut = join(workDir, `${plugin}__${skill}__compare.jsonl`);
+      const evalWorkDir = mkdtempSync(join(workDir, "target-"));
+      const baselineSlice = join(evalWorkDir, `${plugin}__${skill}__baseline.jsonl`);
+      const skilledSlice = join(evalWorkDir, `${plugin}__${skill}__skilled.jsonl`);
+      const compareOut = join(evalWorkDir, `${plugin}__${skill}__compare.jsonl`);
       writeFileSync(baselineSlice, baseline.map((r) => JSON.stringify(r)).join("\n") + "\n");
       writeFileSync(skilledSlice, skilled.map((r) => JSON.stringify(r)).join("\n") + "\n");
 
       let report;
       try {
-        report = runCompareWithRetry(baselineSlice, skilledSlice, compareOut);
+        report = await runCompareWithRetry(baselineSlice, skilledSlice, compareOut);
         if (report) {
           // A slice-level retry re-judges every trial, so a single unlucky judge
           // session can stall twice and strand an otherwise-complete measurement.
           // Re-judge only the still-errored transient slots, one slot at a time,
           // from the executor trajectories already preserved in the slices above.
-          report = recoverTransientComparisonSlots(report, {
+          report = await recoverTransientComparisonSlots(report, {
             baselineRecords: baseline,
             skilledRecords: skilled,
             baselineVariant: opts["baseline-variant"],
             skilledVariant: opts["skilled-variant"],
-            workDir,
+            workDir: evalWorkDir,
             filePrefix: `${plugin}__${skill}`,
           });
         }
@@ -2437,7 +2560,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       if (!report) {
         const message = `${plugin}/${skill}: vally compare produced no comparison record`;
@@ -2453,7 +2576,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       const unmatchedCount =
         (report.unmatchedBaseline?.length ?? 0) + (report.unmatchedTreatment?.length ?? 0);
@@ -2498,7 +2621,7 @@ function main() {
         recordInvalidEval(evalFile, verdict);
         written++;
         incomplete++;
-        continue;
+        return;
       }
       if (!expectedEval) {
         verdict.state = VERDICT_STATES.INVALID_INCONCLUSIVE;
@@ -2528,10 +2651,13 @@ function main() {
       }
 
       console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
-    }
+    });
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
+  invalidEvals.sort();
+  measurementInvalidEvals.sort();
+  unexpectedEvals.sort();
 
   const incompleteNote = incomplete > 0 ? ` (${incomplete} eval(s) incomplete — see warnings above)` : "";
   mkdirSync(outputRoot, { recursive: true });
@@ -2564,7 +2690,7 @@ function main() {
 // the pure transformation helpers below can be unit-tested in isolation.
 if (isMain) {
   try {
-    main();
+    await main();
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exitCode = 1;
@@ -2596,4 +2722,6 @@ export {
   MIN_CREDIBLE_STIMULI,
   MIN_PRACTICAL_NET_WIN,
   SIGN_TEST_ALPHA,
+  parseCompareWorkers,
+  forEachConcurrent,
 };

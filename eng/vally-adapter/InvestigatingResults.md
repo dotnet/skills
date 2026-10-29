@@ -23,6 +23,12 @@ package-manifest/eval source links.
 
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 
+Each evaluation matrix job installs the SDK from the trusted tooling checkout's
+`global.json`. The validator preparation job runs on a separate runner; its SDK
+installation does not provide the SDK needed by model-invoked tools. If an arm
+reports a missing .NET SDK, inspect that matrix job's SDK setup and the tool's
+declared prerequisites before treating an early refusal as skill-quality evidence.
+
 The native agent parser stages `stimuli[].environment.files`, not a shared
 suite-level `environment.files` block. Declare required authentication helpers
 and other shared inputs in every stimulus that uses them. A missing
@@ -78,6 +84,95 @@ Read the model and judge fields in each result, rather than assuming that an
 older run used the current defaults. The separate health and issue-triage
 workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
 
+### Builds outside the trial workspace
+
+For a build timeout, compare `session.start.data.context.cwd` with the directory
+used by the shell command and the other arms' session working directories.
+The prerendering inventory trial searched the host for an existing project and
+built the plugin arm's app instead of working in its own empty directory.
+That is cross-trial contamination, not proof that the SDK or compiler hung.
+Prompts that assume an existing app must stage or scaffold that app in each
+trial's environment, equally for baseline, isolated, and plugin. Place the
+starter app in its own subdirectory: plugin skills also live at the
+trial root, and recursive SDK compile globs must not include their C# utilities.
+Verify it builds without supplying the task's solution; do not compensate
+for missing setup by increasing limits or accepting unmatched trajectories.
+
+### Verification servers left attached
+
+An executor can emit a final response but still hit its hard deadline if it
+leaves a verification server attached. Check the native command history for
+`dotnet run` in async mode, its shell ID, and a matching stop call, targeted kill,
+or confirmed shell exit before the final response. In a
+project-creation trial, the build and route checks finished successfully and
+the assistant answered, but its server remained running until the 20-minute
+abort; the resulting trajectory was null. The baseline and plugin arms
+stopped their verification servers and completed normally.
+
+For tasks that request a finished project rather than an ongoing preview,
+state the server-cleanup requirement equally in every arm's task prompt.
+Stop only the task's verification server, not shared SDK build servers.
+Do not detach the helper, extend the deadline, or accept the unmatched pair.
+Prompt compliance still needs verification in the next real evaluation.
+
+### Both comparison arms lost the same executor result
+
+A comparison can report zero errors and zero unmatched trajectories when both
+baseline and isolated trials failed for the same stimulus: Vally can omit both
+null trajectories before pairing. The remaining votes do not constitute a
+complete measurement, even if their summary agrees or they look underpowered.
+Inspect the original `trial-result` records, not just the comparison summary.
+
+Before invoking comparison, the adapter requires every observed baseline and
+isolated record to have `status: "success"` and a non-null trajectory. Otherwise
+it writes `INVALID_INCONCLUSIVE` with
+`stateReason.code: "executor_records_incomplete"` and
+`stateReason.phase: "executor"`,
+without spending judge calls on the incomplete input. The diagnostic names the
+affected variants, stimuli, and trial indices;
+`accounting.incompleteBaselineRecords` and
+`accounting.incompleteSkilledRecords` count the rejected records. Inspect their
+original `error` fields and native events for the underlying failure. This is a
+measurement-invalid target in `adapter-summary.json`, not a power warning.
+
+Successful retained working-limit records (`endReason: "agent_timeout"`) remain
+eligible for grading and comparison; they are partial work, not proof of
+completion. Optional plugin-arm diagnostics retain their existing semantics.
+This guard checks observed input records; it does not establish that an
+entirely absent stimulus/trial slot was generated.
+
+### Generic consumer examples can trigger unrelated inference work
+
+Check whether a generated generic component builds with an explicit item type
+before attributing every timeout to its implementation. In the sortable-list
+trial, the baseline built successfully with `TItem="TaskItem"` twice, then
+reverted it to match the prompt's implicit consumer and exhausted its budget
+debugging `CS1503` on `EventCallback`. A controlled replay of the recorded
+component reproduced the error; adding only the explicit item type fixed it.
+
+Give the shared consumer example its item type, collection, and callback
+signature, without supplying the component implementation. Keep graders,
+rubrics, task counts, and deadlines unchanged. This removes an unrelated
+consumer ambiguity, not the code-behind/state/callback task being measured;
+future model completion still requires a real evaluation.
+
+### Guidance grader tool-shape compatibility
+
+An executor can complete successfully while its program grader rejects the
+recorded tool representation. Inspect the raw calls before interpreting
+`unproven tool effect: skill` or `write tool arguments unavailable` as a quality
+failure. Builtin `skill` calls load instructions, not the commands they describe;
+subsequent tool effects still require independent checks. Native `apply_patch`
+calls can carry the patch as a freeform string instead of a structured
+`patch`/`input` field. The guidance grader accepts both representations and
+applies the same single-target, add/update-only path checks.
+
+Unknown tools, incomplete call/result evidence, shell/network/subagent calls,
+factual-mode writes, and writes outside the guidance target remain rejected.
+Passing trace classification does not establish preserved artifact bytes or
+correct guidance content: those are checked separately. Do not turn an old
+trace replay into a rescored model result or relax the retained-input contract.
+
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate
@@ -91,7 +186,44 @@ Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
 
+For the **native-agent-sdk** lane, `session.create` can instead fail with
+`session construction failed: Path outside allowed roots: .../session-state/temp`.
+Inspect `run_results.metrics_json` in the uploaded native `sessions.db` for
+`runner.error` events: aggregate verdicts may replace the exception with
+`1/1 run(s) failed` and classify it as `comparison_judge_error`.
+The SDK passes absolute paths in its filesystem namespace. The native provider
+must map its configured state namespace into each session's private config
+directory for agent and judge/analyzer sessions alike, while retaining the
+scenario-only file allowlist and rejecting model-requested state access.
+Do not fix this by allowing the whole evaluator
+root or shared system temp directory. This is a runner startup failure, not
+a skill-quality regression. The native validator is built from the trusted
+workflow revision, which must itself contain the runner repair. An
+`/evaluate <sha>` issue-comment run uses the default-branch workflow, not the
+PR's runner source. An authorized PR-specific `workflow_dispatch` can select
+the reviewed same-repository branch; verify the workflow SHA, gate-bound target
+SHA, and validator artifact provenance before treating it as a repaired run.
+
 ### Investigation steps
+
+The ordinary Vally comparison phase has a 60-minute watchdog inside the
+155-minute evaluation step. CI passes `adapt.mjs --compare-workers 2` to compare
+at most two targets at once, scheduling larger paired-record sets first.
+Blazor's top-level `tags.executionShard` metadata separates readiness (120
+three-arm executions) and Ignite UI (165) from the nine smaller targets (81),
+using the existing discovery/filtering and per-shard artifact accounting.
+Each model still runs all 366 slots exactly once; the default profile now has
+six ordinary legs and the two unchanged native-agent legs. The four-job cap,
+five generation workers, hard deadlines, and comparison watchdog are unchanged.
+Sharding prevents the suites from consuming one shared generation budget; it
+does not guarantee completion or justify retrying an incomplete shard.
+The adapter defaults to one worker outside CI and accepts limits from 1 to 3.
+Each target retains its original comparison and bounded recovery sequence, with
+private scratch files and grouped subprocess output labeled by target and duration.
+Result accounting is sorted independently of completion order; completed target
+files remain available if another target stalls. Exit 124 still means an
+incomplete, invalid measurement, not a quality verdict. Do not fix this by
+dropping pairs, relaxing accounting, or blindly extending the enclosing deadlines.
 
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`
 2. **Skim the run's step summary** (the "Full Results" link) for the complete metrics and scenario tables.
@@ -225,7 +357,9 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `meanScore` / `trials[]` | Compare preference for this stimulus and its per-trial `{ winner, magnitude, score, evidence, errored }` |
 | `expectActivation` | Whether the target should activate; `false` marks an expected-dormancy stimulus |
 | `preferenceGateEligible` / `preferenceGateExclusionReason` | Whether this scenario contributes a preference vote. Explicit dormancy is `false` / `activation_contract_only` |
-| `timedOut` | Whether the skilled run hit its timeout |
+| `timedOut` | Whether any isolated skilled run reached its agent working limit |
+| `baselineTimedOut` | Whether any baseline run reached its agent working limit; does not imply the target improved |
+| `pluginTimedOut` | Whether any whole-plugin run reached its agent working limit (present only when that arm ran) |
 | `agentActivationIsolated` / `agentActivationPlugin` | Agent targets only: exact target activation plus invoked/delegated agent names and event counts |
 | `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass |
 | `skillActivationPlugin` | The same telemetry for the whole-plugin run, filtered to named activation events for the target skill. Sibling-skill invocations do not set `activated` (present only when a plugin variant ran) |
@@ -255,15 +389,26 @@ toward five preference cases; `check_eval_quality.py` reports the eligible and
 dormancy counts separately. Historical schema-version-3 results remain
 readable and retain their original all-stimulus semantics.
 
+Stock Vally 0.18 accepts that native string-valued tag mapping. The adapter and
+quality reader also retain historical top-level Boolean `expect_activation: false`
+inputs with identical activation-contract-only evidence. This does not change
+result schemas or historical results.
+
 Dormancy excludes a stimulus only from preference inference and expected
 activation. It does not suppress objective task-completion evidence: if a
 native-agent baseline completes and the isolated target run does not, the
 adapter retains `native_completion_regression` even for
 `tags.expect_activation: "false"`.
 
-The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
+The adapter's zero-dependency YAML scanner follows PyYAML's historical Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
-`off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items.
+`off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items and tags.
+Canonical `"false"` and `"true"` are recommended string tags. Main's
+case-insensitive `false`/`no`/`off` strings declare dormancy; other strings are
+not false guards. Non-string tags, unsupported aliases/escaped keys/YAML merges,
+and contradictory actual legacy/tagged values
+fail explicitly; the skill adapter uses its existing `eval_spec_unreadable`
+invalid-verdict path. They cannot silently restore a dormancy stimulus to preference voting.
 An annotation that matches no observed stimulus is retained under
 `activationContract.unmatchedDormancyStimuli` and fails the activation contract
 so a rename, typo, or missing result cannot silently erase contract evidence.
@@ -516,8 +661,33 @@ An intermittent `ENOENT` for `.git/objects/maintenance.lock` while copying an
 eval fixture is a fixture setup race, not model behavior. Disable automatic Git
 maintenance and GC in the fixture repository before its baseline commit.
 
-### 2. Timeouts (`scenario.timedOut == true`, `trajectory.endReason == "agent_timeout"`)
-The agent didn't finish within the eval's `config.timeout`. Either the task is too large for the budget or the skill sent the agent down a slow path. Fixes: raise `config.timeout` in `eval.yaml` if the task legitimately needs more time (genuine code generation or repository exploration commonly needs 6–8 minutes plus headroom above observed successful runs), or tighten the skill so it converges faster.
+### 2. Agent working limits and hard timeouts
+
+`constraints.max_agent_duration` stops agent work cleanly and grades the retained
+partial trajectory (`endReason: "agent_timeout"`). Readiness stimuli use 19
+minutes inside their unchanged 20-minute `defaults.timeout` hard cap. Graders
+still check the actual output; partial work is not proof of task completion.
+The author-component eval retains its three-minute hard cap and has no agent
+working limit.
+
+The Ignite UI module-registration advisory stimulus alone has a nine-minute
+working limit inside its unchanged ten-minute hard cap, across all five runs
+and all arms. This preserves a gradeable partial trajectory if a helper remains
+running; it does not fix or excuse that helper, establish normal completion,
+or authorize treating a final answer as an idle event. Other Ignite UI stimuli
+have no new working limit. Inspect the same arm-specific cutoff fields and
+native histories before interpreting any preference result.
+
+Inspect `baselineTimedOut`, `timedOut` (isolated), and `pluginTimedOut` and the
+matching session events. Consolidated warnings and scenario rows name every
+affected arm, including a baseline cutoff that could otherwise favor treatment.
+A background helper left running after a final answer is not proof of SDK idle
+loss. A mid-work infrastructure stall can also consume the working budget;
+inspect it rather than attributing every cutoff to skill quality.
+
+A hard `defaults.timeout` failure with a null trajectory is different: it still
+makes the comparison measurement-invalid. Do not recover it by inventing output,
+dropping a pair, widening retries, or declaring incomplete work successful.
 
 ### 3. Activation contract failed (`stateReason.code == "activation_contract_failed"`)
 

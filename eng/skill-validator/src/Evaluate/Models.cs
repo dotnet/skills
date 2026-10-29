@@ -111,7 +111,9 @@ public sealed record EvalScenario(
     bool DenyShell = false,
     IReadOnlyList<string>? RejectAgents = null,
     bool RejectShellRetries = false,
-    bool OfflineWorkflow = false);
+    bool OfflineWorkflow = false,
+    bool ExpectToolsArePatterns = false,
+    bool RejectToolsArePatterns = false);
 
 public sealed record EvalConfig(
     IReadOnlyList<EvalScenario> Scenarios,

@@ -337,11 +337,19 @@ internal sealed class BaselineStore
             foreach (var r in rubric)
                 sb.Append("R:").Append(r).Append('\n');
         if (scenario.ExpectTools is { } expect)
+        {
+            if (scenario.ExpectToolsArePatterns)
+                sb.Append("expect-tool-name-patterns=true").Append('\0');
             foreach (var t in expect.OrderBy(x => x, StringComparer.Ordinal))
                 sb.Append("XT:").Append(t).Append('\0');
+        }
         if (scenario.RejectTools is { } reject)
+        {
+            if (scenario.RejectToolsArePatterns)
+                sb.Append("reject-tool-name-patterns=true").Append('\0');
             foreach (var t in reject.OrderBy(x => x, StringComparer.Ordinal))
                 sb.Append("RT:").Append(t).Append('\0');
+        }
         if (scenario.Assertions is { } assertions)
             foreach (var a in assertions)
             {

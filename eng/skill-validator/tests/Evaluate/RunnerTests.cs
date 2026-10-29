@@ -364,11 +364,70 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
-    public async Task DeniesBuiltInFileToolAccessToReservedSessionState()
+    public async Task SessionProviderMapsAbsoluteSdkStatePathsIntoPrivateConfigDir()
     {
-        var workDir = Path.Combine(AgentRunner.GetEvaluationRoot(), "current-scenario");
+        var workDir = AgentRunner.CreatePrivateWorkDir("sdk-state-test");
         var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
-        var args = JsonDocument.Parse("""{"path":"session-state/events.jsonl"}""").RootElement;
+        try
+        {
+            Assert.IsNotNull(config.CreateSessionFsProvider);
+            var handler = (LocalSessionFsHandler)config.CreateSessionFsProvider(null!);
+            var sdkStatePath = Path.Combine(AgentRunner.GetEvaluationRoot(), "session-state");
+
+            Assert.AreEqual(
+                Path.Combine(config.ConfigDirectory!, "session-state", "temp"),
+                handler.ResolvePath(Path.Combine(sdkStatePath, "temp")));
+            Assert.AreEqual(
+                handler.ResolvePath(Path.Combine("session-state", "events.jsonl")),
+                handler.ResolvePath(Path.Combine(sdkStatePath, "events.jsonl")));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                handler.ResolvePath(Path.Combine(AgentRunner.GetEvaluationRoot(), "other-scenario", "secret.txt")));
+        }
+        finally
+        {
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [TestMethod]
+    public async Task SharedSessionFsFactoryMapsJudgeStateIntoPrivateConfigDir()
+    {
+        var workDir = AgentRunner.CreatePrivateWorkDir("judge-state-test");
+        var configDir = AgentRunner.CreatePrivateWorkDir("judge-config-test");
+        try
+        {
+            var handler = AgentRunner.CreateSessionFsHandler(configDir, workDir, [workDir]);
+            var sdkStatePath = AgentRunner.GetSessionStatePath();
+
+            Assert.AreEqual(
+                Path.Combine(configDir, "session-state", "temp"),
+                handler.ResolvePath(Path.Combine(sdkStatePath, "temp")));
+            Assert.AreEqual(
+                Path.Combine(configDir, "session-state", "events.jsonl"),
+                handler.ResolvePath(Path.Combine("session-state", "events.jsonl")));
+            Assert.AreEqual(
+                Path.Combine(workDir, "answer.txt"),
+                handler.ResolvePath("answer.txt"));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                handler.ResolvePath(Path.Combine(AgentRunner.GetEvaluationRoot(), "other-judge", "secret.txt")));
+        }
+        finally
+        {
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task DeniesBuiltInFileToolAccessToReservedSessionState(bool absolute)
+    {
+        var workDir = AgentRunner.GetEvaluationRoot();
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var path = Path.Combine("session-state", "events.jsonl");
+        if (absolute)
+            path = Path.Combine(workDir, path);
+        var args = JsonDocument.Parse(JsonSerializer.Serialize(new { path })).RootElement;
 
         var result = await config.Hooks!.OnPreToolUse!(
             new PreToolUseHookInput { ToolName = "view", ToolArgs = args },
@@ -999,10 +1058,15 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
-    public async Task WritePermissionRejectsReservedSessionState()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task WritePermissionRejectsReservedSessionState(bool absolute)
     {
-        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var workDir = AgentRunner.GetEvaluationRoot();
         var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var path = Path.Combine("session-state", "state.json");
+        if (absolute)
+            path = Path.Combine(workDir, path);
 
         var decision = await config.OnPermissionRequest!(
             new PermissionRequestWrite
@@ -1010,10 +1074,34 @@ public class BuildSessionConfigTests
                 Kind = "write",
                 CanOfferSessionApproval = false,
                 Diff = "",
-                FileName = Path.Combine("session-state", "state.json"),
+                FileName = path,
                 Intention = "Write evaluator state",
                 NewFileContents = "{}",
                 ToolCallId = "write-denied",
+            },
+            null!);
+
+        Assert.AreEqual("reject", decision.Kind);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ReadPermissionRejectsReservedSessionState(bool absolute)
+    {
+        var workDir = AgentRunner.GetEvaluationRoot();
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var path = Path.Combine("session-state", "state.json");
+        if (absolute)
+            path = Path.Combine(workDir, path);
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestRead
+            {
+                Kind = "read",
+                Intention = "Read evaluator state",
+                Path = path,
+                ToolCallId = "read-state-denied",
             },
             null!);
 
@@ -2015,6 +2103,113 @@ public class LocalSessionFsHandlerTests
         var method = typeof(LocalSessionFsHandler).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.IsNotNull(method);
         return method.CreateDelegate<TCallback>(handler);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task AbsoluteSdkStateCallbacksUsePrivateStorage(bool offlineWorkflow)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"absolute-session-fs-{Guid.NewGuid():N}");
+        var stateRoot = Path.Combine(root, "config");
+        var workDir = Path.Combine(root, "work");
+        var virtualStatePath = Path.Combine(root, "sdk", "session-state");
+        var handler = new LocalSessionFsHandler(
+            stateRoot, workDir, [workDir], offlineWorkflow, virtualStatePath);
+        var token = TestContext.CancellationToken;
+        var mkdir = ProviderCallback<Func<string, bool, int?, CancellationToken, Task>>(handler, "MakeDirectoryAsync");
+        var write = ProviderCallback<Func<string, string, int?, CancellationToken, Task>>(handler, "WriteFileAsync");
+        var append = ProviderCallback<Func<string, string, int?, CancellationToken, Task>>(handler, "AppendFileAsync");
+        var read = ProviderCallback<Func<string, CancellationToken, Task<string>>>(handler, "ReadFileAsync");
+        var absoluteFile = Path.Combine(virtualStatePath, "temp", "events.jsonl");
+        var relativeFile = Path.Combine("session-state", "temp", "events.jsonl");
+        try
+        {
+            Assert.AreEqual(
+                Path.Combine(stateRoot, "session-state"),
+                handler.ResolvePath(virtualStatePath));
+            await mkdir(Path.Combine(virtualStatePath, "temp"), true, null, token);
+            await write(absoluteFile, "first", null, token);
+            await append(relativeFile, "-second", null, token);
+            Assert.AreEqual("first-second", await read(absoluteFile, token));
+            Assert.AreEqual("first-second", await read(relativeFile, token));
+            Assert.AreEqual(
+                "first-second",
+                await File.ReadAllTextAsync(Path.Combine(stateRoot, relativeFile), token));
+            Assert.IsFalse(Directory.Exists(Path.Combine(root, "sdk")));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                handler.ResolvePath(Path.Combine(root, "sdk", "session-state-other", "secret.txt")));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                handler.ResolvePath(Path.Combine(virtualStatePath, "..", "secret.txt")));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                handler.ResolvePath(Path.Combine(root, "other-scenario", "secret.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task AbsoluteSdkStateIsIsolatedBetweenProviders()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"isolated-session-fs-{Guid.NewGuid():N}");
+        var firstState = Path.Combine(root, "first-config");
+        var secondState = Path.Combine(root, "second-config");
+        var firstWork = Path.Combine(root, "first-work");
+        var secondWork = Path.Combine(root, "second-work");
+        var virtualStatePath = Path.Combine(root, "sdk", "session-state");
+        var first = new LocalSessionFsHandler(
+            firstState, firstWork, [firstWork], virtualSessionStatePath: virtualStatePath);
+        var second = new LocalSessionFsHandler(
+            secondState, secondWork, [secondWork], virtualSessionStatePath: virtualStatePath);
+        var token = TestContext.CancellationToken;
+        var firstWrite = ProviderCallback<Func<string, string, int?, CancellationToken, Task>>(first, "WriteFileAsync");
+        var secondWrite = ProviderCallback<Func<string, string, int?, CancellationToken, Task>>(second, "WriteFileAsync");
+        var firstRead = ProviderCallback<Func<string, CancellationToken, Task<string>>>(first, "ReadFileAsync");
+        var secondRead = ProviderCallback<Func<string, CancellationToken, Task<string>>>(second, "ReadFileAsync");
+        var path = Path.Combine(virtualStatePath, "events.jsonl");
+        try
+        {
+            await firstWrite(path, "first", null, token);
+            await secondWrite(path, "second", null, token);
+            Assert.AreEqual("first", await firstRead(path, token));
+            Assert.AreEqual("second", await secondRead(path, token));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                first.ResolvePath(Path.Combine(secondState, "session-state", "events.jsonl")));
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                second.ResolvePath(Path.Combine(firstState, "session-state", "events.jsonl")));
+            Assert.IsFalse(Directory.Exists(Path.Combine(root, "sdk")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public void AbsoluteSdkStateRejectsPrivateStorageSymlink()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-state-link-{Guid.NewGuid():N}");
+        var stateRoot = Path.Combine(root, "config");
+        var workDir = Path.Combine(root, "work");
+        var outsideDir = Path.Combine(root, "outside");
+        var virtualStatePath = Path.Combine(root, "sdk", "session-state");
+        var handler = new LocalSessionFsHandler(
+            stateRoot, workDir, [workDir], virtualSessionStatePath: virtualStatePath);
+        Directory.CreateDirectory(outsideDir);
+        try
+        {
+            if (!SymlinkTestHelper.TryCreateDirectory(Path.Combine(stateRoot, "session-state"), outsideDir))
+                Assert.Inconclusive("Symbolic-link creation is not supported in this environment.");
+
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                handler.ResolvePath(Path.Combine(virtualStatePath, "temp")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     [TestMethod]

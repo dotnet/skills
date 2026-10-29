@@ -69,7 +69,7 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
-    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v3";
+    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v4";
     private static readonly HashSet<string> EvaluatorOnlySetupEntries =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -218,6 +218,23 @@ public static class AgentRunner
         Directory.CreateDirectory(root);
         return root;
     }
+
+    internal static string GetSessionStatePath()
+        => GetClientSessionStateRoot();
+
+    internal static LocalSessionFsHandler CreateSessionFsHandler(
+        string configDir,
+        string workDir,
+        IEnumerable<string> allowedAbsoluteRoots,
+        bool offlineWorkflow = false,
+        IEnumerable<string>? writableAbsoluteRoots = null)
+        => new(
+            configDir,
+            workDir,
+            allowedAbsoluteRoots,
+            offlineWorkflow,
+            virtualSessionStatePath: GetClientSessionStateRoot(),
+            writableAbsoluteRoots: writableAbsoluteRoots);
 
     internal static string CreatePrivateWorkDir(string prefix)
     {
@@ -852,7 +869,7 @@ public static class AgentRunner
             // client's absolute session-state temp path, resolve relative tool
             // paths under workDir, and permit other absolute paths only within
             // this scenario workspace and its explicitly staged skill roots.
-            CreateSessionFsProvider = _ => new LocalSessionFsHandler(
+            CreateSessionFsProvider = _ => CreateSessionFsHandler(
                 configDir,
                 workDir,
                 new[] { workDir, GetClientSessionStateRoot() }.Concat(additionalAllowedDirs),
@@ -915,7 +932,8 @@ public static class AgentRunner
                     }
 
                     var reqPaths = ExtractPathsFromToolArgs(input);
-                    if (reqPaths.Any(LocalSessionFsHandler.IsSessionStatePath))
+                    if (reqPaths.Any(path =>
+                        LocalSessionFsHandler.IsSessionStatePath(path, GetSessionStatePath())))
                     {
                         return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                         {
@@ -965,7 +983,7 @@ public static class AgentRunner
         GitHub.Copilot.Rpc.PermissionDecision CheckPath(string? path)
         {
             if (string.IsNullOrWhiteSpace(path)
-                || LocalSessionFsHandler.IsSessionStatePath(path)
+                || LocalSessionFsHandler.IsSessionStatePath(path, GetSessionStatePath())
                 || !CheckPermission(
                     path,
                     workDir,

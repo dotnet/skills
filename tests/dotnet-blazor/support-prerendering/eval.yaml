@@ -5,6 +5,10 @@ defaults:
   timeout: 10m
 stimuli:
   - name: Equipment inventory loaded once
+    tags:
+      capability: prerender-state-transfer
+      risk: duplicate-data-loads
+      journey: inventory-first-load
     prompt: |
       I have an existing Blazor Web App with Interactive Server (per-page).
 
@@ -17,6 +21,9 @@ stimuli:
       instantly (fast initial paint), but the equipment data should NOT be fetched
       twice — once during the initial server render and again when the page becomes
       interactive. It should only call the service once and carry that data across.
+    environment:
+      commands:
+        - dotnet new blazor --interactivity server --no-https --force --output BlazorApp
     graders:
       - type: file-exists
         config:
@@ -40,6 +47,10 @@ stimuli:
       - Does NOT disable prerendering — preserves the fast initial HTML response while avoiding duplicate loads
       - Creates a proper EquipmentService registered in DI, not inline data generation
   - name: Notifications page with live polling
+    tags:
+      capability: interactive-background-polling
+      risk: leaked-background-tasks
+      journey: notifications-first-load
     prompt: |
       I have an existing Blazor Web App with Interactive Server (per-page).
 
@@ -55,6 +66,9 @@ stimuli:
       - The polling loop must not run during the initial server render — only after
         the page is live and interactive in the browser
       - When the user navigates away, the polling should stop cleanly (no leaked tasks)
+    environment:
+      commands:
+        - dotnet new blazor --interactivity server --no-https --force --output BlazorApp
     graders:
       - type: file-exists
         config:
