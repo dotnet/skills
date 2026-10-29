@@ -194,6 +194,12 @@ static (string state, string? detail) Inspect(byte[] data)
     {
         if (metadata.GetTableRowCount(TableIndex.Assembly) != 0)
             throw new BadImageFormatException("Assembly table is inconsistent.");
+        var moduleHeader = pe.PEHeaders.CorHeader ??
+            throw new BadImageFormatException("CLI header absent.");
+        var reservation = moduleHeader.StrongNameSignatureDirectory;
+        if ((moduleHeader.Flags & CorFlags.StrongNameSigned) != 0 ||
+            reservation.RelativeVirtualAddress != 0 || reservation.Size != 0)
+            throw new BadImageFormatException("Module-only image has strong-name signing metadata.");
         return ("module-only", null);
     }
     if (metadata.GetTableRowCount(TableIndex.Assembly) != 1)

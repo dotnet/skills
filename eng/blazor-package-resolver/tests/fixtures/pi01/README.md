@@ -66,16 +66,27 @@ PE/CLI candidates and opaque native/bundle or nested containers
 otherwise valid native PE is **not** proof that a .NET single-file bundle
 is absent. Embedded ZIP local, central, or EOCD signatures (including
 prefixed ZIP content) override a passive file suffix; archive extensions
-are opaque even without a recognizable magic. This expectation oracle
+are opaque even without a recognizable magic. ZIP inventory accepts
+non-ASCII entry names only when the UTF-8 flag is set in both
+local and central headers, the raw names and flags agree, and the name
+decodes as valid UTF-8. Without that flag, only ASCII raw name bytes are
+supported; non-ASCII bytes must fail closed instead of being decoded as
+UTF-8 or guessed from a legacy code page. ASCII-only names remain valid.
+This expectation oracle
 does not recursively unpack any entry and cannot silently turn unknown
 nonempty assets into a no-assembly claim. Then prioritize delay-signed,
 public-signed, unsigned, invalid cryptographic signatures, and unsupported
 algorithm/key shapes. A fully verified assembly inventory yields a
 non-vacuous positive; only a safe, complete no-assembly inventory yields
-the vacuous finding. A module-only `.netmodule` is not an assembly: this
-oracle permits the exact independently validated pinned module specimen,
-and escalates unverified arbitrary module metadata rather than treating
-a cleared Assembly-table bit as proof of a valid module. The expected
+the vacuous finding. A module-only `.netmodule` is not an assembly: **any**
+supported managed module with complete structurally and semantically valid
+Module metadata and no Assembly table can support `no-assemblies` when the
+rest of the inventory is safe. A cleared Assembly-table bit alone does not
+prove that a damaged assembly is a valid module; malformed or unsupported
+module metadata still escalates. The second independently SDK-built module
+has distinct bytes and MVID, and a one-byte MVID change in the original
+valid module remains a valid module. An empty MVID or a strong-name signed
+flag on a module without an Assembly row is unsafe, not a vacuous pass. The expected
 result shape is the existing `CaseResult` contract, not a readiness
 verdict. `pi01_expectations.py` uses standard-library ZIP/PE preflight and
 the compiled `template/Validator.csproj` for .NET metadata and
@@ -85,11 +96,14 @@ SDK-compiled managed images with one Module row and, except for the
 module-only control, one Assembly row. `template/Fixture.csproj`,
 `template/Fixture.cs.txt` and the **public-only** `template/public.snk`
 produce four pinned binaries under `templates/`; the separate
-`template/EnumFixture.csproj` produces `enum.dll`. `nonzero.dll` is read
+`template/EnumFixture.csproj` produces `enum.dll`, while
+`template/ModuleFixture.csproj` independently produces the alternate module
+(its SDK output is a `.dll` copied byte-for-byte to `module-alt.netmodule`).
+`nonzero.dll` is read
 directly from its pinned template (not reconstructed in memory) and was derived
 from the public-signed binary by changing one byte inside its reserved
 signature, without touching its valid Module or Assembly metadata. All
-seven image hashes are pinned. `verified.dll` was fully signed with an
+eight image hashes are pinned. `verified.dll` was fully signed with an
 ephemeral 2048-bit RSA test key; its private material was deleted after
 the signed image was pinned. The fixture and its embedded public key suffice
 to verify it, but a rebuild with a new throwaway key changes its hash.
@@ -155,14 +169,18 @@ entry SHA-256 without copying either proprietary archive into this repo.
 Phase B must implement and replay this frozen verification contract; it
 must never promote structural signature presence to verified validity.
 
-The frozen matrix has 130 cases, of which 129 have independently pinned
+The frozen matrix has 138 cases, of which 137 have independently pinned
 synthetic archives. It covers empty and non-assembly archives, native PE
 and bundle-shaped input, nested/prefixed unsigned ZIP and archive-suffix controls,
 different assembly locations and suffixes, multiple framework variants,
+valid non-ASCII UTF-8 flagged paths (with lowercase `\u00e9` in the
+ASCII-escaped evidence JSON), non-ASCII raw paths without the UTF-8 flag,
+local/central flag and filename disagreement,
 genuine unsigned, delay-signed, public-signed and verified-signed images,
 invalid signatures from both byte- and signed-content tampering, unsupported
 strong-name algorithms, nonzero signature
-reservations and verified module-only metadata, conflicting and
+reservations and verified module-only metadata (including independent and
+changed-MVID modules), malformed module metadata, conflicting and
 malformed CLI structure, ambiguous ZIP names/paths, corrupt ZIP, UTF-16
 nuspec/DTD and harmless comment decoys. Compressed nuspecs at and over
 1 MiB, including an underdeclared inflated entry, pin the declared-size
@@ -195,9 +213,9 @@ The oracle pins its SHA-256
 `ea7d26478fd30cb5c56fe0845fa92a10d9de8a7a3ee6ac6e73a334e979f0f885`.
 The frozen branch counts are:
 `verified-signed` 10, `invalid-signature` 3,
-`signature-unverified` 1 (unsupported hash), `unsigned-assembly` 12,
-`delay-signed` 4, `public-signed` 4, `no-assemblies` 6,
-`opaque-container` 14, `unsafe-assembly` 59, `unsafe-package` 16, and
+`signature-unverified` 1 (unsupported hash), `unsigned-assembly` 13,
+`delay-signed` 4, `public-signed` 4, `no-assemblies` 8,
+`opaque-container` 14, `unsafe-assembly` 61, `unsafe-package` 19, and
 `missing-package` 1.
 The generator pins every archive byte and expected JSON document and
 rejects extra/missing synthetic `.nupkg` files. Resource bounds in this
@@ -208,7 +226,7 @@ its own safe limits. The oracle does not recursively inspect nested
 archives, and does not attest that an arbitrary ZIP without valid NuGet
 publication metadata is a published release.
 
-The seven image SHA-256 digests are pinned in `pi01_expectations.py`;
+The eight image SHA-256 digests are pinned in `pi01_expectations.py`;
 `template/public.snk` is an RSA PUBLICKEYBLOB (`0x06`), not a private key.
 Rebuild from the `template` project with .NET 10 reference packs and
 compare hashes before replacing frozen binaries:
@@ -219,12 +237,16 @@ dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\Fixture.cs
 dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\Fixture.csproj -c Release -t:Rebuild -p:SignAssembly=true -p:PublicSign=true -p:AssemblyOriginatorKeyFile=public.snk
 dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\Fixture.csproj -c Release -t:Rebuild -p:OutputType=Module -p:ProduceReferenceAssembly=false
 dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\EnumFixture.csproj -c Release -t:Rebuild
+dotnet build eng\blazor-package-resolver\tests\fixtures\pi01\template\ModuleFixture.csproj -c Release -t:Rebuild
 ```
 
 Each build overwrites the same output by default: preserve each variant
 separately before building the next. The SDK's `PathMap` and deterministic
 compilation yield byte-identical images from those four original pinned inputs;
-the enum project independently rebuilds the seventh pinned image.
+the enum and alternate module projects independently rebuild the seventh
+and eighth pinned images. Compare `AlternateModule.dll` with the pinned
+`module-alt.netmodule` byte-for-byte; the file extension is not the
+assembly-versus-module authority.
 To create a **new** fully signed control, run
 `Validator.dll --generate-key <temporary-private-key.snk>` and rebuild
 with `-p:SignAssembly=true -p:AssemblyOriginatorKeyFile=<absolute-private-key-path>`;

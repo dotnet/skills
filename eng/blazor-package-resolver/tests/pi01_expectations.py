@@ -167,8 +167,6 @@ def assembly_state(data):
             rows += 4
     require(counts[0] == 1 and rows + 10 <= tables_end, "invalid Module definition")
     if 32 not in counts:
-        require(digest(data) == TEMPLATE_HASHES["module.netmodule"],
-                "module-only metadata needs independent validation")
         state, _ = inspect_managed(data)
         if state == "opaque-container":
             return state
@@ -297,6 +295,7 @@ TEMPLATE_HASHES = {
     "delay.dll": "4876361f6f04223c41d4e4bd7418388478a30b1d060c679bf28c497b77d0d06e",
     "public.dll": "44991a20437b38b0ce99f611ef8ad070d8156b656d35123b7e442d5354964809",
     "module.netmodule": "4a43543ca38712c0b62efe76b7bd07a39073b16582f1d021469f2f4fc2eb335f",
+    "module-alt.netmodule": "4194c9c4aae6513d0f17f8acb58a7320c6bd1e4472eb24aa77f9aac53aad2208",
     "nonzero.dll": "46d1afd43fcabd8db60ef0e4f40afd5ae21a31754cb244a65bcc3fa61a203075",
     "verified.dll": "6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34",
 }
@@ -374,6 +373,25 @@ def package(entries=(), problem=None):
         content = changed(content, directory + 24, struct.pack("<I", 1024 * 1024))
     if any("\\" in name for name, _ in entries):
         content = content.replace(b"lib/net8.0/a.dll", b"lib\\net8.0\\a.dll")
+    if problem in ("nonutf8-name", "local-utf8-flag-mismatch", "local-name-mismatch"):
+        encoded_name = b"lib/net8.0/S\xc3\xa9.dll"
+        central = content.rfind(b"PK\x01\x02")
+        require(central >= 0 and content[central + 46:central + 46 + len(encoded_name)] ==
+                encoded_name and u16(content, central + 8) & 0x800,
+                "Pinned UTF-8 ZIP entry layout changed")
+        local = u32(content, central + 42)
+        require(content[local:local + 4] == b"PK\x03\x04" and
+                content[local + 30:local + 30 + len(encoded_name)] == encoded_name and
+                u16(content, local + 6) & 0x800,
+                "Pinned local UTF-8 ZIP entry layout changed")
+        if problem in ("nonutf8-name", "local-utf8-flag-mismatch"):
+            content = changed(content, local + 6,
+                              struct.pack("<H", u16(content, local + 6) & ~0x800))
+        if problem == "nonutf8-name":
+            content = changed(content, central + 8,
+                              struct.pack("<H", u16(content, central + 8) & ~0x800))
+        if problem == "local-name-mismatch":
+            content = changed(content, local + 30 + len(b"lib/net8.0/"), b"T")
     return content
 
 
@@ -386,11 +404,36 @@ ENUM = fixture("enum.dll")
 DELAY = fixture("delay.dll")
 PUBLIC = fixture("public.dll")
 MODULE = fixture("module.netmodule")
+MODULE_ALT = fixture("module-alt.netmodule")
 SIGNED = fixture("nonzero.dll")
 VERIFIED = fixture("verified.dll")
 OFF = image_offsets(PE)
 SIGNED_OFF = image_offsets(SIGNED)
 VERIFIED_OFF = image_offsets(VERIFIED)
+MODULE_OFF = image_offsets(MODULE)
+MODULE_MVID_ROWS = MODULE_OFF["tables"] + 24 + 4 * u64(MODULE, MODULE_OFF["tables"] + 8).bit_count()
+require(u16(MODULE, MODULE_MVID_ROWS + 4) == 1,
+        "Pinned Module row MVID must reference the first GUID")
+MODULE_STREAM_HEADER = MODULE_OFF["metadata"] + 16 + u32(MODULE, MODULE_OFF["metadata"] + 12)
+MODULE_STREAM_CURSOR = MODULE_STREAM_HEADER + 4
+MODULE_GUID = None
+for _ in range(u16(MODULE, MODULE_STREAM_HEADER + 2)):
+    stream_offset, stream_size = u32(MODULE, MODULE_STREAM_CURSOR), u32(MODULE, MODULE_STREAM_CURSOR + 4)
+    stream_name_end = MODULE.index(b"\0", MODULE_STREAM_CURSOR + 8)
+    if MODULE[MODULE_STREAM_CURSOR + 8:stream_name_end] == b"#GUID":
+        require(stream_size >= 16, "Pinned module MVID heap is incomplete")
+        MODULE_GUID = MODULE_OFF["metadata"] + stream_offset
+    MODULE_STREAM_CURSOR = (stream_name_end + 4) & ~3
+require(MODULE_GUID is not None and MODULE[MODULE_GUID:MODULE_GUID + 16] != bytes(16),
+        "Pinned module MVID must be nonempty")
+MODULE_NEW_MVID = changed(MODULE, MODULE_GUID,
+                          bytes([MODULE[MODULE_GUID] ^ 1]))
+MODULE_EMPTY_MVID = changed(MODULE, MODULE_GUID, bytes(16))
+require(not (u32(MODULE, MODULE_OFF["cli"] + 16) & 8),
+        "Pinned managed module must not carry a strong-name signed flag")
+MODULE_FALSE_SIGNED = changed(
+    MODULE, MODULE_OFF["cli"] + 16,
+    struct.pack("<I", u32(MODULE, MODULE_OFF["cli"] + 16) | 8))
 KEY_MAGIC = VERIFIED.find(b"RSA1")
 require(KEY_MAGIC >= 20, "Signed fixture has no RSA public-key blob")
 TYPEDEF2_NAME = OFF["metadata"] + 246
@@ -593,6 +636,12 @@ CASES = (
     spec("nuspec-underdeclared-inflated", ((EXAMPLE, PE),), "unsafe-package",
          "nuspec-underdeclared-inflated"),
     spec("module-only", (("lib/net8.0/Sample.netmodule", MODULE),)),
+    spec("module-alternate", (("lib/net8.0/Alternate.netmodule", MODULE_ALT),)),
+    spec("module-changed-mvid", (("lib/net8.0/Sample.netmodule", MODULE_NEW_MVID),)),
+    spec("module-empty-mvid", (("lib/net8.0/Sample.netmodule", MODULE_EMPTY_MVID),),
+         "unsafe-assembly"),
+    spec("module-false-signed-flag", (("lib/net8.0/Sample.netmodule", MODULE_FALSE_SIGNED),),
+         "unsafe-assembly"),
     spec("native-dll", ((EXAMPLE, synthetic_pe(native=True)),), "opaque-container"),
     spec("native-exe", (("tools/native.exe", synthetic_pe(native=True)),), "opaque-container"),
     spec("native-disguised", (("assets/native.dat", synthetic_pe(native=True)),), "opaque-container"),
@@ -616,6 +665,13 @@ CASES = (
     spec("unsigned-tool", (("tools/net8.0/any/Sample.PI01.exe", PE),), "unsigned-assembly"),
     spec("unsigned-arbitrary-path", (("assets/disguised.dat", PE),), "unsigned-assembly"),
     spec("unsigned-upper-suffix", (("LIB/NET8.0/SAMPLE.DLL", PE),), "unsigned-assembly"),
+    spec("utf8-non-ascii-assembly-name", (("lib/net8.0/Sé.dll", PE),), "unsigned-assembly"),
+    spec("nonutf8-non-ascii-assembly-name", (("lib/net8.0/Sé.dll", PE),),
+         "unsafe-package", "nonutf8-name"),
+    spec("utf8-local-flag-mismatch", (("lib/net8.0/Sé.dll", PE),),
+         "unsafe-package", "local-utf8-flag-mismatch"),
+    spec("utf8-local-name-mismatch", (("lib/net8.0/Sé.dll", PE),),
+         "unsafe-package", "local-name-mismatch"),
     spec("unsigned-multiple", (("lib/net8.0/B.dll", PE), ("lib/net9.0/A.dll", PE)), "unsigned-assembly"),
     spec("module-with-unsigned", (("lib/net8.0/A.netmodule", MODULE),
                                    ("lib/net8.0/B.dll", PE)), "unsigned-assembly"),
@@ -793,11 +849,21 @@ def central_names(content):
     names = []
     for _ in range(count):
         require(content[cursor:cursor + 4] == b"PK\x01\x02", "invalid ZIP central entry")
+        flags = u16(content, cursor + 8)
         name_size, extra_size, comment_size = (
             u16(content, cursor + 28), u16(content, cursor + 30), u16(content, cursor + 32))
         require(cursor + 46 + name_size + extra_size + comment_size <= offset + size,
                 "truncated ZIP central entry")
-        names.append(content[cursor + 46:cursor + 46 + name_size].decode("utf-8"))
+        raw_name = content[cursor + 46:cursor + 46 + name_size]
+        require(flags & 0x800 or raw_name.isascii(),
+                "non-ASCII ZIP entry name without UTF-8 flag")
+        local = u32(content, cursor + 42)
+        require(content[local:local + 4] == b"PK\x03\x04" and
+                local + 30 + u16(content, local + 26) + u16(content, local + 28) <= len(content) and
+                u16(content, local + 6) == flags and
+                content[local + 30:local + 30 + u16(content, local + 26)] == raw_name,
+                "local and central ZIP entry name/flags disagree")
+        names.append(raw_name.decode("utf-8" if flags & 0x800 else "ascii"))
         cursor += 46 + name_size + extra_size + comment_size
     require(cursor == offset + size, "unexpected ZIP central directory tail")
     return names
@@ -1118,6 +1184,16 @@ def certificate_profile_checks():
 
 
 def metadata_required_field_checks():
+    require(len({digest(image) for image in (MODULE, MODULE_ALT, MODULE_NEW_MVID)}) == 3,
+            "Both SDK module fixtures and changed-MVID control must have distinct bytes")
+    for image in (MODULE, MODULE_ALT, MODULE_NEW_MVID):
+        require(inspect_managed(image) == ("module-only", None),
+                "Structurally and semantically valid managed module is not an assembly")
+    require(inspect_managed(MODULE_EMPTY_MVID)[0] == "unsafe",
+            "Empty MVID cannot establish a valid managed module")
+    require(inspect_managed(MODULE_FALSE_SIGNED) ==
+            ("unsafe", "Module-only image has strong-name signing metadata."),
+            "Module without an Assembly row cannot claim a strong-name signature")
     for image, reason in (
         (changed(PE, METHOD_SIGNATURE, bytes(2)), "Missing metadata blob in table 6, row 1."),
         (changed(PE, TYPEDEF2_NAME, bytes(2)), "Missing metadata name in table 2, row 2."),
@@ -1167,6 +1243,11 @@ def main():
     certificate_profile_checks()
     metadata_required_field_checks()
     docs = documents()
+    utf8_case = next(item for item in docs["cases.json"]["cases"]
+                     if item["case_id"] == "pi01-utf8-non-ascii-assembly-name")
+    require(r'"path":"lib/net8.0/S\u00e9.dll"' in
+            utf8_case["expected"]["evidence_contract"],
+            "UTF-8 ZIP evidence must use the canonical lowercase ASCII escape")
     public_key = (ROOT / "template" / "public.snk").read_bytes()
     require(public_key[:1] == b"\x06" and digest(public_key) == PUBLIC_KEY_SHA256,
             "Public-only fixture key differs")
