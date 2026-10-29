@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
@@ -23,6 +24,8 @@ NEW_RATIONALES = {
     "expression-namespace-declaration": "An XML namespace declaration is not an extra license attribute; the MIT expression populates the field.",
     "expression-newer-version": "NuGet rejects an expression version newer than its supported license metadata version; do not infer population from unsupported grammar.",
     "expression-unknown-attribute": "An arbitrary non-namespace attribute is outside this strict recognized license metadata contract; escalate rather than accept unsupported input.",
+    "foreign-metadata-before": "A foreign metadata sibling before recognized metadata makes NuGet's first-local-name selection disagree with the namespace-strict reader; neither can establish the license fact safely.",
+    "foreign-metadata-after": "A foreign metadata sibling after recognized metadata leaves competing reader selection rules; do not establish the license fact from ambiguous package structure.",
 }
 
 
@@ -56,6 +59,12 @@ CASES = (
     ("conflicting-url", EXPRESSION + "<licenseUrl>https://licenses.example.test/proprietary</licenseUrl>", "expression", "PackageLicenseExpression is populated: MIT.", None, None, None, NAMESPACE),
     ("foreign-license", '<foreign:license xmlns:foreign="urn:foreign" type="expression">MIT</foreign:license>', "foreign-license", None, "A foreign-namespace license element cannot establish NuGet license metadata.", "recognized-license-metadata", "package-owner", NAMESPACE),
     ("foreign-root", EXPRESSION, "foreign-root", None, "The package root is not in a recognized NuGet namespace.", "recognized-nuspec", "package-owner", "urn:foreign"),
+    ("foreign-metadata-before", EXPRESSION, "ambiguous-metadata", None,
+     "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+     "unambiguous-nuspec", "package-owner", NAMESPACE),
+    ("foreign-metadata-after", EXPRESSION, "ambiguous-metadata", None,
+     "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+     "unambiguous-nuspec", "package-owner", NAMESPACE),
     ("no-nuspec", EXPRESSION, "missing-nuspec", None, "The archive has no nuspec entry.", "root-nuspec", "package-owner", NAMESPACE),
     ("multiple-root-nuspec", EXPRESSION, "ambiguous-nuspec", None, "The archive has multiple root nuspec entries.", "unique-root-nuspec", "package-owner", NAMESPACE),
     ("subfolder-only-nuspec", EXPRESSION, "missing-root-nuspec", None, "The only nuspec entry is nested in a subfolder.", "root-nuspec", "package-owner", NAMESPACE),
@@ -86,11 +95,20 @@ def archive(name, metadata, namespace):
         return None
     attribute = f' xmlns="{namespace}"' if namespace else ""
     declaration = '<!DOCTYPE package [<!ENTITY license "MIT">]>\n' if name == "dtd-entity" else ""
+    recognized_metadata = (
+        f"<metadata><id>Sample.LP05</id>"
+        f"<version>1.0.0</version>{metadata}</metadata>"
+    )
+    foreign_metadata = '<other:metadata xmlns:other="urn:other" />'
+    metadata_elements = (
+        foreign_metadata + recognized_metadata if name == "foreign-metadata-before" else
+        recognized_metadata + foreign_metadata if name == "foreign-metadata-after" else
+        recognized_metadata
+    )
     nuspec = (
         f'<?xml version="1.0" encoding="utf-8"?>\n'
         f"{declaration}"
-        f"<package{attribute}><metadata><id>Sample.LP05</id>"
-        f"<version>1.0.0</version>{metadata}</metadata></package>\n"
+        f"<package{attribute}>{metadata_elements}</package>\n"
     ).encode()
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_STORED, allowZip64=False) as package:
@@ -129,7 +147,8 @@ def expected_suite():
                 "decision": "deterministic" if decisive else "escalated",
                 "applicability": (
                     "unknown" if name in (
-                        "foreign-root", "invalid-xml", "no-nuspec", "multiple-root-nuspec",
+                        "foreign-root", "foreign-metadata-before", "foreign-metadata-after",
+                        "invalid-xml", "no-nuspec", "multiple-root-nuspec",
                         "subfolder-only-nuspec", "dtd-entity", "corrupt-archive", "no-package"
                     ) else "applicable"
                 ),
@@ -230,6 +249,16 @@ def main():
                         info.extra == b"" and info.comment == b"",
                         f"Nonportable ZIP entry metadata: {name}/{info.filename}",
                     )
+                if name in ("foreign-metadata-before", "foreign-metadata-after"):
+                    root = ET.fromstring(package.read(root_name))
+                    recognized = f"{{{NAMESPACE}}}metadata"
+                    foreign = "{urn:other}metadata"
+                    expected_order = ([foreign, recognized] if name.endswith("before")
+                                      else [recognized, foreign])
+                    require([node.tag for node in root] == expected_order and
+                            root.find(f"{recognized}/{{{NAMESPACE}}}license") is not None and
+                            not list(root.find(foreign)),
+                            f"Foreign metadata sibling order or recognized license differs: {name}")
     require(len({case["case_id"] for case in suite["cases"]}) == len(CASES),
             "Synthetic case IDs must be unique.")
     require({item["path"] for case in suite["cases"] for item in case["inputs"]} ==

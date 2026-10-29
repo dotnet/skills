@@ -1,4 +1,4 @@
-# LP-08 expectation freeze (before resolver implementation)
+# LP-08 expectation freeze (cross-row metadata correction)
 
 The normative `repository-wide` LP-08 row is **NuGet `Authors` is populated**,
 a `Licensing and provenance` decomposition evidence check from clause 1.4:
@@ -53,7 +53,21 @@ package escalates with a named missing fact. Missing *file on disk* or a
 changed input SHA-256 instead fails the foundation replay loader before row
 dispatch.
 
-`cases.json` freezes 50 complete structured `CaseResult` expectations (49
+The cross-row `foreign-metadata-before` and `foreign-metadata-after` controls
+place empty `urn:other` metadata beside recognized metadata with populated
+authors. NuGet's
+[`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
+selects the first root child by local name `metadata`, regardless of namespace;
+the shared reader selects only root-namespace metadata. Foreign-first inspects
+different nodes; recognized-first still contains competing root metadata.
+Both freeze `ambiguous-metadata` / `escalated` / `unknown`, no finding or field
+evidence, an archive-level evidence pointer and `unambiguous-nuspec`
+requested from the package owner. These well-formed controls are not claims
+that authors are missing. All earlier bytes/expectations and retained
+outcomes remain intact; the two new cases intentionally mismatch the
+current shared reader.
+
+`cases.json` freezes 52 complete structured `CaseResult` expectations (51
 synthetic archives and one absent-input case). Named branches cover plain,
 comma-separated, padded, internal-whitespace/newline and Unicode author text;
 entities, CDATA and comments; all recognized namespaces; other metadata and
@@ -87,12 +101,8 @@ explicitly prints `skipped`; required mode fails closed. Run
 `--check-negative-bindings` to prove that missing, misspelled and wrong
 existing files cannot pass even under `python -O`.
 
-Only **after** this expectation commit receives separate approval may Phase B
-add a resolver and registry implementation. Copy verified retained inputs
-to a temporary `packages\` directory beside a copy of `acceptance.json` for
-the future acceptance replay; record it in
-`acceptance-receipt.template.json`. This validator is not a retained resolver
-replay. In Phase A, LP-05/06/07 stay implemented and unchanged; LP-08 and the
-other 56 package rows remain `tbd`. An LP-08 synthetic replay must therefore
-predictably mismatch these expectations as `package-dispatcher/unimplemented`,
-not because the fixtures or schema are invalid.
+For an opt-in retained resolver replay, copy verified retained inputs to a
+temporary `packages\` directory beside a copy of `acceptance.json`; record
+results in `acceptance-receipt.template.json`. This validator is not a
+retained resolver replay. LP-05 through LP-09 are implemented; the cross-row
+metadata controls above are deliberately ahead of their shared reader.

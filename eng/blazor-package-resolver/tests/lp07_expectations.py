@@ -127,6 +127,12 @@ CASES = (
     ("foreign-root", REPOSITORY, "foreign-root", None,
      "The package root is not in a recognized NuGet namespace.",
      "recognized-nuspec", "package-owner", "urn:foreign"),
+    ("foreign-metadata-before", REPOSITORY, "ambiguous-metadata", None,
+     "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+     "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
+    ("foreign-metadata-after", REPOSITORY, "ambiguous-metadata", None,
+     "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+     "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
     ("unknown-attribute", repository(other='extra="unknown"'), "unsupported-attribute", None,
      "An unknown repository attribute is outside the recognized metadata contract.",
      "corrected-nuspec", "package-owner", NAMESPACES[-1]),
@@ -190,6 +196,7 @@ RATIONALES = {
     "ambiguous": "Multiple repository declarations cannot establish one unambiguous commit.",
     "foreign-repository": "A foreign-namespace repository declaration is not NuGet metadata.",
     "foreign-root": "An unrecognized package root cannot establish NuGet metadata.",
+    "ambiguous-metadata": "A foreign root-level metadata sibling makes first-local-name and namespace-strict readers disagree on the authoritative element.",
     "unsupported-attribute": "Unrecognized repository attributes are outside the strict metadata contract.",
     "invalid-xml": "Malformed or unsupported repository/metadata content cannot establish one commit.",
     "unsafe-nuspec": "DTD/entity declarations must not be expanded or trusted.",
@@ -200,7 +207,8 @@ RATIONALES = {
     "missing-package": "No checked package input was supplied.",
 }
 UNKNOWN = {
-    "foreign-root", "missing-metadata", "duplicate-metadata", "invalid-xml",
+    "foreign-root", "foreign-metadata-before", "foreign-metadata-after",
+    "missing-metadata", "duplicate-metadata", "invalid-xml",
     "dtd-entity", "no-nuspec", "multiple-root-nuspec", "subfolder-only-nuspec",
     "corrupt-archive", "no-package",
 }
@@ -257,6 +265,11 @@ def archive(name, metadata, namespace):
         f"<metadata><id>Sample.LP07</id><version>1.0.0</version>{metadata}</metadata>"
         + ("<metadata />" if name == "duplicate-metadata" else "")
     )
+    foreign_metadata = '<other:metadata xmlns:other="urn:other" />'
+    if name == "foreign-metadata-before":
+        metadata_element = foreign_metadata + metadata_element
+    elif name == "foreign-metadata-after":
+        metadata_element += foreign_metadata
     nuspec = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         f"{declaration}<package{attribute}>{metadata_element}{extra}</package>\n"
@@ -474,6 +487,16 @@ def main():
                         info.compress_type == zipfile.ZIP_STORED and
                         info.extra == b"" and info.comment == b"",
                         f"Nonportable ZIP entry: {name}/{info.filename}")
+            if name in ("foreign-metadata-before", "foreign-metadata-after"):
+                root = ET.fromstring(package.read(location))
+                recognized = f"{{{NAMESPACES[-1]}}}metadata"
+                foreign = "{urn:other}metadata"
+                expected_order = ([foreign, recognized] if name.endswith("before")
+                                  else [recognized, foreign])
+                require([node.tag for node in root] == expected_order and
+                        root.find(f"{recognized}/{{{NAMESPACES[-1]}}}repository") is not None and
+                        not list(root.find(foreign)),
+                        f"Foreign metadata sibling order or recognized repository differs: {name}")
             if name == "dtd-entity":
                 raw = package.read(location)
                 require(b"<!DOCTYPE package" in raw and b"&sha;" in raw,

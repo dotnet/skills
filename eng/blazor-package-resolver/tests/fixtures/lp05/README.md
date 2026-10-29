@@ -1,4 +1,4 @@
-# LP-05 expectation freeze (separate from resolver implementation)
+# LP-05 expectation freeze (cross-row metadata correction)
 
 The normative `repository-wide` LP-05 row says **NuGet `PackageLicenseExpression`
 is populated**, decomposed from requirement-basis clause 1.4: "NuGet packages
@@ -55,6 +55,23 @@ unresolved; **a blank license file declaration is a deterministic LP-05
 missing-expression finding**, not an LP-05 escalation. Its file metadata
 quality belongs to LP-04. A conflicting legacy URL is not an LP-05 conflict.
 
+The cross-row `foreign-metadata-before` and `foreign-metadata-after` controls
+place an empty `urn:other` metadata element beside one recognized metadata
+element containing a valid expression. NuGet's
+[`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
+selects the first root child with local name `metadata` regardless of its
+namespace; the shared resolver reader selects only root-namespace metadata.
+With the foreign sibling first, those readers inspect different elements;
+with the recognized sibling first, both can report a field but the package
+still contains competing root metadata. Both orderings freeze
+`ambiguous-metadata` / `escalated` / `unknown`, with no finding or field
+evidence, an archive-level evidence pointer and a request for an
+`unambiguous-nuspec` from the package owner. This is a structure/reader
+ambiguity, **not** malformed XML or evidence that the expression is absent.
+The suite now has 32 cases and 31 pinned archives; earlier bytes, expectations
+and retained package outcomes are unchanged. The two new cases intentionally
+mismatch the current shared reader until a separately approved correction.
+
 `retained-inputs.json` binds two exact published package identities to
 environment-variable names, without checking proprietary binaries into the
 repository or hardcoding workstation paths. Absolute local source paths are
@@ -100,10 +117,7 @@ separately. The expectation validator alone does **not** establish a passing
 vendor resolver replay; vendor replay evidence is separate. Ordinary CI
 requires only synthetic fixtures, not externally retained vendor packages.
 
-Before the implementation can be accepted against this expanded oracle,
-add executable, digest-pinned .NET boundary probes for over-limit package
-bytes, ZIP directory size, ZIP entry count, entry-name length, and uncompressed
-nuspec size. Each must verify a stable safe escalation (not an exception,
-decompression bomb, or unbounded allocation). These are **future
-implementation acceptance tests**, not resolver changes in this expectation
-commit.
+The implemented LP-05 already has executable, runtime-generated .NET
+boundary probes for over-limit package bytes, ZIP directory size, ZIP entry
+count, entry-name length, and uncompressed nuspec size. They verify stable
+safe escalations and remain unchanged by this expectation-only correction.

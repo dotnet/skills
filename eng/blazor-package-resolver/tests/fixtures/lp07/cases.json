@@ -1434,6 +1434,78 @@
       ]
     },
     {
+      "case_id": "lp07-foreign-metadata-before",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata-before.nupkg",
+          "sha256": "c2cc6940d05bad4e2580a9d8734ca992ade0b3eb3cab04410dea787856e9d8eb"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-metadata",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata-before.nupkg",
+            "sha256": "c2cc6940d05bad4e2580a9d8734ca992ade0b3eb3cab04410dea787856e9d8eb"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 foreign-metadata-before: A foreign root-level metadata sibling makes first-local-name and namespace-strict readers disagree on the authoritative element.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-foreign-metadata-after",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata-after.nupkg",
+          "sha256": "c64efe84e4027cf200da3a19a7914967c3c65955655461eda76c8cd05d0f668e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-metadata",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata-after.nupkg",
+            "sha256": "c64efe84e4027cf200da3a19a7914967c3c65955655461eda76c8cd05d0f668e"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 foreign-metadata-after: A foreign root-level metadata sibling makes first-local-name and namespace-strict readers disagree on the authoritative element.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
       "case_id": "lp07-unknown-attribute",
       "row_id": "LP-07",
       "inputs": [

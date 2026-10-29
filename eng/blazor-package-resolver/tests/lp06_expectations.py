@@ -85,6 +85,12 @@ CASES = (
     ("foreign-root", REPOSITORY, "foreign-root", None,
      "The package root is not in a recognized NuGet namespace.",
      "recognized-nuspec", "package-owner", "urn:foreign"),
+    ("foreign-metadata-before", REPOSITORY, "ambiguous-metadata", None,
+     "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+     "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
+    ("foreign-metadata-after", REPOSITORY, "ambiguous-metadata", None,
+     "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+     "unambiguous-nuspec", "package-owner", NAMESPACES[-1]),
     ("unknown-attribute", f'<repository url="{URL}" extra="unknown" />',
      "unsupported-attribute", None, "An unknown repository attribute is outside the recognized metadata contract.",
      "corrected-nuspec", "package-owner", NAMESPACES[-1]),
@@ -134,10 +140,19 @@ def archive(name, metadata, namespace):
         return b"not-a-nupkg\n"
     attribute = f' xmlns="{namespace}"' if namespace else ""
     declaration = '<!DOCTYPE package [<!ENTITY source "https://example.test/source.git">]>\n' if name == "dtd-entity" else ""
+    recognized_metadata = (
+        f"<metadata><id>Sample.LP06</id>"
+        f"<version>1.0.0</version>{metadata}</metadata>"
+    )
+    foreign_metadata = '<other:metadata xmlns:other="urn:other" />'
+    metadata_elements = (
+        foreign_metadata + recognized_metadata if name == "foreign-metadata-before" else
+        recognized_metadata + foreign_metadata if name == "foreign-metadata-after" else
+        recognized_metadata
+    )
     nuspec = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
-        f"{declaration}<package{attribute}><metadata><id>Sample.LP06</id>"
-        f"<version>1.0.0</version>{metadata}</metadata></package>\n"
+        f"{declaration}<package{attribute}>{metadata_elements}</package>\n"
     ).encode("utf-8")
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_STORED, allowZip64=False) as package:
@@ -172,12 +187,18 @@ def case(name, metadata, branch, url, missing, required, next_category, namespac
         "sha256": hashlib.sha256(content).hexdigest(),
     }]
     evidence = "package:nuspec/metadata" if branch == "missing-repository" else "package:nuspec/repository"
-    unknown = name in ("foreign-root", "invalid-xml", "dtd-entity", "no-nuspec",
+    unknown = name in ("foreign-root", "foreign-metadata-before", "foreign-metadata-after",
+                       "invalid-xml", "dtd-entity", "no-nuspec",
                        "multiple-root-nuspec", "subfolder-only-nuspec", "corrupt-archive", "no-package")
     return {
         "case_id": f"lp06-{name}", "row_id": "LP-06", "inputs": inputs,
         "expected": result(inputs, branch, url, missing, required, next_category, evidence, unknown),
-        "rationale": f"LP-06 {name}: only a single recognized nonblank repository URL establishes field population.",
+        "rationale": (
+            f"LP-06 {name}: a foreign metadata sibling makes NuGet's first-local-name and "
+            "namespace-strict metadata selection ambiguous; archive-level evidence cannot establish RepositoryUrl."
+            if branch == "ambiguous-metadata" else
+            f"LP-06 {name}: only a single recognized nonblank repository URL establishes field population."
+        ),
         "evidence_pointers": [evidence] if url is not None else (["package:archive"] if content else []),
     }
 
@@ -339,6 +360,16 @@ def main():
                         info.compress_type == zipfile.ZIP_STORED and
                         info.extra == b"" and info.comment == b"",
                         f"Nonportable ZIP entry: {name}/{info.filename}")
+            if name in ("foreign-metadata-before", "foreign-metadata-after"):
+                root = ET.fromstring(package.read(location))
+                recognized = f"{{{NAMESPACES[-1]}}}metadata"
+                foreign = "{urn:other}metadata"
+                expected_order = ([foreign, recognized] if name.endswith("before")
+                                  else [recognized, foreign])
+                require([node.tag for node in root] == expected_order and
+                        root.find(f"{recognized}/{{{NAMESPACES[-1]}}}repository") is not None and
+                        not list(root.find(foreign)),
+                        f"Foreign metadata sibling order or recognized repository differs: {name}")
             if name == "dtd-entity":
                 raw = package.read(location)
                 require(b"<!DOCTYPE package" in raw and b"&source;" in raw,
