@@ -1,6 +1,6 @@
 ---
 name: msbuild
-description: "Use before MSBuild build-file reviews or repairs: custom targets, hook order, optional/required or packed imports, and stale generation after input additions/deletions. Activate before editing/testing .proj/.props/.targets/.csproj/.fsproj/.vbproj or Directory.Build files; verify mutations on a copy, not original inputs. Also use for failed/slow dotnet build/restore/pack/publish, .binlog capture/replay, and assessing build-speedup claims or controlled timings without a checkout. DO NOT activate for framework/API/.NET/ASP.NET upgrades, working non-SDK-to-SDK/packages.config migrations, assertions after a successful build, SDK installation alone, C# refactoring, runtime CPU profiling, or non-MSBuild builds."
+description: "Use before MSBuild custom-target or incremental-generation repairs, XML/import review, .binlog capture/replay, or assessing supported/unsupported build-speedup claims and controlled timings, even without a checkout. Framework/API/.NET/ASP.NET upgrades and working non-SDK-to-SDK/packages.config conversions are migrations: DO NOT activate. A failing assertion after a successful build is code/test debugging: DO NOT activate. For MSBuild authoring itself, activate before reviewing/editing .proj/.props/.targets/.csproj/.fsproj/.vbproj or Directory.Build files, including no-change import reviews. Check Import/Exists, required and NuGet packed imports, hook order, conditions, Inputs/Outputs, stale outputs and incorrect skips. Build-wiring checks must use copies, keeping original source inputs read-only. Also diagnose failed dotnet build/restore/pack/publish or slow evaluation/compilation/copying. Exclude SDK installation alone, C# refactoring, runtime CPU profiling and non-MSBuild builds."
 license: MIT
 ---
 
@@ -45,19 +45,24 @@ logger-option, toolset, or privacy question.
 | Imports or build hooks are missing, overwritten, or run in the wrong order | [extension-points](references/extension-points.md) | Inspect the import contract, discovery order, and packed NuGet layout rather than hiding a required failure. |
 | Outputs are stale or required work is skipped | [incremental-build](references/incremental-build.md) | Track input-set membership as well as file timestamps; apply the repair contract below. |
 
-For build-wiring-only work, generator and source inputs are **read-only**. Before mutating a test
-input, copy the project and required imports to a unique disposable directory. An original project
-under a temporary path is not a verification copy. Do not delete/recreate originals and restore
-shell literals or text round-trips afterward. Record original hashes before checks and compare
-afterward. If a copy cannot reproduce the environment, report blocked checks; a request to verify
-does not authorize in-place input mutation.
+For build-wiring-only work, generator and source inputs are **read-only throughout**, not restored
+after tests. Allocate unique scratch under the owned workspace with a platform temporary-directory
+or GUID API; retain that exact path and keep the copy, logs, and hashes there. Never pre-delete fixed
+scratch paths or select a copy through shared-temp globbing. Copy the project/input tree and required
+imports; run every input-mutating check with **the copy as working directory**. A backup is not a
+verification copy, nor is an original project already under a temporary path. Compare original hashes
+before/after; equal final hashes do not excuse intermediate mutation. If the copy cannot reproduce
+the environment, report blocked checks; verification does not authorize in-place input mutation.
 
 For input-set changes, prefer a persisted membership list written with `WriteLinesToFile` and
-`WriteOnlyWhenDifferent`, plus actual files in `Inputs`. Report **cause, mechanism, observed checks**:
-removed inputs vanish from timestamp comparisons; older additions need not be newer than the output.
-Membership changes invalidate both cases; actual file timestamps still catch ordinary edits.
-A path list is not a content hash. Verify first/unchanged builds, deletion, older addition, empty
-inputs, and missing-output recovery on the copy; state which checks actually ran.
+`WriteOnlyWhenDifferent`, plus actual files in `Inputs`. A path list is not a content hash.
+Verify first/unchanged builds, deletion, older addition, empty inputs, and missing-output recovery
+on the copy. End the repair report with three concise explanations, not only a test checklist:
+
+- **Cause:** removed inputs leave timestamp comparisons; older additions can predate the output.
+- **Mechanism:** identify the membership artifact and how its changes invalidate the output.
+  Unchanged membership preserves skips; actual file timestamps still catch ordinary edits.
+- **Checks:** distinguish actually successful, failed, and not-run cases.
 
 After a repair, rerun the original failing scenario and check affected dependents. If only a log
 is available, provide an evidence-backed proposed fix and say it was not applied or rebuilt.
@@ -69,7 +74,8 @@ Do not turn a targeted failure investigation into solution-wide authoring cleanu
 
 For advice, give the verdict, decisive facts, and a concrete next step with equivalent successful
 builds and required outputs. Do not re-prove a supplied timeline or read references to restate it.
-Do not label a workload warm/no-op or assign most of a timing gap to one confound without evidence.
+Do not infer warm/no-op state or assign any part of a confounded timing gap to restore, cache, or
+setting effects without isolating that cause.
 
 | Supplied evidence | Decision | Smallest useful follow-up |
 | --- | --- | --- |
@@ -81,6 +87,7 @@ When a minimal attribution experiment is needed, return **one two-arm table**, n
 
 1. Bind the treatment to the user's identified setting and old/new values. If unidentified, retain
    literal `<setting>`, `<old>`, `<new>` placeholders. Differing commands are confounds, not setting names.
+   Never substitute restore policy, Build/Rebuild, or cache state for an unidentified setting.
 2. Expand the **full original baseline command in both arms**. Only an explicitly identified
    command-line treatment may change its own argument; otherwise vary its configured value.
 
@@ -94,7 +101,8 @@ When a minimal attribution experiment is needed, return **one two-arm table**, n
    workload.** When they are controls, retain supplied Rebuild and timed restore; do not prime,
    warm, or move work outside the timer unless the original workload already did.
 4. Alternate matched pairs; compare wall-time medians and observed ranges; check required outputs
-   and diagnostics. Scope the result to that workload. Stop: no second target/restore/cache experiment.
+   and diagnostics. Scope the result to that workload. End this answer after the plan and its validity
+   checks: no appended optional or "separately, if you want" restore/target/cache benchmarks.
 
 For optimization work, establish the relevant successful baseline before changing one supported cause:
 
