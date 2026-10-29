@@ -42,6 +42,8 @@ XML_LIMIT = 256 * 1024
 XML_DEPTH_LIMIT = 32
 XML_NODE_LIMIT = 4096
 SNIPPET_LIMIT = 160
+IMPORT_DEPTH_LIMIT = 8
+IMPORT_COUNT_LIMIT = 32
 MSBUILD_NS = "http://schemas.microsoft.com/developer/msbuild/2003"
 MSBUILD_SUFFIXES = (".props", ".targets", ".proj", ".tasks", ".overridetasks")
 SCRIPT_SUFFIXES = (".ps1", ".psm1", ".sh", ".cmd", ".bat")
@@ -52,6 +54,14 @@ DECLARATION_SUFFIXES = (".d.ts", ".d.mts", ".d.cts")
 PASSIVE_SUFFIXES = (".md", ".txt", ".css", ".png", ".jpg", ".jpeg", ".gif",
                     ".svg", ".pdb", ".p7s", ".map", ".psmdcp", ".d.ts", ".d.mts", ".d.cts")
 SUPPORT_JSON = ("package.json", "sbom.json", "provenance.json", "sourcelink.json")
+PROPERTY_FUNCTION = re.compile(
+    r"\$\(\s*(?:\[[^\]]+\]\s*::|[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+\s*\()")
+DECLARATIVE_FULL_PATH = re.compile(
+    r"\$\(\[System\.IO\.Path\]::GetFullPath\('\$\(MSBuildThisFileDirectory\)"
+    r"([A-Za-z0-9_.\-/\\]+)'\)\)")
+PROJECT_START = re.compile(
+    r"\A\s*(?:(?:<\?xml\b[^?]*\?>|<!--.*?-->)\s*)*"
+    r"<(?:[A-Za-z_][\w.-]*:)?Project(?=[\s/>])", re.DOTALL)
 
 
 def require(condition, message):
@@ -107,10 +117,25 @@ AT_XML_NODES = build_xml("<PropertyGroup/>" * (XML_NODE_LIMIT - 1))
 OVER_XML_NODES = build_xml("<PropertyGroup/>" * XML_NODE_LIMIT)
 AT_ENTRY = b"P" * ENTRY_LIMIT
 NO_CODE_PROPS = build_xml(
-    '<Import Project="..\\other.props" />'
     '<UsingTask TaskName="External" AssemblyName="Example.External" />'
     '<PropertyGroup><Configuration>Release</Configuration></PropertyGroup>'
     '<ItemGroup><Content Include="README.md" /></ItemGroup>')
+LATE_PROJECT = (b'<?xml version="1.0" encoding="utf-8"?>\n<!--'
+                + b"comment <Project> is not the root; " + b"X" * 520 + b"-->\n"
+                + build_xml('<Target Name="Imported"><Exec Command="echo imported" /></Target>'))
+
+
+def import_chain(length):
+    return tuple((f"build/chain{i}.props",
+                  build_xml(f'<Import Project="chain{i+1}.props" />'
+                            if i + 1 < length else ""), None)
+                 for i in range(length))
+
+
+def import_fanout(length):
+    imports = "".join(f'<Import Project="asset{i}.txt" />' for i in range(length))
+    return (("build/All.props", build_xml(imports), None),) + tuple(
+        (f"build/asset{i}.txt", build_xml(), None) for i in range(length))
 
 
 def spec(name, entries=(), metadata="", branch="compiled-attribution-unverified",
@@ -235,8 +260,9 @@ CASES = (
     ), branch="no-code-payload"),
     spec("reference-only-build", (
         ("build/ReferenceOnly.targets", build_xml(
-            '<Import Project="$(ExternalDir)\\custom.targets" />'
-            '<UsingTask TaskName="External" AssemblyFile="..\\elsewhere\\task.dll" />'), None),
+            '<UsingTask TaskName="External" AssemblyFile="..\\elsewhere\\task.dll" />'
+            '<UsingTask TaskName="Hosted" TaskFactory="TaskHostFactory" '
+            'AssemblyName="Elsewhere" />'), None),
     ), branch="no-code-payload"),
     spec("referenced-and-unreferenced-tools", (
         ("build/Tools.targets", build_xml(
@@ -260,14 +286,15 @@ CASES = (
             '<UsingTask TaskName="Custom" TaskFactory="RoslynCodeTaskFactory" AssemblyName="Example">'
             '<Task><Code Source="build/inline.txt" /></Task></UsingTask>'), None),
         ("build/inline.txt", b"return true;\n", None),
-    ), branch="text-code-attribution-unverified"),
+    ), branch="unsupported-executable-content"),
     spec("code-source-unresolved", (
         ("build/Tasks.targets", build_xml(
             '<UsingTask TaskName="Custom" TaskFactory="RoslynCodeTaskFactory" AssemblyName="Example">'
             '<Task><Code Source="$(UnknownDir)inline.txt" /></Task></UsingTask>'), None),
     ), branch="unsupported-executable-content"),
     spec("unsupported-factory", (("build/Tasks.tasks", build_xml(
-        '<UsingTask TaskName="Custom" TaskFactory="UnknownFactory" AssemblyName="Example" />'), None),),
+        '<UsingTask TaskName="Custom" TaskFactory="UnknownFactory" AssemblyName="Example">'
+        '<Task><Code>return true;</Code></Task></UsingTask>'), None),),
          branch="unsupported-executable-content"),
     spec("build-exec", (("build/Commands.targets", build_xml(
         '<Target Name="Run"><Exec Command="echo sample" /></Target>'), None),),
@@ -291,12 +318,18 @@ CASES = (
         '<CustomAfterMicrosoftCommonTargets>after.targets</CustomAfterMicrosoftCommonTargets>'
         '<ToolPath>tools</ToolPath></PropertyGroup>'), None),),
          branch="text-code-attribution-unverified"),
-    spec("property-function", (("build/Functions.props", build_xml(
-        '<PropertyGroup><Result>$([System.IO.File]::ReadAllText(\'x\'))</Result>'
-        '</PropertyGroup>'), None),), branch="text-code-attribution-unverified"),
+    spec("property-function", (
+        ("build/Functions.props", build_xml(
+            '<ItemGroup><Asset Include="$([System.IO.Path]::GetFullPath('
+            "'$(MSBuildThisFileDirectory)..\\assets\\item.txt'))"
+            '"><AssetFile>$([System.IO.Path]::GetFullPath('
+            "'$(MSBuildThisFileDirectory)..\\assets\\item.txt'))"
+            '</AssetFile></Asset></ItemGroup>'), None),
+        ("assets/item.txt", DOC, None),
+    ), branch="no-code-payload"),
     spec("custom-target-task", (("build/Custom.targets", build_xml(
         '<Target Name="Run"><PartnerTask Input="x" /></Target>'), None),),
-         branch="text-code-attribution-unverified"),
+         branch="no-code-payload"),
     spec("active-markup", (
         ("staticwebassets/index.html", b"<html><script>doThing()</script></html>", None),
         ("staticwebassets/icon.svg", b'<svg xmlns="http://www.w3.org/2000/svg" onload="go()"/>', None),
@@ -315,7 +348,7 @@ CASES = (
     spec("foreign-build-root", (("build/Foreign.targets", b'<Project xmlns="urn:foreign"/>', None),),
          branch="incomplete-inventory"),
     spec("unsupported-build-encoding", (
-        ("build/Utf16.targets", build_xml().decode().encode("utf-16"), None),),
+        ("build/Utf32.targets", b"\xff\xfe\x00\x00" + build_xml().decode().encode("utf-32-le"), None),),
          branch="incomplete-inventory"),
     spec("utf8-msbuild-namespace", (
         ("build/Namespaced.targets", build_xml('<Target Name="Run"><Exec Command="echo" /></Target>',
@@ -415,6 +448,171 @@ CASES = (
     spec("snippet-over-limit", (("build/Snippet.targets", build_xml(
         '<Target Name="Run"><Exec Command="' + "X" * (SNIPPET_LIMIT + 1) + '" /></Target>'), None),),
          branch="text-code-attribution-unverified"),
+    spec("utf16-benign-no-code", (("README.md", DOC, None),),
+         branch="no-code-payload", archive_problem="utf16-benign"),
+    spec("utf16-benign-compiled", ((PE_PATH, PE, None),),
+         archive_problem="utf16-benign"),
+    spec("utf16be-benign-no-code", (("README.md", DOC, None),),
+         branch="no-code-payload", archive_problem="utf16be-benign"),
+    spec("utf16be-benign-compiled", ((PE_PATH, PE, None),),
+         archive_problem="utf16be-benign"),
+    spec("utf16-dtd-no-code", (("README.md", DOC, None),),
+         branch="unsafe-nuspec", archive_problem="utf16-dtd"),
+    spec("utf16-dtd-compiled", ((PE_PATH, PE, None),),
+         branch="unsafe-nuspec", archive_problem="utf16-dtd"),
+    spec("utf16-entity-no-code", (("README.md", DOC, None),),
+         branch="unsafe-nuspec", archive_problem="utf16-entity"),
+    spec("utf16-entity-compiled", ((PE_PATH, PE, None),),
+         branch="unsafe-nuspec", archive_problem="utf16-entity"),
+    spec("property-function-condition", (("build/Condition.props", build_xml(
+        '<ItemGroup Condition="$([System.IO.Path]::GetFullPath('
+        "'$(MSBuildThisFileDirectory)asset.txt'))"
+        '"><Asset Include="asset.txt" /></ItemGroup>'), None),),
+         branch="unsupported-executable-content"),
+    spec("property-function-item-condition", (("build/Condition.props", build_xml(
+        '<ItemGroup><Asset Condition="$([System.IO.Path]::GetFullPath('
+        "'$(MSBuildThisFileDirectory)asset.txt'))"
+        '" Include="asset.txt" /></ItemGroup>'), None),),
+         branch="unsupported-executable-content"),
+    spec("property-function-property", (("build/Property.props", build_xml(
+        '<PropertyGroup><Path>$([System.IO.Path]::GetFullPath('
+        "'$(MSBuildThisFileDirectory)asset.txt'))"
+        '</Path></PropertyGroup>'), None),),
+         branch="unsupported-executable-content"),
+    spec("property-function-instance", (("build/Instance.props", build_xml(
+        '<ItemGroup><Asset Include="$(Configuration.ToUpper())" /></ItemGroup>'), None),),
+         branch="unsupported-executable-content"),
+    spec("property-function-unknown", (("build/Unknown.props", build_xml(
+        '<ItemGroup><Asset Include="$([System.IO.File]::ReadAllText('
+        "'$(MSBuildThisFileDirectory)asset.txt'))"
+        '" /></ItemGroup>'), None),),
+         branch="unsupported-executable-content"),
+    spec("property-function-nested", (("build/Nested.props", build_xml(
+        '<ItemGroup><Asset Include="$([System.IO.Path]::GetFullPath('
+        "'$(MSBuildThisFileDirectory)$([System.IO.File]::ReadAllText('x'))'))"
+        '" /></ItemGroup>'), None),),
+         branch="unsupported-executable-content"),
+    spec("property-function-escape", (("build/Escape.props", build_xml(
+        '<ItemGroup><Asset Include="$([System.IO.Path]::GetFullPath('
+        "'$(MSBuildThisFileDirectory)..\\..\\outside.txt'))"
+        '" /></ItemGroup>'), None),),
+         branch="unsupported-executable-content"),
+    spec("taskhost-reference", (("build/TaskHost.tasks", build_xml(
+        '<UsingTask TaskName="Hosted" TaskFactory="TaskHostFactory" '
+        'AssemblyName="Elsewhere" />'), None),), branch="no-code-payload"),
+    spec("unknown-factory-reference", (("build/Factory.tasks", build_xml(
+        '<UsingTask TaskName="External" TaskFactory="ExternalFactory" '
+        'AssemblyName="Elsewhere" />'), None),), branch="no-code-payload"),
+    spec("unsupported-inline-syntax", (("build/Task.tasks", build_xml(
+        '<UsingTask TaskName="Opaque" AssemblyName="Elsewhere">'
+        '<Task><Opaque>value</Opaque></Task></UsingTask>'), None),),
+         branch="unsupported-executable-content"),
+    spec("imported-utf16-txt", (
+        ("build/Load.props", build_xml(
+            '<Import Project="$(MSBuildThisFileDirectory)..\\assets\\hidden.txt" />'), None),
+        ("assets/hidden.txt", b"\xff\xfe" + (
+            '<?xml version="1.0" encoding="utf-16"?>\n'
+            '<Project><Target Name="Run"><Exec Command="echo imported" />'
+            '</Target></Project>').encode("utf-16-le"), None),
+    ), branch="text-code-attribution-unverified"),
+    spec("imported-utf8-bom-txt", (
+        ("build/Load.props", build_xml('<Import Project="..\\assets\\hidden.txt" />'), None),
+        ("assets/hidden.txt", b"\xef\xbb\xbf<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+         + build_xml('<Target Name="Run"><Exec Command="echo imported" /></Target>'), None),
+    ), branch="text-code-attribution-unverified"),
+    spec("bom-project-direct", (
+        ("assets/hidden.md", b"\xef\xbb\xbf<!-- prelude with <Project> --><Project>"
+         b"<Target Name=\"Run\"><Exec Command=\"echo direct\" /></Target></Project>", None),
+    ), branch="text-code-attribution-unverified"),
+    spec("imported-late-roots", (
+        ("build/Load.props", build_xml(
+            '<Import Project="..\\assets\\hidden.txt" />'
+            '<Import Project="..\\assets\\hidden.md" />'
+            '<Import Project="..\\assets\\hidden.xml" />'), None),
+        ("assets/hidden.txt", LATE_PROJECT, None),
+        ("assets/hidden.md", LATE_PROJECT, None),
+        ("assets/hidden.xml", LATE_PROJECT, None),
+    ), branch="text-code-attribution-unverified"),
+    spec("readme-project-decoy", (
+        ("README.md", b"Documentation quoting <Project><Exec /> as prose.\n", None),
+    ), branch="no-code-payload"),
+    spec("js-project-decoy", (
+        ("staticwebassets/app.js", b"// <Project><Exec Command='echo' /></Project>\n" + JS, None),
+    ), branch="text-code-attribution-unverified"),
+    spec("import-cycle", (
+        ("build/First.props", build_xml('<Import Project="Second.props" />'), None),
+        ("build/Second.props", build_xml('<Import Project="First.props" />'), None),
+    ), branch="incomplete-inventory"),
+    spec("import-depth-at-limit", import_chain(IMPORT_DEPTH_LIMIT), branch="no-code-payload"),
+    spec("import-depth-over-limit", import_chain(IMPORT_DEPTH_LIMIT + 1),
+         branch="incomplete-inventory"),
+    spec("import-count-at-limit", import_fanout(IMPORT_COUNT_LIMIT),
+         branch="no-code-payload"),
+    spec("import-count-over-limit", import_fanout(IMPORT_COUNT_LIMIT + 1),
+         branch="incomplete-inventory"),
+    spec("import-wildcard", (
+        ("build/Load.props", build_xml('<Import Project="assets/*.targets" />'), None),
+    ), branch="incomplete-inventory"),
+    spec("import-property", (
+        ("build/Load.props", build_xml('<Import Project="$(ExternalDir)\\task.targets" />'), None),
+    ), branch="incomplete-inventory"),
+    spec("import-outside", (
+        ("build/Load.props", build_xml('<Import Project="../../outside.targets" />'), None),
+    ), branch="incomplete-inventory"),
+    spec("import-target-invalid", (
+        ("build/Load.props", build_xml('<Import Project="..\\assets\\hidden.txt" />'), None),
+        ("assets/hidden.txt", b"<Project><Target>", None),
+    ), branch="incomplete-inventory"),
+    spec("sevenzip-magic-png", (("images/logo.png", b"7z\xbc\xaf\x27\x1c" + bytes(8), None),),
+         branch="unsupported-executable-content"),
+    spec("xz-magic-pdb", (("symbols/file.pdb", b"\xfd7zXZ\x00" + bytes(8), None),),
+         branch="unsupported-executable-content"),
+    spec("zstd-magic-map", (("staticwebassets/app.js.map", b"\x28\xb5\x2f\xfd" + bytes(8), None),),
+         branch="unsupported-executable-content"),
+    spec("bzip2-magic-txt", (("README.txt", b"BZh9" + bytes(8), None),),
+         branch="unsupported-executable-content"),
+    spec("rar4-magic-png", (("images/logo.png", b"Rar!\x1a\x07\x00" + bytes(8), None),),
+         branch="unsupported-executable-content"),
+    spec("rar5-magic-pdb", (("symbols/file.pdb", b"Rar!\x1a\x07\x01\x00" + bytes(8), None),),
+         branch="unsupported-executable-content"),
+    spec("html-doctype-script", (
+        ("staticwebassets/index.html", b'<!DOCTYPE html><html><script>go()</script></html>', None),
+    ), branch="unsupported-executable-content"),
+    spec("html-void-script", (
+        ("staticwebassets/index.html", b'<html><img src="logo.png"><script>go()</script></html>', None),
+    ), branch="unsupported-executable-content"),
+    spec("inline-parameter-group", (
+        ("build/Tasks.targets", build_xml(
+            '<UsingTask TaskName="Custom" TaskFactory="RoslynCodeTaskFactory" AssemblyName="Example">'
+            '<ParameterGroup><Result ParameterType="System.Boolean" Output="true" /></ParameterGroup>'
+            '<Task><Code Type="Fragment">return true;</Code></Task></UsingTask>'), None),
+    ), branch="text-code-attribution-unverified"),
+    spec("non-command-task-and-property", (
+        ("build/Tasks.targets", build_xml(
+            '<PropertyGroup><Exec>ordinary property text</Exec></PropertyGroup>'
+            '<Target Name="Run"><PartnerTask Input="x" /></Target>'), None),
+    ), branch="no-code-payload"),
+    spec("import-target-unsupported-encoding", (
+        ("build/Load.props", build_xml('<Import Project="..\\assets\\hidden.txt" />'), None),
+        ("assets/hidden.txt", b"\xff\xfe\x00\x00" + build_xml().decode().encode("utf-32-le"), None),
+    ), branch="incomplete-inventory"),
+    spec("nonstandard-root-at-limit", (
+        ("assets/metadata.md", b" " * (XML_LIMIT - len(build_xml())) + build_xml(), None),
+    ), branch="no-code-payload", compress=True),
+    spec("nonstandard-root-over-limit", (
+        ("assets/metadata.md", b" " * (XML_LIMIT + 1) + build_xml(), None),
+    ), branch="incomplete-inventory", compress=True),
+    spec("nonstandard-utf16-without-bom", (
+        ("assets/hidden.txt", build_xml().decode().encode("utf-16-le"), None),
+    ), branch="incomplete-inventory"),
+    spec("nonstandard-invalid-utf8-root", (
+        ("assets/hidden.md", b"<Project><PropertyGroup>\xff</PropertyGroup></Project>", None),
+    ), branch="incomplete-inventory"),
+    spec("nested-target-exec", (
+        ("build/Tasks.targets", build_xml(
+            '<Target Name="Run"><PartnerTask><Exec Command="echo" />'
+            '</PartnerTask></Target>'), None),
+    ), branch="unsupported-executable-content"),
 )
 
 STRUCTURAL = {
@@ -423,7 +621,7 @@ STRUCTURAL = {
     "ambiguous-metadata": ("A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
                            "unambiguous-nuspec", "package-owner"),
     "invalid-xml": ("The nuspec XML is not well formed.", "valid-nuspec", "package-owner"),
-    "unsafe-nuspec": ("The nuspec contains a DTD/entity declaration and cannot be safely inspected.",
+    "unsafe-nuspec": ("The nuspec has a DTD/entity declaration or unsupported encoding and cannot be safely inspected.",
                       "safe-nuspec", "package-owner"),
     "missing-nuspec": ("The archive has no nuspec entry.", "root-nuspec", "package-owner"),
     "ambiguous-nuspec": ("The archive has multiple root nuspec entries.", "unique-root-nuspec", "package-owner"),
@@ -448,11 +646,11 @@ ATTRIBUTION = {
         "Packaged compiled code lacks verified per-entry ownership and correspondence to public release-commit builds or a referenced NuGet/npm upstream.",
         "per-entry-owner-and-public-release-commit-build-or-upstream-byte-map", "source-owner"),
     "text-code-attribution-unverified": (
-        "Packaged executable source-form text lacks verified per-entry ownership and exact packaged-byte correspondence to a public release-commit blob or referenced upstream.",
-        "per-entry-owner-and-public-release-commit-blob-or-upstream-byte-map", "source-owner"),
+        "Packaged executable source-form text lacks verified per-entry ownership and exact release-commit blob correspondence, a pinned reproducible build/transform, or referenced-upstream byte correspondence.",
+        "per-entry-owner-and-public-release-commit-blob-or-verified-transform-or-upstream-byte-map", "source-owner"),
     "mixed-code-attribution-unverified": (
         "Packaged compiled code and executable source-form text each lack verified per-entry source or referenced-upstream correspondence.",
-        "per-entry-compiled-build-and-text-blob-or-upstream-byte-maps", "source-owner"),
+        "per-entry-compiled-build-and-text-blob-or-verified-transform-or-upstream-byte-maps", "source-owner"),
 }
 
 # Path, uncompressed size, SHA-256: independently inventoried from the two
@@ -543,22 +741,6 @@ IG_REST = (
     (".signature.p7s", 26753, "2c1cc991ad9394016650d6e9b060c148e7731264e57f4367cc1a60d350781418"),
 )
 
-# Independent structural fingerprint of sorted, display-capped XML locators.
-# No retained vendor content/snippet text is copied into the repository.
-ACTIVE_LOCATORS = {
-    ("syncfusion", "build/Microsoft.AspNetCore.StaticWebAssetEndpoints.props"):
-        (44, "72ba159a0339a29bda85a763b829b81b096ebb28878265623c2c46f121789425",
-         "Project[1]/ItemGroup[1]/StaticWebAssetEndpoint[10]/AssetFile[1]#property-function"),
-    ("syncfusion", "build/Microsoft.AspNetCore.StaticWebAssets.props"):
-        (44, "e5b0dba9a433b45406b2bfe7c655cb9ce4b70fd73901106a3e56023a31cfeac8",
-         "Project[1]/ItemGroup[1]/StaticWebAsset[10]/OriginalItemSpec[1]#property-function"),
-    ("infragistics", "build/Microsoft.AspNetCore.StaticWebAssetEndpoints.props"):
-        (32, "ecc20c948d3505200735583ef95b7ad39dccf32e446dd543d98ed7d23f79fc03",
-         "Project[1]/ItemGroup[1]/StaticWebAssetEndpoint[10]/AssetFile[1]#property-function"),
-    ("infragistics", "build/Microsoft.AspNetCore.StaticWebAssets.props"):
-        (32, "60d461599c0043a96849844231f16db3cab7aa2abe81b54ea85c289e5a0200e9",
-         "Project[1]/ItemGroup[1]/StaticWebAsset[10]/OriginalItemSpec[1]#property-function"),
-}
 VENDORS = (
     dict(vendor="syncfusion", binding="LP10_SYNCFUSION_NUPKG",
          source_root_hint="syncfusion-toolkit-assessment",
@@ -618,10 +800,15 @@ def archive(case):
         metadata += '<foreign:metadata xmlns:foreign="urn:other" />'
     if problem == "invalid-xml":
         metadata += "<unclosed"
-    declaration = '<!DOCTYPE package [<!ENTITY x "unsafe">]>\n' if problem == "dtd-entity" else ""
+    declaration = ('<!DOCTYPE package [<!ENTITY x "unsafe">]>\n'
+                   if problem in ("dtd-entity", "utf16-dtd") else
+                   '<!ENTITY x "unsafe">\n' if problem == "utf16-entity" else "")
     root_ns = "urn:foreign" if problem == "foreign-root" else NS
-    nuspec = ('<?xml version="1.0" encoding="utf-8"?>\n' + declaration +
-              f'<package xmlns="{root_ns}">{metadata}</package>\n').encode("utf-8")
+    utf16 = problem in ("utf16-benign", "utf16be-benign", "utf16-dtd", "utf16-entity")
+    text = ('<?xml version="1.0" encoding="' + ("utf-16" if utf16 else "utf-8") +
+            '"?>\n' + declaration + f'<package xmlns="{root_ns}">{metadata}</package>\n')
+    nuspec = ((b"\xfe\xff" + text.encode("utf-16-be") if problem == "utf16be-benign"
+               else b"\xff\xfe" + text.encode("utf-16-le")) if utf16 else text.encode("utf-8"))
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", allowZip64=False) as package:
         if problem != "no-nuspec":
@@ -663,34 +850,115 @@ def display_snippet(value):
     return {"text": prefix, "truncated": len(raw) > SNIPPET_LIMIT}
 
 
-def xml_root(content):
-    if len(content) > XML_LIMIT:
-        raise ValueError("build-xml-byte-limit")
-    if content.startswith((b"\xff\xfe", b"\xfe\xff")) or b"\x00" in content[:512]:
-        raise ValueError("build-xml-encoding")
+def xml_text(content, limit, label):
+    if len(content) > limit:
+        raise ValueError(label + "-byte-limit")
+    if content.startswith(b"\xff\xfe"):
+        encoding, allowed = "utf-16-le", ("utf-16", "utf-16le")
+        content = content[2:]
+    elif content.startswith(b"\xfe\xff"):
+        encoding, allowed = "utf-16-be", ("utf-16", "utf-16be")
+        content = content[2:]
+    elif content.startswith(b"\xef\xbb\xbf"):
+        encoding, allowed = "utf-8", ("utf-8",)
+        content = content[3:]
+    else:
+        encoding, allowed = "utf-8", ("utf-8",)
+        if b"\x00" in content:
+            raise ValueError(label + "-encoding")
     try:
-        text = content.decode("utf-8-sig")
+        text = content.decode(encoding)
     except UnicodeDecodeError as error:
-        raise ValueError("build-xml-encoding") from error
-    if re.search(r"<\?\s*xml\b[^>]*encoding\s*=\s*['\"](?!utf-8['\"])[^'\"]+",
-                 text[:512], re.IGNORECASE):
-        raise ValueError("build-xml-encoding")
+        raise ValueError(label + "-encoding") from error
+    if "\x00" in text or text.startswith("\ufeff"):
+        raise ValueError(label + "-encoding")
+    declaration = re.match(r"\A\s*<\?xml\b([^?]*)\?>", text, re.IGNORECASE)
+    if declaration:
+        declared = re.search(r'\bencoding\s*=\s*["\']([^"\']+)["\']',
+                             declaration.group(1), re.IGNORECASE)
+        if declared and declared.group(1).lower() not in allowed:
+            raise ValueError(label + "-encoding")
+    return text
+
+
+def safe_xml_root(content, limit=XML_LIMIT, label="build-xml"):
+    text = xml_text(content, limit, label)
     if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", text, re.IGNORECASE):
-        raise ValueError("build-xml-dtd")
+        raise ValueError(label + "-dtd")
     try:
         return ET.fromstring(text)
     except ET.ParseError as error:
-        raise ValueError("build-xml-parse") from error
+        raise ValueError(label + "-parse") from error
+
+
+def starts_project(content):
+    prefix = content[:XML_LIMIT]
+    utf16 = prefix.startswith((b"\xff\xfe", b"\xfe\xff"))
+    if prefix.startswith((b"<\x00", b"\x00<")) and not utf16:
+        raise ValueError("build-xml-encoding")
+    if not utf16 and not prefix.removeprefix(b"\xef\xbb\xbf").lstrip().startswith(b"<"):
+        if len(content) > XML_LIMIT and prefix.isspace():
+            raise ValueError("build-xml-root-limit")
+        return False
+    try:
+        text = xml_text(prefix, XML_LIMIT, "build-xml")
+    except ValueError:
+        if len(content) > XML_LIMIT or re.match(
+                rb"\s*<(?:[A-Za-z_][\w.-]*:)?Project(?=[\s/>])", prefix):
+            raise ValueError("build-xml-root-limit")
+        return False
+    if PROJECT_START.match(text):
+        return True
+    prelude = re.match(r"\A\s*(?:(?:<\?xml\b[^?]*\?>|<!--.*?-->)\s*)*",
+                       text, re.DOTALL)
+    remaining = text[prelude.end():]
+    if len(content) > XML_LIMIT and (not remaining or remaining.startswith(("<!--", "<?xml"))):
+        raise ValueError("build-xml-root-limit")
+    return False
+
+
+def resolve_in_package(name, reference, available, allow_literal):
+    prefix = "$(MSBuildThisFileDirectory)"
+    if reference.startswith(prefix):
+        relative = reference[len(prefix):]
+    elif allow_literal and "$(" not in reference:
+        relative = reference
+    else:
+        return None
+    relative = relative.replace("\\", "/")
+    if not relative or relative.startswith("/") or re.match(r"^[A-Za-z]:", relative) or (
+            "$" in relative or "*" in relative or "?" in relative or ":" in relative):
+        return None
+    target = posixpath.normpath(posixpath.join(posixpath.dirname(name), relative))
+    if not safe_path(target) or target not in available:
+        return None
+    return target
+
+
+def declarative_full_path(value, path, attribute, name):
+    match = DECLARATIVE_FULL_PATH.fullmatch(value)
+    if not match:
+        return False
+    item = r"/ItemGroup\[\d+\]/[^/]+\[\d+\]"
+    if attribute:
+        if attribute.lower() == "condition" or re.search(item + r"$", path) is None:
+            return False
+    elif re.search(item + r"/[^/]+\[\d+\]$", path) is None:
+        return False
+    relative = match.group(1).replace("\\", "/")
+    target = posixpath.normpath(posixpath.join(posixpath.dirname(name), relative))
+    return safe_path(target)
 
 
 def inspect_msbuild(name, content, available):
-    root = xml_root(content)
+    root = safe_xml_root(content)
     namespace = root.tag.partition("}")[0][1:] if root.tag.startswith("{") else ""
     if root.tag.rsplit("}", 1)[-1] != "Project" or namespace not in ("", MSBUILD_NS):
         raise ValueError("build-xml-foreign-root")
     paths = locator_map(root)
     locators = []
     promotions = []
+    imports = []
     unresolved = False
 
     def record(node, marker, value):
@@ -699,52 +967,68 @@ def inspect_msbuild(name, content, available):
     for node, path in paths.items():
         local = node.tag.rsplit("}", 1)[-1]
         lower = local.lower()
+        if lower == "import":
+            target = resolve_in_package(name, node.attrib.get("Project", ""), available, True)
+            if target is None:
+                raise ValueError("build-import-unresolved")
+            imports.append(target)
         if lower == "usingtask":
             factory = node.attrib.get("TaskFactory", "")
-            if factory and factory.lower() not in ("roslyncodetaskfactory", "codetaskfactory"):
+            if list(node) and factory and factory.lower() not in (
+                    "roslyncodetaskfactory", "codetaskfactory"):
                 record(node, "@TaskFactory", factory)
+                unresolved = True
+            if any(child.tag.rsplit("}", 1)[-1].lower() not in ("task", "parametergroup")
+                   for child in node):
+                record(node, "#unsupported-inline", local)
                 unresolved = True
         if lower == "code" and "/UsingTask[" in path:
             source = node.attrib.get("Source")
             if source is not None:
                 record(node, "@Source", source)
-                prefix = "$(MSBuildThisFileDirectory)"
-                if source.lower().startswith(prefix.lower()):
-                    target = posixpath.normpath(posixpath.join(posixpath.dirname(name),
-                                                                source[len(prefix):].replace("\\", "/")))
-                elif not "$(" in source and "\\" not in source:
-                    target = source
-                else:
-                    target = ""
-                if target in available and target != name:
+                target = resolve_in_package(name, source, available, False)
+                if target and target != name:
                     promotions.append(target)
                 else:
                     unresolved = True
+                if (node.text or "").strip():
+                    record(node, "#text", node.text)
             else:
                 record(node, "#text", "".join(node.itertext()))
-        if lower == "task" and "/UsingTask[" in path and not list(node) and (node.text or "").strip():
-            record(node, "#text", node.text)
+        if lower == "task" and "/UsingTask[" in path and (
+                (node.text or "").strip() or
+                any(child.tag.rsplit("}", 1)[-1].lower() != "code" for child in node)):
+            record(node, "#unsupported-inline", node.text or local)
+            unresolved = True
         if lower == "exec" or lower.endswith(".exec"):
-            record(node, "@Command", node.attrib.get("Command", ""))
+            if re.search(r"/Target\[\d+\]/[^/]+\[\d+\]$", path):
+                record(node, "@Command", node.attrib.get("Command", ""))
+            elif re.search(r"/Target\[\d+\]/", path):
+                record(node, "#unsupported-nested-exec", node.attrib.get("Command", ""))
+                unresolved = True
         if lower in ("prebuildevent", "postbuildevent", "runcommand") or (
             lower.endswith(("toolexe", "toolpath")) or
             lower.startswith(("custombeforemicrosoft", "customaftermicrosoft"))):
             record(node, "#text", (node.text or "") + "".join(node.attrib.values()))
-        if re.search(r"/Target\[\d+\]/[^/]+\[\d+\]$", path) and lower not in (
-                "message", "warning", "error", "propertygroup", "itemgroup", "onerror",
-                "output", "exec"):
-            record(node, "#task", local)
         for attribute, value in node.attrib.items():
-            if re.search(r"\$\(\s*\[[^)]*::", value):
+            if PROPERTY_FUNCTION.search(value) and not declarative_full_path(
+                    value, path, attribute, name):
                 record(node, "@" + attribute, value)
-        if node.text and re.search(r"\$\(\s*\[[^)]*::", node.text):
+                unresolved = True
+        if node.text and PROPERTY_FUNCTION.search(node.text) and not declarative_full_path(
+                node.text, path, None, name):
             record(node, "#property-function", node.text)
+            unresolved = True
+        if node.tail and PROPERTY_FUNCTION.search(node.tail):
+            record(node, "#tail-function", node.tail)
+            unresolved = True
     return ("unsupported" if unresolved else "text" if locators else "passive",
-            sorted(locators, key=lambda item: item["locator"]), sorted(set(promotions)))
+            sorted(locators, key=lambda item: item["locator"]),
+            sorted(set(promotions)), sorted(imports))
 
 
 def inspect_markup(content):
-    root = xml_root(content)
+    root = safe_xml_root(content)
     paths = locator_map(root)
     locators = []
     for node, path in paths.items():
@@ -758,7 +1042,7 @@ def inspect_markup(content):
     return ("text" if locators else "passive", sorted(locators, key=lambda item: item["locator"]))
 
 
-def classify_payload(name, content, available):
+def classify_payload(name, content, available, imports=None, force_msbuild=False):
     lower = ascii_lower(name)
     offset = int.from_bytes(content[0x3c:0x40], "little") if len(content) >= 0x40 else -1
     if content[:2] == b"MZ" and content[offset:offset+4] == b"PE\x00\x00":
@@ -774,7 +1058,10 @@ def classify_payload(name, content, available):
     if content.startswith(WASM):
         return "compiled", "wasm-signature", [], []
     magic = (("zip", b"PK\x03\x04"), ("gzip", b"\x1f\x8b"), ("ar", b"!<arch>\n"),
-             ("cfb", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"), ("cab", b"MSCF"))
+             ("cfb", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"), ("cab", b"MSCF"),
+             ("7z", b"7z\xbc\xaf\x27\x1c"), ("xz", b"\xfd7zXZ\x00"),
+             ("zstd", b"\x28\xb5\x2f\xfd"), ("bzip2", b"BZh"),
+             ("rar4", b"Rar!\x1a\x07\x00"), ("rar5", b"Rar!\x1a\x07\x01\x00"))
     for label, marker in magic:
         if content.startswith(marker):
             return "unsupported", label + "-container", [], []
@@ -788,13 +1075,21 @@ def classify_payload(name, content, available):
         return "text", "shebang-at-start", [], []
     if lower.endswith((".js.gz", ".js.br", ".js.zip", ".js.nupkg")):
         return "unsupported", "precompressed-code", [], []
-    if lower.endswith(MSBUILD_SUFFIXES) or re.search(
-            rb"<(?:[A-Za-z0-9_]+:)?Project(?=[\s>])", content[:512]):
+    try:
+        project = starts_project(content) if not force_msbuild and not lower.endswith(
+            MSBUILD_SUFFIXES) else False
+    except ValueError as error:
+        return "incomplete", str(error), [], []
+    if force_msbuild or lower.endswith(MSBUILD_SUFFIXES) or project:
         try:
-            kind, locators, promotions = inspect_msbuild(name, content, available)
+            kind, locators, promotions, references = inspect_msbuild(name, content, available)
         except ValueError as error:
             return "incomplete", str(error), [], []
-        return kind, "msbuild-" + ("active" if kind != "passive" else "declaration-only"), locators, promotions
+        if imports is not None:
+            imports.extend(references)
+        return kind, "msbuild-" + (
+            "declaration-only" if kind == "passive" else
+            "unsupported" if kind == "unsupported" else "active"), locators, promotions
     if lower.endswith((".html", ".svg", ".xslt", ".xsl", ".ps1xml")):
         try:
             kind, locators = inspect_markup(content)
@@ -894,11 +1189,11 @@ def scan_archive(content):
             raw = package.read(roots[0])
         except (RuntimeError, zipfile.BadZipFile, OSError):
             return "unreadable-package", [], []
-        if re.search(rb"<!\s*(?:DOCTYPE|ENTITY)\b", raw, re.IGNORECASE):
-            return "unsafe-nuspec", [], []
         try:
-            root = ET.fromstring(raw)
-        except ET.ParseError:
+            root = safe_xml_root(raw, 1024 * 1024, "nuspec")
+        except ValueError as error:
+            if str(error) in ("nuspec-encoding", "nuspec-dtd"):
+                return "unsafe-nuspec", [], []
             return "invalid-xml", [], []
         namespace = root.tag.partition("}")[0][1:] if root.tag.startswith("{") else ""
         if root.tag.rsplit("}", 1)[-1] != "package" or namespace not in (
@@ -919,7 +1214,9 @@ def scan_archive(content):
                 sum(info.file_size for info in infos if info != roots[0]) > TOTAL_LIMIT):
             return "incomplete-inventory", [], []
         available = {info.filename for info in infos}
-        records = []
+        contents = {}
+        records = {}
+        imports_by_name = {}
         promotions = set()
         for info in infos:
             if info == roots[0]:
@@ -930,24 +1227,60 @@ def scan_archive(content):
                 return "unreadable-package", [], []
             if len(raw_entry) != info.file_size:
                 return "incomplete-inventory", [], []
-            kind, reason, locators, promoted = classify_payload(info.filename, raw_entry, available)
+            contents[info.filename] = raw_entry
+        for name in sorted(contents):
+            references = []
+            raw_entry = contents[name]
+            kind, reason, locators, promoted = classify_payload(
+                name, raw_entry, available, references)
             if kind == "incomplete":
                 return "incomplete-inventory", [], []
             promotions.update(promoted)
-            records.append(dict(path=info.filename, size_bytes=info.file_size,
+            imports_by_name[name] = references
+            records[name] = dict(path=name, size_bytes=len(raw_entry),
                                 sha256=digest(raw_entry), classification=kind,
-                                reason=reason, locators=locators))
-        for record in records:
+                                reason=reason, locators=locators)
+        import_count = sum(len(refs) for refs in imports_by_name.values())
+        if import_count > IMPORT_COUNT_LIMIT:
+            return "incomplete-inventory", [], []
+
+        def follow_imports(name, stack):
+            nonlocal import_count
+            if name in stack or len(stack) >= IMPORT_DEPTH_LIMIT:
+                raise ValueError("build-import-cycle-or-depth")
+            for target in imports_by_name[name]:
+                if target not in stack and not records[target]["reason"].startswith("msbuild-"):
+                    references = []
+                    kind, reason, locators, promoted = classify_payload(
+                        target, contents[target], available, references, force_msbuild=True)
+                    if kind == "incomplete":
+                        raise ValueError("build-import-target-" + reason)
+                    promotions.update(promoted)
+                    import_count += len(references)
+                    if import_count > IMPORT_COUNT_LIMIT:
+                        raise ValueError("build-import-count")
+                    imports_by_name[target] = references
+                    records[target].update(classification=kind, reason=reason, locators=locators)
+                follow_imports(target, (*stack, name))
+
+        try:
+            for name in sorted(contents):
+                if imports_by_name[name]:
+                    follow_imports(name, ())
+        except ValueError:
+            return "incomplete-inventory", [], []
+        ordered = list(records.values())
+        for record in ordered:
             if record["path"] in promotions and record["classification"] == "passive":
                 record["classification"] = "text"
                 record["reason"] = "promoted-in-package-code-source"
-        records.sort(key=lambda item: item["path"])
-        kinds = {record["classification"] for record in records}
+        ordered.sort(key=lambda item: item["path"])
+        kinds = {record["classification"] for record in ordered}
         branch = ("unsupported-executable-content" if "unsupported" in kinds else
                   "mixed-code-attribution-unverified" if "compiled" in kinds and "text" in kinds else
                   "compiled-attribution-unverified" if "compiled" in kinds else
                   "text-code-attribution-unverified" if "text" in kinds else "no-code-payload")
-        return branch, records, ["package:archive", "package:nuspec/metadata"]
+        return branch, ordered, ["package:archive", "package:nuspec/metadata"]
 
 
 def contract(records, viewed=False):
@@ -1013,28 +1346,19 @@ def frozen_vendor_entries(vendor):
     entries = []
     empty_locators = digest(payload([]))
     for path, size, sha in (*vendor["code"], *vendor["rest"]):
-        lock = ACTIVE_LOCATORS.get((vendor["vendor"], path))
-        if lock:
-            classification, reason = "text", "msbuild-active"
-            count, locators_sha, first = lock
-        elif path.lower().endswith(".dll"):
+        if path.lower().endswith(".dll"):
             classification, reason = "compiled", "pe-signature"
-            count, locators_sha, first = 0, empty_locators, None
         elif path.lower().endswith(".js"):
             classification, reason = "text", "executable-source-text"
-            count, locators_sha, first = 0, empty_locators, None
         elif path.lower().endswith(MSBUILD_SUFFIXES):
             classification, reason = "passive", "msbuild-declaration-only"
-            count, locators_sha, first = 0, empty_locators, None
         elif path.lower().endswith(".d.ts"):
             classification, reason = "passive", "declaration-types"
-            count, locators_sha, first = 0, empty_locators, None
         elif path.lower().endswith((".xml", ".psmdcp")):
             classification, reason = "passive", "explicit-xml-metadata"
-            count, locators_sha, first = 0, empty_locators, None
         else:
             classification, reason = "passive", "explicit-passive-asset"
-            count, locators_sha, first = 0, empty_locators, None
+        count, locators_sha, first = 0, empty_locators, None
         require(len(sha) == 64, f"Bad retained digest: {vendor['vendor']}/{path}")
         entries.append(dict(path=path, size_bytes=size, sha256=sha, classification=classification,
                             reason=reason, locator_count=count, locators_sha256=locators_sha,
@@ -1185,9 +1509,10 @@ def verify_case(case, document, writing):
         if case["archive_problem"] in ("no-nuspec", "corrupt-archive"):
             return
         raw_nuspec = package.read(package.infolist()[0])
-        if case["archive_problem"] == "dtd-entity":
-            require(b"<!DOCTYPE" in raw_nuspec and b"<!ENTITY" in raw_nuspec,
-                    "DTD fixture lacks declaration.")
+        if case["archive_problem"] in ("dtd-entity", "utf16-dtd", "utf16-entity"):
+            text = xml_text(raw_nuspec, 1024 * 1024, "nuspec")
+            require(("<!DOCTYPE" in text if case["archive_problem"] != "utf16-entity"
+                     else "<!ENTITY" in text), "Unsafe XML fixture lacks its declaration.")
             return
         if case["archive_problem"] == "invalid-xml":
             try:
@@ -1195,7 +1520,7 @@ def verify_case(case, document, writing):
             except ET.ParseError:
                 return
             raise ValueError("Invalid XML fixture parsed successfully.")
-        root = ET.fromstring(raw_nuspec)
+        root = safe_xml_root(raw_nuspec, 1024 * 1024, "nuspec")
         ns = "{" + NS + "}"
         require(root.tag == ("{urn:foreign}package" if name == "foreign-root" else ns + "package"),
                 f"Package root differs: {name}")
@@ -1229,6 +1554,18 @@ def verify_case(case, document, writing):
                 pass
             else:
                 raise ValueError(f"Malformed supporting evidence parsed: {name}")
+    if name.startswith("import-depth-"):
+        expected_count = (IMPORT_DEPTH_LIMIT + 1 if name.endswith("over-limit")
+                          else IMPORT_DEPTH_LIMIT)
+        require(len(case["entries"]) == expected_count and
+                sum(b"<Import " in entry[1] for entry in case["entries"]) == expected_count - 1,
+                f"Import depth control does not reach its declared bound: {name}")
+    if name.startswith("import-count-"):
+        expected_count = (IMPORT_COUNT_LIMIT + 1 if name.endswith("over-limit")
+                          else IMPORT_COUNT_LIMIT)
+        require(len(case["entries"]) == expected_count + 1 and
+                case["entries"][0][1].count(b"<Import ") == expected_count,
+                f"Import count control does not reach its declared bound: {name}")
     if name == "snippet-at-limit":
         require(any(locator["snippet"]["truncated"] is False and
                     len(locator["snippet"]["text"].encode("utf-8")) == SNIPPET_LIMIT
@@ -1259,10 +1596,9 @@ def verify_vendor(vendor):
         require(len(names) == vendor["entry_count"] and len(names) == len(set(names)) and
                 roots == [vendor["nuspec_entry"]], f"{binding}: archive entries/root nuspec differ")
         raw = package.read(roots[0])
-        require(digest(raw) == vendor["nuspec_sha256"] and
-                b"<!DOCTYPE" not in raw and b"<!ENTITY" not in raw,
+        require(digest(raw) == vendor["nuspec_sha256"],
                 f"{binding}: retained nuspec identity or safety differs")
-        root = ET.fromstring(raw)
+        root = safe_xml_root(raw, 1024 * 1024, "nuspec")
         ns = "{" + NS + "}"
         require(root.tag == ns + "package" and [node.tag for node in root] == [ns + "metadata"],
                 f"{binding}: unexpected nuspec namespace/metadata")
@@ -1287,7 +1623,7 @@ def verify_vendor(vendor):
                 pointers == ["package:archive", "package:nuspec/metadata"] and
                 len([item for item in scanned if item["classification"] == "compiled"]) == 3 and
                 len([item for item in scanned if item["reason"] == "executable-source-text"]) == vendor["js_count"] and
-                len([item for item in scanned if item["reason"] == "msbuild-active"]) == 2,
+                len([item for item in scanned if item["reason"] == "msbuild-declaration-only"]) == 5,
                 f"{binding}: complete classified entry inventory differs")
         for item in (item for item in scanned if item["classification"] == "compiled"):
             raw_code = package.read(item["path"])
@@ -1300,7 +1636,7 @@ def verify_vendor(vendor):
                         name.lower().endswith("package.json") for name in names),
                 f"{binding}: supporting/absent artifacts differ")
     print(f"{binding}: verified ({vendor['entry_count']} entries, 3 PE, "
-          f"{vendor['js_count']} JS, 2 executable MSBuild props; archive {vendor['sha256']})", flush=True)
+          f"{vendor['js_count']} JS, 2 declarative SDK props; archive {vendor['sha256']})", flush=True)
 
 
 def check_negative_bindings():
@@ -1376,14 +1712,20 @@ def main():
             "Claims/supporting evidence must not change compiled-only branch.")
     require(all(by_name[name]["expected"]["branch_id"] == "no-code-payload"
                 for name in ("empty", "declared-nuget-only", "declarative-build",
-                             "reference-only-build", "passive-markup", "sbom-only", "pdb-only")),
+                             "reference-only-build", "passive-markup", "sbom-only", "pdb-only",
+                             "property-function", "taskhost-reference",
+                             "unknown-factory-reference", "custom-target-task",
+                             "non-command-task-and-property", "readme-project-decoy",
+                             "import-depth-at-limit", "import-count-at-limit",
+                             "utf16-benign-no-code")),
             "Recognized passive-only controls must stay vacuous.")
     require(all(by_name[name]["expected"]["branch_id"] != "no-code-payload"
                 for name in ("no-code-no-nuspec", "no-code-traversal", "no-code-duplicate-path",
                              "unknown-entry", "consumer-source", "fake-dll")),
             "Structural and opaque controls must precede vacuous no-code.")
     for name in ("corrupt-archive", "no-nuspec", "no-code-no-nuspec", "invalid-xml",
-                 "dtd-entity", "multiple-root-nuspec"):
+                 "dtd-entity", "utf16-dtd-no-code", "utf16-dtd-compiled",
+                 "utf16-entity-no-code", "utf16-entity-compiled", "multiple-root-nuspec"):
         require("package:nuspec/metadata" not in by_name[name]["evidence_pointers"],
                 f"Unavailable authoritative nuspec metadata advertised: {name}")
     require(set((ROOT / "packages").glob("*.nupkg")) ==
