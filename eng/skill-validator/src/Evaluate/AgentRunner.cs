@@ -1182,6 +1182,7 @@ public static class AgentRunner
                             }
                             break;
                         case ToolExecutionStartEvent toolStart:
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(toolStart.Data.ToolCallId);
                             agentEvent.Data["toolName"] = JsonValue.Create(toolStart.Data.ToolName);
                             agentEvent.Data["arguments"] = JsonValue.Create(toolStart.Data.Arguments?.ToString());
                             if (options.Verbose)
@@ -1191,6 +1192,7 @@ public static class AgentRunner
                             }
                             break;
                         case ToolExecutionCompleteEvent toolComplete:
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(toolComplete.Data.ToolCallId);
                             agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success);
                             agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
                             break;

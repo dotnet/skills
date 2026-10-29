@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -25,33 +26,59 @@ class LaunchGraderTests(unittest.TestCase):
         shutil.copytree(ROOT / "fixtures" / "launch-failure", self.root, dirs_exist_ok=True)
         self.workspace = self.root / "affected-workspace"
         self.server = json.loads((self.workspace / "host.json").read_text())["mcpServers"]["dotnet-msbuild"]
+        self.events = []
+
+    def record_execution(self, command, result):
+        identity = str(len(self.events))
+        self.events.extend([
+            {"type": "tool_call", "data": {
+                "toolCallId": identity, "toolName": "bash",
+                "arguments": {"command": command if isinstance(command, str) else
+                              "cd " + shlex.quote(str(self.workspace)) + " && " + shlex.join(command)},
+            }},
+            {"type": "tool_result", "data": {
+                "toolCallId": identity, "toolName": "bash",
+                "result": {"stdout": result.stdout, "stderr": result.stderr,
+                           "exitCode": result.returncode},
+            }},
+        ])
 
     def inspect(self, *args, cwd=None):
-        subprocess.run(
-            [self.server["command"], str(self.workspace / self.server["args"][0]), *args],
+        command = [self.server["command"], str(self.workspace / self.server["args"][0]), *args]
+        result = subprocess.run(
+            command, text=True,
             cwd=cwd or self.workspace, check=True, capture_output=True, timeout=30,
         )
+        self.record_execution(command, result)
 
     def launch(self, *, cwd=None, extra_args=(), inspect=True):
         if inspect:
             self.inspect("--version")
             self.inspect("nuget", "list", "source")
+        command = [self.server["command"], str(self.workspace / self.server["args"][0]),
+                   *self.server["args"][1:], *extra_args]
         result = subprocess.run(
-            [self.server["command"], str(self.workspace / self.server["args"][0]),
-             *self.server["args"][1:], *extra_args],
+            command,
             cwd=cwd or self.workspace, capture_output=True, text=True, timeout=30,
         )
+        self.record_execution(command, result)
         self.write_result(stdout=result.stdout, stderr=result.stderr, exitCode=result.returncode)
 
     def write_result(self, **result):
         (self.workspace / "launch-result.json").write_text(json.dumps(result), encoding="utf-8")
 
-    def grade(self):
-        config = next(g["config"] for g in LAUNCH["graders"] if g["type"] == "run-command")
-        return subprocess.run(
-            [config["command"], *config["args"]],
-            cwd=self.root, capture_output=True, text=True, timeout=30,
-        )
+    def grade(self, scenario=LAUNCH, workspace=None):
+        config = next(g["config"] for g in scenario["graders"] if g["type"] == "program")
+        workspace = Path(workspace or self.root)
+        with tempfile.TemporaryDirectory() as temporary:
+            evidence = Path(temporary) / "grader-input.json"
+            evidence.write_text(json.dumps({"trajectory": {"events": self.events}}), encoding="utf-8")
+            return subprocess.run(
+                [config["program"], *config["args"]],
+                cwd=workspace, capture_output=True, text=True, timeout=30,
+                env={**os.environ, "EVALUATE_GRADER_INPUT": str(evidence),
+                     "EVALUATE_WORKSPACE": str(workspace)},
+            )
 
     def assert_rejected(self, message):
         result = self.grade()
@@ -64,18 +91,97 @@ class LaunchGraderTests(unittest.TestCase):
                 shutil.copytree(ROOT / "fixtures" / "launch-failure", workspace, dirs_exist_ok=True)
                 scenario = yaml.safe_load((directory / "eval.yaml").read_text())["stimuli"][0]
                 reference = json.loads((directory / scenario["golden_trajectory"]["path"]).read_text())
-                command = reference["steps"][0]["tool_calls"][0]["arguments"]["command"]
-                subprocess.run(shlex.split(command), cwd=workspace, check=True,
-                               capture_output=True, timeout=30)
-                config = next(g["config"] for g in scenario["graders"] if g["type"] == "run-command")
-                result = subprocess.run(
-                    [config["command"], *config["args"]],
-                    cwd=workspace, capture_output=True, text=True, timeout=30,
-                )
+                self.events = []
+                for step in reference["steps"]:
+                    for call in step.get("tool_calls", []):
+                        command = call["arguments"]["command"]
+                        observed = subprocess.run(
+                            command, cwd=workspace, shell=True, text=True,
+                            capture_output=True, timeout=30,
+                        )
+                        expected = json.loads(step["observation"]["results"][0]["content"])
+                        self.assertEqual(observed.returncode, expected["exitCode"], observed.stderr)
+                        self.assertEqual(observed.stdout, expected["stdout"])
+                        self.assertEqual(observed.stderr, expected["stderr"])
+                        self.record_execution(command, observed)
+                result = self.grade(scenario, workspace)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_advice_without_execution_fails(self):
         self.assert_rejected("launch-invocations.jsonl")
+
+    def test_forged_records_without_launch_fail(self):
+        records = [
+            {"argv": ["--version"], "stdout": ".NET SDK 10.0.402\n",
+             "stderr": "", "exitCode": 0},
+            {"argv": ["nuget", "list", "source"], "stdout": "approved-mirror\n",
+             "stderr": "", "exitCode": 0},
+            {"argv": self.server["args"][1:],
+             "stdout": "Starting the binlog MCP launcher.\n",
+             "stderr": "A version higher than 0.0.0-0 of package microsoft.aitools.binlogmcp "
+                       "is not found in NuGet feeds approved-mirror.\n",
+             "exitCode": 1},
+        ]
+        for record in records:
+            record["cwd"] = str(self.workspace)
+        (self.workspace / "launch-invocations.jsonl").write_text(
+            "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8",
+        )
+        self.write_result(**{key: records[-1][key] for key in ("stdout", "stderr", "exitCode")})
+        self.assert_rejected("Missing correlated launcher execution evidence")
+
+    def test_native_sdk_events_and_string_arguments_pass(self):
+        self.launch()
+        for event in self.events:
+            data = event["data"]
+            if event["type"] == "tool_call":
+                event["type"] = "tool.execution_start"
+                data["arguments"] = json.dumps(data["arguments"])
+            else:
+                event["type"] = "tool.execution_complete"
+                data["result"] = json.dumps(data["result"])
+                del data["toolName"]
+        result = self.grade()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_unrelated_or_uncorrelated_results_fail(self):
+        self.launch()
+        original = json.dumps(self.events)
+        for mutation in ("wrong-call-id", "missing-result", "not-a-shell", "wrong-output"):
+            self.events = json.loads(original)
+            with self.subTest(mutation=mutation):
+                if mutation == "wrong-call-id":
+                    self.events[-1]["data"]["toolCallId"] = "unrelated"
+                elif mutation == "missing-result":
+                    self.events.pop()
+                elif mutation == "not-a-shell":
+                    self.events[-2]["data"]["toolName"] = "view"
+                else:
+                    self.events[-1]["data"]["result"] = "Unrelated successful command."
+                self.assert_rejected("Missing correlated launcher execution evidence")
+
+    def test_printed_commands_and_skipped_launches_are_not_execution(self):
+        self.launch()
+        command = shlex.join(["node", str(self.workspace / "dotnet.cjs"), *self.server["args"][1:]])
+        for forged in ("echo " + command, "false && " + command,
+                       'node -e "console.log(' + json.dumps(command) + ')"'):
+            with self.subTest(command=forged):
+                self.events[-2]["data"]["arguments"]["command"] = forged
+                self.assert_rejected("Missing correlated launcher execution evidence")
+
+    def test_different_launcher_and_forged_working_directory_fail(self):
+        self.launch()
+        other = self.root / "other"
+        other.mkdir()
+        shutil.copyfile(self.workspace / "dotnet.cjs", other / "dotnet.cjs")
+        for directory, script in ((self.workspace, other / "dotnet.cjs"),
+                                  (self.root, self.workspace / "dotnet.cjs")):
+            with self.subTest(directory=directory, script=script):
+                command = shlex.join(["node", str(script), *self.server["args"][1:]])
+                self.events[-2]["data"]["arguments"]["command"] = (
+                    "cd " + shlex.quote(str(directory)) + " && " + command
+                )
+                self.assert_rejected("Missing correlated launcher execution evidence")
 
     def test_search_without_launch_fails(self):
         subprocess.run(

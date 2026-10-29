@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import { gradeTrajectory, loadEvalSpec } from "@microsoft/vally";
 
@@ -98,7 +99,9 @@ for (const [plugin, skill, rejectEdits] of [
     const item = spec.stimuli[0];
     assert.equal(item.constraints, undefined);
     const graders = item.graders.filter((grader) => grader.type === "tool-calls");
-    assert.ok(graders.length > 0, "Inspection requires a tool-calls grader");
+    assert.equal(graders.length, 1, "Consolidate inspection into one tool-calls grader");
+    assert.ok(graders[0].config.disallowed.every((entry) => typeof entry === "string"),
+      "The native parser requires string tool patterns");
 
     const editTools = ["edit", "create", "apply_patch"];
     const disallowed = [
@@ -107,16 +110,112 @@ for (const [plugin, skill, rejectEdits] of [
       ...(rejectEdits ? editTools : []),
     ];
     for (const tool of disallowed) {
-      const results = await Promise.all(
-        graders.map((grader) => grade(grader, completedToolCall(tool))),
-      );
-      assert.ok(results.some((result) => !result.passed), `Allowed ${tool}`);
+      const names = editTools.includes(tool)
+        ? [tool]
+        : [tool, `functions.${tool}`, `MCP:${tool.toUpperCase()}`];
+      for (const name of names) {
+        assert.equal((await grade(graders[0], completedToolCall(name))).passed, false,
+          `Allowed ${name}`);
+      }
     }
     for (const tool of ["view", "glob", "rg", ...(rejectEdits ? [] : editTools)]) {
       for (const grader of graders) {
         assert.equal((await grade(grader, completedToolCall(tool))).passed, true,
           `Unexpectedly rejected ${tool}`);
       }
+    }
+  });
+}
+
+test("AOT build grading accepts dotnet executed through bash", async () => {
+  const spec = await loadEvalSpec(
+    join("tests", "dotnet-upgrade", "dotnet-aot-compat", "eval.yaml"),
+  );
+  const grader = spec.stimuli[0].graders.find((entry) => entry.type === "tool-calls");
+  assert.deepEqual(grader.config.required, ["bash"]);
+  const events = completedToolCall("bash");
+  events[0].data.arguments = { command: "dotnet build before/Azure.ResourceManager.csproj" };
+  assert.equal((await grade(grader, events)).passed, true);
+  assert.equal((await grade(grader, completedToolCall("view"))).passed, false);
+});
+
+test("staged migration planning forbids execution and workspace changes", async () => {
+  const spec = await loadEvalSpec(
+    join("tests", "dotnet-test-migration", "agent.test-migration", "eval.yaml"),
+  );
+  const item = spec.stimuli.find(
+    (entry) => entry.name === "Plan a staged MSTest v2 to v4 and MTP migration",
+  );
+  assert.match(item.prompt,
+    /do not execute shell commands, restore packages, build, or run tests/);
+  const grader = item.graders.find((entry) => entry.type === "tool-calls");
+  assert.ok(grader);
+  for (const tool of [
+    "bash", "powershell", "execute", "shell", "run_shell_command",
+    "local_shell", "run_in_terminal", "run_command", "terminal",
+    "task", "agent", "edit", "create", "apply_patch",
+  ]) {
+    for (const name of [tool, `functions.${tool}`, `MCP:${tool.toUpperCase()}`]) {
+      assert.equal((await grade(grader, completedToolCall(name))).passed, false,
+        `Plan-only case allowed ${name}`);
+    }
+  }
+  for (const tool of ["view", "glob", "rg"]) {
+    assert.equal((await grade(grader, completedToolCall(tool))).passed, true, tool);
+  }
+});
+
+for (const name of ["agent.msbuild", "agent.build-perf", "troubleshoot-binlog-mcp"]) {
+  test(`${name} grades real launch evidence rather than forged workspace records`, async () => {
+    const root = await mkdtemp(join(tmpdir(), "binlog-launch-program-"));
+    const directory = join("tests", "dotnet-msbuild", name);
+    try {
+      await cp(resolve("tests", "dotnet-msbuild", "troubleshoot-binlog-mcp",
+        "fixtures", "launch-failure"), root, { recursive: true });
+      const spec = await loadEvalSpec(join(directory, "eval.yaml"));
+      const item = spec.stimuli[0];
+      const grader = item.graders.find((entry) => entry.type === "program");
+      assert.ok(grader, "Launch grading requires evaluator-owned trajectory input");
+      const reference = JSON.parse(await readFile(
+        join(directory, item.golden_trajectory.path), "utf8",
+      ));
+      const events = [];
+      for (const step of reference.steps) {
+        for (const call of step.tool_calls ?? []) {
+          const result = spawnSync(call.arguments.command,
+            { shell: true, cwd: root, encoding: "utf8", timeout: 30000 });
+          assert.ifError(result.error);
+          const observed = {
+            stdout: result.stdout.replace(/\r\n/g, "\n"),
+            stderr: result.stderr.replace(/\r\n/g, "\n"),
+            exitCode: result.status,
+          };
+          assert.deepEqual(observed, JSON.parse(step.observation.results[0].content));
+          events.push(
+            { type: "tool_call", data: {
+              toolCallId: call.tool_call_id, toolName: call.function_name,
+              arguments: call.arguments,
+            } },
+            { type: "tool_result", data: {
+              toolCallId: call.tool_call_id, toolName: call.function_name, result: observed,
+            } },
+          );
+        }
+      }
+      const execute = (evidence) => gradeTrajectory(
+        { stimulus: item, events: evidence, workDir: root }, [grader], { stimulus: item },
+      );
+      assert.equal((await execute(events)).passed, true);
+      assert.equal((await execute([])).passed, false, "Forged records passed without a launch");
+      const uncorrelated = structuredClone(events);
+      uncorrelated[1].data.toolCallId = "unrelated";
+      assert.equal((await execute(uncorrelated)).passed, false);
+      const fileWrites = structuredClone(events);
+      fileWrites[0].data.arguments.command =
+        "node -e \"require('node:fs').writeFileSync('launch-result.json','forged')\"";
+      assert.equal((await execute(fileWrites)).passed, false, "File writes counted as launch execution");
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 }

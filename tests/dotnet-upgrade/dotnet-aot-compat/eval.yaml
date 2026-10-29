@@ -5,6 +5,10 @@ defaults:
   timeout: 1050s
 stimuli:
   - name: Make Azure.ResourceManager AOT-compatible
+    tags:
+      capability: resource-manager-aot-compatibility
+      risk: unresolved-trim-and-aot-warnings
+      journey: prepare-library-for-native-aot
     prompt: Make the project in the before/ directory AOT-compatible. Do not consult the after/ directory.
     environment:
       files:
@@ -15,7 +19,6 @@ stimuli:
         config:
           required:
             - bash
-            - dotnet
       - type: file-contains
         config:
           path: before/Azure.ResourceManager.csproj

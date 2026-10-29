@@ -27,7 +27,22 @@ stimuli:
     graders:
       - type: tool-calls
         config:
-          disallowed: [bash, powershell, execute, shell, run_shell_command, local_shell, run_in_terminal, run_command, terminal, task, agent, edit, create, apply_patch]
+          disallowed:
+            - bash
+            - powershell
+            - execute
+            - shell
+            - run_shell_command
+            - local_shell
+            - run_in_terminal
+            - run_command
+            - terminal
+            - task
+            - agent
+            - edit
+            - create
+            - apply_patch
+            - '(?i)(?:^|[.:])(?:bash|powershell|execute|shell|run_shell_command|local_shell|run_in_terminal|run_command|terminal|task|agent)$'
       - type: run-command
         config:
           command: >-
@@ -37,10 +52,6 @@ stimuli:
             --file 5d406aa064f92dfb0f2c861f178f42e91b067ecfe7c3f30cf5ea335e578d026a:.eval/migration_evidence.py
           expected_exit_code: 0
           timeout: 1m
-      - type: tool-calls
-        config:
-          disallowed:
-            - name: '(?i)(?:^|[.:])(?:bash|powershell|execute|shell|run_shell_command|local_shell|run_in_terminal|run_command|terminal|task|agent)$'
       - type: prompt
     rubric:
       - Recognizes the already-v4 project and leaves the complete file set unchanged without executing the test toolchain.

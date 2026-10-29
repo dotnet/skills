@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
@@ -149,6 +151,7 @@ public static class AssertionEvaluator
             AssertionType.OutputNotMatches => EvalOutputNotMatches(assertion, agentOutput),
             AssertionType.ExitSuccess => EvalExitSuccess(assertion, agentOutput, metrics),
             AssertionType.RunCommandAndAssert => await EvalRunCommandAndAssert(assertion, workDir, scenarioTimeoutSeconds),
+            AssertionType.Program => await EvalProgram(assertion, workDir, scenarioTimeoutSeconds, metrics),
             _ => new AssertionResult(assertion, false, $"Unknown assertion type: {assertion.Type}"),
         };
     }
@@ -307,7 +310,63 @@ public static class AssertionEvaluator
         return $"{output[..MaxOutputLength]}... [truncated, {output.Length} chars total]";
     }
 
-    private static async Task<AssertionResult> EvalRunCommandAndAssert(Assertion a, string workDir, int scenarioTimeoutSeconds)
+    private static async Task<AssertionResult> EvalProgram(
+        Assertion assertion, string workDir, int scenarioTimeoutSeconds, RunMetrics? metrics)
+    {
+        if (metrics is null)
+            return new AssertionResult(assertion, false, "Program grader requires evaluator-owned trajectory metrics.");
+
+        var directory = Directory.CreateTempSubdirectory("skill-validator-grader-");
+        try
+        {
+            var inputPath = Path.Combine(directory.FullName, "grader-input.json");
+            var trajectory = JsonSerializer.SerializeToNode(metrics, SkillValidatorJsonContext.Default.RunMetrics)!;
+            trajectory["output"] = metrics.AgentOutput;
+            trajectory["workDir"] = Path.GetFullPath(workDir);
+            var input = new JsonObject { ["trajectory"] = trajectory };
+            await File.WriteAllTextAsync(inputPath, input.ToJsonString());
+            return await EvalRunCommandAndAssert(assertion, workDir, scenarioTimeoutSeconds, inputPath);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    private static bool IsValidProgramResult(ProgramGraderResult? result, int depth = 0) =>
+        depth <= 32
+        && result is
+        {
+            Name: not null,
+            Kind: "code" or "llm" or "human",
+            Passed: not null,
+            Score: >= 0 and <= 1,
+            Evidence: not null,
+            Status: null or "success" or "error",
+        }
+        && (result.Details is null || result.Details.All(detail => IsValidProgramResult(detail, depth + 1)));
+
+    private static AssertionResult ParseProgramOutput(Assertion assertion, string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+            return new AssertionResult(assertion, true, "Program grader exited successfully.");
+
+        try
+        {
+            var result = JsonSerializer.Deserialize(output, SkillValidatorJsonContext.Default.ProgramGraderResult);
+            if (!IsValidProgramResult(result))
+                return new AssertionResult(assertion, false, "Program grader stdout is not a valid GraderResult.");
+            return new AssertionResult(assertion,
+                result!.Passed == true && result.Status != "error", result.Evidence!);
+        }
+        catch (JsonException error)
+        {
+            return new AssertionResult(assertion, false, $"Program grader returned invalid JSON: {error.Message}");
+        }
+    }
+
+    private static async Task<AssertionResult> EvalRunCommandAndAssert(
+        Assertion a, string workDir, int scenarioTimeoutSeconds, string? graderInputPath = null)
     {
         var cmd = a.CommandArgs ?? throw new UnreachableException();
         var command = cmd.CommandToRun;
@@ -337,6 +396,14 @@ public static class AssertionEvaluator
         }
 
         AgentRunner.ScrubSensitiveEnvironment(processStartInfo);
+        if (graderInputPath is not null)
+        {
+            foreach (var key in processStartInfo.Environment.Keys
+                .Where(key => key.StartsWith("EVALUATE_", StringComparison.OrdinalIgnoreCase)).ToArray())
+                processStartInfo.Environment.Remove(key);
+            processStartInfo.Environment["EVALUATE_GRADER_INPUT"] = graderInputPath;
+            processStartInfo.Environment["EVALUATE_WORKSPACE"] = Path.GetFullPath(workDir);
+        }
         var displayedArguments = cmd.ArgumentList is { Length: > 0 }
             ? string.Join(" ", cmd.ArgumentList)
             : cmd.CommandArguments;
@@ -427,7 +494,9 @@ public static class AssertionEvaluator
                 }
             }
 
-            return new AssertionResult(a, true, string.Empty);
+            return a.Type == AssertionType.Program
+                ? ParseProgramOutput(a, actualStdOut)
+                : new AssertionResult(a, true, string.Empty);
         }
     }
 

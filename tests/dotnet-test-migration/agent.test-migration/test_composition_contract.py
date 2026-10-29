@@ -71,9 +71,10 @@ class PermissionContractTests(unittest.TestCase):
         case = next(case for case in composition.yaml.safe_load(path.read_text(encoding="utf-8"))["stimuli"]
                     if case["name"] == "Leave an already current MSTest project unchanged")
         aliases = composition.SHELL_TOOLS | {"task", "agent"}
-        self.assertLessEqual(aliases, set(case["constraints"]["reject_tools"]))
-        patterns = [entry["name"] for grader in case["graders"] if grader["type"] == "tool-calls"
+        patterns = [entry if isinstance(entry, str) else entry["name"]
+                    for grader in case["graders"] if grader["type"] == "tool-calls"
                     for entry in grader["config"]["disallowed"]]
+        self.assertLessEqual(aliases, set(patterns))
         for alias in aliases:
             for name in (alias, "functions." + alias, "MCP:" + alias.upper()):
                 with self.subTest(tool=name):

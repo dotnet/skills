@@ -56,7 +56,19 @@ stimuli:
     graders:
       - type: tool-calls
         config:
-          disallowed: [bash, powershell, execute, shell, run_shell_command, local_shell, run_in_terminal, run_command, terminal, task, agent]
+          disallowed:
+            - bash
+            - powershell
+            - execute
+            - shell
+            - run_shell_command
+            - local_shell
+            - run_in_terminal
+            - run_command
+            - terminal
+            - task
+            - agent
+            - '(?i)(?:^|[.:])(?:bash|powershell|execute|shell|run_shell_command|local_shell|run_in_terminal|run_command|terminal|task|agent)$'
       - type: run-command
         config:
           command: >-
@@ -70,10 +82,6 @@ stimuli:
           timeout: 1m
       - type: output-matches
         config: {pattern: '(?i)no (?:repair|changes?|fix)(?: (?:was|were|is|are))? (?:needed|required)|already (?:correct|imports|uses)|unchanged'}
-      - type: tool-calls
-        config:
-          disallowed:
-            - name: '(?i)(?:^|[.:])(?:bash|powershell|execute|shell|run_shell_command|local_shell|run_in_terminal|run_command|terminal|task|agent)$'
       - type: prompt
     rubric:
       - Recognizes that the existing import and tests are already correct instead of forcing a repair.

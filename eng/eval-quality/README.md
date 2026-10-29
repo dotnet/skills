@@ -174,7 +174,7 @@ a prompt or rubric quotes the old figure, update it in the same change.
 ### 6. Grader with a missing or empty required config
 
 A grader whose `config` is absent, null, or missing a required key
-(`pattern`, `substring`, `command`, `path`, or `value`) parses as valid YAML
+(`pattern`, `substring`, `command`, `program`, `path`, or `value`) parses as valid YAML
 and **enforces less than it declares**. File-content graders require both
 `path` and `value`; checking only one lets a primary artifact assertion vanish.
 The scenario then looks stronger than it is.
@@ -508,8 +508,10 @@ A trajectory can describe an expected answer or expected tool events. Vally
 permits those events to be fake, so neither a curated nor recorded-looking
 observation proves that an edit, build, test, install, or command happened. A
 workspace completion claim requires a golden patch, and an execution completion
-claim requires a `run-command` grader so the oracle replays the evidence. Use
-expected-result voice when neither form of evidence exists. These checks inspect
+claim requires a `run-command` or `program` grader so the oracle replays the
+evidence. A `program` grader can also correlate calls and observations from the
+evaluator-owned trajectory; it must not trust agent-written execution records
+alone. Use expected-result voice when neither form of evidence exists. These checks inspect
 both string messages and text inside multipart ATIF content. The gate also
 rejects a complete rubric item copied into the response.
 

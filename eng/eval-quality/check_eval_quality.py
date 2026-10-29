@@ -68,7 +68,7 @@ FAILS on unambiguous bugs:
      and agent steps; tool calls and observations belong on an agent step.
  22. Golden trajectory that claims completed edits, builds, tests, installs,
      or commands without evidence the oracle replays. Workspace claims require
-     a golden patch; execution claims require a run-command grader. Tool events
+     a golden patch; execution claims require a run-command or program grader. Tool events
      are not proof because Vally permits hand-authored observations.
 
 Every failing check above is deterministic. Content checks use only exact
@@ -135,6 +135,7 @@ GRADER_REQUIRED_KEYS = {
     "output-contains": ("substring",),
     "output-not-contains": ("substring",),
     "run-command": ("command",),
+    "program": ("program",),
     "file-exists": ("path",),
     "file-not-exists": ("path",),
     "file-contains": ("path", "value"),
@@ -1239,7 +1240,7 @@ def check_trajectory_claims(
     """Reject narrated work without evidence replayed by the oracle."""
     has_patch = bool(stim.get("golden_patch"))
     has_command_grader = any(
-        isinstance(grader, dict) and grader.get("type") == "run-command"
+        isinstance(grader, dict) and grader.get("type") in ("run-command", "program")
         for grader in (stim.get("graders") or [])
     )
     rubric_items = [
@@ -1257,7 +1258,7 @@ def check_trajectory_claims(
         if execution_claim and not has_command_grader:
             errors.append(
                 f"{spec}: '{stim.get('name')}' {label} step[{index}] claims a completed "
-                "build, test, install, or command without a run-command grader")
+                "build, test, install, or command without a run-command grader or program grader")
         if workspace_claim and not has_patch:
             errors.append(
                 f"{spec}: '{stim.get('name')}' {label} step[{index}] claims a completed "
