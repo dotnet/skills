@@ -230,6 +230,192 @@
       ]
     },
     {
+      "case_id": "lp05-expression-supported-version",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-supported-version.nupkg",
+          "sha256": "c6b030b0d361caa00c2053559f3ea4971224eb4e2564db086f1702a9156d98af"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "expression",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-supported-version.nupkg",
+            "sha256": "c6b030b0d361caa00c2053559f3ea4971224eb4e2564db086f1702a9156d98af"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is populated: MIT.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "NuGet reads optional license version 1.0.0; the recognized MIT expression populates the field.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-expression-type-case",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-type-case.nupkg",
+          "sha256": "1cd16187e43d6c58f468c812f4d9f9f40472faf7d4a9a0748ae884597e988434"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "expression",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-type-case.nupkg",
+            "sha256": "1cd16187e43d6c58f468c812f4d9f9f40472faf7d4a9a0748ae884597e988434"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is populated: MIT.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "NuGet parses the supported expression type case-insensitively; MIT populates the field.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-expression-namespace-declaration",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-namespace-declaration.nupkg",
+          "sha256": "925121dfff50b9f0cf58815e919fe334b51813e6c85078d2504b4662293f2e6f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "expression",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-namespace-declaration.nupkg",
+            "sha256": "925121dfff50b9f0cf58815e919fe334b51813e6c85078d2504b4662293f2e6f"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is populated: MIT.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "An XML namespace declaration is not an extra license attribute; the MIT expression populates the field.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-expression-newer-version",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-newer-version.nupkg",
+          "sha256": "e0549758f11dca2cbe542ac7c1867e1941f109aa5190588f2b4a8f3428286a69"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-version",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-newer-version.nupkg",
+            "sha256": "e0549758f11dca2cbe542ac7c1867e1941f109aa5190588f2b4a8f3428286a69"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The license expression version is newer than supported 1.0.0.",
+        "required_input": "supported-license-version",
+        "next_category": "package-owner"
+      },
+      "rationale": "NuGet rejects an expression version newer than its supported license metadata version; do not infer population from unsupported grammar.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp05-expression-unknown-attribute",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-unknown-attribute.nupkg",
+          "sha256": "56556f651d93315a9e098c64d7d9da40f887ab2c2f1a22e3e3cfed17dbb5e72a"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-unknown-attribute.nupkg",
+            "sha256": "56556f651d93315a9e098c64d7d9da40f887ab2c2f1a22e3e3cfed17dbb5e72a"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A nonblank license expression cannot be established from malformed metadata.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "An arbitrary non-namespace attribute is outside this strict recognized license metadata contract; escalate rather than accept unsupported input.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
       "case_id": "lp05-file",
       "row_id": "LP-05",
       "inputs": [

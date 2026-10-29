@@ -17,6 +17,13 @@ SECOND_NAMESPACE = "http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd"
 EXPRESSION = '<license type="expression"> MIT </license>'
 URL = "<licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>"
 PORTABLE_EXPRESSION_SHA256 = "3fa438d8d38eb5482382eb567dff8231cb113c3a70d7e5499ddf153e2fd1ca99"
+NEW_RATIONALES = {
+    "expression-supported-version": "NuGet reads optional license version 1.0.0; the recognized MIT expression populates the field.",
+    "expression-type-case": "NuGet parses the supported expression type case-insensitively; MIT populates the field.",
+    "expression-namespace-declaration": "An XML namespace declaration is not an extra license attribute; the MIT expression populates the field.",
+    "expression-newer-version": "NuGet rejects an expression version newer than its supported license metadata version; do not infer population from unsupported grammar.",
+    "expression-unknown-attribute": "An arbitrary non-namespace attribute is outside this strict recognized license metadata contract; escalate rather than accept unsupported input.",
+}
 
 
 def require(condition, message):
@@ -31,6 +38,11 @@ CASES = (
     ("expression-no-namespace", EXPRESSION, "expression", "PackageLicenseExpression is populated: MIT.", None, None, None, ""),
     ("expression-old-namespace", EXPRESSION, "expression", "PackageLicenseExpression is populated: MIT.", None, None, None, OLD_NAMESPACE),
     ("expression-2011-namespace", EXPRESSION, "expression", "PackageLicenseExpression is populated: MIT.", None, None, None, SECOND_NAMESPACE),
+    ("expression-supported-version", '<license type="expression" version="1.0.0"> MIT </license>', "expression", "PackageLicenseExpression is populated: MIT.", None, None, None, NAMESPACE),
+    ("expression-type-case", '<license type="Expression"> MIT </license>', "expression", "PackageLicenseExpression is populated: MIT.", None, None, None, NAMESPACE),
+    ("expression-namespace-declaration", '<license xmlns:hint="urn:harmless" type="expression"> MIT </license>', "expression", "PackageLicenseExpression is populated: MIT.", None, None, None, NAMESPACE),
+    ("expression-newer-version", '<license type="expression" version="2.0.0"> MIT </license>', "unsupported-version", None, "The license expression version is newer than supported 1.0.0.", "supported-license-version", "package-owner", NAMESPACE),
+    ("expression-unknown-attribute", '<license type="expression" extra="unrecognized"> MIT </license>', "malformed", None, "A nonblank license expression cannot be established from malformed metadata.", "corrected-nuspec", "package-owner", NAMESPACE),
     ("file", '<license type="file">LICENSE.txt</license>', "file", "PackageLicenseExpression is not populated; the nuspec declares a license file.", None, None, None, NAMESPACE),
     ("legacy-url", URL, "missing-expression", "PackageLicenseExpression is not populated; the nuspec has no license expression.", None, None, None, NAMESPACE),
     ("missing", "", "missing-expression", "PackageLicenseExpression is not populated; the nuspec has no license expression.", None, None, None, NAMESPACE),
@@ -129,7 +141,9 @@ def expected_suite():
                 "required_input": required,
                 "next_category": next_category,
             },
-            "rationale": f"Frozen LP-05 {name} nuspec/availability branch; factual expression population only.",
+            "rationale": NEW_RATIONALES.get(
+                name, f"Frozen LP-05 {name} nuspec/availability branch; factual expression population only."
+            ),
             "evidence_pointers": (
                 [reference] if decisive else (["package:archive"] if content is not None else [])
             ),
@@ -222,10 +236,18 @@ def main():
             {f"packages/{name}.nupkg" for name, *_ in CASES if name != "no-package"},
             "Synthetic archive inventory differs from the frozen case inputs.")
     by_id = {case["case_id"]: case["expected"] for case in suite["cases"]}
-    for name in ("expression-legacy-compat", "expression-blank-legacy-url", "conflicting-url"):
+    for name in (
+        "expression-legacy-compat", "expression-blank-legacy-url", "conflicting-url",
+        "expression-supported-version", "expression-type-case", "expression-namespace-declaration",
+    ):
         require(all(by_id[f"lp05-{name}"][key] == by_id["lp05-expression"][key]
                     for key in ("branch_id", "decision", "applicability", "finding")),
-                f"Legacy URL changed the LP-05 expression result: {name}")
+                f"Supported expression metadata changed the LP-05 field result: {name}")
+    require(by_id["lp05-expression-newer-version"]["branch_id"] == "unsupported-version" and
+            by_id["lp05-expression-newer-version"]["decision"] == "escalated" and
+            by_id["lp05-expression-unknown-attribute"]["branch_id"] == "malformed" and
+            by_id["lp05-expression-unknown-attribute"]["decision"] == "escalated",
+            "Unrecognized license metadata must remain a named escalation.")
     for name in ("legacy-url", "blank-legacy-url", "blank-file"):
         require(all(by_id[f"lp05-{name}"][key] == by_id["lp05-missing"][key]
                     for key in ("branch_id", "decision", "applicability", "finding")),
