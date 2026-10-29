@@ -145,6 +145,60 @@ You can also install individual skills using the `skill-installer` CLI with the 
 $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
 ```
 
+## Microsoft Learn MCP Server
+
+For real-time documentation and .NET API lookups, agents and developers can connect to the official [Microsoft Learn MCP Server](https://learn.microsoft.com/en-us/training/support/mcp-get-started).
+
+While `dotnet/skills` provides task-oriented engineering skills and agents for building, debugging, testing, and modernizing .NET applications, the Microsoft Learn MCP Server complements these workflows by providing live search and retrieval across the entire Microsoft Learn documentation catalog via the Model Context Protocol (MCP).
+
+### Features
+
+- **Live Documentation**: Direct access to up-to-date documentation on .NET runtime APIs, BCL types, language references, and architecture guides.
+- **No Authentication Required**: The server is publicly hosted by Microsoft, free to use, and requires no credentials or API keys.
+- **Available Tools**: Exposes `microsoft_docs_search`, `microsoft_docs_fetch`, and code sample retrieval tools.
+
+### Configuration
+
+The Microsoft Learn MCP Server is hosted as a remote streamable HTTP MCP server at `https://learn.microsoft.com/api/mcp`.
+
+#### VS Code / GitHub Copilot
+
+Add the server to your VS Code MCP configuration (e.g., in `.vscode/mcp.json` or your user settings):
+
+```json
+{
+  "servers": {
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    }
+  }
+}
+```
+
+#### Copilot CLI / Claude Code
+
+Configure the remote HTTP server endpoint in your host's MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    }
+  }
+}
+```
+
+#### Cursor
+
+In Cursor settings under **Features** → **MCP**, add a new server:
+
+- **Name**: `microsoft-learn`
+- **Type**: `http`
+- **Server URL**: `https://learn.microsoft.com/api/mcp`
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new plugin.
