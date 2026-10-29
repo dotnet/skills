@@ -14,6 +14,7 @@ public sealed class Lp05LicenseExpressionResolver : IDeterministicResolver
     private const int MaxEntries = 4096;
     private const int MaxEntryNameLength = 512;
     private const string MissingExpression = "PackageLicenseExpression is not populated; the nuspec has no license expression.";
+    private static readonly Version CurrentLicenseVersion = new(1, 0, 0);
     private static readonly HashSet<string> NuGetNamespaces = new(StringComparer.Ordinal)
     {
         "",
@@ -145,16 +146,27 @@ public sealed class Lp05LicenseExpressionResolver : IDeterministicResolver
         if (type is null)
             return Escalate(input, "malformed", "applicable",
                 "The license element has no type attribute.", "corrected-nuspec", "package-owner");
-        if (license.Attributes().Count() != 1 || license.HasElements)
+        if (license.HasElements || license.Attributes().Any(attribute =>
+                !attribute.IsNamespaceDeclaration && attribute.Name != "type" && attribute.Name != "version"))
             return Malformed(input);
+        var versionAttribute = license.Attribute("version");
+        if (versionAttribute is not null)
+        {
+            if (!System.Version.TryParse(versionAttribute.Value.Trim(), out var parsedVersion))
+                return Malformed(input);
+            if (parsedVersion.CompareTo(CurrentLicenseVersion) > 0)
+                return Escalate(input, "unsupported-version", "applicable",
+                    "The license expression version is newer than supported 1.0.0.",
+                    "supported-license-version", "package-owner");
+        }
         var value = license.Value.Trim();
-        if (type.Value == "file")
+        if (string.Equals(type.Value.Trim(), "file", StringComparison.OrdinalIgnoreCase))
             return value.Length == 0
                 ? Deterministic(input, "missing-expression", MissingExpression, "package:nuspec/metadata")
                 : Deterministic(input, "file",
                     "PackageLicenseExpression is not populated; the nuspec declares a license file.",
                     "package:nuspec/license");
-        if (type.Value != "expression")
+        if (!string.Equals(type.Value.Trim(), "expression", StringComparison.OrdinalIgnoreCase))
             return Escalate(input, "malformed", "applicable",
                 "The license type is not a supported NuGet expression or file type.",
                 "corrected-nuspec", "package-owner");

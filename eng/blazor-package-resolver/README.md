@@ -37,14 +37,23 @@ reopening a path. Results retain only relative paths, roles, and digests, so
 replays do not depend on the checkout location.
 
 LP-05 inspects only the checked package bytes. It bounds package and ZIP
-directory size, entry count and nuspec read size; rejects ambiguous or missing
-root nuspecs, foreign NuGet namespaces and DTD/entity-bearing XML; and does
-not extract files. A nonblank recognized `license type="expression"` establishes
-only that `PackageLicenseExpression` is populated. A `licenseUrl` does not
-affect that field. The frozen LP-05 synthetic matrix, the opt-in identities
-of both retained vendor packages, and replay instructions are in
-`tests/fixtures/lp05/README.md`. Those two real-package acceptance replays
-are opt-in, separate from ordinary CI and from any readiness decision.
+directory size, entry count, entry-name length and nuspec read size; rejects
+ambiguous or missing root nuspecs, foreign NuGet namespaces and
+DTD/entity-bearing XML; and does not extract files. A nonblank recognized
+`license type="expression"` establishes only that `PackageLicenseExpression`
+is populated. The supported `type` is case-insensitive; optional `version`
+must parse as `System.Version` and not exceed `1.0.0`. XML namespace
+declarations are not license metadata attributes; unknown ordinary attributes
+escalate. A `licenseUrl` does not affect that field. The frozen 30-case LP-05
+synthetic matrix, the opt-in identities of both retained vendor packages,
+and replay instructions are in
+`tests/fixtures/lp05/README.md`. Runtime-generated boundary checks in
+`tests/Lp05BoundaryChecks.cs` exercise each production byte/count/size limit
+and malformed ZIP directory/entry data without checked-in giant fixtures.
+The portable retained-package replay identities and result hashes are in
+`tests/fixtures/lp05/acceptance-results.json`. Those two real-package
+acceptance replays are opt-in, separate from ordinary CI and from any
+readiness decision.
 
 Each case's `expected` is a structured `CaseResult`: `row_id`, `resolver_id`,
 `resolver_version`, stable `branch_id`, `decision` (`deterministic` or `escalated`),
@@ -70,6 +79,7 @@ Review an expectation change independently and explain its source evidence.
 When separately supplied, real Syncfusion **and** Infragistics pinned acceptance
 inputs must replay for that row; commercial inputs are opt-in and never required
 for ordinary CI. LP-05 was replayed separately against both exact retained
-packages; local receipts are not shipped with the repository. Old protocols
-may inform later row work, but port no old file without an active consumer and a
-test. No prior PR or readiness branch is a dependency of this tool.
+packages; local detailed receipts and proprietary package bytes are not
+shipped with the repository. Old protocols may inform later row work, but
+port no old file without an active consumer and a test. No prior PR or
+readiness branch is a dependency of this tool.
