@@ -1,0 +1,1853 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp08-plain",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/plain.nupkg",
+          "sha256": "c70513c61299ae132e4e05960850d9dbfe6e7517f0835cd9c08eb0dd78c3435e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/plain.nupkg",
+            "sha256": "c70513c61299ae132e4e05960850d9dbfe6e7517f0835cd9c08eb0dd78c3435e"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 plain: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-comma-separated",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/comma-separated.nupkg",
+          "sha256": "63da9e5eb9531dd6559b54a300d109a7ce2bd6a78cdc2b0e546c59a23136e497"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/comma-separated.nupkg",
+            "sha256": "63da9e5eb9531dd6559b54a300d109a7ce2bd6a78cdc2b0e546c59a23136e497"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace, Grace Hopper.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 comma-separated: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-padded",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/padded.nupkg",
+          "sha256": "c0805de3ed28a8aa2e80f5f98a23fa4e9546533da04e4f762c78f8999ee9567d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/padded.nupkg",
+            "sha256": "c0805de3ed28a8aa2e80f5f98a23fa4e9546533da04e4f762c78f8999ee9567d"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 padded: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-padded-list",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/padded-list.nupkg",
+          "sha256": "93e9fbad155357163bbef052d8cc5f1bc5766afb437a145a8d6877fb6079c8e1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/padded-list.nupkg",
+            "sha256": "93e9fbad155357163bbef052d8cc5f1bc5766afb437a145a8d6877fb6079c8e1"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace ,  Grace Hopper.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 padded-list: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-internal-whitespace",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/internal-whitespace.nupkg",
+          "sha256": "2fd3bfb298496894736df1cf1276a6a6eb96ef4a8b884fcf6c07a909475a4f5c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/internal-whitespace.nupkg",
+            "sha256": "2fd3bfb298496894736df1cf1276a6a6eb96ef4a8b884fcf6c07a909475a4f5c"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada  Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 internal-whitespace: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-internal-newline",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/internal-newline.nupkg",
+          "sha256": "63baf188550e3ca18d1395260bebb62eb9d10ef2290aa1c1296f8e7ab51ccf7c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/internal-newline.nupkg",
+            "sha256": "63baf188550e3ca18d1395260bebb62eb9d10ef2290aa1c1296f8e7ab51ccf7c"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada\nLovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 internal-newline: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-unicode",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unicode.nupkg",
+          "sha256": "0d2dbb1e74ed8d721d32bb121b9b7e16da2110a2cd0eaf45a1d18a2a47e4317c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unicode.nupkg",
+            "sha256": "0d2dbb1e74ed8d721d32bb121b9b7e16da2110a2cd0eaf45a1d18a2a47e4317c"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ren\u00e9e, \u674e\u96f7.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 unicode: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-xml-entities",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/xml-entities.nupkg",
+          "sha256": "8346b12c9214cbc81c169a1b20beb9170df514e183573a93b85971128146532a"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/xml-entities.nupkg",
+            "sha256": "8346b12c9214cbc81c169a1b20beb9170df514e183573a93b85971128146532a"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Tom & Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 xml-entities: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-cdata",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/cdata.nupkg",
+          "sha256": "98775915f2909271546f9c4135cd349f5df391897a2c478b04fe05e18f87716b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/cdata.nupkg",
+            "sha256": "98775915f2909271546f9c4135cd349f5df391897a2c478b04fe05e18f87716b"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada & Grace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 cdata: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-cdata-comment",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/cdata-comment.nupkg",
+          "sha256": "eb1d211de65d0d118babf115ef1c95dca4fae5eab1298e68529d787792a82d88"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/cdata-comment.nupkg",
+            "sha256": "eb1d211de65d0d118babf115ef1c95dca4fae5eab1298e68529d787792a82d88"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada & Grace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 cdata-comment: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-empty-list-slots",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/empty-list-slots.nupkg",
+          "sha256": "bb06d478e75a52423a5792f1732dcd9c32c7b27f291d719e688dcf098320f0d7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/empty-list-slots.nupkg",
+            "sha256": "bb06d478e75a52423a5792f1732dcd9c32c7b27f291d719e688dcf098320f0d7"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada, ,Grace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 empty-list-slots: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-opaque-name",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/opaque-name.nupkg",
+          "sha256": "c51bea4158283060f3a674c24c10f628cd7144a1153e1585c19606f23a6b820d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/opaque-name.nupkg",
+            "sha256": "c51bea4158283060f3a674c24c10f628cd7144a1153e1585c19606f23a6b820d"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: ??.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 opaque-name: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-namespace-declaration",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-declaration.nupkg",
+          "sha256": "8607fbf670ed01573c734783bf20b6c7341eb45926d6e09e663c4bde4f737503"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-declaration.nupkg",
+            "sha256": "8607fbf670ed01573c734783bf20b6c7341eb45926d6e09e663c4bde4f737503"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 namespace-declaration: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-unqualified",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unqualified.nupkg",
+          "sha256": "d71e203c2e171f8cbc3d3ee932488e132fcc482bf6870439e78c39e7c956987b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unqualified.nupkg",
+            "sha256": "d71e203c2e171f8cbc3d3ee932488e132fcc482bf6870439e78c39e7c956987b"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 unqualified: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-namespace-2010-07",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2010-07.nupkg",
+          "sha256": "6242c52abf15e3fd3e9629ec85f6f592f5174f7da9bf06358e852529dfb8886f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2010-07.nupkg",
+            "sha256": "6242c52abf15e3fd3e9629ec85f6f592f5174f7da9bf06358e852529dfb8886f"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 namespace-2010-07: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-namespace-2011-08",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2011-08.nupkg",
+          "sha256": "2c13206f8c9631305475f118bf3f04efdd139c70519b60462ad5fc8c99ba579b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2011-08.nupkg",
+            "sha256": "2c13206f8c9631305475f118bf3f04efdd139c70519b60462ad5fc8c99ba579b"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 namespace-2011-08: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-namespace-2011-10",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2011-10.nupkg",
+          "sha256": "8035366795f71dceea49a3d55ad49e66e7d622d7e7edf74f8e65f33c15641e3f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2011-10.nupkg",
+            "sha256": "8035366795f71dceea49a3d55ad49e66e7d622d7e7edf74f8e65f33c15641e3f"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 namespace-2011-10: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-namespace-2012-06",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2012-06.nupkg",
+          "sha256": "3eb2ae8c494e483730e4079f3077628185323c49a1a03e801ba4d48d9163bdc8"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2012-06.nupkg",
+            "sha256": "3eb2ae8c494e483730e4079f3077628185323c49a1a03e801ba4d48d9163bdc8"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 namespace-2012-06: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-namespace-2013-01",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2013-01.nupkg",
+          "sha256": "3fde04fca16ab7def7a28362930abbfd3d2751eeff35704929fcc28329cbaba8"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2013-01.nupkg",
+            "sha256": "3fde04fca16ab7def7a28362930abbfd3d2751eeff35704929fcc28329cbaba8"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 namespace-2013-01: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-unrelated-sibling",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unrelated-sibling.nupkg",
+          "sha256": "f7295b960acda7582f3b3eb20564e5d80c3253d030249edfd4d670fc6205bf20"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unrelated-sibling.nupkg",
+            "sha256": "f7295b960acda7582f3b3eb20564e5d80c3253d030249edfd4d670fc6205bf20"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is populated: Ada Lovelace.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 unrelated-sibling: A single direct authors text value contains a nonblank author entry; identity is not verified.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-absent",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/absent.nupkg",
+          "sha256": "eb2446f2868c86f5aaf137ca7aaedb625ccb03b423a6658281a6ec8e988832a1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/absent.nupkg",
+            "sha256": "eb2446f2868c86f5aaf137ca7aaedb625ccb03b423a6658281a6ec8e988832a1"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the nuspec has no direct authors element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 absent: Owners, attributes and misplaced authors are not direct NuGet authors metadata.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp08-owners-only",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owners-only.nupkg",
+          "sha256": "ade565b40dbc87093eaaf45c76279dd6ec04598f5e297f1c6b9a99dce0c65faa"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owners-only.nupkg",
+            "sha256": "ade565b40dbc87093eaaf45c76279dd6ec04598f5e297f1c6b9a99dce0c65faa"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the nuspec has no direct authors element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 owners-only: Owners, attributes and misplaced authors are not direct NuGet authors metadata.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp08-metadata-attribute",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-attribute.nupkg",
+          "sha256": "005317d576a2c23539b5bfa22015d464d660cfe65838b1823d7c9e52f963962e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-attribute.nupkg",
+            "sha256": "005317d576a2c23539b5bfa22015d464d660cfe65838b1823d7c9e52f963962e"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the nuspec has no direct authors element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 metadata-attribute: Owners, attributes and misplaced authors are not direct NuGet authors metadata.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp08-nested-authors",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested-authors.nupkg",
+          "sha256": "0e09011bfcc6150ffe31150a47123b903b31f33c9718aedffaff787ecb652d08"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested-authors.nupkg",
+            "sha256": "0e09011bfcc6150ffe31150a47123b903b31f33c9718aedffaff787ecb652d08"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the nuspec has no direct authors element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 nested-authors: Owners, attributes and misplaced authors are not direct NuGet authors metadata.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp08-authors-outside-metadata",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/authors-outside-metadata.nupkg",
+          "sha256": "4a2b440a5f34e7949d4de7973895f01f4d22ede599b3eacbaedfc2f040c06990"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/authors-outside-metadata.nupkg",
+            "sha256": "4a2b440a5f34e7949d4de7973895f01f4d22ede599b3eacbaedfc2f040c06990"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the nuspec has no direct authors element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 authors-outside-metadata: Owners, attributes and misplaced authors are not direct NuGet authors metadata.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp08-empty",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/empty.nupkg",
+          "sha256": "1edbe235bf6b1aef2460f15dadc9883d822eea49e41950d51e39d922f5c903a2"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/empty.nupkg",
+            "sha256": "1edbe235bf6b1aef2460f15dadc9883d822eea49e41950d51e39d922f5c903a2"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the authors element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 empty: Empty text, whitespace, CDATA whitespace and comments do not supply an author entry.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-whitespace",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/whitespace.nupkg",
+          "sha256": "24a4eed01ba3866640211e79c3fd3f48bfbcc109dd3b1b4eab87f9442a1c0b4c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/whitespace.nupkg",
+            "sha256": "24a4eed01ba3866640211e79c3fd3f48bfbcc109dd3b1b4eab87f9442a1c0b4c"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the authors element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 whitespace: Empty text, whitespace, CDATA whitespace and comments do not supply an author entry.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-unicode-whitespace",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unicode-whitespace.nupkg",
+          "sha256": "635045b190fd475e8d41766ce8f84ed4eeed72883771b31aa1b7e4ce91eacc13"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unicode-whitespace.nupkg",
+            "sha256": "635045b190fd475e8d41766ce8f84ed4eeed72883771b31aa1b7e4ce91eacc13"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the authors element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 unicode-whitespace: Empty text, whitespace, CDATA whitespace and comments do not supply an author entry.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-comment-only",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/comment-only.nupkg",
+          "sha256": "d9af1b3f824871651aa6b45609e0878d6969082706ff0aebd1f365a00d8048ad"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/comment-only.nupkg",
+            "sha256": "d9af1b3f824871651aa6b45609e0878d6969082706ff0aebd1f365a00d8048ad"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the authors element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 comment-only: Empty text, whitespace, CDATA whitespace and comments do not supply an author entry.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-empty-cdata",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/empty-cdata.nupkg",
+          "sha256": "1d64f73d2e452db6ba53b0f3b2e52ac0331408e81bafa7274fd50cda69810d61"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-authors",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/empty-cdata.nupkg",
+            "sha256": "1d64f73d2e452db6ba53b0f3b2e52ac0331408e81bafa7274fd50cda69810d61"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the authors element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 empty-cdata: Empty text, whitespace, CDATA whitespace and comments do not supply an author entry.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-delimiter-only",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/delimiter-only.nupkg",
+          "sha256": "73181f2956d93b02b45b39e2b26b2017c88e933819d819c690986361dd3e2e95"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "delimiter-only",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/delimiter-only.nupkg",
+            "sha256": "73181f2956d93b02b45b39e2b26b2017c88e933819d819c690986361dd3e2e95"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/authors"
+        ],
+        "evidence_contract": null,
+        "finding": "Authors is not populated; the authors text has no nonblank comma-separated entry.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-08 delimiter-only: Commas delimit entries, but no nonblank entry occurs between these separators.",
+      "evidence_pointers": [
+        "package:nuspec/authors"
+      ]
+    },
+    {
+      "case_id": "lp08-duplicate-identical",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-identical.nupkg",
+          "sha256": "7497fd3dae31fc131449138ab60a856015eb6c4655b673ba35072bd43acff110"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-identical.nupkg",
+            "sha256": "7497fd3dae31fc131449138ab60a856015eb6c4655b673ba35072bd43acff110"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Multiple authors elements prevent an unambiguous Authors value.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 duplicate-identical: Multiple authors elements cannot identify one authoritative field, even when equal.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-duplicate-padded",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-padded.nupkg",
+          "sha256": "4e75325f81ea9598946e68e328b7ea2394ebce911778ec5c142c462e78897f5e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-padded.nupkg",
+            "sha256": "4e75325f81ea9598946e68e328b7ea2394ebce911778ec5c142c462e78897f5e"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Multiple authors elements prevent an unambiguous Authors value.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 duplicate-padded: Multiple authors elements cannot identify one authoritative field, even when equal.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-duplicate-conflicting",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-conflicting.nupkg",
+          "sha256": "a6a98d9e5024e97938ea0752fae0f2e6445cf168fd57637524c532c80a35bfb2"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-conflicting.nupkg",
+            "sha256": "a6a98d9e5024e97938ea0752fae0f2e6445cf168fd57637524c532c80a35bfb2"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Conflicting authors elements prevent an unambiguous Authors value.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 duplicate-conflicting: Multiple authors elements cannot identify one authoritative field, even when equal.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-duplicate-blank",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-blank.nupkg",
+          "sha256": "f9fb88f27407051e399bdc9e782f31871d9c9c70172253e6c0cbc92d30d5963f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-blank.nupkg",
+            "sha256": "f9fb88f27407051e399bdc9e782f31871d9c9c70172253e6c0cbc92d30d5963f"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Conflicting authors elements prevent an unambiguous Authors value.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 duplicate-blank: Multiple authors elements cannot identify one authoritative field, even when equal.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-foreign-authors",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-authors.nupkg",
+          "sha256": "5632176a9e2ed4da27ead9f7d5d25c764b0efcfabb6b62f38b3c4f1960e9d53e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-authors",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-authors.nupkg",
+            "sha256": "5632176a9e2ed4da27ead9f7d5d25c764b0efcfabb6b62f38b3c4f1960e9d53e"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace authors element cannot establish NuGet Authors.",
+        "required_input": "recognized-authors-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 foreign-authors: A foreign-namespace authors element is not NuGet authors metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-foreign-alongside",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-alongside.nupkg",
+          "sha256": "c60212de043b29e17e26bf29632edd0b24789109bac008b70c5cd9d777837559"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-authors",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-alongside.nupkg",
+            "sha256": "c60212de043b29e17e26bf29632edd0b24789109bac008b70c5cd9d777837559"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace authors element cannot establish NuGet Authors.",
+        "required_input": "recognized-authors-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 foreign-alongside: A foreign-namespace authors element is not NuGet authors metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-foreign-root",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-root.nupkg",
+          "sha256": "19aa131b405842015bb6a95c44307a45566ec56a082925690b9b93faa7c13afe"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-root",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-root.nupkg",
+            "sha256": "19aa131b405842015bb6a95c44307a45566ec56a082925690b9b93faa7c13afe"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package root is not in a recognized NuGet namespace.",
+        "required_input": "recognized-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 foreign-root: An unrecognized package root cannot establish NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-unknown-attribute",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unknown-attribute.nupkg",
+          "sha256": "6ff654bf38e7d6bb9c075e8a6a806ed18d1849de0688c22a14812645d43780de"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed-authors",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unknown-attribute.nupkg",
+            "sha256": "6ff654bf38e7d6bb9c075e8a6a806ed18d1849de0688c22a14812645d43780de"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The authors element has unsupported attributes or child elements.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 unknown-attribute: Authors is simple text; unsupported attributes or nested elements require correction.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-foreign-attribute",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-attribute.nupkg",
+          "sha256": "01d0e436d224d669e3bc6f12b004a243b37745d632fbcb3ae995f159c9cb6ca1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed-authors",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-attribute.nupkg",
+            "sha256": "01d0e436d224d669e3bc6f12b004a243b37745d632fbcb3ae995f159c9cb6ca1"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The authors element has unsupported attributes or child elements.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 foreign-attribute: Authors is simple text; unsupported attributes or nested elements require correction.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-nested-content",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested-content.nupkg",
+          "sha256": "f065bb28729412068e3d442ddc2acc8df3793e9b2152b7f8ac3612d3f183322d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed-authors",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested-content.nupkg",
+            "sha256": "f065bb28729412068e3d442ddc2acc8df3793e9b2152b7f8ac3612d3f183322d"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The authors element has unsupported attributes or child elements.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 nested-content: Authors is simple text; unsupported attributes or nested elements require correction.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-missing-metadata",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/missing-metadata.nupkg",
+          "sha256": "40199ea84d6c925e0aa597942d0b7146f0182907693f46a4772f7ec8c244dcf9"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/missing-metadata.nupkg",
+            "sha256": "40199ea84d6c925e0aa597942d0b7146f0182907693f46a4772f7ec8c244dcf9"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec requires exactly one recognized metadata element.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 missing-metadata: Malformed or duplicate/missing metadata cannot identify one authors field.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-duplicate-metadata",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-metadata.nupkg",
+          "sha256": "375583be8ff61c92dfbc66b45022ca626d7972402bc1a1a04acd4627d16a87d8"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-metadata.nupkg",
+            "sha256": "375583be8ff61c92dfbc66b45022ca626d7972402bc1a1a04acd4627d16a87d8"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec requires exactly one recognized metadata element.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 duplicate-metadata: Malformed or duplicate/missing metadata cannot identify one authors field.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-invalid-xml",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-xml.nupkg",
+          "sha256": "709917334f849266391640fc63f534e2cf905e7bfe3ae7c7ea364cb980611bfe"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-xml.nupkg",
+            "sha256": "709917334f849266391640fc63f534e2cf905e7bfe3ae7c7ea364cb980611bfe"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec XML is not well formed.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 invalid-xml: Malformed or duplicate/missing metadata cannot identify one authors field.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-dtd-entity",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/dtd-entity.nupkg",
+          "sha256": "b1e4559637e7a3ebb329df00109e99120339e55c674c9c9bf2a9ebda1b19f973"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/dtd-entity.nupkg",
+            "sha256": "b1e4559637e7a3ebb329df00109e99120339e55c674c9c9bf2a9ebda1b19f973"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec contains a DTD/entity declaration and cannot be safely inspected.",
+        "required_input": "safe-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 dtd-entity: DTD/entity declarations must not be expanded or trusted.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-no-nuspec",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-nuspec.nupkg",
+          "sha256": "1eacdeb56c1b45f079b3137db4ad24514120cce313d483aaf93abcf08fe29e56"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-nuspec.nupkg",
+            "sha256": "1eacdeb56c1b45f079b3137db4ad24514120cce313d483aaf93abcf08fe29e56"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The archive has no nuspec entry.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 no-nuspec: No nuspec is available in the archive.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-multiple-root-nuspec",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/multiple-root-nuspec.nupkg",
+          "sha256": "075282590aba21f4068d46aa40d58554bd2109874c03c1b91af001590bdad696"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/multiple-root-nuspec.nupkg",
+            "sha256": "075282590aba21f4068d46aa40d58554bd2109874c03c1b91af001590bdad696"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The archive has multiple root nuspec entries.",
+        "required_input": "unique-root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 multiple-root-nuspec: Multiple root nuspecs cannot identify one authoritative manifest.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-subfolder-only-nuspec",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/subfolder-only-nuspec.nupkg",
+          "sha256": "54996a4f8009d567e6b61fd6a1f53a99cd73937168c08dd2b3bc72708a37c08e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-root-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/subfolder-only-nuspec.nupkg",
+            "sha256": "54996a4f8009d567e6b61fd6a1f53a99cd73937168c08dd2b3bc72708a37c08e"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The only nuspec entry is nested in a subfolder.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 subfolder-only-nuspec: A nested nuspec is not an authoritative root manifest.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-corrupt-archive",
+      "row_id": "LP-08",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/corrupt-archive.nupkg",
+          "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "unreadable-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/corrupt-archive.nupkg",
+            "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The supplied checked bytes are not a readable NuGet archive.",
+        "required_input": "valid-nupkg",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-08 corrupt-archive: The checked input is not a readable ZIP package.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp08-no-package",
+      "row_id": "LP-08",
+      "inputs": [],
+      "expected": {
+        "row_id": "LP-08",
+        "resolver_id": "lp08-authors",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package bytes required for LP-08 were not supplied.",
+        "required_input": "package",
+        "next_category": "input-owner"
+      },
+      "rationale": "LP-08 no-package: No checked package input was supplied.",
+      "evidence_pointers": []
+    }
+  ]
+}
