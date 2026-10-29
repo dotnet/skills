@@ -27,21 +27,24 @@ stimuli:
           dest: .
       commands:
         - dotnet restore Ledger.sln --nologo
+    # Grader-only stand-in for Ledger.Extensions, staged after the agent finishes so migrating or
+    # deleting in-repo tests cannot hide a removed or re-signatured ApplySurcharge(decimal, decimal).
+    grading_environment:
+      files:
+        - src: fixtures/coexistence/grading/FriendSurchargeChecks.cs
+          dest: tests/Ledger.Tests/GraderChecks/FriendSurchargeChecks.cs
     graders:
       - type: skill-invocation
         config:
           required:
             - csharp-refactoring
             - dotnet-breaking-changes
-      - type: file-contains
+      - type: run-command
         config:
-          path: src/Ledger/Invoice.cs
-          value: AddSurcharge(
-      # Ledger.Extensions binds to ApplySurcharge and cannot be rebuilt from this repository.
-      - type: file-contains
-        config:
-          path: src/Ledger/Invoice.cs
-          value: ApplySurcharge(
+          command: dotnet test Ledger.sln -v:q --no-restore --filter FullyQualifiedName~Ledger.GraderChecks
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
       - type: file-contains
         config:
           path: src/Ledger/AssemblyInfo.cs
@@ -75,6 +78,14 @@ stimuli:
           dest: Reports
       commands:
         - dotnet restore Reports/Reports.csproj --nologo
+    # The private-app fixture and global.json are byte-identical to the dotnet-breaking-changes
+    # private-app guard, so its complete-state manifest applies unchanged.
+    grading_environment:
+      files:
+        - src: ../dotnet-breaking-changes/fixtures/grading/assert-unchanged.js
+          dest: .grading/assert-unchanged.js
+        - src: ../dotnet-breaking-changes/fixtures/grading/unchanged-private-app-rename.json
+          dest: .grading/unchanged.json
     graders:
       - type: skill-invocation
         config:
@@ -82,6 +93,13 @@ stimuli:
             - csharp-refactoring
           disallowed:
             - dotnet-breaking-changes
+      # Only the requested Build -> BuildMonthlySummary rename may differ in ReportBuilder.cs and
+      # Program.cs; Reports.csproj and global.json must be unchanged, with no added or deleted files.
+      - type: run-command
+        config:
+          command: node .grading/assert-unchanged.js .grading/unchanged.json
+          expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
           path: Reports/ReportBuilder.cs
