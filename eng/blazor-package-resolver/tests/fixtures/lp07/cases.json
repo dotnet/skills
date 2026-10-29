@@ -1,0 +1,1855 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp07-sha1",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/sha1.nupkg",
+          "sha256": "c30ce8234e73b2d08f0eaa78aa081c575341e41647345b558d7e12da2183c348"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/sha1.nupkg",
+            "sha256": "c30ce8234e73b2d08f0eaa78aa081c575341e41647345b558d7e12da2183c348"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 sha1: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-sha1-uppercase-padded",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/sha1-uppercase-padded.nupkg",
+          "sha256": "f7b16d048407d12f313509e96940352e899c1ec5c76ae57bf091690c515ebabc"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/sha1-uppercase-padded.nupkg",
+            "sha256": "f7b16d048407d12f313509e96940352e899c1ec5c76ae57bf091690c515ebabc"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 sha1-uppercase-padded: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-sha256",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/sha256.nupkg",
+          "sha256": "23686f6befb31f29cb4903e96d7c6f2d0300eb66e54c1f7d3089ac2a3bc41159"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha256",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/sha256.nupkg",
+            "sha256": "23686f6befb31f29cb4903e96d7c6f2d0300eb66e54c1f7d3089ac2a3bc41159"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-256 commit SHA: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 sha256: A full nonzero 64-hex SHA-256 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-sha256-mixed-case",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/sha256-mixed-case.nupkg",
+          "sha256": "56d48a37cdff607dd0e3859b7b8a90c47b2ddc3c693858b4f2dcf5849ce5fdc1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha256",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/sha256-mixed-case.nupkg",
+            "sha256": "56d48a37cdff607dd0e3859b7b8a90c47b2ddc3c693858b4f2dcf5849ce5fdc1"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-256 commit SHA: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 sha256-mixed-case: A full nonzero 64-hex SHA-256 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-unqualified",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unqualified.nupkg",
+          "sha256": "894df3cf157eae064242e7ce340a6d6932e1d894d10559b45a41d3d21fbe3858"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unqualified.nupkg",
+            "sha256": "894df3cf157eae064242e7ce340a6d6932e1d894d10559b45a41d3d21fbe3858"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 unqualified: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-namespace-2010-07",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2010-07.nupkg",
+          "sha256": "6362502315a2a8c0a7042d85d26722d9289b58adf301eda72a02939c4420341c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2010-07.nupkg",
+            "sha256": "6362502315a2a8c0a7042d85d26722d9289b58adf301eda72a02939c4420341c"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 namespace-2010-07: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-namespace-2011-08",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2011-08.nupkg",
+          "sha256": "591221e0e3d65e09efb943881d0538922ca221ab07de2b31510f92a75c844c67"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2011-08.nupkg",
+            "sha256": "591221e0e3d65e09efb943881d0538922ca221ab07de2b31510f92a75c844c67"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 namespace-2011-08: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-namespace-2011-10",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2011-10.nupkg",
+          "sha256": "802710a939abdddb0a622dc2fa7d166ab2d1c801585657c6aa6e327b867f5a5e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2011-10.nupkg",
+            "sha256": "802710a939abdddb0a622dc2fa7d166ab2d1c801585657c6aa6e327b867f5a5e"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 namespace-2011-10: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-namespace-2012-06",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2012-06.nupkg",
+          "sha256": "79d5ff19055bd0c8f35a63c7f3a19b74426aaa4a9319e6a8bb4284e451d36b96"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2012-06.nupkg",
+            "sha256": "79d5ff19055bd0c8f35a63c7f3a19b74426aaa4a9319e6a8bb4284e451d36b96"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 namespace-2012-06: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-namespace-2013-01",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-2013-01.nupkg",
+          "sha256": "95894646a15102e2d079f762974f4fd1604a0625f2b2d92a6dac72cea43ee570"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-2013-01.nupkg",
+            "sha256": "95894646a15102e2d079f762974f4fd1604a0625f2b2d92a6dac72cea43ee570"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 namespace-2013-01: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-no-url",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-url.nupkg",
+          "sha256": "41b2b7a8282b77b08b5358f111d60def72f279d74034dc5132d63b63cd6cfccf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-url.nupkg",
+            "sha256": "41b2b7a8282b77b08b5358f111d60def72f279d74034dc5132d63b63cd6cfccf"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 no-url: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-invalid-url",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-url.nupkg",
+          "sha256": "b5aeadcfbf526eb6a3bf08e9e22da14a2b9e3a2a91b1db5c6bf7c762f2b46e4d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-url.nupkg",
+            "sha256": "b5aeadcfbf526eb6a3bf08e9e22da14a2b9e3a2a91b1db5c6bf7c762f2b46e4d"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 invalid-url: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-blank-url",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/blank-url.nupkg",
+          "sha256": "60ca621693d79625e3263f18d8e6a32858360e3e37a46e0bb4554fb5293a5513"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/blank-url.nupkg",
+            "sha256": "60ca621693d79625e3263f18d8e6a32858360e3e37a46e0bb4554fb5293a5513"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 blank-url: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-unrelated-attributes",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unrelated-attributes.nupkg",
+          "sha256": "d2d6392f49baad7e68d5923e46ae05697c3589cfaf609cfa5c9e44dba9e045fe"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unrelated-attributes.nupkg",
+            "sha256": "d2d6392f49baad7e68d5923e46ae05697c3589cfaf609cfa5c9e44dba9e045fe"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 unrelated-attributes: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-namespace-declaration",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/namespace-declaration.nupkg",
+          "sha256": "02d925a361402bb10f2a3e4a220c0380d0057b80a6ce112876c222e9f5ed1d67"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/namespace-declaration.nupkg",
+            "sha256": "02d925a361402bb10f2a3e4a220c0380d0057b80a6ce112876c222e9f5ed1d67"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 namespace-declaration: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-foreign-sibling",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-sibling.nupkg",
+          "sha256": "ab079c1dd6cca1c452278160b164368ab06f2abfe8abb555abfcd08b70299f7a"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "full-sha1",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-sibling.nupkg",
+            "sha256": "ab079c1dd6cca1c452278160b164368ab06f2abfe8abb555abfcd08b70299f7a"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 foreign-sibling: A full nonzero 40-hex SHA-1 commit identifier is declared; no object lookup is asserted.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-absent",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/absent.nupkg",
+          "sha256": "ee63f51533259aca165bb2f3391723604dfcd04b256c63141a7b1f945845fd12"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-repository",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/absent.nupkg",
+            "sha256": "ee63f51533259aca165bb2f3391723604dfcd04b256c63141a7b1f945845fd12"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec has no repository element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 absent: No direct recognized repository element supplies the commit attribute.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp07-project-url-only",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/project-url-only.nupkg",
+          "sha256": "bc38a063524b7412f99704c0565ab7de676720f16d69108819956aa467144061"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-repository",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/project-url-only.nupkg",
+            "sha256": "bc38a063524b7412f99704c0565ab7de676720f16d69108819956aa467144061"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec has no repository element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 project-url-only: No direct recognized repository element supplies the commit attribute.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp07-missing-commit",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/missing-commit.nupkg",
+          "sha256": "f7940f746292f75cd15343d7e2941f4bd058b2fb31237433a4f33cf9d0c2ea49"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-commit",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/missing-commit.nupkg",
+            "sha256": "f7940f746292f75cd15343d7e2941f4bd058b2fb31237433a4f33cf9d0c2ea49"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a commit SHA; the repository has no commit attribute.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 missing-commit: Repository metadata exists, but its commit attribute is absent.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-empty-commit",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/empty-commit.nupkg",
+          "sha256": "d3c13695cf69f97bb5eece82aabca39efd167db6536a721a13de7a0af8897373"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-commit",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/empty-commit.nupkg",
+            "sha256": "d3c13695cf69f97bb5eece82aabca39efd167db6536a721a13de7a0af8897373"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a commit SHA; the commit attribute is blank.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 empty-commit: An empty or whitespace-only attribute cannot identify a commit.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-blank-commit",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/blank-commit.nupkg",
+          "sha256": "7d98a7f60ab0cde3e81466de685786a800bf53e4691c2b7a18774eefbc72c256"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-commit",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/blank-commit.nupkg",
+            "sha256": "7d98a7f60ab0cde3e81466de685786a800bf53e4691c2b7a18774eefbc72c256"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a commit SHA; the commit attribute is blank.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 blank-commit: An empty or whitespace-only attribute cannot identify a commit.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-abbreviated",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/abbreviated.nupkg",
+          "sha256": "a722b5290256d00c9cf1310072960f82db68d2a9e1e2b37f0884d28c8491ff93"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "abbreviated-commit",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/abbreviated.nupkg",
+            "sha256": "a722b5290256d00c9cf1310072960f82db68d2a9e1e2b37f0884d28c8491ff93"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a full commit SHA; abbreviated object IDs are repository-dependent.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 abbreviated: A prefix needs repository context to disambiguate and is not a full SHA.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-length-39",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/length-39.nupkg",
+          "sha256": "5cf37d60546b704b0e1455967bbe03b4965174114de7de577cd94ae7f8fdddab"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-length",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/length-39.nupkg",
+            "sha256": "5cf37d60546b704b0e1455967bbe03b4965174114de7de577cd94ae7f8fdddab"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID has the wrong length.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 length-39: Neither Git object format has this full object ID length.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-length-41",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/length-41.nupkg",
+          "sha256": "a2a1c4f3028f9ab2a39322d5a33f9d2cdca87b83235e6a20022a57e2df160477"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-length",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/length-41.nupkg",
+            "sha256": "a2a1c4f3028f9ab2a39322d5a33f9d2cdca87b83235e6a20022a57e2df160477"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID has the wrong length.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 length-41: Neither Git object format has this full object ID length.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-length-63",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/length-63.nupkg",
+          "sha256": "3c44c22774ec84a50f140a5647721578dc3df21a859878302770730cbd35a26c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-length",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/length-63.nupkg",
+            "sha256": "3c44c22774ec84a50f140a5647721578dc3df21a859878302770730cbd35a26c"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID has the wrong length.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 length-63: Neither Git object format has this full object ID length.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-length-65",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/length-65.nupkg",
+          "sha256": "940f8c4637155e3267ba0c4f4630d93b6cfea9964691d2cdf8469d8678bc25f4"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-length",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/length-65.nupkg",
+            "sha256": "940f8c4637155e3267ba0c4f4630d93b6cfea9964691d2cdf8469d8678bc25f4"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID has the wrong length.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 length-65: Neither Git object format has this full object ID length.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-nonhex",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nonhex.nupkg",
+          "sha256": "5cf1682127301ce3e36418010fb285d9f1da403367ece0110963fde7fcea0d98"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-characters",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nonhex.nupkg",
+            "sha256": "5cf1682127301ce3e36418010fb285d9f1da403367ece0110963fde7fcea0d98"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID is not ASCII hexadecimal.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 nonhex: Internal whitespace and non-ASCII-hex characters are not object ID digits.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-internal-whitespace",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/internal-whitespace.nupkg",
+          "sha256": "b946dee555ea7540e18da5fa1d79a980888989ff584c87f67989a824c3c27222"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-characters",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/internal-whitespace.nupkg",
+            "sha256": "b946dee555ea7540e18da5fa1d79a980888989ff584c87f67989a824c3c27222"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID is not ASCII hexadecimal.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 internal-whitespace: Internal whitespace and non-ASCII-hex characters are not object ID digits.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-zero-sha1",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/zero-sha1.nupkg",
+          "sha256": "b110d8895690a6c2b11242679e66eefe7196c63b07c2ea01cd893fa4ddd7754e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "null-oid",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/zero-sha1.nupkg",
+            "sha256": "b110d8895690a6c2b11242679e66eefe7196c63b07c2ea01cd893fa4ddd7754e"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a commit SHA; an all-zero object ID is a null sentinel.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 zero-sha1: The all-zero Git null sentinel does not name a commit.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-zero-sha256",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/zero-sha256.nupkg",
+          "sha256": "3f5f85897f586c650fe77421adb165ee9cebbda416a2e79f5fa17ecfddca9937"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "null-oid",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/zero-sha256.nupkg",
+            "sha256": "3f5f85897f586c650fe77421adb165ee9cebbda416a2e79f5fa17ecfddca9937"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a commit SHA; an all-zero object ID is a null sentinel.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 zero-sha256: The all-zero Git null sentinel does not name a commit.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-duplicate-identical",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-identical.nupkg",
+          "sha256": "fa47dbe673f9747086ee71599b39cfd41733e1af56f2a517550521c4e9b9cf8f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-identical.nupkg",
+            "sha256": "fa47dbe673f9747086ee71599b39cfd41733e1af56f2a517550521c4e9b9cf8f"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Multiple repository elements prevent an unambiguous RepositoryCommit.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 duplicate-identical: Multiple repository declarations cannot establish one unambiguous commit.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-duplicate-conflicting",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-conflicting.nupkg",
+          "sha256": "1d2346e27e8ae62fd4697841d222106e7016945dead5961a4082632b3da96bcb"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-conflicting.nupkg",
+            "sha256": "1d2346e27e8ae62fd4697841d222106e7016945dead5961a4082632b3da96bcb"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Conflicting repository elements prevent an unambiguous RepositoryCommit.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 duplicate-conflicting: Multiple repository declarations cannot establish one unambiguous commit.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-foreign-repository",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-repository.nupkg",
+          "sha256": "939ee662018f26aeb012d3f3236e3576c0743cb3607f0dffa20f1d3effa1d109"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-repository",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-repository.nupkg",
+            "sha256": "939ee662018f26aeb012d3f3236e3576c0743cb3607f0dffa20f1d3effa1d109"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace repository element cannot establish NuGet RepositoryCommit.",
+        "required_input": "recognized-repository-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 foreign-repository: A foreign-namespace repository declaration is not NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-foreign-alongside",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-alongside.nupkg",
+          "sha256": "3bf06b8a60806eea62fa2b318fee4c813927c6cd67595ccb710ec1c8b2cea0e7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-repository",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-alongside.nupkg",
+            "sha256": "3bf06b8a60806eea62fa2b318fee4c813927c6cd67595ccb710ec1c8b2cea0e7"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace repository element cannot establish NuGet RepositoryCommit.",
+        "required_input": "recognized-repository-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 foreign-alongside: A foreign-namespace repository declaration is not NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-foreign-root",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-root.nupkg",
+          "sha256": "c669a539f7cb3901c94cc83bb1e953f1a0cc4e1903c709650887529223274a03"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-root",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-root.nupkg",
+            "sha256": "c669a539f7cb3901c94cc83bb1e953f1a0cc4e1903c709650887529223274a03"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package root is not in a recognized NuGet namespace.",
+        "required_input": "recognized-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 foreign-root: An unrecognized package root cannot establish NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-unknown-attribute",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unknown-attribute.nupkg",
+          "sha256": "f7a7e5de018a9f17586964c9d44dfce37cb9e13b56178abd973366383682d315"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-attribute",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unknown-attribute.nupkg",
+            "sha256": "f7a7e5de018a9f17586964c9d44dfce37cb9e13b56178abd973366383682d315"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "An unknown repository attribute is outside the recognized metadata contract.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 unknown-attribute: Unrecognized repository attributes are outside the strict metadata contract.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-foreign-attribute",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-attribute.nupkg",
+          "sha256": "3d8545c2647f8b1d760ba9e8f3e626302bb3d85c4de15c6a4c749e699c33e3cb"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsupported-attribute",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-attribute.nupkg",
+            "sha256": "3d8545c2647f8b1d760ba9e8f3e626302bb3d85c4de15c6a4c749e699c33e3cb"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "An unknown namespaced repository attribute is outside the recognized metadata contract.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 foreign-attribute: Unrecognized repository attributes are outside the strict metadata contract.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-repository-text",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/repository-text.nupkg",
+          "sha256": "76aab370b97e2099462282dff70dcb6eb55355b2f6f7e416fd9f808191f6d9e4"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/repository-text.nupkg",
+            "sha256": "76aab370b97e2099462282dff70dcb6eb55355b2f6f7e416fd9f808191f6d9e4"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The repository element contains unsupported content.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 repository-text: Malformed or unsupported repository/metadata content cannot establish one commit.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-nested-commit",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested-commit.nupkg",
+          "sha256": "1dab716ec65126df32b7a847c07f14b7bf9923c67bd27496457f6b71623922da"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested-commit.nupkg",
+            "sha256": "1dab716ec65126df32b7a847c07f14b7bf9923c67bd27496457f6b71623922da"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The repository element contains unsupported content.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 nested-commit: Malformed or unsupported repository/metadata content cannot establish one commit.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-nested-repository",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested-repository.nupkg",
+          "sha256": "0c54a2ba9556482956104358fc8a32d54f9acedde0fae434cdc085d7a31fdfe6"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-repository",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested-repository.nupkg",
+            "sha256": "0c54a2ba9556482956104358fc8a32d54f9acedde0fae434cdc085d7a31fdfe6"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec has no repository element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 nested-repository: No direct recognized repository element supplies the commit attribute.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp07-repository-outside-metadata",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/repository-outside-metadata.nupkg",
+          "sha256": "751858a75280af35da8765c8fefee119e6f905fcb33cb8197fff359c7a58b43b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-repository",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/repository-outside-metadata.nupkg",
+            "sha256": "751858a75280af35da8765c8fefee119e6f905fcb33cb8197fff359c7a58b43b"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec has no repository element.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 repository-outside-metadata: No direct recognized repository element supplies the commit attribute.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp07-missing-metadata",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/missing-metadata.nupkg",
+          "sha256": "e0d57101e3105f1f2f87ed0b5883020c6bc0ac5753bf25f6841219c5e44a8422"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/missing-metadata.nupkg",
+            "sha256": "e0d57101e3105f1f2f87ed0b5883020c6bc0ac5753bf25f6841219c5e44a8422"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec requires exactly one recognized metadata element.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 missing-metadata: Malformed or unsupported repository/metadata content cannot establish one commit.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-duplicate-metadata",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-metadata.nupkg",
+          "sha256": "aa840bc8e7814a905645b99abbc859686747f7e5b5940f08fb6481f255f4a3fa"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-metadata.nupkg",
+            "sha256": "aa840bc8e7814a905645b99abbc859686747f7e5b5940f08fb6481f255f4a3fa"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec requires exactly one recognized metadata element.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 duplicate-metadata: Malformed or unsupported repository/metadata content cannot establish one commit.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-invalid-xml",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-xml.nupkg",
+          "sha256": "ca09d027fca7b6301aec63e4b48106d2bf4a14de8f25e5088880fe71c7c05b63"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-xml.nupkg",
+            "sha256": "ca09d027fca7b6301aec63e4b48106d2bf4a14de8f25e5088880fe71c7c05b63"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec XML is not well formed.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 invalid-xml: Malformed or unsupported repository/metadata content cannot establish one commit.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-dtd-entity",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/dtd-entity.nupkg",
+          "sha256": "2c690b2a892d6d78474bb8600d0f3c5c0bc8f9db34be4672ef466b5064e667a1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/dtd-entity.nupkg",
+            "sha256": "2c690b2a892d6d78474bb8600d0f3c5c0bc8f9db34be4672ef466b5064e667a1"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec contains a DTD/entity declaration and cannot be safely inspected.",
+        "required_input": "safe-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 dtd-entity: DTD/entity declarations must not be expanded or trusted.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-no-nuspec",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-nuspec.nupkg",
+          "sha256": "1eacdeb56c1b45f079b3137db4ad24514120cce313d483aaf93abcf08fe29e56"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-nuspec.nupkg",
+            "sha256": "1eacdeb56c1b45f079b3137db4ad24514120cce313d483aaf93abcf08fe29e56"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The archive has no nuspec entry.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 no-nuspec: No nuspec is available in the archive.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-multiple-root-nuspec",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/multiple-root-nuspec.nupkg",
+          "sha256": "fc5793cdc068f75a1694e80408322b67aba50f60fc46bdc90a9033e5896aa8cc"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/multiple-root-nuspec.nupkg",
+            "sha256": "fc5793cdc068f75a1694e80408322b67aba50f60fc46bdc90a9033e5896aa8cc"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The archive has multiple root nuspec entries.",
+        "required_input": "unique-root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 multiple-root-nuspec: Multiple root nuspecs cannot identify one authoritative commit.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-subfolder-only-nuspec",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/subfolder-only-nuspec.nupkg",
+          "sha256": "625e98df740158248147bfe997685f5918a83e3b9464a286f9767be17de2114c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-root-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/subfolder-only-nuspec.nupkg",
+            "sha256": "625e98df740158248147bfe997685f5918a83e3b9464a286f9767be17de2114c"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The only nuspec entry is nested in a subfolder.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 subfolder-only-nuspec: A nested nuspec is not an authoritative root manifest.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-corrupt-archive",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/corrupt-archive.nupkg",
+          "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "unreadable-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/corrupt-archive.nupkg",
+            "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The supplied checked bytes are not a readable NuGet archive.",
+        "required_input": "valid-nupkg",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 corrupt-archive: The checked input is not a readable ZIP package.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-no-package",
+      "row_id": "LP-07",
+      "inputs": [],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package bytes required for LP-07 were not supplied.",
+        "required_input": "package",
+        "next_category": "input-owner"
+      },
+      "rationale": "LP-07 no-package: No checked package input was supplied.",
+      "evidence_pointers": []
+    }
+  ]
+}
