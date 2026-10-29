@@ -389,10 +389,13 @@ safe-outputs:
                   );
                 }
                 return (
-                  url.pathname === root ||
-                  new RegExp(
-                    `^${root}/(actions/runs/\\d+|commit/[0-9a-fA-F]+|pull/\\d+|issues/\\d+|blob/.+|tree/.+)$`
-                  ).test(url.pathname)
+                  (
+                    url.pathname === root ||
+                    new RegExp(
+                      `^${root}/(actions/runs/\\d+|actions/workflows/[A-Za-z0-9._-]+\\.ya?ml|commit/[0-9a-fA-F]+|pull/\\d+|issues/\\d+|blob/.+|tree/.+)$`
+                    ).test(url.pathname)
+                  ) &&
+                  url.hash === ""
                 );
               };
               const validFingerprint = value => {
@@ -482,7 +485,11 @@ safe-outputs:
                 return JSON.parse(match[1]);
               };
 
-              const validateState = (candidate, source) => {
+              const validateState = (
+                candidate,
+                source,
+                resourceUrlValidator = validResourceUrlForType
+              ) => {
                 if (
                   !exactKeys(candidate, ["active_findings", "history"]) ||
                   !Array.isArray(candidate.active_findings) ||
@@ -513,7 +520,11 @@ safe-outputs:
                     typeof finding.title !== "string" ||
                     finding.title.length === 0 ||
                     finding.title.length > 200 ||
-                    !validRepositoryUrl(finding.url) ||
+                    !resourceUrlValidator(
+                      finding.url,
+                      finding.category,
+                      finding
+                    ) ||
                     !validDate(finding.first_seen) ||
                     !validCount(finding.occurrences) ||
                     findings.has(finding.fingerprint)
@@ -544,6 +555,15 @@ safe-outputs:
                 }
                 return findings;
               };
+              const sameFinding = (left, right) =>
+                left !== undefined &&
+                left.category === right.category &&
+                left.fingerprint === right.fingerprint &&
+                left.first_seen === right.first_seen &&
+                left.occurrences === right.occurrences &&
+                left.severity === right.severity &&
+                left.title === right.title &&
+                left.url === right.url;
 
               const currentBody = dashboard.data.body || "";
               const currentStateMatches = [
@@ -554,6 +574,7 @@ safe-outputs:
               const currentStateTokenCount =
                 currentBody.split("<!-- devops-health-state:v1").length - 1;
               const hasPersistedState = currentStateMatches.length === 1;
+              let previousStateFindings = new Map();
               if (currentStateTokenCount > 1) {
                 core.setFailed("Existing dashboard state marker is duplicated");
                 return;
@@ -564,15 +585,108 @@ safe-outputs:
               }
               if (currentStateMatches.length === 1) {
                 try {
-                  validateState(
+                  previousStateFindings = validateState(
                     JSON.parse(currentStateMatches[0][1]),
-                    "Existing dashboard state"
+                    "Existing dashboard state",
+                    validRepositoryUrl
                   );
                 } catch (error) {
                   core.setFailed(error.message);
                   return;
                 }
               }
+              const legacyReportHeader = "# 🏥 Daily Health Check — ";
+              const legacyReportStart = currentBody.lastIndexOf(legacyReportHeader);
+              const legacyReport =
+                legacyReportStart >= 0
+                  ? currentBody.slice(legacyReportStart)
+                  : "";
+              const legacyReportDate = new RegExp(
+                `^${legacyReportHeader}(\\d{4}-\\d{2}-\\d{2})$`,
+                "m"
+              ).exec(legacyReport)?.[1];
+              const legacySection = (heading, nextHeading) => {
+                const start = legacyReport.indexOf(heading);
+                if (start < 0) {
+                  return "";
+                }
+                const end = legacyReport.indexOf(nextHeading, start + heading.length);
+                return legacyReport.slice(start, end < 0 ? undefined : end);
+              };
+              const legacyActiveReport =
+                legacySection(
+                  "## 🆕 New Findings",
+                  "## 🔍 Investigation Results"
+                ) +
+                legacySection(
+                  "## 📌 Existing Findings",
+                  "## 📊 Trends"
+                );
+              const legacyFindingBlocks = [
+                ...legacyActiveReport.matchAll(
+                  /<details>[\s\S]*?<\/details>/g
+                ),
+                ...legacyActiveReport.matchAll(
+                  /(?:^|\n)### [\s\S]*?(?=\n### |\n---|$)/g
+                ),
+              ].map(match => match[0]);
+              const legacyFindingInReport = finding => {
+                if (
+                  hasPersistedState ||
+                  !validRepositoryUrl(finding.url) ||
+                  !legacyReportDate
+                ) {
+                  return false;
+                }
+                const fingerprintToken =
+                  `**Fingerprint:** \`${finding.fingerprint}\``;
+                const matchingBlocks = legacyFindingBlocks.filter(block =>
+                  block.includes(fingerprintToken)
+                );
+                if (matchingBlocks.length !== 1) {
+                  return false;
+                }
+                const block = matchingBlocks[0];
+                const titleMatch =
+                  /<summary>(🔴|🟡|🔵) ([^\r\n<]+)<\/summary>/.exec(block) ||
+                  /(?:^|\n)### (🔴|🟡|🔵) ([^\r\n]+)(?:\r?\n|$)/.exec(block);
+                const categoryMatch =
+                  /\*\*Category:\*\*\s*([A-Za-z]+)/i.exec(block);
+                const firstSeenMatch =
+                  /\*\*First seen:\*\*\s*(\d{4}-\d{2}-\d{2})(?=\s|$)/i.exec(
+                    block
+                  );
+                const occurrencesMatch =
+                  /\*\*Occurrences:\*\*\s*(\d+)(?=\s|$)/i.exec(block);
+                const linkedUrls = [
+                  ...block.matchAll(/\]\((https:[^)\r\n]+)\)/g),
+                ].map(match => match[1]);
+                const expectedSeverityIcon = {
+                  critical: "🔴",
+                  warning: "🟡",
+                  info: "🔵",
+                }[finding.severity];
+                const hasFirstSeen =
+                  firstSeenMatch?.[1] === finding.first_seen ||
+                  (
+                    finding.first_seen === legacyReportDate &&
+                    !firstSeenMatch
+                  );
+                const hasOccurrences =
+                  Number(occurrencesMatch?.[1]) === finding.occurrences ||
+                  (
+                    finding.occurrences === 1 &&
+                    !occurrencesMatch
+                  );
+                return (
+                  titleMatch?.[1] === expectedSeverityIcon &&
+                  titleMatch?.[2] === finding.title &&
+                  categoryMatch?.[1].toLowerCase() === finding.category &&
+                  linkedUrls.includes(finding.url) &&
+                  hasFirstSeen &&
+                  hasOccurrences
+                );
+              };
 
               const priorOutbox = new Map();
               for (const line of currentBody.split(/\r?\n/)) {
@@ -641,7 +755,17 @@ safe-outputs:
               let stateFindings;
               try {
                 state = parseFencedJson(item.state_json, "state_json", 100000);
-                stateFindings = validateState(state, "Dashboard state");
+                stateFindings = validateState(
+                  state,
+                  "Dashboard state",
+                  (url, category, finding) =>
+                    validResourceUrlForType(url, category) ||
+                    sameFinding(
+                      previousStateFindings.get(finding.fingerprint),
+                      finding
+                    ) ||
+                    legacyFindingInReport(finding)
+                );
               } catch (error) {
                 core.setFailed(error.message);
                 return;
@@ -1188,11 +1312,30 @@ findings. Retain the validated previous issue body in memory for Step 2.
 
 ### 1.1 Pipeline Health (P1–P6)
 
+**Deterministic Actions pagination contract:** For every P1-P6, U1, or U2
+workflow-run inventory, call `actions_list` with
+`method: list_workflow_runs`, `perPage: 100`, and explicit `page` values
+starting at `1`. Do not send `workflow_runs_filter`: GitHub limits filtered
+workflow-run searches to 1,000 results, and the pinned MCP tool does not expose
+the REST `created` filter needed to partition that cap safely. Use
+`resource_id` only when the check is scoped to one workflow. Filter branch,
+status, event, and cutoff locally after each unfiltered page. Process pages
+immediately, deduplicate runs by run ID, and continue until a page contains
+fewer than the requested 100 entries or its oldest `created_at` reaches the
+check's cutoff. Stop after 100 total pages for one observation scope. If the
+inventory does not reach the requested cutoff within that budget, mark only
+that scope unavailable. A full first page is not evidence that pagination is
+unavailable. Do not rely on implicit MCP pagination.
+
 **P1 — Failed workflow runs on `main` in last 24h:**
 ```
-GET /repos/{owner}/{repo}/actions/runs?branch=main&status=failure&per_page=30
+actions_list: method=list_workflow_runs, perPage=100, page={page}
 ```
-Filter to runs created within the last 24 hours. For each failed run:
+Filter locally to `branch=main`, `conclusion=failure`, and runs created within
+the last 24 hours. For each failed run:
+- Use paginated Actions job data for that run and inspect only failed job logs
+  when needed to identify the failed step. P1 is complete only when both the
+  run inventory and each included run's failed job/step identity are complete.
 - Extract `workflow_name`, `conclusion`, `job_name`, `failed_step`
 - Fingerprint: `pipeline:{workflow_name}:{job_name}:{failed_step}:{conclusion}`
 - Severity: 🔴 Critical if `evaluation` workflow fails; 🟡 Warning for others
@@ -1202,32 +1345,43 @@ Filter to runs created within the last 24 hours. For each failed run:
 
 **P2 — Cancelled/timed-out runs in last 24h:**
 ```
-GET /repos/{owner}/{repo}/actions/runs?branch=main&status=cancelled&per_page=10
+actions_list: method=list_workflow_runs, perPage=100, page={page}
 ```
+- Filter locally to `branch=main`, `conclusion` in `cancelled` or `timed_out`,
+  and the last 24 hours.
+- Inspect paginated Actions job data for every matched run. Emit one finding per
+  job whose conclusion is `cancelled` or `timed_out`. If a run was cancelled
+  before any job started, use the literal `workflow` as `job_name`. P2 is
+  complete only when both the run inventory and every matched run's job
+  inventory are complete.
 - Fingerprint: `pipeline:{workflow_name}:{job_name}:timeout`
 - Severity: 🟡 Warning
 
 **P3 — Evaluation duration trend:**
 ```
-GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?branch=main&per_page=30
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=100, page={page}
 ```
-Compute average run duration over the last 14 days.
+Filter locally to `branch=main` and compute average run duration over the last
+14 days.
 - 🟡 Warning if avg > 50 min (83% of 60-min timeout)
 - 🔴 Critical if avg > 55 min
 - Fingerprint: `resource:eval-duration:{bucket}` (bucket = "warning" or "critical")
 
 **P4 — Workflow failure rate (7-day rolling):**
 ```
-GET /repos/{owner}/{repo}/actions/runs?branch=main&per_page=100
+actions_list: method=list_workflow_runs, perPage=100, page={page}
 ```
-Group by workflow name, compute success/failure ratio over the last 7 days.
+Filter locally to `branch=main` and the last 7 days. Group by workflow name and
+compute success/failure ratio.
 - 🔵 Info (metric only — reported in trends table, not fingerprinted)
 
 **P5 — Evaluation failure rate across all branches (last 24h):**
 ```
-GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?per_page=100
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=100, page={page}
 ```
-Filter to runs created within the last 24 hours across all branches and event types (schedule, pull_request, workflow_dispatch). Paginate if the first page does not cover the full 24h window. Compute:
+Filter to runs created within the last 24 hours across all branches and event
+types (schedule, pull_request, workflow_dispatch). Apply the deterministic
+pagination contract even when page 1 is full. Compute:
 - Total runs, failures (conclusion=failure), cancellations (conclusion=cancelled), successes
 - **Overall failure rate** = failures / (failures + successes) — exclude cancelled runs from denominator
 - **Overall non-success rate** = (failures + cancellations) / total
@@ -1242,14 +1396,21 @@ Also include in the finding details:
 - Failure count by event type (e.g., "10 PR failures, 4 schedule failures")
 - Sample of recent failed run URLs (up to 5) for quick investigation
 - Common failing job names across the failed runs
+- Use the newest failed run in the observation window as the finding's
+  canonical numeric Actions run evidence URL. Do not use a workflow-definition
+  URL for this `pipeline` finding.
 
 **P6 — Evaluation scheduled run cancellation rate (last 24h):**
 ```
-GET /repos/{owner}/{repo}/actions/workflows/evaluation.yml/runs?branch=main&event=schedule&per_page=100
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=100, page={page}
 ```
-Filter to scheduled runs on `main` created within the last 24 hours. Compute:
+Filter locally to scheduled runs on `main` created within the last 24 hours.
+Compute:
 - Total scheduled runs, cancelled count, completed count
 - Cancellation rate = cancelled / total
+- Use the newest cancelled scheduled run in the observation window as the
+  finding's canonical numeric Actions run evidence URL. Do not use a
+  workflow-definition URL for this `pipeline` finding.
 
 Severity thresholds:
 - 🟡 Warning if cancellation rate > 30% (pipeline frequently doesn't complete within schedule interval)
@@ -1286,39 +1447,52 @@ Check if `.github/workflows/evaluation.yml` contains `--verdict-warn-only`.
 - Fingerprint: `infra:verdict-warn-only`
 
 **I5 — Dashboard deployment health:**
-```
-actions_list: list workflow runs for `pages-build-deployment`
-actions_get: get the latest completed run
-```
-Check the conclusion of the latest completed `pages-build-deployment` workflow
-run. This uses only the Actions metadata exposed by the configured GitHub MCP
-toolset. If the workflow or a completed run cannot be identified
-unambiguously, mark I5 as skipped rather than inferring a failure or success.
+The configured GitHub MCP toolset does not expose the Pages builds API, and
+`pages-build-deployment` is not a valid workflow resource for
+`actions_list`. Mark I5 as unavailable and exclude it from state resolution.
+Do not infer Pages health from repository Actions runs or query the invalid
+`pages-build-deployment` resource. This check can be restored only after the
+workflow receives a tool that can read the latest Pages build directly. Carry
+any existing I5 finding forward unchanged through `unavailable_scopes`; do not
+resolve or rewrite it without current Pages evidence.
 - 🔴 Critical if deployment failed
 - Fingerprint: `infra:pages-deployment-failed`
 
 **I6 — Third-party action version drift:**
-Scan workflow YAML files for non-`actions/*` references. Flag those pinned to tags instead of SHAs.
+Use `get_file_contents` to list `.github/workflows`, then fetch every
+hand-authored or generated file ending in `.yml` or `.yaml`. Scan those complete
+file contents for non-`actions/*` references and flag references pinned to tags
+instead of SHAs. If the directory listing or any workflow file cannot be read,
+mark I6 as skipped rather than inferring a clean result.
 - 🔵 Info
 - Fingerprint: `infra:unpinned-action:{action_name}`
 
 **I7 — Orphan skills (not registered in any plugin):**
-Use the GitHub `search_code` tool to find `plugin.json` files under `plugins/`.
-For each result, fetch the file and its configured skills directory through
-`get_file_contents`:
+Use `get_file_contents` to list the immediate component directories under
+`plugins/` independently of plugin manifests. For each component, fetch
+`plugin.json` and its configured skills directory through `get_file_contents`:
 ```
-search_code: filename:plugin.json path:plugins
+get_file_contents: plugins/
 get_file_contents: plugins/{component}/plugin.json
 get_file_contents: plugins/{component}/{configured_skills_path}
 ```
 Specifically:
+- Treat any discovered `SKILL.md` under a component whose `plugin.json` lookup
+  explicitly returns 404/not found as orphaned. Do not omit a component because
+  its manifest is confirmed absent.
+- If a component's `plugin.json` cannot be read for any other reason, mark I7
+  unavailable. Carry existing I7 findings forward unchanged through
+  `unavailable_scopes`; do not create or resolve I7 findings from that run.
 - Parse `plugins/{component}/plugin.json` and resolve the `skills` field (e.g., `"./skills/"`) relative to the plugin directory.
 - List that directory with `get_file_contents` and confirm each child skill
   directory contains `SKILL.md`.
-- Run `search_code: filename:SKILL.md path:plugins` and compare every result
-  with the registered skills directories. A result outside a path declared by
-  its parent plugin is orphaned.
-- If either code search reaches its result limit, mark I7 as skipped because
+- For each discovered component, run
+  `search_code: filename:SKILL.md path:plugins/{component}` and compare every
+  result with that plugin's registered skills directories. A result outside a
+  path declared by its parent plugin is orphaned. Per-plugin searches avoid the
+  repository-wide 100-result code-search cap.
+- If any per-plugin skill search reaches its result limit, or if the top-level
+  `plugins/` directory cannot be listed completely, mark I7 as skipped because
   the repository inventory is incomplete. Do not infer a clean result.
 - 🟡 Warning for each orphan skill found
 - Fingerprint: `infra:orphan-skill:{component}:{skill_name}`
@@ -1346,11 +1520,14 @@ registry:
 ### 1.3 Resource Usage (U1–U3)
 
 **U1 — Daily compute hours:**
-Sum all workflow run durations from the last 24h.
+Use the deterministic Actions pagination contract above. Sum all workflow run
+durations from the last 24h after filtering locally.
 - 🔵 Info (metric only — for trends table)
 
 **U2 — Eval runs count:**
-Count `evaluation` workflow runs in last 24h.
+Use the deterministic Actions pagination contract with
+`resource_id=evaluation.yml`. Count runs from the last 24h after filtering
+locally.
 - 🔵 Info (metric only)
 
 **U3 — Cost trending up:**
@@ -1396,6 +1573,12 @@ After collecting all findings, perform the diff:
    through normal classification. Derive the owning scope from the complete
    fingerprint-to-scope table in the imported knowledge; do not infer it only
    from the broad `pipeline`, `infra`, or `resource` category.
+
+   When a scope is successfully observed, do not carry forward findings that
+   are absent from its complete current inventory. Apply the normal fingerprint
+   diff: a retired evaluation lane or old severity bucket becomes RESOLVED, and
+   a current lane or bucket with a different fingerprint becomes NEW. Never
+   rewrite an old fingerprint into a new one or transfer its investigation row.
 
    **State overflow guard:** If more than 100 active findings are collected,
    call `noop` with the measured count and stop. Do not update the dashboard,
