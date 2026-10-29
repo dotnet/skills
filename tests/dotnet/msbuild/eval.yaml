@@ -294,7 +294,7 @@ stimuli:
       - type: prompt
     rubric:
       - Explained why timestamp checks on the current item list do not remember removed inputs or necessarily detect older added inputs.
-      - Repaired input membership and content-change invalidation without altering the generator or its inputs.
+      - Repaired input membership and content-change invalidation without altering the generator or its inputs at any point, including temporary edits or deletions that were later restored.
       - Explained how the repair preserves complete output after deletion, older-file addition, missing output, and an empty input set while retaining unchanged-build skips; the executable grader checks those outcomes.
       - Distinguished checks actually run from proposed verification and did not claim unmeasured elapsed-time savings.
 
@@ -402,7 +402,7 @@ stimuli:
     rubric:
       - Identified that the condition on the whole list can suppress the valid required import when the optional path is missing.
       - Proposed separate imports or an aggregation file with an individual guard only for the optional import.
-      - Preserved optional-before-required ordering and an explicit failure when the required file is missing.
+      - Preserved optional-before-required ordering and an explicit failure when the required file is missing, without altering required.targets or optional.targets.example at any point, including temporary edits that were later restored.
       - Covered both present and absent optional-file cases without claiming all semicolon-separated MSBuild imports are invalid.
 
   - name: Review framework conditions without breaking valid F sharp items
@@ -481,7 +481,7 @@ stimuli:
       - type: prompt
     rubric:
       - Followed the configured NuspecFile outside the project and its parent, accounted for NuspecBasePath, and resolved the import against the packed layout.
-      - Recognized the required file is supplied by the package contract and left the valid import unchanged.
+      - Recognized the required file is supplied by the package contract and left the valid import and package sources unchanged at every point, including temporary edits that were later restored.
       - Explained that an existence guard could hide a broken package if that required file were omitted later.
       - Did not propose unrelated package upgrades or source-tree restructuring.
 

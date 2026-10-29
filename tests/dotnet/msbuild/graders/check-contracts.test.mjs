@@ -199,9 +199,20 @@ for (const mutation of ["deletion", "corruption", "directory removal"]) {
   });
 }
 
+for (const added of [join("src", "Producer", "buildTransitive", "net8.0", "Example.props"), "Directory.Build.props"]) {
+  test(`packed no-change contract rejects an added build file at ${added}`, (t) => {
+    const root = fixture(t, "packed-import");
+    const file = join(root, "project", added);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, "<Project />\n");
+    assert.throws(() => verify(root, "packed-import"), /Unnecessary build file added/);
+  });
+}
+
 test("packed no-change contract accepts unrelated review output", (t) => {
   const root = fixture(t, "packed-import");
   writeFileSync(join(root, "project", "review.txt"), "The supplied package contract is valid.");
+  writeFileSync(join(root, "project", "src", "Producer", "msbuild.binlog"), "binary log");
   verify(root, "packed-import");
 });
 

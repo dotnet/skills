@@ -7,6 +7,7 @@ import { basename, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const generated = new Set(["bin", "obj", "feed", "packages", ".eval", ".git"]);
+const buildFile = /(^|\/)(global\.json|nuget\.config|[^/]+\.([a-z]*proj|props|targets|nuspec|rsp|slnx?))$/i;
 
 function digest(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
@@ -178,8 +179,8 @@ export function verify(root, scenario) {
   const original = baseline.scenarios[scenario];
   const policySha256 = createHash("sha256").update(baseline.sdkPolicy).digest("hex");
   assert.equal(digest(join(root, "global.json")), policySha256, "Fixture SDK policy changed");
-  const sdkVersion = run(root, ["--version"]);
-  assert.equal(run(join(root, "project"), ["--version"]), sdkVersion, "Project SDK changed");
+  // These checks see only the final state. Temporary edits that were later restored are
+  // judged from the trajectory by each case's rubric.
   for (const [path, hash] of Object.entries(original.files)) {
     if (scenario !== "packed-import" && path === "Build.proj") continue;
     const file = join(root, "project", ...path.split("/"));
@@ -194,10 +195,15 @@ export function verify(root, scenario) {
       "Read-only spec inputs changed");
   }
   if (scenario === "packed-import") {
+    const added = Object.keys(fileHashes(join(root, "project"), generated))
+      .filter((path) => !(path in original.files) && buildFile.test(path));
+    assert.deepEqual(added, [], `Unnecessary build file added: ${added.join(", ")}`);
     const feed = join(root, "project", "feed");
     assert.ok(existsSync(feed), "Supplied package feed changed: directory is missing");
     assert.deepEqual(fileHashes(feed), original.feed, "Supplied package feed changed");
   }
+  const sdkVersion = run(root, ["--version"]);
+  assert.equal(run(join(root, "project"), ["--version"]), sdkVersion, "Project SDK changed");
   console.log(`Fixture SDK: ${sdkVersion}; policy SHA256: ${policySha256}`);
   if (scenario === "hooks") hooks(root, baseline.sdkPolicy);
   else if (scenario === "incremental") incremental(root, baseline.sdkPolicy);

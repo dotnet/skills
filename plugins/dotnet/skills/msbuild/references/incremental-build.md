@@ -264,12 +264,13 @@ Adapt the generator step and declared dependencies to the repository's real tool
   outputs as well as updating the input-set state.
 
 Verify initial generation, an unchanged skip, ordinary edits, older-file additions,
-removals, missing outputs, and the contract's empty-input behavior. Prefer a
-disposable project fixture for destructive checks. If source inputs must change
-in place, copy originals and preserve timestamps before mutation, restore them in
-`finally`, and compare original hashes afterward. Text round-trips such as
-`Get-Content`/`Set-Content` can change encodings and line endings; do not reconstruct
-originals from memory or test output.
+removals, missing outputs, and the contract's empty-input behavior. Run every
+destructive check on a disposable copy of the project and its required imports,
+never on the original inputs, even if they would be restored afterward. Make the
+copy byte-for-byte; `Get-Content`/`Set-Content` round-trips can change encodings
+and line endings. If the copy cannot reproduce the build, report those checks as
+blocked. Compare original hashes before and after as a final confirmation, not as
+permission to mutate them.
 Explain separately what the manifest tracks and what the file timestamps track.
 
 ### Common Mistakes to Avoid
