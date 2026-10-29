@@ -1,0 +1,653 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp05-expression",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression.nupkg",
+          "sha256": "b03d72a8584fd508d9f4b51b6a80dbe83155ef459f78aed870f33a88f2b8e9c0"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "expression",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression.nupkg",
+            "sha256": "b03d72a8584fd508d9f4b51b6a80dbe83155ef459f78aed870f33a88f2b8e9c0"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is populated: MIT.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-05 expression nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-expression-legacy-compat",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-legacy-compat.nupkg",
+          "sha256": "e969bd34124632e791fa9091b0178df92b9fb7ef247ea6c7f4d2e27677f24c49"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "expression",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-legacy-compat.nupkg",
+            "sha256": "e969bd34124632e791fa9091b0178df92b9fb7ef247ea6c7f4d2e27677f24c49"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is populated: MIT.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-05 expression-legacy-compat nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-expression-no-namespace",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-no-namespace.nupkg",
+          "sha256": "5fdff99f7e56666231af937fe68ea8d9be96792046cbd9c21534f47c796ad6c0"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "expression",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-no-namespace.nupkg",
+            "sha256": "5fdff99f7e56666231af937fe68ea8d9be96792046cbd9c21534f47c796ad6c0"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is populated: MIT.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-05 expression-no-namespace nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-expression-old-namespace",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/expression-old-namespace.nupkg",
+          "sha256": "7890f13cee727672916aeec4b1bf2eba98921aa79787d033d643a637f3fde770"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "expression",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/expression-old-namespace.nupkg",
+            "sha256": "7890f13cee727672916aeec4b1bf2eba98921aa79787d033d643a637f3fde770"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is populated: MIT.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-05 expression-old-namespace nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-file",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/file.nupkg",
+          "sha256": "f4a96912f7a970de62bbccd424ab7123a631438df148785fd69540cc10afc4b9"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "file",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/file.nupkg",
+            "sha256": "f4a96912f7a970de62bbccd424ab7123a631438df148785fd69540cc10afc4b9"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is not populated; the nuspec declares a license file.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-05 file nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-legacy-url",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/legacy-url.nupkg",
+          "sha256": "8472192145164118195cded8be6befdcbed0f0678cdd4650b9825eb30485cc96"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "legacy-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/legacy-url.nupkg",
+            "sha256": "8472192145164118195cded8be6befdcbed0f0678cdd4650b9825eb30485cc96"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is not populated; the nuspec only declares a legacy licenseUrl.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-05 legacy-url nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-missing",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/missing.nupkg",
+          "sha256": "ab77704ae5d8bb204d72348f58b40dad7ad8eae9c864d63dc195dac15ada660f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/missing.nupkg",
+            "sha256": "ab77704ae5d8bb204d72348f58b40dad7ad8eae9c864d63dc195dac15ada660f"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": null,
+        "finding": "PackageLicenseExpression is not populated; the nuspec has no license metadata.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Frozen LP-05 missing nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp05-blank-expression",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/blank-expression.nupkg",
+          "sha256": "996862515659a67085cd85d66f594f938eb44e359d1c8c138805454fed186679"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/blank-expression.nupkg",
+            "sha256": "996862515659a67085cd85d66f594f938eb44e359d1c8c138805454fed186679"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A nonblank license expression cannot be established from malformed metadata.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 blank-expression nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-blank-file",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/blank-file.nupkg",
+          "sha256": "6d4b0c9a18a3dc3287e0ca1e31799026f993a3b150f90c2346e44f8ffb0f42e5"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/blank-file.nupkg",
+            "sha256": "6d4b0c9a18a3dc3287e0ca1e31799026f993a3b150f90c2346e44f8ffb0f42e5"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The license file declaration is blank.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 blank-file nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-blank-legacy-url",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/blank-legacy-url.nupkg",
+          "sha256": "4dae73348062c55892e9c20d48e63fe53c7ecb87bafedac591b8c63e4923d35e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/blank-legacy-url.nupkg",
+            "sha256": "4dae73348062c55892e9c20d48e63fe53c7ecb87bafedac591b8c63e4923d35e"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The legacy license URL declaration is blank.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 blank-legacy-url nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-unsupported-type",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/unsupported-type.nupkg",
+          "sha256": "09399d80ec0b9256e434b28642772e3b278e445ab1223445d03b1d2117eae09c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/unsupported-type.nupkg",
+            "sha256": "09399d80ec0b9256e434b28642772e3b278e445ab1223445d03b1d2117eae09c"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The license type is not a supported NuGet expression or file type.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 unsupported-type nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-invalid-xml",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-xml.nupkg",
+          "sha256": "264fd1aec2899a6170aefb3dea94160f203cb346f66863c22ca6a719c31e1375"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-xml.nupkg",
+            "sha256": "264fd1aec2899a6170aefb3dea94160f203cb346f66863c22ca6a719c31e1375"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The nuspec XML is not well formed.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 invalid-xml nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-duplicate-license",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-license.nupkg",
+          "sha256": "f7c9b019a92954fd5e96cfc7a03bffa56d431792c3be207e999d4d5a5ca0bc32"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-license.nupkg",
+            "sha256": "f7c9b019a92954fd5e96cfc7a03bffa56d431792c3be207e999d4d5a5ca0bc32"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Duplicate license elements conflict.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 duplicate-license nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-conflicting-url",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/conflicting-url.nupkg",
+          "sha256": "786390e40f1e4318fa67395191ee46a137770237d5e8be575c57e27767f7affa"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "conflicting",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/conflicting-url.nupkg",
+            "sha256": "786390e40f1e4318fa67395191ee46a137770237d5e8be575c57e27767f7affa"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Modern and legacy license declarations conflict.",
+        "required_input": "clarified-license-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 conflicting-url nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-foreign-license",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-license.nupkg",
+          "sha256": "c71cce15bbdcf16d22bfa0fd3d7d60dd78f2cdaba9dcb795eef8d5dc2dee740c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-license",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-license.nupkg",
+            "sha256": "c71cce15bbdcf16d22bfa0fd3d7d60dd78f2cdaba9dcb795eef8d5dc2dee740c"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A foreign-namespace license element cannot establish NuGet license metadata.",
+        "required_input": "recognized-license-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 foreign-license nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-foreign-root",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-root.nupkg",
+          "sha256": "f7064439429d4b2bb350cf64e5f92692aae6c2f25f8ea6741fff3828b8f99a6f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-root",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-root.nupkg",
+            "sha256": "f7064439429d4b2bb350cf64e5f92692aae6c2f25f8ea6741fff3828b8f99a6f"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package root is not in a recognized NuGet namespace.",
+        "required_input": "recognized-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 foreign-root nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-corrupt-archive",
+      "row_id": "LP-05",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/corrupt-archive.nupkg",
+          "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "unreadable-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/corrupt-archive.nupkg",
+            "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The supplied checked bytes are not a readable NuGet archive.",
+        "required_input": "valid-nupkg",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-05 corrupt-archive nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": [
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp05-no-package",
+      "row_id": "LP-05",
+      "inputs": [],
+      "expected": {
+        "row_id": "LP-05",
+        "resolver_id": "lp05-license-expression",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package bytes required for LP-05 were not supplied.",
+        "required_input": "package",
+        "next_category": "input-owner"
+      },
+      "rationale": "Frozen LP-05 no-package nuspec/availability branch; factual expression population only.",
+      "evidence_pointers": []
+    }
+  ]
+}
