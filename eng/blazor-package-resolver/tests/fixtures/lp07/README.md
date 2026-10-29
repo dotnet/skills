@@ -59,14 +59,16 @@ place an empty `urn:other` metadata sibling beside recognized metadata with
 a valid full commit SHA. NuGet's
 [`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
 selects the first root child by local name `metadata`, ignoring namespace;
-the shared reader selects only root-namespace metadata. Foreign-first makes
-the readers inspect different nodes; recognized-first still contains
-competing root metadata despite agreeing on the field. Both freeze
-`ambiguous-metadata` / `escalated` / `unknown`, no finding or field evidence,
-an archive-level evidence pointer and `unambiguous-nuspec` requested from the
-package owner. This is well-formed but reader-ambiguous XML, not an absent
-commit. All earlier bytes/expectations and retained outcomes remain intact;
-the two new cases intentionally mismatch the current shared reader.
+the shared reader now returns typed metadata ambiguity when a foreign sibling
+accompanies recognized metadata. Foreign-first makes NuGet inspect the foreign
+node; recognized-first still contains competing root metadata even though
+NuGet can see the recognized field. Both cases replay to the frozen
+`ambiguous-metadata` / `escalated` / `unknown` result, no finding or field
+evidence, an archive-level evidence pointer and `unambiguous-nuspec`
+requested from the package owner. This is well-formed but reader-ambiguous
+XML, not an absent commit. All earlier bytes/expectations and retained
+outcomes remain intact;
+both cases replay to their frozen expectations.
 
 `cases.json` freezes 55 complete structured `CaseResult` expectations (54
 synthetic archives and one absent-input case):
@@ -111,4 +113,4 @@ For an opt-in retained resolver replay, copy verified retained inputs to a
 temporary `packages\` directory beside a copy of `acceptance.json`; record
 results in `acceptance-receipt.template.json`. This validator is not a
 retained resolver replay. LP-05 through LP-09 are implemented; the cross-row
-metadata controls above are deliberately ahead of their shared reader.
+metadata controls above replay to their frozen expectations.

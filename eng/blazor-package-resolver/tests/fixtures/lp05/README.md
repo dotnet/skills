@@ -60,17 +60,18 @@ place an empty `urn:other` metadata element beside one recognized metadata
 element containing a valid expression. NuGet's
 [`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
 selects the first root child with local name `metadata` regardless of its
-namespace; the shared resolver reader selects only root-namespace metadata.
-With the foreign sibling first, those readers inspect different elements;
-with the recognized sibling first, both can report a field but the package
-still contains competing root metadata. Both orderings freeze
-`ambiguous-metadata` / `escalated` / `unknown`, with no finding or field
-evidence, an archive-level evidence pointer and a request for an
+namespace; the shared resolver reader now returns typed metadata ambiguity
+when a foreign sibling accompanies recognized metadata. With the foreign
+sibling first, NuGet inspects the foreign element; with the recognized sibling
+first, NuGet can report a field but the package still contains competing root
+metadata. Both orderings replay to the frozen `ambiguous-metadata` /
+`escalated` / `unknown` result, with no finding or field evidence, an
+archive-level evidence pointer and a request for an
 `unambiguous-nuspec` from the package owner. This is a structure/reader
 ambiguity, **not** malformed XML or evidence that the expression is absent.
 The suite now has 32 cases and 31 pinned archives; earlier bytes, expectations
-and retained package outcomes are unchanged. The two new cases intentionally
-mismatch the current shared reader until a separately approved correction.
+and retained package outcomes are unchanged. Both cases replay to their frozen
+expectations.
 
 `retained-inputs.json` binds two exact published package identities to
 environment-variable names, without checking proprietary binaries into the
