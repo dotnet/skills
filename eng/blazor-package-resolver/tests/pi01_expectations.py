@@ -252,6 +252,27 @@ def der(tag, content):
     return bytes([tag]) + length + content
 
 
+def der_fields(encoded):
+    fields = []
+    cursor = 0
+    while cursor < len(encoded):
+        start = cursor
+        require(cursor + 2 <= len(encoded), "Synthetic CMS DER header is truncated")
+        tag, length = encoded[cursor:cursor + 2]
+        cursor += 2
+        if length & 0x80:
+            octets = length & 0x7f
+            require(0 < octets <= 4 and cursor + octets <= len(encoded),
+                    "Synthetic CMS DER length is invalid")
+            length = int.from_bytes(encoded[cursor:cursor + octets], "big")
+            cursor += octets
+        end = cursor + length
+        require(end <= len(encoded), "Synthetic CMS DER field is truncated")
+        fields.append((tag, encoded[cursor:end], encoded[start:end]))
+        cursor = end
+    return fields
+
+
 def certificate(payload=b"", *, cms=None):
     if cms is None:
         data = der(0x30, der(0x06, bytes.fromhex("2a864886f70d010701")) +
@@ -375,12 +396,75 @@ require(u16(PE, TYPEDEF2_NAME) == 10, "Pinned unsigned fixture TypeDef layout ch
 TYPEDEF2_METHOD_LIST = OFF["metadata"] + 254
 METHOD_SIGNATURE = OFF["metadata"] + 266
 ATTRIBUTE_PARENT = OFF["metadata"] + 320
+ATTRIBUTE_VALUE = ATTRIBUTE_PARENT + 4
+ATTRIBUTE_BLOB_PROLOG = OFF["metadata"] + 744 + 152
 require(u16(PE, TYPEDEF2_METHOD_LIST) == 1 and u16(PE, METHOD_SIGNATURE) == 30 and
-        u16(PE, ATTRIBUTE_PARENT) == 39,
+        u16(PE, ATTRIBUTE_PARENT) == 39 and u16(PE, ATTRIBUTE_VALUE) == 151 and
+        PE[ATTRIBUTE_BLOB_PROLOG:ATTRIBUTE_BLOB_PROLOG + 4] == b"\x01\x00\x0b\x00",
         "Pinned unsigned fixture metadata reference layout changed")
 AUTHENTICODE_CMS = (ROOT / "templates" / "authenticode.p7b").read_bytes()
 require(digest(AUTHENTICODE_CMS) == AUTHENTICODE_CMS_SHA256,
         "Compiled public-only Authenticode fixture differs")
+
+
+def signed_cms_with_attribute(value, oid=bytes.fromhex("2b06010401823702010c")):
+    outer, = der_fields(AUTHENTICODE_CMS)
+    require(outer[0] == 0x30, "Pinned CMS ContentInfo shape changed")
+    content = der_fields(outer[1])
+    require(len(content) == 2 and content[0][0] == 0x06 and content[1][0] == 0xa0,
+            "Pinned CMS ContentInfo fields changed")
+    signed, = der_fields(content[1][1])
+    require(signed[0] == 0x30, "Pinned CMS SignedData shape changed")
+    fields = der_fields(signed[1])
+    signers, = der_fields(fields[-1][1])
+    require(fields[-1][0] == 0x31 and signers[0] == 0x30,
+            "Pinned CMS signer set shape changed")
+    signer = der_fields(signers[1])
+    require(len(signer) == 5 and [part[0] for part in signer] ==
+            [0x02, 0x30, 0x30, 0x30, 0x04], "Pinned CMS signer fields changed")
+    signed_attribute = der(0xa0, der(0x30, der(0x06, oid) + der(0x31, value)))
+    updated_signer = der(0x30, b"".join(part[2] for part in signer[:3]) +
+                         signed_attribute + b"".join(part[2] for part in signer[3:]))
+    updated_signed_data = der(0x30, b"".join(part[2] for part in fields[:-1]) +
+                              der(0x31, updated_signer))
+    return der(0x30, content[0][2] + der(0xa0, updated_signed_data))
+
+
+def with_certificate(cms):
+    record = certificate(cms=cms)
+    return changed(VERIFIED, VERIFIED_OFF["option"] + 128,
+                   struct.pack("<II", len(VERIFIED), len(record))) + record
+
+
+CANONICAL_OPUS = der(0x30, der(0xa0, der(0x80, b"")) +
+                     der(0xa1, der(0x80, b"")))
+WITH_CANONICAL_OPUS = with_certificate(signed_cms_with_attribute(CANONICAL_OPUS))
+WITH_CANONICAL_OCTET = with_certificate(signed_cms_with_attribute(
+    der(0x04, bytes(32)), bytes.fromhex("2a864886f70d010904")))
+SEGMENTED_UNSIGNED_PE = der(0x24, der(0x04, PE[:1]) + der(0x04, PE[1:]))
+require(der_fields(SEGMENTED_UNSIGNED_PE)[0][0] == 0x24 and
+        b"".join(segment[1] for segment in der_fields(der_fields(SEGMENTED_UNSIGNED_PE)[0][1])) == PE,
+        "Segmented OCTET STRING does not reconstruct the exact pinned unsigned PE")
+SEGMENTED_CMS = signed_cms_with_attribute(SEGMENTED_UNSIGNED_PE)
+require(b"MZ" not in SEGMENTED_CMS and b"PK\x03\x04" not in SEGMENTED_CMS,
+        "Segmented PE fixture must evade raw magic scanning")
+WITH_SEGMENTED_PE = with_certificate(SEGMENTED_CMS)
+WITH_UNKNOWN_ATTRIBUTE = with_certificate(signed_cms_with_attribute(
+    CANONICAL_OPUS, bytes.fromhex("2b06010401823702010d")))
+WITH_BAD_OPUS = with_certificate(signed_cms_with_attribute(der(0x04, b"not an opus structure")))
+CONSTRUCTED_DER_CONTROLS = {
+    name: with_certificate(signed_cms_with_attribute(der(tag, der(child, b"A"))))
+    for name, tag, child in (
+        ("bit-string", 0x23, 0x03),
+        ("utf8-string", 0x2c, 0x0c),
+        ("printable-string", 0x33, 0x13),
+        ("utc-time", 0x37, 0x17),
+        ("oid", 0x26, 0x06),
+        ("integer", 0x22, 0x02),
+        ("boolean", 0x21, 0x01),
+        ("null", 0x25, 0x05),
+    )
+}
 WIN_CERTIFICATE = certificate(cms=AUTHENTICODE_CMS)
 WITH_CERTIFICATE = changed(VERIFIED, VERIFIED_OFF["option"] + 128,
                            struct.pack("<II", len(VERIFIED), len(WIN_CERTIFICATE))) + WIN_CERTIFICATE
@@ -486,6 +570,19 @@ CASES = (
          "opaque-container"),
     spec("signed-with-authenticode-certificate", ((EXAMPLE, WITH_CERTIFICATE),),
          "verified-signed"),
+    spec("signed-with-canonical-opus-attribute", ((EXAMPLE, WITH_CANONICAL_OPUS),),
+         "verified-signed"),
+    spec("signed-with-canonical-octet-attribute", ((EXAMPLE, WITH_CANONICAL_OCTET),),
+         "verified-signed"),
+    spec("signed-with-segmented-unsigned-pe-in-constructed-octet",
+         ((EXAMPLE, WITH_SEGMENTED_PE),), "unsafe-assembly"),
+    spec("signed-with-unknown-attribute", ((EXAMPLE, WITH_UNKNOWN_ATTRIBUTE),),
+         "unsafe-assembly"),
+    spec("signed-with-malformed-opus-attribute", ((EXAMPLE, WITH_BAD_OPUS),),
+         "unsafe-assembly"),
+    *(spec("signed-with-constructed-" + name + "-attribute",
+           ((EXAMPLE, image),), "unsafe-assembly")
+      for name, image in CONSTRUCTED_DER_CONTROLS.items()),
     spec("signed-with-nonzero-authenticode-alignment",
          ((EXAMPLE, WITH_NONZERO_AUTHENTICODE_ALIGNMENT),), "unsafe-assembly"),
     spec("signed-with-mz-authenticode-alignment",
@@ -551,6 +648,12 @@ CASES = (
          ((EXAMPLE, changed(PE, METHOD_SIGNATURE, b"\xff\xff")),), "unsafe-assembly"),
     spec("metadata-bad-custom-attribute-parent",
          ((EXAMPLE, changed(PE, ATTRIBUTE_PARENT, b"\xff\xff")),), "unsafe-assembly"),
+    spec("metadata-null-custom-attribute-value",
+         ((EXAMPLE, changed(PE, ATTRIBUTE_VALUE, bytes(2))),), "unsigned-assembly"),
+    spec("metadata-bad-custom-attribute-value",
+         ((EXAMPLE, changed(PE, ATTRIBUTE_VALUE, b"\xff\xff")),), "unsafe-assembly"),
+    spec("metadata-bad-custom-attribute-value-content",
+         ((EXAMPLE, changed(PE, ATTRIBUTE_BLOB_PROLOG, b"\xff")),), "unsafe-assembly"),
     spec("metadata-no-stream", ((EXAMPLE, changed(PE, OFF["stream_count"], bytes(2))),), "unsafe-assembly"),
     spec("metadata-bad-stream", ((EXAMPLE, changed(PE, OFF["stream_offset"],
                                                  b"\xff\xff\xff\x7f")),), "unsafe-assembly"),
@@ -898,6 +1001,17 @@ def boundary_checks():
 def certificate_profile_checks():
     require(inspect_managed(WITH_CERTIFICATE)[0] == "verified-signed",
             "Authenticode-profile certificate must retain verified strong-name status")
+    for image in (WITH_CANONICAL_OPUS, WITH_CANONICAL_OCTET):
+        require(inspect_managed(image)[0] == "verified-signed",
+                "Canonical DER signer attribute must preserve verified strong-name state")
+    for image in (WITH_SEGMENTED_PE, *CONSTRUCTED_DER_CONTROLS.values()):
+        require(inspect_managed(image) == ("unsafe", "Noncanonical or unsupported universal DER tag."),
+                "Constructed DER primitive must fail closed even when raw PE magic is split")
+    require(inspect_managed(WITH_UNKNOWN_ATTRIBUTE) ==
+            ("unsafe", "Unsupported Authenticode signer attribute."),
+            "Unknown signer attribute must fail closed")
+    require(inspect_managed(WITH_BAD_OPUS)[0] == "unsafe",
+            "Unsupported known-attribute payload shape must fail closed")
     for image in (WITH_NONZERO_AUTHENTICODE_ALIGNMENT, WITH_MZ_AUTHENTICODE_ALIGNMENT,
                   NONZERO_ALIGNMENT, MZ_ALIGNMENT):
         require(inspect_managed(image) == ("unsafe", "Uninventoried WIN_CERTIFICATE alignment bytes."),
@@ -921,6 +1035,14 @@ def metadata_required_field_checks():
     ):
         require(inspect_managed(image) == ("unsafe", reason),
                 "Required-zero metadata control must fail for its specific missing field")
+    require(inspect_managed(changed(PE, ATTRIBUTE_VALUE, bytes(2))) == ("unsigned", None),
+            "Null CustomAttribute.Value must preserve the valid assembly's signing state")
+    require(inspect_managed(changed(PE, ATTRIBUTE_VALUE, b"\xff\xff")) ==
+            ("unsafe", "Out-of-range #Blob index in table 12, row 1."),
+            "Non-null out-of-range CustomAttribute.Value must fail closed")
+    require(inspect_managed(changed(PE, ATTRIBUTE_BLOB_PROLOG, b"\xff")) ==
+            ("unsafe", "Malformed CustomAttribute.Value in row 1."),
+            "Malformed non-null CustomAttribute.Value content must fail closed")
     print("PI-01 required metadata field controls passed.")
 
 
