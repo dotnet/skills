@@ -34,9 +34,12 @@ using (var doc = JsonDocument.Parse(coverage))
                 "LP-06" => row.GetProperty("work_state").GetString() == "implemented" &&
                            row.GetProperty("resolver_id").GetString() == "lp06-repository-url" &&
                            row.GetProperty("resolver_version").GetString() == "1.0.0",
+                "LP-07" => row.GetProperty("work_state").GetString() == "implemented" &&
+                           row.GetProperty("resolver_id").GetString() == "lp07-repository-commit" &&
+                           row.GetProperty("resolver_version").GetString() == "1.0.0",
                 _ => row.GetProperty("work_state").GetString() == "tbd" &&
                      !row.TryGetProperty("resolver_id", out _)
-            })), "Only LP-05 and LP-06 are registered as implemented");
+            })), "Only LP-05, LP-06 and LP-07 are registered as implemented");
     NoClaims(doc.RootElement);
 }
 
@@ -260,6 +263,74 @@ Throws(() => registry.Dispatch(lp06Case with
 }));
 Check(lp06Output.SequenceEqual(Replay.Run(lp06Fixture, registry)),
     "LP-06 tamper rejection does not affect later deterministic replay");
+var lp07Fixture = Path.Combine(AppContext.BaseDirectory, "fixtures", "lp07", "cases.json");
+var lp07Output = Replay.Run(lp07Fixture, registry);
+Check(lp07Output.SequenceEqual(Replay.Run(lp07Fixture, registry)),
+    "All frozen LP-07 branches replay with identical canonical output bytes");
+using (var doc = JsonDocument.Parse(lp07Output))
+{
+    var cases = doc.RootElement.GetProperty("cases");
+    Check(cases.GetArrayLength() == 53 &&
+        cases.EnumerateArray().All(item =>
+            item.GetProperty("result").GetProperty("row_id").GetString() == "LP-07"),
+        "Exact 53-case LP-07 synthetic branch matrix");
+    NoClaims(doc.RootElement);
+}
+var lp07Directory = Path.GetDirectoryName(lp07Fixture)!;
+using (var receipt = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(lp07Directory, "acceptance-results.json"))))
+using (var frozen = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(lp07Directory, "acceptance.json"))))
+using (var retained = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(lp07Directory, "retained-inputs.json"))))
+{
+    var record = receipt.RootElement;
+    var runs = record.GetProperty("cases");
+    var expectations = frozen.RootElement.GetProperty("cases");
+    var vendors = retained.RootElement.GetProperty("vendors");
+    Check(record.GetProperty("schema_version").GetInt32() == 1 &&
+        record.GetProperty("row_id").GetString() == "LP-07" &&
+        record.GetProperty("resolver_id").GetString() == "lp07-repository-commit" &&
+        record.GetProperty("resolver_version").GetString() == "1.0.0" &&
+        record.GetProperty("suite").GetString() == "acceptance.json" &&
+        runs.GetArrayLength() == expectations.GetArrayLength() &&
+        runs.GetArrayLength() == vendors.GetArrayLength() && runs.GetArrayLength() == 2,
+        "Portable LP-07 acceptance receipt identity");
+    for (var index = 0; index < runs.GetArrayLength(); index++)
+    {
+        var item = runs[index];
+        var expectedCase = expectations[index];
+        var vendor = vendors[index];
+        var frozenResult = expectedCase.GetProperty("expected");
+        Check(item.GetProperty("case_id").GetString() == expectedCase.GetProperty("case_id").GetString() &&
+            item.GetProperty("package_id").GetString() == vendor.GetProperty("package_id").GetString() &&
+            item.GetProperty("package_version").GetString() == vendor.GetProperty("version").GetString() &&
+            item.GetProperty("size_bytes").GetInt32() == vendor.GetProperty("size_bytes").GetInt32() &&
+            item.GetProperty("sha256").GetString() == vendor.GetProperty("sha256").GetString() &&
+            item.GetProperty("sha256").GetString() == expectedCase.GetProperty("inputs")[0]
+                .GetProperty("sha256").GetString() &&
+            item.GetProperty("nuspec_entry").GetString() == vendor.GetProperty("nuspec_entry").GetString() &&
+            item.GetProperty("nuspec_sha256").GetString() == vendor.GetProperty("nuspec_sha256").GetString() &&
+            System.Text.RegularExpressions.Regex.IsMatch(
+                item.GetProperty("replay_output_sha256").GetString() ?? "", "^[a-f0-9]{64}$") &&
+            ReceiptFieldsMatch(item.GetProperty("expected"), frozenResult) &&
+            ReceiptFieldsMatch(item.GetProperty("actual"), frozenResult),
+            "Portable retained LP-07 replay receipt must match pinned input and frozen result.");
+    }
+}
+Lp07BoundaryChecks.Run(registry);
+var lp07Bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
+    "fixtures", "lp07", "packages", "sha1.nupkg"));
+var lp07Pinned = new PinnedInput("package", "nonexistent-but-pinned.nupkg", Catalog.Digest(lp07Bytes));
+var lp07Case = new ResolverCase("path-independent", "LP-07", [lp07Pinned],
+    new Dictionary<string, CheckedInput> { ["package"] = new(lp07Pinned, lp07Bytes) });
+Check(registry.Dispatch(lp07Case).Finding ==
+    "RepositoryCommit declares a full SHA-1 commit SHA: 0123456789abcdef0123456789abcdef01234567.",
+    "LP-07 consumes checked bytes without reopening the pinned path");
+Throws(() => registry.Dispatch(lp07Case with
+{
+    CheckedInputs = new Dictionary<string, CheckedInput>
+        { ["package"] = new(lp07Pinned, "tampered"u8.ToArray()) }
+}));
+Check(lp07Output.SequenceEqual(Replay.Run(lp07Fixture, registry)),
+    "LP-07 tamper rejection does not affect later deterministic replay");
 Throws(() => Implemented(Fake("LP-01", input =>
     Result(input, "bad", "deterministic", "unknown", "guessed", null, null, null)))
     .Dispatch(new ResolverCase("invalid", "LP-01", [], new Dictionary<string, CheckedInput>())));
@@ -347,7 +418,7 @@ finally
 var source = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
 var allowed = new HashSet<string>(StringComparer.Ordinal)
     { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs", "Lp05LicenseExpressionResolver.cs",
-      "Lp06RepositoryUrlResolver.cs", "NuGetNuspecReader.cs" };
+      "Lp06RepositoryUrlResolver.cs", "Lp07RepositoryCommitResolver.cs", "NuGetNuspecReader.cs" };
 var allowedFiles = allowed.Concat(["BlazorPackageResolver.csproj", "README.md",
     "data/provenance.json", "data/rubric.json", "data/requirement-basis.json"])
     .ToHashSet(StringComparer.Ordinal);
@@ -365,7 +436,7 @@ foreach (var file in allowed)
         System.Text.RegularExpressions.RegexOptions.IgnoreCase),
         "No assessment, rendering, reader, library, comparison, component or AI namespace");
 }
-Console.WriteLine("Resolver foundation, LP-05 and LP-06 checks passed.");
+Console.WriteLine("Resolver foundation, LP-05, LP-06 and LP-07 checks passed.");
 
 Registry Implemented(IDeterministicResolver handler) => new(catalog,
     [new RegistryEntry("LP-01", "implemented", "synthetic", "1.0.0"), .. registrations.Skip(1)],

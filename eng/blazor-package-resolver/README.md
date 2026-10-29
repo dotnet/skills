@@ -10,10 +10,10 @@ pinned by the original paths, Git blob IDs and SHA-256 digests in
 `data/provenance.json`. The loader checks both digests, crosswalk clauses,
 source version and all core scopes. Only the 60 `repository-wide` core rows
 enter the registry; the 52 component rows and the separate TA-08 extension
-are excluded. LP-05 and LP-06 have deterministic
-`lp05-license-expression/1.0.0` and `lp06-repository-url/1.0.0` handlers;
-the other 58 package rows remain `tbd`. `tbd` and `implemented`
-are **work states**, not evaluation results.
+are excluded. LP-05, LP-06 and LP-07 have deterministic
+`lp05-license-expression/1.0.0`, `lp06-repository-url/1.0.0` and
+`lp07-repository-commit/1.0.0` handlers; the other 57 package rows remain
+`tbd`. `tbd` and `implemented` are **work states**, not evaluation results.
 
 Run from the repository root with the normal SDK in `global.json`:
 
@@ -22,6 +22,7 @@ dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj --
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp05/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp06/cases.json
+dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp07/cases.json
 dotnet run --project eng/blazor-package-resolver/tests/ResolverChecks.csproj
 ```
 
@@ -38,7 +39,7 @@ bytes used for SHA-256 verification; handlers consume those bytes rather than
 reopening a path. Results retain only relative paths, roles, and digests, so
 replays do not depend on the checkout location.
 
-LP-05 and LP-06 inspect only the checked package bytes through their shared
+LP-05, LP-06 and LP-07 inspect only the checked package bytes through their shared
 nuspec reader. It bounds package and ZIP directory size, entry count,
 entry-name length and nuspec read size; rejects
 ambiguous or missing root nuspecs, foreign NuGet namespaces and
@@ -60,9 +61,17 @@ commit identity. Its frozen 31-case synthetic matrix, the opt-in retained
 identities and replay instructions are in `tests/fixtures/lp06/README.md`.
 Tests check that repository elements elsewhere in the nuspec do not count,
 and exercise the same ZIP/package/nuspec resource limits for LP-06.
+LP-07 inspects the single direct recognized `repository` element's `commit`
+attribute independently of its URL, type or branch. It reports a declared
+nonzero full 40-hex SHA-1 or 64-hex SHA-256 object ID, not object existence,
+repository correctness, or package/source correspondence. Its frozen 53-case
+synthetic matrix, opt-in retained identities and replay instructions are in
+`tests/fixtures/lp07/README.md`. Tests cover ASCII-only hash boundaries,
+normalized commit-only duplicate comparison and the same resource limits.
 Portable retained-package replay identities and result hashes are in each
 row's `tests/fixtures/lp05/acceptance-results.json` and
-`tests/fixtures/lp06/acceptance-results.json`. The real-package
+`tests/fixtures/lp06/acceptance-results.json` and
+`tests/fixtures/lp07/acceptance-results.json`. The real-package
 acceptance replays are opt-in, separate from ordinary CI and from any
 readiness decision.
 
@@ -74,7 +83,7 @@ or a specific `missing_fact`, `required_input`, and `next_category`. Branches of
 the same future row may take different paths. Deterministic branches need a
 finding and evidence; unknown applicability must escalate. A known applicable
 branch may also escalate when a named fact/input remains missing. The dispatcher
-escalates the other 58 unimplemented rows as `package-dispatcher`, not as a claimed row
+escalates the other 57 unimplemented rows as `package-dispatcher`, not as a claimed row
 resolver. Registry construction rejects missing/extra IDs, component or extension
 IDs, handlers without registrations, implementation declarations without matching
 handlers, and handlers on TBD rows.
@@ -89,7 +98,7 @@ contract, **not** permission to update expectation and implementation together.
 Review an expectation change independently and explain its source evidence.
 When separately supplied, real Syncfusion **and** Infragistics pinned acceptance
 inputs must replay for that row; commercial inputs are opt-in and never required
-for ordinary CI. LP-05 and LP-06 were each replayed against both exact retained
+for ordinary CI. LP-05, LP-06 and LP-07 were each replayed against both exact retained
 packages; local detailed receipts and proprietary package bytes are not
 shipped with the repository. Old protocols may inform later row work, but
 port no old file without an active consumer and a test. No prior PR or
