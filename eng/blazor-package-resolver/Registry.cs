@@ -25,7 +25,9 @@ public sealed class Registry
     public IReadOnlyList<PackageRow> Rows { get; }
 
     public static Registry Bootstrap(Catalog catalog) =>
-        new(catalog, PackageIds.Split(' ').Select(id => new RegistryEntry(id, "tbd")), []);
+        new(catalog, PackageIds.Split(' ').Select(id => id == "LP-05"
+            ? new RegistryEntry(id, "implemented", "lp05-license-expression", "1.0.0")
+            : new RegistryEntry(id, "tbd")), [new Lp05LicenseExpressionResolver()]);
 
     public Registry(Catalog catalog, IEnumerable<RegistryEntry> registrations,
         IEnumerable<IDeterministicResolver> implementations)
