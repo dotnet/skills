@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "controls": [
+    {
+      "case_id": "lp01-reject-duplicate-owner-role",
+      "stage": "shared-input-loader",
+      "expected_rejection": "duplicate-role",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-accepted.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/accepted.json",
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/accepted.json",
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+        }
+      ]
+    },
+    {
+      "case_id": "lp01-reject-duplicate-grant-role",
+      "stage": "shared-input-loader",
+      "expected_rejection": "duplicate-role",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-accepted.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/accepted.json",
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ]
+    },
+    {
+      "case_id": "lp01-reject-parent-traversal",
+      "stage": "shared-input-loader",
+      "expected_rejection": "invalid-relative-path",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-accepted.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "../owners/accepted.json",
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ]
+    },
+    {
+      "case_id": "lp01-reject-absolute-path",
+      "stage": "shared-input-loader",
+      "expected_rejection": "invalid-relative-path",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-accepted.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "C:/owners/accepted.json",
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ]
+    },
+    {
+      "case_id": "lp01-reject-separator-alias",
+      "stage": "shared-input-loader",
+      "expected_rejection": "invalid-relative-path",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-accepted.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners\\accepted.json",
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ]
+    },
+    {
+      "case_id": "lp01-reject-dot-segment",
+      "stage": "shared-input-loader",
+      "expected_rejection": "invalid-relative-path",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-accepted.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/./accepted.json",
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ]
+    }
+  ]
+}

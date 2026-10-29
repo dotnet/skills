@@ -10,9 +10,16 @@
   "release_ref": "refs/tags/v1.0.0",
   "release_version": "1.0.0",
   "spdx_grant_expression": "MIT",
-  "grant_path": "grants/tag-only.txt",
-  "grant_sha256": "f58783d38481ddcedebde2b7909d322fc272c80ce387e1d3679a29e356d6a00b",
-  "grant_evidence_prevalidated_complete": true,
+  "grant_bindings": [
+    {
+      "license_id": "MIT",
+      "role": "grant-mit",
+      "path": "grants/tag-only.txt",
+      "sha256": "f58783d38481ddcedebde2b7909d322fc272c80ce387e1d3679a29e356d6a00b",
+      "caller_accepts_complete_grant": true
+    }
+  ],
+  "prevalidation_references": [],
   "policy_version": "1.0.0",
   "policy_sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47",
   "spdx_version": "3.27.0",

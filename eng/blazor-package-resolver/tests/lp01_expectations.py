@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
@@ -47,14 +48,39 @@ GRANT = (b"SPDX-License-Identifier: MIT\nMIT License\n\n"
          b"OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
          b"SOFTWARE.\n")
 GRANT_PATH = "grants/mit-full.txt"
-OWNER_FIELDS = frozenset((
+BSD_GRANT = (
+    b"SPDX-License-Identifier: BSD-2-Clause\nBSD 2-Clause License\n\n"
+    b"Copyright (c) 2026 Example Fixture Maintainer\nAll rights reserved.\n\n"
+    b"Redistribution and use in source and binary forms, with or without\n"
+    b"modification, are permitted provided that the following conditions are met:\n\n"
+    b"1. Redistributions of source code must retain the above copyright notice,\n"
+    b"   this list of conditions and the following disclaimer.\n"
+    b"2. Redistributions in binary form must reproduce the above copyright notice,\n"
+    b"   this list of conditions and the following disclaimer in the documentation\n"
+    b"   and/or other materials provided with the distribution.\n\n"
+    b"THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\n"
+    b"AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\n"
+    b"IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE\n"
+    b"ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE\n"
+    b"LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR\n"
+    b"CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF\n"
+    b"SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS\n"
+    b"INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN\n"
+    b"CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)\n"
+    b"ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE\n"
+    b"POSSIBILITY OF SUCH DAMAGE.\n"
+)
+GRANTS = {"MIT": ("grants/mit-full.txt", GRANT), "BSD-2-Clause": ("grants/bsd-full.txt", BSD_GRANT)}
+OWNER_ORDER = (
     "schema_version", "caller_accepts_prevalidated_authority", "owner_identity",
     "owner_reference", "package_id", "package_sha256", "repository_url",
     "source_commit", "release_ref", "release_version", "spdx_grant_expression",
-    "grant_path", "grant_sha256", "grant_evidence_prevalidated_complete",
+    "grant_bindings", "prevalidation_references",
     "policy_version", "policy_sha256",
     "spdx_version", "spdx_sha256",
-))
+)
+OWNER_FIELDS = frozenset(OWNER_ORDER)
+BINDING_ORDER = ("license_id", "role", "path", "sha256", "caller_accepts_complete_grant")
 VENDORS = (
     ("syncfusion", "syncfusion.blazor.toolkit.2.0.1.nupkg",
      "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d",
@@ -74,6 +100,15 @@ def require(condition, message):
 
 def encoded(value):
     return (json.dumps(value, indent=2, ensure_ascii=True) + "\n").encode()
+
+
+def canonical_owner_bytes(record):
+    ordered = {key: record[key] for key in OWNER_ORDER}
+    ordered["grant_bindings"] = [
+        {key: binding[key] for key in BINDING_ORDER}
+        for binding in record["grant_bindings"]
+    ]
+    return encoded(ordered)
 
 
 def sha(content):
@@ -111,8 +146,7 @@ class ExpressionLimitError(ValueError):
     pass
 
 
-def expression_state(text, policy, licenses):
-    """Evaluate every SPDX alternative; an unreviewed choice cannot become a positive."""
+def parse_expression(text):
     if len(text) > MAX_EXPRESSION_BYTES or len(text.encode("utf-8")) > MAX_EXPRESSION_BYTES:
         raise ExpressionLimitError("SPDX expression exceeds the character/byte cap.")
     require(all(ord(char) < 128 and (char.isalnum() or char in ".+-(): \t\r\n")
@@ -154,34 +188,54 @@ def expression_state(text, policy, licenses):
                     "Missing SPDX exception.")
             exception = tokens[position]
             position += 1
-            return [frozenset((token, "WITH:" + exception))]
-        return [frozenset((token,))]
+            return [frozenset((token, "WITH:" + exception))], ("WITH", token, exception)
+        return [frozenset((token,))], ("ID", token)
 
     def conjunction(depth):
         nonlocal position
-        result = atom(depth)
+        result, tree = atom(depth)
         while position < len(tokens) and tokens[position] == "AND":
             position += 1
-            right = atom(depth)
+            right, right_tree = atom(depth)
             if len(result) * len(right) > MAX_ALTERNATIVES:
                 raise ExpressionLimitError("SPDX expression exceeds the alternative cap.")
             result = [left | term for left in result for term in right]
-        return result
+            tree = ("AND", tree, right_tree)
+        return result, tree
 
     def alternatives(depth):
         nonlocal position
-        result = conjunction(depth)
+        result, tree = conjunction(depth)
         while position < len(tokens) and tokens[position] == "OR":
             position += 1
-            right = conjunction(depth)
+            right, right_tree = conjunction(depth)
             if len(result) + len(right) > MAX_ALTERNATIVES:
                 raise ExpressionLimitError("SPDX expression exceeds the alternative cap.")
             result += right
-        return result
+            tree = ("OR", tree, right_tree)
+        return result, tree
 
     require(tokens, "Empty SPDX expression.")
-    options = alternatives(0)
+    options, tree = alternatives(0)
     require(position == len(tokens), "Trailing or misplaced SPDX tokens.")
+    return options, tree
+
+
+def canonical_expression(tree):
+    operator = tree[0]
+    if operator in ("ID", "WITH"):
+        return tree
+    children = []
+    for child in tree[1:]:
+        normalized = canonical_expression(child)
+        children.extend(normalized[1:] if normalized[0] == operator else (normalized,))
+    unique = tuple(sorted(set(children)))
+    return unique[0] if len(unique) == 1 else (operator, *unique)
+
+
+def expression_state(text, policy, licenses):
+    """Evaluate every SPDX alternative; an unreviewed choice cannot become a positive."""
+    options, _ = parse_expression(text)
     terms = set().union(*options)
     if any(term.startswith("WITH:") for term in terms):
         return "exception-unreviewed"
@@ -268,6 +322,13 @@ SPECS = (
     ("tokens-over-limit", LICENSE.format(" OR ".join(["MIT"] * 129)), "expression-limit", None),
     ("tokens-over-malformed", LICENSE.format(" OR ".join(["MIT"] * 129) + " AND"), "expression-limit", None),
     ("bytes-over-malformed", LICENSE.format("MIT AND" + " " * MAX_EXPRESSION_BYTES), "expression-limit", None),
+    ("invalid-char-before-tokens", LICENSE.format("MIT \u00a0 " + " OR MIT" * 129), "invalid-expression", None),
+    ("syntax-before-depth", LICENSE.format("MIT AND OR " + "(" * 17 + "MIT" + ")" * 17), "invalid-expression", None),
+    ("depth-before-trailing", LICENSE.format("(" * 17 + "MIT" + ")" * 17 + " AND"), "expression-limit", None),
+    ("syntax-before-alternatives", LICENSE.format("MIT AND OR (" + " OR ".join(["MIT"] * 8) +
+     ") AND (" + " OR ".join(["BSD-2-Clause"] * 17) + ")"), "invalid-expression", None),
+    ("alternatives-before-trailing", LICENSE.format("(" + " OR ".join(["MIT"] * 8) +
+     ") AND (" + " OR ".join(["BSD-2-Clause"] * 17) + ") AND"), "expression-limit", None),
     ("depth-at-limit", LICENSE.format("(" * MAX_EXPRESSION_DEPTH + "MIT" + ")" * MAX_EXPRESSION_DEPTH), "approved-non-copyleft", None),
     ("depth-over-limit", LICENSE.format("(" * (MAX_EXPRESSION_DEPTH + 1) + "MIT" + ")" * (MAX_EXPRESSION_DEPTH + 1)), "expression-limit", None),
     ("alternatives-at-limit", LICENSE.format("(" + " OR ".join(["MIT"] * 8) +
@@ -311,6 +372,20 @@ SPECS = (
 OWNER_SPECS = (
     ("accepted", "owner-evidence-accepted"),
     ("accepted-and", "owner-evidence-accepted"),
+    ("accepted-multi", "owner-evidence-accepted"),
+    ("accepted-multi-or", "owner-evidence-accepted"),
+    ("equivalent-reordered", "owner-evidence-accepted"),
+    ("equivalent-flattened", "owner-evidence-accepted"),
+    ("copyright-variant", "owner-evidence-accepted"),
+    ("untagged-grant", "owner-evidence-accepted"),
+    ("record-at-limit", "owner-evidence-accepted"),
+    ("record-over-limit", "owner-record-invalid"),
+    ("missing-bsd", "grant-missing"),
+    ("missing-bsd-or", "grant-missing"),
+    ("missing-bsd-binding", "grant-missing"),
+    ("conflicting-term", "grant-contradiction"),
+    ("non-equivalent-operator", "owner-binding-conflict"),
+    ("non-equivalent-group", "owner-binding-conflict"),
     ("no-record", "owner-record-missing"),
     ("acceptance-false", "owner-acceptance-missing"),
     ("acceptance-absent", "owner-record-invalid"),
@@ -318,10 +393,10 @@ OWNER_SPECS = (
     ("wrong-package-id", "owner-binding-conflict"),
     ("wrong-repository", "owner-binding-conflict"),
     ("wrong-commit", "owner-binding-conflict"),
-    ("wrong-release", "owner-binding-conflict"),
+    ("different-release-assertion", "owner-evidence-accepted"),
     ("wrong-version", "owner-binding-conflict"),
     ("wrong-expression", "owner-binding-conflict"),
-    ("wrong-expression-whitespace", "owner-binding-conflict"),
+    ("equivalent-whitespace", "owner-evidence-accepted"),
     ("wrong-policy-version", "owner-binding-conflict"),
     ("wrong-policy-digest", "owner-binding-conflict"),
     ("wrong-spdx-version", "owner-binding-conflict"),
@@ -329,15 +404,31 @@ OWNER_SPECS = (
     ("owner-reference-missing", "owner-record-invalid"),
     ("wrong-grant-digest", "grant-binding-conflict"),
     ("wrong-grant-path", "grant-binding-conflict"),
+    ("wrong-grant-role", "grant-binding-conflict"),
+    ("duplicate-grant-binding", "grant-binding-conflict"),
     ("no-grant", "grant-missing"),
     ("grant-completeness-false", "grant-incomplete"),
     ("tag-only", "grant-incomplete"),
+    ("empty-grant", "grant-incomplete"),
+    ("invalid-utf8-grant", "grant-incomplete"),
     ("oversize-grant", "grant-limit"),
     ("grant-gpl", "grant-contradiction"),
     ("package-gpl", "grant-contradiction"),
     ("unknown-field", "owner-record-invalid"),
     ("schema-version", "owner-record-invalid"),
     ("schema-boolean", "owner-record-invalid"),
+    ("reversed-fields", "owner-record-invalid"),
+    ("duplicate-json-key", "owner-record-invalid"),
+    ("nul-field", "owner-record-invalid"),
+    ("surrogate-field", "owner-record-invalid"),
+    ("non-nfc-field", "owner-record-invalid"),
+    ("record-traversal", "owner-record-invalid"),
+    ("record-absolute-path", "owner-record-invalid"),
+    ("record-separator-alias", "owner-record-invalid"),
+    ("record-dot-segment", "owner-record-invalid"),
+    ("role-path-mismatch", "grant-binding-conflict"),
+    ("unknown-role", "owner-record-invalid"),
+    ("extra-role", "owner-record-invalid"),
     ("malformed-record", "owner-record-invalid"),
     ("oversize-record", "owner-record-invalid"),
     ("conflicting-records", "owner-record-conflict"),
@@ -385,48 +476,124 @@ def archive(name, metadata, file_text):
     return stream.getvalue()
 
 
-def owner_record(package_digest, policy_digest, expression="MIT", grant=GRANT):
+def canonical_spdx(text):
+    _, tree = parse_expression(text)
+    tree = canonical_expression(tree)
+
+    def render(node, parent=None):
+        if node[0] == "ID":
+            return node[1]
+        if node[0] == "WITH":
+            return node[1] + " WITH " + node[2]
+        body = (" " + node[0] + " ").join(render(child, node[0]) for child in node[1:])
+        return "(" + body + ")" if parent == "AND" and node[0] == "OR" else body
+    return render(tree)
+
+
+def safe_text(value):
+    return (type(value) is str and 0 < len(value) <= 256 and
+            unicodedata.normalize("NFC", value) == value and
+            not any(ord(c) < 32 or 0x7f <= ord(c) <= 0x9f or 0xd800 <= ord(c) <= 0xdfff
+                    for c in value))
+
+
+def safe_path(value):
+    return (safe_text(value) and re.fullmatch(r"[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*", value) is not None and
+            all(part not in (".", "..") for part in value.split("/")))
+
+
+def grant_role(license_id):
+    return "grant-" + license_id.lower()
+
+
+def owner_record(package_digest, policy_digest, expression="MIT", grants=None):
+    grants = GRANTS if grants is None else grants
+    _, tree = parse_expression(expression)
+    ids = sorted({term for term in leaf_ids(tree)})
     return dict(schema_version=1, caller_accepts_prevalidated_authority=True,
                 owner_identity="Example Fixture Maintainer",
                 owner_reference="urn:fixture:owner-lp01:2026",
                 package_id="Sample.LP01", package_sha256=package_digest,
                 repository_url=REPOSITORY, source_commit=COMMIT,
                 release_ref=RELEASE, release_version="1.0.0",
-                spdx_grant_expression=expression, grant_path=GRANT_PATH,
-                grant_sha256=sha(grant), grant_evidence_prevalidated_complete=True,
-                policy_version="1.0.0",
-                policy_sha256=policy_digest, spdx_version="3.27.0",
-                spdx_sha256=CATALOG_SHA)
+                spdx_grant_expression=canonical_spdx(expression),
+                grant_bindings=[dict(license_id=license_id, role=grant_role(license_id),
+                                     path=grants[license_id][0], sha256=sha(grants[license_id][1]),
+                                     caller_accepts_complete_grant=True) for license_id in ids],
+                prevalidation_references=[],
+                policy_version="1.0.0", policy_sha256=policy_digest,
+                spdx_version="3.27.0", spdx_sha256=CATALOG_SHA)
+
+
+def leaf_ids(tree):
+    if tree[0] in ("ID", "WITH"):
+        return [tree[1]]
+    return [item for child in tree[1:] for item in leaf_ids(child)]
+
+
+def padded_record(record, target):
+    record["prevalidation_references"] = []
+    while target - len(encoded(record)) > 250:
+        record["prevalidation_references"].append("urn:fixture:" + "x" * 220)
+        require(len(record["prevalidation_references"]) < 32, "Too many synthetic references.")
+    remaining = target - len(encoded(record))
+    if remaining < 22:
+        record["prevalidation_references"][-1] += "x" * remaining
+        require(len(encoded(record)) == target, "Record padding changed.")
+        return record
+    for count in range(245):
+        record["prevalidation_references"].append("urn:fixture:" + "x" * count)
+        if len(encoded(record)) == target:
+            return record
+        record["prevalidation_references"].pop()
+    raise ValueError(f"Cannot construct canonical owner record of {target} bytes.")
 
 
 def owner_inputs(name, policy_bytes, catalog_bytes):
-    expression = "MIT AND MIT" if name == "accepted-and" else "GPL-3.0-only" if name == "package-gpl" else "MIT"
+    multi = name in ("accepted-multi", "accepted-multi-or", "equivalent-reordered", "equivalent-flattened",
+                     "missing-bsd", "missing-bsd-or", "missing-bsd-binding", "conflicting-term",
+                     "non-equivalent-operator", "non-equivalent-group")
+    expression = ("MIT AND (BSD-2-Clause AND MIT)" if name == "equivalent-flattened" else
+                  "MIT AND (BSD-2-Clause OR MIT)" if name == "non-equivalent-group" else
+                  "MIT OR BSD-2-Clause" if name in ("accepted-multi-or", "missing-bsd-or") else
+                  "MIT AND BSD-2-Clause" if multi else "MIT AND MIT" if name == "accepted-and" else
+                  "GPL-3.0-only" if name == "package-gpl" else " MIT " if name == "equivalent-whitespace" else "MIT")
     content = archive("owner-" + name, LICENSE.format(expression), None)
-    grant = (b"SPDX-License-Identifier: MIT\n" if name == "tag-only" else
-             GRANT.replace(b"SPDX-License-Identifier: MIT", b"SPDX-License-Identifier: GPL-3.0-only")
-             if name == "grant-gpl" else GRANT + b"x" * (MAX_GRANT_BYTES + 1 - len(GRANT))
-             if name == "oversize-grant" else GRANT)
-    record = owner_record(sha(content), sha(policy_bytes), expression, grant)
-    if grant != GRANT:
-        record["grant_path"] = f"grants/{name}.txt"
+    grant_bytes = dict(GRANTS)
+    mit = (b"SPDX-License-Identifier: MIT\n" if name == "tag-only" else
+           b"" if name == "empty-grant" else b"\xff" + GRANT if name == "invalid-utf8-grant" else
+           GRANT.replace(b"SPDX-License-Identifier: MIT", b"SPDX-License-Identifier: GPL-3.0-only")
+           if name == "grant-gpl" else GRANT + b"x" * (MAX_GRANT_BYTES + 1 - len(GRANT))
+           if name == "oversize-grant" else GRANT.replace(b"2026 Example", b"2027 Example")
+           if name == "copyright-variant" else GRANT.replace(b"SPDX-License-Identifier: MIT\n", b"")
+           if name == "untagged-grant" else GRANT)
+    if mit != GRANT:
+        grant_bytes["MIT"] = (f"grants/{name}.txt", mit)
+    if name == "conflicting-term":
+        grant_bytes["BSD-2-Clause"] = ("grants/conflicting-term.txt",
+                                       BSD_GRANT.replace(b"BSD-2-Clause", b"MIT", 1))
+    owner_expression = ("BSD-2-Clause AND MIT" if name == "equivalent-reordered" else
+                        "MIT OR BSD-2-Clause" if name in ("non-equivalent-operator", "non-equivalent-group") else
+                        "MIT" if name in ("package-gpl", "wrong-expression") else expression)
+    record = owner_record(sha(content), sha(policy_bytes), owner_expression, grant_bytes)
+    if name == "wrong-expression":
+        record["spdx_grant_expression"] = "Apache-2.0"
     changes = {
         "acceptance-false": ("caller_accepts_prevalidated_authority", False),
         "wrong-package": ("package_sha256", "0" * 64),
         "wrong-package-id": ("package_id", "Other.Package"),
         "wrong-repository": ("repository_url", "https://example.test/other"),
         "wrong-commit": ("source_commit", "b" * 40),
-        "wrong-release": ("release_ref", "refs/tags/v2.0.0"),
+        "different-release-assertion": ("release_ref", "refs/tags/release-1.0.0"),
         "wrong-version": ("release_version", "2.0.0"),
-        "wrong-expression": ("spdx_grant_expression", "Apache-2.0"),
-        "wrong-expression-whitespace": ("spdx_grant_expression", " MIT "),
         "wrong-policy-version": ("policy_version", "2.0.0"),
         "wrong-policy-digest": ("policy_sha256", "0" * 64),
         "wrong-spdx-version": ("spdx_version", "0.0.0"),
         "wrong-spdx-digest": ("spdx_sha256", "0" * 64),
         "owner-reference-missing": ("owner_reference", ""),
-        "grant-completeness-false": ("grant_evidence_prevalidated_complete", False),
-        "wrong-grant-digest": ("grant_sha256", "0" * 64),
-        "wrong-grant-path": ("grant_path", "grants/other.txt"),
+        "nul-field": ("owner_identity", "Fixture\u0000Owner"),
+        "surrogate-field": ("owner_identity", "Fixture\ud800Owner"),
+        "non-nfc-field": ("owner_identity", "Cafe\u0301"),
         "unknown-field": ("unrecognized", "unsafe"),
         "schema-version": ("schema_version", 2),
         "schema-boolean": ("schema_version", True),
@@ -434,9 +601,32 @@ def owner_inputs(name, policy_bytes, catalog_bytes):
     if name in changes:
         field, value = changes[name]
         record[field] = value
+    if name == "wrong-grant-digest":
+        record["grant_bindings"][0]["sha256"] = "0" * 64
+    if name == "missing-bsd-binding":
+        record["grant_bindings"] = record["grant_bindings"][1:]
+    if name == "wrong-grant-path":
+        record["grant_bindings"][0]["path"] = "grants/other.txt"
+    if name == "wrong-grant-role":
+        record["grant_bindings"][0]["role"] = "grant-other"
+    if name == "duplicate-grant-binding":
+        record["grant_bindings"].append(record["grant_bindings"][0].copy())
+    if name in ("record-traversal", "record-absolute-path", "record-separator-alias", "record-dot-segment"):
+        record["grant_bindings"][0]["path"] = {
+            "record-traversal": "grants/../secret.txt", "record-absolute-path": "C:/grants/mit-full.txt",
+            "record-separator-alias": r"grants\mit-full.txt", "record-dot-segment": "grants/./mit-full.txt",
+        }[name]
+    if name == "grant-completeness-false":
+        record["grant_bindings"][0]["caller_accepts_complete_grant"] = False
     if name == "acceptance-absent":
         del record["caller_accepts_prevalidated_authority"]
+    if name in ("record-at-limit", "record-over-limit"):
+        padded_record(record, 8192 if name == "record-at-limit" else 8193)
     record_bytes = encoded(record)
+    if name == "reversed-fields":
+        record_bytes = encoded(dict(reversed(list(record.items()))))
+    if name == "duplicate-json-key":
+        record_bytes = record_bytes.replace(b'"schema_version": 1,', b'"schema_version": 1,\n  "schema_version": 1,', 1)
     if name == "malformed-record":
         record_bytes = b"{broken json\n"
     if name == "oversize-record":
@@ -450,41 +640,77 @@ def owner_inputs(name, policy_bytes, catalog_bytes):
     if second is not None:
         inputs.append(dict(role="owner-record-conflict", path="owners/conflicting-records-secondary.json",
                            sha256=sha(second)))
-    if name != "no-grant":
-        inputs.append(dict(role="grant", path=GRANT_PATH if grant == GRANT else f"grants/{name}.txt",
-                           sha256=sha(grant)))
-    return inputs, content, record_bytes, second, grant
+    grants = {}
+    for license_id in sorted(set(leaf_ids(parse_expression(expression)[1])) & set(grant_bytes)):
+        role = grant_role(license_id)
+        if name in ("no-grant", "no-record") or name in ("missing-bsd", "missing-bsd-or") and license_id == "BSD-2-Clause":
+            continue
+        path, data = grant_bytes[license_id]
+        inputs.append(dict(role=role, path=path, sha256=sha(data)))
+        grants[role] = data
+    if name in ("unknown-role", "extra-role"):
+        inputs.append(dict(role="unknown-input" if name == "unknown-role" else "grant-bsd-2-clause",
+                           path="grants/bsd-full.txt", sha256=sha(BSD_GRANT)))
+        if name == "extra-role":
+            grants["grant-bsd-2-clause"] = BSD_GRANT
+    if name == "role-path-mismatch":
+        record["grant_bindings"][0]["path"] = "grants/other.txt"
+        record_bytes = encoded(record)
+        inputs[3]["sha256"] = sha(record_bytes)
+    return inputs, content, record_bytes, second, grants
 
 
-def owner_state(inputs, content, record_bytes, second, grant, policy_bytes, policy, licenses):
-    roles = {item["role"]: item for item in inputs}
-    require(sha(content) == roles["package"]["sha256"] and
-            sha(policy_bytes) == roles["policy"]["sha256"] and
-            roles["corpus"]["sha256"] == CATALOG_SHA and
-            ("owner-record" not in roles or sha(record_bytes) == roles["owner-record"]["sha256"]) and
-            (second is None or sha(second) == roles["owner-record-conflict"]["sha256"]),
+def owner_state(inputs, content, record_bytes, second, grants, policy_bytes, policy, licenses):
+    roles = [item["role"] for item in inputs]
+    if len(roles) != len(set(roles)) or not {"package", "policy", "corpus"} <= set(roles) or any(
+        role not in {"package", "policy", "corpus", "owner-record", "owner-record-conflict"} and
+        re.fullmatch(r"grant-[a-z0-9][a-z0-9.+-]*", role) is None for role in roles
+    ) or any(not safe_path(item["path"]) for item in inputs):
+        return "owner-record-invalid"
+    checked = {item["role"]: item for item in inputs}
+    require(sha(content) == checked["package"]["sha256"] and
+            sha(policy_bytes) == checked["policy"]["sha256"] and
+            checked["corpus"]["sha256"] == CATALOG_SHA and
+            ("owner-record" not in checked or sha(record_bytes) == checked["owner-record"]["sha256"]) and
+            (second is None or sha(second) == checked["owner-record-conflict"]["sha256"]),
             "Owner fixture checked input bytes differ from pinned roles.")
-    if "owner-record" not in roles:
+    if "owner-record" not in checked:
         return "owner-record-missing"
-    if second is not None:
+    if "owner-record-conflict" in checked:
         return "owner-record-conflict"
-    if len(record_bytes) > 8192:
+    if len(record_bytes) > 8192 or record_bytes.startswith(b"\xef\xbb\xbf"):
         return "owner-record-invalid"
     try:
-        record = json.loads(record_bytes)
-    except json.JSONDecodeError:
+        record = json.loads(record_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
         return "owner-record-invalid"
-    if not isinstance(record, dict) or set(record) != OWNER_FIELDS or encoded(record) != record_bytes:
+    if type(record) is not dict or set(record) != OWNER_FIELDS or type(record.get("grant_bindings")) is not list:
         return "owner-record-invalid"
+    scalars = OWNER_FIELDS - {"schema_version", "caller_accepts_prevalidated_authority",
+                              "grant_bindings", "prevalidation_references"}
     if type(record["schema_version"]) is not int or record["schema_version"] != 1 or any(
-        not isinstance(record[key], str) or not record[key] or len(record[key]) > 256
-        for key in OWNER_FIELDS - {"schema_version", "caller_accepts_prevalidated_authority",
-                                    "grant_evidence_prevalidated_complete"}
-    ) or not isinstance(record["caller_accepts_prevalidated_authority"], bool) or not isinstance(
-            record["grant_evidence_prevalidated_complete"], bool):
+        not safe_text(record[key]) for key in scalars
+    ) or type(record["caller_accepts_prevalidated_authority"]) is not bool:
+        return "owner-record-invalid"
+    if type(record["prevalidation_references"]) is not list or len(record["prevalidation_references"]) > 32 or any(
+            not safe_text(ref) for ref in record["prevalidation_references"]):
         return "owner-record-invalid"
     if re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", record["source_commit"]) is None or not record[
             "release_ref"].startswith("refs/tags/") or len(record["release_ref"]) <= len("refs/tags/"):
+        return "owner-record-invalid"
+    bindings = record["grant_bindings"]
+    if type(bindings) is not list or not 1 <= len(bindings) <= 32 or any(
+        type(binding) is not dict or set(binding) != {
+            "license_id", "role", "path", "sha256", "caller_accepts_complete_grant"} or
+        not all(safe_text(binding[key]) for key in ("license_id", "role", "sha256")) or
+        not safe_path(binding["path"]) or type(binding["caller_accepts_complete_grant"]) is not bool
+        for binding in bindings
+    ):
+        return "owner-record-invalid"
+    if canonical_owner_bytes(record) != record_bytes or any(
+            re.fullmatch(r"[a-f0-9]{64}", record[key]) is None
+            for key in ("package_sha256", "policy_sha256", "spdx_sha256")) or any(
+            re.fullmatch(r"[a-f0-9]{64}", binding["sha256"]) is None for binding in bindings):
         return "owner-record-invalid"
     if not record["caller_accepts_prevalidated_authority"]:
         return "owner-acceptance-missing"
@@ -494,30 +720,56 @@ def owner_state(inputs, content, record_bytes, second, grant, policy_bytes, poli
     expression = metadata.find(f"{{{NS}}}license").text
     if expression_state(expression, policy, licenses) != "approved-non-copyleft":
         return "grant-contradiction"
+    try:
+        owner_normalized = canonical_spdx(record["spdx_grant_expression"])
+        package_normalized = canonical_spdx(expression)
+    except (ExpressionLimitError, ValueError):
+        return "owner-binding-conflict"
     if (record["package_sha256"] != sha(content) or
         record["package_id"] != metadata.find(f"{{{NS}}}id").text or
         record["repository_url"] != repository.attrib["url"] or
         record["source_commit"] != repository.attrib["commit"] or
         record["release_version"] != metadata.find(f"{{{NS}}}version").text or
-        record["release_ref"] != RELEASE or
-        record["spdx_grant_expression"] != expression or
+        record["spdx_grant_expression"] != owner_normalized or
+        owner_normalized != package_normalized or
         record["policy_version"] != policy["policy_version"] or
         record["policy_sha256"] != sha(policy_bytes) or
         record["spdx_version"] != policy["spdx_version"] or
         record["spdx_sha256"] != CATALOG_SHA):
         return "owner-binding-conflict"
-    if "grant" not in roles:
-        return "grant-missing"
-    if record["grant_path"] != roles["grant"]["path"] or record["grant_sha256"] != roles["grant"]["sha256"]:
-        return "grant-binding-conflict"
-    if sha(grant) != roles["grant"]["sha256"]:
-        return "grant-binding-conflict"
-    if len(grant) > MAX_GRANT_BYTES:
-        return "grant-limit"
-    if grant.startswith(b"SPDX-License-Identifier: GPL-3.0-only"):
-        return "grant-contradiction"
-    if not record["grant_evidence_prevalidated_complete"] or grant != GRANT:
-        return "grant-incomplete"
+    expected_ids = sorted(set(leaf_ids(parse_expression(expression)[1])))
+    if [binding["license_id"] for binding in bindings] != expected_ids:
+        return "grant-missing" if set(binding["license_id"] for binding in bindings) < set(expected_ids) else "grant-binding-conflict"
+    expected_roles = {grant_role(term) for term in expected_ids}
+    if (set(checked) - {"package", "policy", "corpus", "owner-record"}) - expected_roles:
+        return "owner-record-invalid"
+    for binding in bindings:
+        license_id = binding["license_id"]
+        role = grant_role(license_id)
+        if binding["role"] != role:
+            return "grant-binding-conflict"
+        if role not in checked:
+            return "grant-missing"
+        if checked[role]["path"] != binding["path"] or checked[role]["sha256"] != binding["sha256"]:
+            return "grant-binding-conflict"
+        data = grants[role]
+        if sha(data) != binding["sha256"]:
+            return "grant-binding-conflict"
+        if len(data) > MAX_GRANT_BYTES:
+            return "grant-limit"
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            return "grant-incomplete"
+        if not text.strip() or "\0" in text or data.startswith(b"\xef\xbb\xbf"):
+            return "grant-incomplete"
+        declarations = re.findall(r"^SPDX-License-Identifier: ([^\r\n]+)$", text, re.MULTILINE)
+        if declarations and any(declaration != license_id for declaration in declarations):
+            return "grant-contradiction"
+        if len(text) < 128 or text.strip() == f"SPDX-License-Identifier: {license_id}":
+            return "grant-incomplete"
+        if not binding["caller_accepts_complete_grant"]:
+            return "grant-incomplete"
     return "owner-evidence-accepted"
 
 
@@ -539,9 +791,11 @@ def policy_variant(name, policy_bytes, catalog_bytes):
 def disposition(branch):
     if branch == "owner-evidence-accepted":
         return "deterministic", (
-            "The checked package and grant are classified OSI-approved non-copyleft and match the "
-            "prevalidated owner/repository record. Caller-asserted owner authority was accepted at "
-            "the input boundary, NOT cryptographically established by this resolver."
+            "The checked package SPDX expression is OSI-approved and non-copyleft under pinned "
+            "policy; every offered license ID has a checked grant binding matching the prevalidated "
+            "owner/repository record. Caller-asserted authority, grant sufficiency and release scope "
+            "were accepted at the input boundary, NOT cryptographically established or legally "
+            "interpreted by this resolver."
         ), None, None, None
     if branch == "approved-non-copyleft":
         return "escalated", None, (
@@ -601,8 +855,10 @@ def result(branch, inputs, reference, contract=None):
                     "and allowlisted non-copyleft, but the file supplies no actual license grant text.")
     if branch == "owner-evidence-accepted":
         contract = ("Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated "
-                    "owner record and complete separate MIT grant bytes bind exactly; caller accepts "
-                    "owner authority at input boundary, not cryptographically proven by resolver.")
+                    "owner record and one separately checked, caller-accepted complete grant per "
+                    "distinct normalized SPDX license ID bind exactly; owner authority, release "
+                    "correspondence and legal grant sufficiency are trusted at the input boundary, "
+                    "not cryptographically proven or legally interpreted by resolver.")
     elif branch.startswith(("owner-", "grant-")):
         contract = ("Available checked package, policy, owner-record and grant inputs were inspected; "
                     "missing or conflicting evidence cannot establish owner authority or license scope.")
@@ -671,15 +927,14 @@ def suite_data(policy_bytes, catalog_bytes, policy, licenses):
                     evidence_pointers=pointers)
         cases.append(case)
     for name, branch in OWNER_SPECS:
-        inputs, content, record_bytes, second, grant = owner_inputs(name, policy_bytes, catalog_bytes)
-        actual = owner_state(inputs, content, record_bytes, second, grant, policy_bytes, policy, licenses)
+        inputs, content, record_bytes, second, grants = owner_inputs(name, policy_bytes, catalog_bytes)
+        actual = owner_state(inputs, content, record_bytes, second, grants, policy_bytes, policy, licenses)
         require(actual == branch, f"Owner evidence disagrees with frozen {name}: {actual} != {branch}")
         references = ["package:nuspec/license", "package:nuspec/repository",
                       "policy:lp01-policy-1.0.0", "corpus:spdx-licenses-3.27.0"]
         if name != "no-record":
             references.append("owner-record:document")
-        if name != "no-grant":
-            references.append("grant:document")
+        references.extend(item["role"] + ":document" for item in inputs if item["role"].startswith("grant-"))
         expected = result(branch, inputs, "package:nuspec/license")
         expected["evidence_references"] = references
         cases.append(dict(case_id="lp01-owner-" + name, row_id="LP-01", inputs=inputs,
@@ -706,6 +961,35 @@ def retained_data(policy_bytes, catalog_bytes, policy, licenses):
                           evidence_pointers=["package:nuspec/license", "package:archive",
                                              "policy:lp01-policy-1.0.0", "corpus:spdx-licenses-3.27.0"]))
     return dict(schema_version=1, cases=cases)
+
+
+def rejected_input_data(policy_bytes, catalog_bytes, policy, licenses):
+    base, content, record_bytes, second, grants = owner_inputs("accepted", policy_bytes, catalog_bytes)
+    controls = (
+        ("duplicate-owner-role", "duplicate-role", dict(base[3])),
+        ("duplicate-grant-role", "duplicate-role", dict(base[4])),
+        ("parent-traversal", "invalid-relative-path", {**base[3], "path": "../owners/accepted.json"}),
+        ("absolute-path", "invalid-relative-path", {**base[3], "path": "C:/owners/accepted.json"}),
+        ("separator-alias", "invalid-relative-path", {**base[3], "path": r"owners\accepted.json"}),
+        ("dot-segment", "invalid-relative-path", {**base[3], "path": "owners/./accepted.json"}),
+    )
+    cases = []
+    for name, reason, changed in controls:
+        inputs = [dict(item) for item in base]
+        if reason == "duplicate-role":
+            inputs.append(changed)
+        else:
+            inputs[3] = changed
+        require((len({item["role"] for item in inputs}) != len(inputs)) ==
+                (reason == "duplicate-role") and
+                (all(safe_path(item["path"]) for item in inputs)) ==
+                (reason != "invalid-relative-path") and
+                owner_state(inputs, content, record_bytes, second, grants, policy_bytes, policy, licenses) ==
+                "owner-record-invalid",
+                f"Input role/path rejection is not prior to role dictionary conversion: {name}")
+        cases.append(dict(case_id="lp01-reject-" + name, stage="shared-input-loader",
+                          expected_rejection=reason, inputs=inputs))
+    return dict(schema_version=1, controls=cases)
 
 
 def check_negative_bindings():
@@ -739,6 +1023,7 @@ def main():
     policy_bytes, catalog_bytes, policy, licenses = policy_data()
     synthetic = suite_data(policy_bytes, catalog_bytes, policy, licenses)
     acceptance = retained_data(policy_bytes, catalog_bytes, policy, licenses)
+    rejected = rejected_input_data(policy_bytes, catalog_bytes, policy, licenses)
     retained = json.loads((ROOT / "retained-inputs.json").read_bytes())
     receipt = json.loads((ROOT / "acceptance-receipt.template.json").read_bytes())
     require(retained["schema_version"] == receipt["schema_version"] == 1 and
@@ -781,20 +1066,22 @@ def main():
             if cbytes != catalog_bytes:
                 (ROOT / "policy" / f"{name}.json").write_bytes(cbytes)
         for name, _ in OWNER_SPECS:
-            inputs, content, record_bytes, second, grant = owner_inputs(name, policy_bytes, catalog_bytes)
+            inputs, content, record_bytes, second, grants = owner_inputs(name, policy_bytes, catalog_bytes)
             (ROOT / inputs[0]["path"]).write_bytes(content)
             for item in inputs:
                 if item["role"] == "owner-record":
                     (ROOT / item["path"]).write_bytes(record_bytes)
                 elif item["role"] == "owner-record-conflict":
                     (ROOT / item["path"]).write_bytes(second)
-                elif item["role"] == "grant":
-                    (ROOT / item["path"]).write_bytes(grant)
+                elif item["role"].startswith("grant-"):
+                    (ROOT / item["path"]).write_bytes(grants[item["role"]])
         (ROOT / "cases.json").write_bytes(encoded(synthetic))
         (ROOT / "acceptance.json").write_bytes(encoded(acceptance))
+        (ROOT / "rejected-inputs.json").write_bytes(encoded(rejected))
     else:
         require((ROOT / "cases.json").read_bytes() == encoded(synthetic), "LP-01 synthetic expectations changed.")
         require((ROOT / "acceptance.json").read_bytes() == encoded(acceptance), "LP-01 retained expectations changed.")
+        require((ROOT / "rejected-inputs.json").read_bytes() == encoded(rejected), "LP-01 input rejections changed.")
     for name, metadata, _, file_text in SPECS:
         content = archive(name, metadata, file_text)
         if content is not None:
@@ -846,14 +1133,14 @@ def main():
             else:
                 raise ValueError(f"Invalid policy control was accepted: {name}")
     for name, branch in OWNER_SPECS:
-        inputs, content, record_bytes, second, grant = owner_inputs(name, policy_bytes, catalog_bytes)
-        require(owner_state(inputs, content, record_bytes, second, grant, policy_bytes, policy, licenses) == branch,
+        inputs, content, record_bytes, second, grants = owner_inputs(name, policy_bytes, catalog_bytes)
+        require(owner_state(inputs, content, record_bytes, second, grants, policy_bytes, policy, licenses) == branch,
                 f"Owner record branch differs: {name}")
         if not args.write_fixtures:
             for item in inputs:
-                if item["role"] in ("package", "owner-record", "owner-record-conflict", "grant"):
+                if item["role"] in ("package", "owner-record", "owner-record-conflict") or item["role"].startswith("grant-"):
                     raw = (content if item["role"] == "package" else record_bytes if item["role"] == "owner-record"
-                           else second if item["role"] == "owner-record-conflict" else grant)
+                           else second if item["role"] == "owner-record-conflict" else grants[item["role"]])
                     require((ROOT / item["path"]).read_bytes() == raw and sha(raw) == item["sha256"],
                             f"Owner fixture input differs: {name}/{item['role']}")
         with zipfile.ZipFile(io.BytesIO(content)) as package:
@@ -924,7 +1211,7 @@ def main():
                     f"LP-01 negative lost its package scope: {case['case_id']}")
     owner_cases = [case for case in synthetic["cases"] if case["case_id"].startswith("lp01-owner-")]
     require(len(owner_cases) == len(OWNER_SPECS) and
-            [case["expected"]["branch_id"] for case in owner_cases].count("owner-evidence-accepted") == 2 and
+            [case["expected"]["branch_id"] for case in owner_cases].count("owner-evidence-accepted") == 11 and
             all(case["expected"]["decision"] == "deterministic" and
                 "NOT cryptographically established" in case["expected"]["finding"]
                 if case["expected"]["branch_id"] == "owner-evidence-accepted" else

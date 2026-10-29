@@ -4,9 +4,10 @@ The frozen `repository-wide` Licensing and provenance LP-01 row, clause 1.1,
 reads **"Uses an OSI-approved, non-copyleft license."** The requirement basis
 specifies an OSI-approved license (MIT, Apache-2.0, BSD or equivalent) and
 excludes GPL/AGPL for components surfaced from VS. This suite is a
-**package-only evidence classification**, not an assertion that the owner's
-entire repository, other releases, dependencies (LP-03), or notices (LP-04)
-meet the requirement. LP-05 establishes only that PackageLicenseExpression
+**package classification and optional caller-prevalidated owner/repository
+evidence contract**, not an assertion that the owner's entire repository,
+other releases, dependencies (LP-03), or notices (LP-04) meet the requirement.
+LP-05 establishes only that PackageLicenseExpression
 is populated; LP-01 must independently classify a supported expression.
 The output is the existing `CaseResult`, never a readiness verdict or score.
 
@@ -59,8 +60,12 @@ in fewer than 255 tokens; the 8-by-17 control exceeds that separate limit.
 ASCII trailing-space byte at/over controls and multibyte at/over controls
 show that non-ASCII input at the raw byte cap is invalid syntax, while one
 raw UTF-8 byte over the cap is `expression-limit`, even though the character
-count is within the cap. Over-limit inputs with malformed syntax prove
-**limit-before-syntax** precedence. At/over fixtures for all four
+count is within the cap. The precise precedence is **raw UTF-8 bytes/characters first, allowed ASCII
+characters second, tokenization/token cap third, then parsing with depth and
+alternative caps at the point reached**. Thus an invalid early character
+preempts later token overflow, token overflow preempts a trailing syntax error,
+and earlier syntax preempts later depth/alternative overflow; a reached depth
+or alternative cap preempts trailing syntax. At/over fixtures for all four
 bounds test fail-closed `expression-limit`; limits are expectation-contract
 choices for Phase B, not an assertion that the current reader already
 enforces them. These decisions are bounded to the pinned catalog and local
@@ -77,16 +82,29 @@ offers no acceptable alternative; they are not repository-wide conclusions.
 
 ## Prevalidated owner evidence contract (v1)
 
-The **five checked input roles** are `package`, `policy`, `corpus`,
-`owner-record`, and `grant`. Package-only cases omit the last two roles;
-this is an *escalation*, not an alternative resolver version. One optional
-`owner-record-conflict` role is a fail-closed control: two conflicting
-records cannot be selected by order. The foundation hashes each checked
-input, with relative paths and lowercase SHA-256, before dispatch. The
-owner record is canonical UTF-8 JSON with LF newline, sorted only by the
-fixed field insertion order in `owner_record()` (not alphabetically),
-no unknown or duplicate keys, and **at most 8192 raw bytes**. Its exact
-v1 fields are:
+The required checked roles are `package`, `policy`, and `corpus`. An optional
+single `owner-record` and exactly one `grant-<lowercase-license-id>` role
+per distinct license ID in the normalized owner expression permit a positive
+branch under **the same resolver version**; absence of the owner record
+escalates. A secondary `owner-record-conflict` always conflicts rather than
+winning by input order. Unknown, extra, duplicate, or missing roles are
+rejected or escalated as appropriate **before conversion to a role dictionary**.
+The foundation hashes each checked input, with normalized relative paths and
+lowercase SHA-256, before dispatch. No absolute path, `..`, `.` segment,
+backslash alias or non-normalized separator is accepted in a checked input
+or owner grant binding. `rejected-inputs.json` freezes six shared-loader
+rejections separately because invalid input paths/duplicate roles cannot be
+replayed as successful `cases.json` cases.
+
+The owner record is canonical UTF-8 JSON without BOM, with LF newline and
+the **fixed v1 field order below regardless of parsed input order**, no
+duplicate/unknown top-level or nested binding keys, and **at most 8192 raw
+bytes**. String scalars and prevalidation references are nonempty, at most
+256 characters each, NFC, with no NUL/control characters or unpaired
+surrogates. Exact JSON types are required; booleans are not integers.
+`prevalidation_references` is an ordered array of at most 32 bounded strings.
+The 8192/8193-byte records exercise the document cap while every constituent
+field remains within its own limit. Its exact v1 fields, in canonical order:
 
 | Field | Required constraint |
 |---|---|
@@ -95,42 +113,61 @@ v1 fields are:
 | `owner_identity`, `owner_reference` | Nonempty, each at most 256 characters; trusted caller-validated identity and reference, not a signature |
 | `package_id`, `package_sha256` | Exact checked nuspec ID and checked package digest |
 | `repository_url`, `source_commit` | Exact checked nuspec repository URL and full lowercase 40- or 64-hex source commit |
-| `release_ref`, `release_version` | Prevalidated full release ref and exact checked nuspec package version; v1 fixture pins `refs/tags/v1.0.0` and `1.0.0` |
-| `spdx_grant_expression` | Exact recognized checked package expression (no lossy case/whitespace normalization) |
-| `grant_path`, `grant_sha256` | Exact separate checked `grant` role relative path and SHA-256 |
-| `grant_evidence_prevalidated_complete` | Boolean `true` for resolution; a tag-only file is insufficient even when asserted true |
+| `release_ref`, `release_version` | Nonempty `refs/tags/` ref accepted from caller, and exact checked nuspec package version. No independent release-ref truth source is supplied |
+| `spdx_grant_expression` | Canonical normalized SPDX expression; must be equivalent to the checked package expression |
+| `grant_bindings` | Nonempty, sorted array with one binding for **each** distinct license ID in the expression, including all AND and OR terms; no missing, extra or duplicate binding |
+| `prevalidation_references` | Bounded caller-supplied references to the prevalidation, with no claim the resolver verifies their authority |
 | `policy_version`, `policy_sha256` | Exact checked v1 policy version and digest |
 | `spdx_version`, `spdx_sha256` | Exact checked SPDX catalog version and digest |
 
-Every string is nonempty and bounded to 256 characters; the record may
-not add unrecognized fields or switch versions. The fixture oracle verifies
-canonical bytes and all checked cross-input equalities; a production resolver
-must reject duplicate JSON keys, unknown fields, wrong types, oversized
-documents, missing checked roles, hash mismatches and ambiguous records,
-and must **never infer trust from a file path or vendor name**. For v1,
-the caller prevalidates owner authority, the repository/release relationship,
-and grant completeness, then explicitly accepts that boundary in the record.
-The resolver checks the record and separate grant bytes, but **does not
-cryptographically establish owner identity, authorization, tag existence,
-repository contents, or the release-to-source derivation**. No bespoke vendor
-signature is invented. A changed grant byte or path, owner claim, package
-digest, repository URL, commit, version, release ref, expression or pinned
-policy fails closed. A checked grant has a **16384-byte raw cap** before
-interpretation; the over-limit case escalates instead of reading an
-unbounded grant. An in-package SPDX identifier alone is not the grant.
+Every `grant_bindings` element has **exactly**, in field order:
+`license_id` (case-sensitive SPDX ID), `role` (the matching checked
+`grant-<lowercase-license-id>`), `path` (matching normalized relative checked
+input path), `sha256` (matching lowercase digest of independently checked
+bytes), and `caller_accepts_complete_grant` (Boolean `true` for resolution).
+An `MIT AND Apache-2.0` declaration with only an MIT grant escalates; an OR
+also requires grants for **all** offered license IDs. Normalization is
+canonical AST normalization: recursively flatten identical AND/OR operators,
+sort child nodes deterministically, deduplicate identical nodes, preserve
+AND versus OR and WITH/custom-reference semantics. These operations apply
+only to expression **equivalence**, after raw parsing and resource checks.
+`MIT AND MIT` needs one MIT binding; reordered/flattened equivalent
+expressions match, but changed AND/OR grouping does not. No identifier case
+folding or deprecated-license substitution is allowed.
 
-`owners/` holds synthetic owner records; `grants/mit-full.txt` is an
-**example fixture** with complete MIT permission/conditions/warranty text
-and its explicit MIT identifier, not a real vendor grant. The 32 owner cases
-include two reachable deterministic positives (`MIT` and `MIT AND MIT`);
-their findings explicitly disclose that caller-prevalidated authority was
-accepted at the input boundary and was **not cryptographically proven**.
-The other cases omit or deny acceptance, mismatch every binding, supply
-tag-only/inconsistent/missing grant input, corrupt or oversize a record,
-exceed the grant cap, or supply conflicting records. A contradictory package GPL declaration
-cannot be rescued by an MIT owner record. These are frozen expectation
-branches, **not** production implementation or a statement that the
-retained vendors supplied owner evidence.
+The fixture oracle verifies canonical bytes, structural constraints and
+cross-input digests, including exact package SHA-256, nuspec package ID,
+repository URL, source commit and release version, policy and SPDX versions
+and digests, and each grant role/path/digest. For v1, the **caller**
+prevalidates owner authority, the release ref's relation to the checked
+source/repository/version, grant applicability and legal sufficiency (including
+any added restrictions), and explicitly accepts those assertions in the
+record and each grant binding. The resolver **does not cryptographically
+establish owner authority, tag existence, repository contents or
+release-to-source derivation; it does not legally interpret grant text**.
+No bespoke vendor signature is invented. A different well-formed release ref
+is therefore a caller-accepted assertion, **not** a detectable mismatch without
+a second checked scope source. The checked grant bytes must be nonempty,
+UTF-8 without BOM and at most **16384 raw bytes**; a tag-only SPDX identifier
+cannot establish text and an explicit contradictory SPDX identifier fails
+closed. This is a structural screen, not proof of completeness or a comparison
+to one MIT fixture. Untagged caller-prevalidated text and benign copyright
+variations can qualify; a grant whose actual restrictions differ from the
+record remains the caller's prevalidation responsibility.
+
+`owners/` holds synthetic owner records; `grants/mit-full.txt` and
+`grants/bsd-full.txt` are **example grant fixtures**, not vendor evidence.
+The 62 owner cases include 11 reachable deterministic positives (including
+multi-license AND and OR, equivalent normalized expressions, a bounded
+8192-byte record, and benign grant variation). Their findings explicitly
+disclose that caller-prevalidated authority was accepted at the input boundary
+and was **not cryptographically proven**. Missing one term, contradictory
+grant identifiers, non-equivalent ASTs, unaccepted authority/completeness,
+tag-only/inconsistent/missing grant bytes, malformed or oversized canonical
+records, invalid paths/roles and conflicting records escalate. A contradictory
+package GPL declaration cannot be rescued by an MIT owner record. These are
+frozen expectation branches, **not** production implementation or a statement
+that the retained vendors supplied owner evidence.
 
 A URL alone, including `https://licenses.nuget.org/MIT`, is not package
 license evidence. A URL beside a recognized expression is not independently
@@ -153,9 +190,11 @@ or a missing/inconsistent policy produces `unknown` applicability.
 Unbound/incorrect SHA-256 input paths fail in the shared replay loader;
 they are not equivalent to a valid case with no package role.
 
-`cases.json` freezes 121 cases and 120 reproducible, SHA-256-pinned synthetic
-archives. `lp01_expectations.py` checks the exact JSON, ZIP bytes, owner
-records and separate grant bytes, including
+`cases.json` freezes **156 cases** (94 package and 62 owner) and **155**
+reproducible, SHA-256-pinned synthetic archives, alongside six separately
+frozen pre-dispatch rejections in `rejected-inputs.json`.
+`lp01_expectations.py` checks the exact JSON, ZIP bytes, owner
+records and separately checked grant bytes, including
 portable entry metadata; `--write-fixtures` only regenerates these
 reviewed expectation artifacts. No shipping resolver, registry entry,
 runner implemented count or prior LP-05--LP-10/PI-01 fixture changes are

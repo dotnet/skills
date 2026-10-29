@@ -3404,6 +3404,321 @@
       ]
     },
     {
+      "case_id": "lp01-invalid-char-before-tokens",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-char-before-tokens.nupkg",
+          "sha256": "30eff635437e3aa8315b5f97dff71ea244386b8da15e005da4a2f07542da1a10"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-expression",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-char-before-tokens.nupkg",
+            "sha256": "30eff635437e3aa8315b5f97dff71ea244386b8da15e005da4a2f07542da1a10"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The expression is not valid under the frozen SPDX expression grammar.",
+        "required_input": "corrected-spdx-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 invalid-char-before-tokens policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-syntax-before-depth",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/syntax-before-depth.nupkg",
+          "sha256": "d6603baae3970cb6e8da39f501dc4aa1170ccdadd65b4955428a904e52f0a35f"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-expression",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/syntax-before-depth.nupkg",
+            "sha256": "d6603baae3970cb6e8da39f501dc4aa1170ccdadd65b4955428a904e52f0a35f"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The expression is not valid under the frozen SPDX expression grammar.",
+        "required_input": "corrected-spdx-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 syntax-before-depth policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-depth-before-trailing",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/depth-before-trailing.nupkg",
+          "sha256": "6e527c6e4eedcf8d869c3d3a6794519cff2f8f2a84acbbfe2b029e1aca68490f"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "expression-limit",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/depth-before-trailing.nupkg",
+            "sha256": "6e527c6e4eedcf8d869c3d3a6794519cff2f8f2a84acbbfe2b029e1aca68490f"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The SPDX expression exceeds the pinned parsing resource limits and cannot be classified safely.",
+        "required_input": "bounded-owner-confirmed-license-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 depth-before-trailing policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-syntax-before-alternatives",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/syntax-before-alternatives.nupkg",
+          "sha256": "05b2dd0d34a21a2bdbf59748a8de78dba117e7dc9d3b6fe54de23cedb573c858"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-expression",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/syntax-before-alternatives.nupkg",
+            "sha256": "05b2dd0d34a21a2bdbf59748a8de78dba117e7dc9d3b6fe54de23cedb573c858"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The expression is not valid under the frozen SPDX expression grammar.",
+        "required_input": "corrected-spdx-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 syntax-before-alternatives policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
+      "case_id": "lp01-alternatives-before-trailing",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/alternatives-before-trailing.nupkg",
+          "sha256": "de755436978a4658d9cb59f114431e81d32949b572fb6cd10c7ba6f03c67339e"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "expression-limit",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/alternatives-before-trailing.nupkg",
+            "sha256": "de755436978a4658d9cb59f114431e81d32949b572fb6cd10c7ba6f03c67339e"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The SPDX expression exceeds the pinned parsing resource limits and cannot be classified safely.",
+        "required_input": "bounded-owner-confirmed-license-expression",
+        "next_category": "package-owner"
+      },
+      "rationale": "Frozen LP-01 alternatives-before-trailing policy/metadata branch; package-only license evidence, not release-wide compliance.",
+      "evidence_pointers": [
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "package:nuspec/license"
+      ]
+    },
+    {
       "case_id": "lp01-depth-at-limit",
       "row_id": "LP-01",
       "inputs": [
@@ -5542,10 +5857,10 @@
         {
           "role": "owner-record",
           "path": "owners/accepted.json",
-          "sha256": "44e20519441a0853f8c97206788280fb9aa5152841a82350295d119ed8515453"
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -5576,10 +5891,10 @@
           {
             "role": "owner-record",
             "path": "owners/accepted.json",
-            "sha256": "44e20519441a0853f8c97206788280fb9aa5152841a82350295d119ed8515453"
+            "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -5590,10 +5905,10 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
-        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and complete separate MIT grant bytes bind exactly; caller accepts owner authority at input boundary, not cryptographically proven by resolver.",
-        "finding": "The checked package and grant are classified OSI-approved non-copyleft and match the prevalidated owner/repository record. Caller-asserted owner authority was accepted at the input boundary, NOT cryptographically established by this resolver.",
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
@@ -5605,7 +5920,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -5631,10 +5946,10 @@
         {
           "role": "owner-record",
           "path": "owners/accepted-and.json",
-          "sha256": "b6f4f34c381cb964dddc261f38e0fb30af1739082229bb0bc9707af1023ed413"
+          "sha256": "4bc3f3ca7a88796ee7901a09ea190bba4666cc7641e038dad3f8c8e39a2d6911"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -5665,10 +5980,10 @@
           {
             "role": "owner-record",
             "path": "owners/accepted-and.json",
-            "sha256": "b6f4f34c381cb964dddc261f38e0fb30af1739082229bb0bc9707af1023ed413"
+            "sha256": "4bc3f3ca7a88796ee7901a09ea190bba4666cc7641e038dad3f8c8e39a2d6911"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -5679,10 +5994,10 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
-        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and complete separate MIT grant bytes bind exactly; caller accepts owner authority at input boundary, not cryptographically proven by resolver.",
-        "finding": "The checked package and grant are classified OSI-approved non-copyleft and match the prevalidated owner/repository record. Caller-asserted owner authority was accepted at the input boundary, NOT cryptographically established by this resolver.",
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
@@ -5694,7 +6009,1349 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-accepted-multi",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-accepted-multi.nupkg",
+          "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/accepted-multi.json",
+          "sha256": "d11812c6b546da2ec80d437b4239131dca583a25764d80ac328edecef5a0176c"
+        },
+        {
+          "role": "grant-bsd-2-clause",
+          "path": "grants/bsd-full.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-evidence-accepted",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-accepted-multi.nupkg",
+            "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/accepted-multi.json",
+            "sha256": "d11812c6b546da2ec80d437b4239131dca583a25764d80ac328edecef5a0176c"
+          },
+          {
+            "role": "grant-bsd-2-clause",
+            "path": "grants/bsd-full.txt",
+            "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-bsd-2-clause:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-bsd-2-clause:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-accepted-multi-or",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-accepted-multi-or.nupkg",
+          "sha256": "c097e68d358f58a65be1b53060a8afbe238efbd535fb33c37b47ad53a64d1f76"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/accepted-multi-or.json",
+          "sha256": "ec84cac6f5d5717d7f6de26ea53288acc91a570f7c001eae52eb0de92e43831f"
+        },
+        {
+          "role": "grant-bsd-2-clause",
+          "path": "grants/bsd-full.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-evidence-accepted",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-accepted-multi-or.nupkg",
+            "sha256": "c097e68d358f58a65be1b53060a8afbe238efbd535fb33c37b47ad53a64d1f76"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/accepted-multi-or.json",
+            "sha256": "ec84cac6f5d5717d7f6de26ea53288acc91a570f7c001eae52eb0de92e43831f"
+          },
+          {
+            "role": "grant-bsd-2-clause",
+            "path": "grants/bsd-full.txt",
+            "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-bsd-2-clause:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-bsd-2-clause:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-equivalent-reordered",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-equivalent-reordered.nupkg",
+          "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/equivalent-reordered.json",
+          "sha256": "d11812c6b546da2ec80d437b4239131dca583a25764d80ac328edecef5a0176c"
+        },
+        {
+          "role": "grant-bsd-2-clause",
+          "path": "grants/bsd-full.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-evidence-accepted",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-equivalent-reordered.nupkg",
+            "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/equivalent-reordered.json",
+            "sha256": "d11812c6b546da2ec80d437b4239131dca583a25764d80ac328edecef5a0176c"
+          },
+          {
+            "role": "grant-bsd-2-clause",
+            "path": "grants/bsd-full.txt",
+            "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-bsd-2-clause:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-bsd-2-clause:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-equivalent-flattened",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-equivalent-flattened.nupkg",
+          "sha256": "e7a4118a96b6347ce439f9136ad6fb0f8e2a7aa04e91352026b972b10974902a"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/equivalent-flattened.json",
+          "sha256": "bf106889db4c1524ea2eb9d8f2d73b1e4726ee0744e27b25af12d6c541d99491"
+        },
+        {
+          "role": "grant-bsd-2-clause",
+          "path": "grants/bsd-full.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-evidence-accepted",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-equivalent-flattened.nupkg",
+            "sha256": "e7a4118a96b6347ce439f9136ad6fb0f8e2a7aa04e91352026b972b10974902a"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/equivalent-flattened.json",
+            "sha256": "bf106889db4c1524ea2eb9d8f2d73b1e4726ee0744e27b25af12d6c541d99491"
+          },
+          {
+            "role": "grant-bsd-2-clause",
+            "path": "grants/bsd-full.txt",
+            "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-bsd-2-clause:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-bsd-2-clause:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-copyright-variant",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-copyright-variant.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/copyright-variant.json",
+          "sha256": "616df33dafae8cf8d5b273fcc1abe2ff082c332749df48bec38a201a34eaf2ce"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/copyright-variant.txt",
+          "sha256": "4122c36ac73bdf5f19e8fe85fcae16498d95143cde268956b2a1a932780a7cf7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-evidence-accepted",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-copyright-variant.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/copyright-variant.json",
+            "sha256": "616df33dafae8cf8d5b273fcc1abe2ff082c332749df48bec38a201a34eaf2ce"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/copyright-variant.txt",
+            "sha256": "4122c36ac73bdf5f19e8fe85fcae16498d95143cde268956b2a1a932780a7cf7"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-untagged-grant",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-untagged-grant.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/untagged-grant.json",
+          "sha256": "0ff6c251faaeb792d105b916e5d574e0379179087f1e29beb0fcc45363059212"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/untagged-grant.txt",
+          "sha256": "0bb25fbed9ec2c077fc2244b0e8a481dc0f8d9347c425093ae6044db8bf574b8"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-evidence-accepted",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-untagged-grant.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/untagged-grant.json",
+            "sha256": "0ff6c251faaeb792d105b916e5d574e0379179087f1e29beb0fcc45363059212"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/untagged-grant.txt",
+            "sha256": "0bb25fbed9ec2c077fc2244b0e8a481dc0f8d9347c425093ae6044db8bf574b8"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-record-at-limit",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-record-at-limit.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/record-at-limit.json",
+          "sha256": "d75d722e6a18960f611fb35784e104fda0fd0d69b35856fae2f15998669c0c57"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-evidence-accepted",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-record-at-limit.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/record-at-limit.json",
+            "sha256": "d75d722e6a18960f611fb35784e104fda0fd0d69b35856fae2f15998669c0c57"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-record-over-limit",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-record-over-limit.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/record-over-limit.json",
+          "sha256": "60735de2799c8ccbf24c438dfbc9c107e2325cd4bbb2394394fced8eff5a2788"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-record-over-limit.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/record-over-limit.json",
+            "sha256": "60735de2799c8ccbf24c438dfbc9c107e2325cd4bbb2394394fced8eff5a2788"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-missing-bsd",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-missing-bsd.nupkg",
+          "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/missing-bsd.json",
+          "sha256": "d11812c6b546da2ec80d437b4239131dca583a25764d80ac328edecef5a0176c"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-missing",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-missing-bsd.nupkg",
+            "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/missing-bsd.json",
+            "sha256": "d11812c6b546da2ec80d437b4239131dca583a25764d80ac328edecef5a0176c"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The checked complete grant artifact was not supplied.",
+        "required_input": "checked-complete-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-missing-bsd-or",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-missing-bsd-or.nupkg",
+          "sha256": "c097e68d358f58a65be1b53060a8afbe238efbd535fb33c37b47ad53a64d1f76"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/missing-bsd-or.json",
+          "sha256": "ec84cac6f5d5717d7f6de26ea53288acc91a570f7c001eae52eb0de92e43831f"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-missing",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-missing-bsd-or.nupkg",
+            "sha256": "c097e68d358f58a65be1b53060a8afbe238efbd535fb33c37b47ad53a64d1f76"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/missing-bsd-or.json",
+            "sha256": "ec84cac6f5d5717d7f6de26ea53288acc91a570f7c001eae52eb0de92e43831f"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The checked complete grant artifact was not supplied.",
+        "required_input": "checked-complete-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-missing-bsd-binding",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-missing-bsd-binding.nupkg",
+          "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/missing-bsd-binding.json",
+          "sha256": "96c2b64e22e8678bb41cf783a0717d34e40fb3229d1c36e06358c0fe695f12e4"
+        },
+        {
+          "role": "grant-bsd-2-clause",
+          "path": "grants/bsd-full.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-missing",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-missing-bsd-binding.nupkg",
+            "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/missing-bsd-binding.json",
+            "sha256": "96c2b64e22e8678bb41cf783a0717d34e40fb3229d1c36e06358c0fe695f12e4"
+          },
+          {
+            "role": "grant-bsd-2-clause",
+            "path": "grants/bsd-full.txt",
+            "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-bsd-2-clause:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The checked complete grant artifact was not supplied.",
+        "required_input": "checked-complete-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-bsd-2-clause:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-conflicting-term",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-conflicting-term.nupkg",
+          "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/conflicting-term.json",
+          "sha256": "cc5c1f3fb8a77e27ee674016ac7f84a5cc4e47f80b8b8f09b25850d9fbe47533"
+        },
+        {
+          "role": "grant-bsd-2-clause",
+          "path": "grants/conflicting-term.txt",
+          "sha256": "894633b4a3f548b393ba2eac4f3f34792d9fb0462bfb62a90fd3ef352c0560cb"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-contradiction",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-conflicting-term.nupkg",
+            "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/conflicting-term.json",
+            "sha256": "cc5c1f3fb8a77e27ee674016ac7f84a5cc4e47f80b8b8f09b25850d9fbe47533"
+          },
+          {
+            "role": "grant-bsd-2-clause",
+            "path": "grants/conflicting-term.txt",
+            "sha256": "894633b4a3f548b393ba2eac4f3f34792d9fb0462bfb62a90fd3ef352c0560cb"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-bsd-2-clause:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The authoritative package declaration and prevalidated grant evidence contradict each other.",
+        "required_input": "reconciled-owner-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-bsd-2-clause:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-non-equivalent-operator",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-non-equivalent-operator.nupkg",
+          "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/non-equivalent-operator.json",
+          "sha256": "8520ebaf6ae9e7c41a74e071fc08c5fea195828a44c088a9887a52cd0e36a2a9"
+        },
+        {
+          "role": "grant-bsd-2-clause",
+          "path": "grants/bsd-full.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-binding-conflict",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-non-equivalent-operator.nupkg",
+            "sha256": "54f9cb6f80673b858a237abf4b87f42d3046ee72bd3e5260af52a2a4dd598122"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/non-equivalent-operator.json",
+            "sha256": "8520ebaf6ae9e7c41a74e071fc08c5fea195828a44c088a9887a52cd0e36a2a9"
+          },
+          {
+            "role": "grant-bsd-2-clause",
+            "path": "grants/bsd-full.txt",
+            "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-bsd-2-clause:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "Owner-record package, repository, source/release, expression or pinned policy identity conflicts with checked inputs.",
+        "required_input": "matching-owner-package-and-policy-bindings",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-bsd-2-clause:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-non-equivalent-group",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-non-equivalent-group.nupkg",
+          "sha256": "86e6badcddfbd1dcfae49f80630ab991608944fef1302299c910dbdf1c46e1e9"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/non-equivalent-group.json",
+          "sha256": "3a92a27674e19eaa26b381354455f358c69973d91e2250940de81bb3d089b61b"
+        },
+        {
+          "role": "grant-bsd-2-clause",
+          "path": "grants/bsd-full.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-binding-conflict",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-non-equivalent-group.nupkg",
+            "sha256": "86e6badcddfbd1dcfae49f80630ab991608944fef1302299c910dbdf1c46e1e9"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/non-equivalent-group.json",
+            "sha256": "3a92a27674e19eaa26b381354455f358c69973d91e2250940de81bb3d089b61b"
+          },
+          {
+            "role": "grant-bsd-2-clause",
+            "path": "grants/bsd-full.txt",
+            "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-bsd-2-clause:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "Owner-record package, repository, source/release, expression or pinned policy identity conflicts with checked inputs.",
+        "required_input": "matching-owner-package-and-policy-bindings",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-bsd-2-clause:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -5716,11 +7373,6 @@
           "role": "corpus",
           "path": "policy/spdx-licenses-3.27.0.json",
           "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
-        },
-        {
-          "role": "grant",
-          "path": "grants/mit-full.txt",
-          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
       ],
       "expected": {
@@ -5745,19 +7397,13 @@
             "role": "corpus",
             "path": "policy/spdx-licenses-3.27.0.json",
             "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
-          },
-          {
-            "role": "grant",
-            "path": "grants/mit-full.txt",
-            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
         ],
         "evidence_references": [
           "package:nuspec/license",
           "package:nuspec/repository",
           "policy:lp01-policy-1.0.0",
-          "corpus:spdx-licenses-3.27.0",
-          "grant:document"
+          "corpus:spdx-licenses-3.27.0"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -5771,7 +7417,6 @@
         "package:nuspec/repository",
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
-        "grant:document",
         "package:archive"
       ]
     },
@@ -5797,10 +7442,10 @@
         {
           "role": "owner-record",
           "path": "owners/acceptance-false.json",
-          "sha256": "5eb3ea015ca0a557641d31b40f5fb7af7fc1bdad531a54fd665274b2c1ab399a"
+          "sha256": "31a1cec07a1705b8a1a8362d115bd91941bfe0420a8780b6d2791267e235e01c"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -5831,10 +7476,10 @@
           {
             "role": "owner-record",
             "path": "owners/acceptance-false.json",
-            "sha256": "5eb3ea015ca0a557641d31b40f5fb7af7fc1bdad531a54fd665274b2c1ab399a"
+            "sha256": "31a1cec07a1705b8a1a8362d115bd91941bfe0420a8780b6d2791267e235e01c"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -5845,7 +7490,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -5860,7 +7505,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -5886,10 +7531,10 @@
         {
           "role": "owner-record",
           "path": "owners/acceptance-absent.json",
-          "sha256": "f7241e66d6d17feb3bdf834af42917897013f06c6dfb9dbbb954750f0af1a6b0"
+          "sha256": "4da69f7624d3bf3f3498b51ce99a6f30b6e2159052000e7487b7679ac720caf5"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -5920,10 +7565,10 @@
           {
             "role": "owner-record",
             "path": "owners/acceptance-absent.json",
-            "sha256": "f7241e66d6d17feb3bdf834af42917897013f06c6dfb9dbbb954750f0af1a6b0"
+            "sha256": "4da69f7624d3bf3f3498b51ce99a6f30b6e2159052000e7487b7679ac720caf5"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -5934,7 +7579,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -5949,7 +7594,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -5975,10 +7620,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-package.json",
-          "sha256": "7d7298a3390fb7faea62c2b544fe36f709a35e34cfd3c03db7bcc22fcf04ae1a"
+          "sha256": "c07da0a0b8a3c6b9c59c7bd5b8adc3e0f82897d3d0b4679e832627e653bed151"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6009,10 +7654,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-package.json",
-            "sha256": "7d7298a3390fb7faea62c2b544fe36f709a35e34cfd3c03db7bcc22fcf04ae1a"
+            "sha256": "c07da0a0b8a3c6b9c59c7bd5b8adc3e0f82897d3d0b4679e832627e653bed151"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6023,7 +7668,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -6038,7 +7683,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -6064,10 +7709,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-package-id.json",
-          "sha256": "3403e84810198b44d32548ea36053ee9901cf977215eeeb426b0e9894d3b50a1"
+          "sha256": "e34fc9cd672153dd330db2b28359817d81b88f96ddc7f49fc691df701de8f603"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6098,10 +7743,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-package-id.json",
-            "sha256": "3403e84810198b44d32548ea36053ee9901cf977215eeeb426b0e9894d3b50a1"
+            "sha256": "e34fc9cd672153dd330db2b28359817d81b88f96ddc7f49fc691df701de8f603"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6112,7 +7757,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -6127,7 +7772,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -6153,10 +7798,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-repository.json",
-          "sha256": "47e1b9abe5872188ad686cf452a43ec1d3a92a8529e35647110bd09390e951be"
+          "sha256": "df6af6e5540dc1a997a52c29873cc7ee960d2efef4acf200c56a709489b7387f"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6187,10 +7832,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-repository.json",
-            "sha256": "47e1b9abe5872188ad686cf452a43ec1d3a92a8529e35647110bd09390e951be"
+            "sha256": "df6af6e5540dc1a997a52c29873cc7ee960d2efef4acf200c56a709489b7387f"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6201,7 +7846,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -6216,7 +7861,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -6242,10 +7887,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-commit.json",
-          "sha256": "1b614058028c49cb1b933ceae74ff2e877263248ad93ff0d1674b51b0df22516"
+          "sha256": "0f394e27b34de1e7e396c78305eab32b72a9069280f45e08faa491327b0fb881"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6276,10 +7921,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-commit.json",
-            "sha256": "1b614058028c49cb1b933ceae74ff2e877263248ad93ff0d1674b51b0df22516"
+            "sha256": "0f394e27b34de1e7e396c78305eab32b72a9069280f45e08faa491327b0fb881"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6290,7 +7935,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -6305,17 +7950,17 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
     {
-      "case_id": "lp01-owner-wrong-release",
+      "case_id": "lp01-owner-different-release-assertion",
       "row_id": "LP-01",
       "inputs": [
         {
           "role": "package",
-          "path": "packages/owner-wrong-release.nupkg",
+          "path": "packages/owner-different-release-assertion.nupkg",
           "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
         },
         {
@@ -6330,11 +7975,11 @@
         },
         {
           "role": "owner-record",
-          "path": "owners/wrong-release.json",
-          "sha256": "1b79b49f3df7b332c9c34a044020ff014be9eaf875ad075dd48b08d0b33824ae"
+          "path": "owners/different-release-assertion.json",
+          "sha256": "860d5ca28a08246ab3cacbadeb5aa2d3fbe1b2ffb8e02cb0fb5773b3c932dce0"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6343,13 +7988,13 @@
         "row_id": "LP-01",
         "resolver_id": "lp01-license-policy",
         "resolver_version": "1.0.0",
-        "branch_id": "owner-binding-conflict",
-        "decision": "escalated",
+        "branch_id": "owner-evidence-accepted",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
             "role": "package",
-            "path": "packages/owner-wrong-release.nupkg",
+            "path": "packages/owner-different-release-assertion.nupkg",
             "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
           },
           {
@@ -6364,11 +8009,11 @@
           },
           {
             "role": "owner-record",
-            "path": "owners/wrong-release.json",
-            "sha256": "1b79b49f3df7b332c9c34a044020ff014be9eaf875ad075dd48b08d0b33824ae"
+            "path": "owners/different-release-assertion.json",
+            "sha256": "860d5ca28a08246ab3cacbadeb5aa2d3fbe1b2ffb8e02cb0fb5773b3c932dce0"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6379,13 +8024,13 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
-        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
-        "finding": null,
-        "missing_fact": "Owner-record package, repository, source/release, expression or pinned policy identity conflicts with checked inputs.",
-        "required_input": "matching-owner-package-and-policy-bindings",
-        "next_category": "package-owner"
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
       "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
       "evidence_pointers": [
@@ -6394,7 +8039,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -6420,10 +8065,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-version.json",
-          "sha256": "5849bddd910ddca51bd87408dfc90d7fb9e094d102c5c1958f8dcba22cc6736c"
+          "sha256": "c9ba41e64d7edb769f9eeedbb1b9ad4f64828bf2a72d7ffdb2588a60cab64122"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6454,10 +8099,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-version.json",
-            "sha256": "5849bddd910ddca51bd87408dfc90d7fb9e094d102c5c1958f8dcba22cc6736c"
+            "sha256": "c9ba41e64d7edb769f9eeedbb1b9ad4f64828bf2a72d7ffdb2588a60cab64122"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6468,7 +8113,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -6483,7 +8128,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -6509,10 +8154,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-expression.json",
-          "sha256": "686d79eaed016010e982b6addca30ea8a5b64e31578bdc78fea3370c1ce33363"
+          "sha256": "002c4737b83532f4ae757ccd9828fd8747bab8423bdbcdfefc0aedcc3bf1c436"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6543,10 +8188,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-expression.json",
-            "sha256": "686d79eaed016010e982b6addca30ea8a5b64e31578bdc78fea3370c1ce33363"
+            "sha256": "002c4737b83532f4ae757ccd9828fd8747bab8423bdbcdfefc0aedcc3bf1c436"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6557,7 +8202,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -6572,18 +8217,18 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
     {
-      "case_id": "lp01-owner-wrong-expression-whitespace",
+      "case_id": "lp01-owner-equivalent-whitespace",
       "row_id": "LP-01",
       "inputs": [
         {
           "role": "package",
-          "path": "packages/owner-wrong-expression-whitespace.nupkg",
-          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          "path": "packages/owner-equivalent-whitespace.nupkg",
+          "sha256": "44dc72884f7cd8bb4c3f6a988390552757deaabaa801070b2091d6ddd0aba109"
         },
         {
           "role": "policy",
@@ -6597,11 +8242,11 @@
         },
         {
           "role": "owner-record",
-          "path": "owners/wrong-expression-whitespace.json",
-          "sha256": "1b8b93699f2d4c9b9bc11a11f410fdfaed33f796a01b6f33ea93c91fe5c49cc1"
+          "path": "owners/equivalent-whitespace.json",
+          "sha256": "15d7d32d4b8f55d064a884915008ff43b8705a8960caa7c7bde698843866b771"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6610,14 +8255,14 @@
         "row_id": "LP-01",
         "resolver_id": "lp01-license-policy",
         "resolver_version": "1.0.0",
-        "branch_id": "owner-binding-conflict",
-        "decision": "escalated",
+        "branch_id": "owner-evidence-accepted",
+        "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
           {
             "role": "package",
-            "path": "packages/owner-wrong-expression-whitespace.nupkg",
-            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+            "path": "packages/owner-equivalent-whitespace.nupkg",
+            "sha256": "44dc72884f7cd8bb4c3f6a988390552757deaabaa801070b2091d6ddd0aba109"
           },
           {
             "role": "policy",
@@ -6631,11 +8276,11 @@
           },
           {
             "role": "owner-record",
-            "path": "owners/wrong-expression-whitespace.json",
-            "sha256": "1b8b93699f2d4c9b9bc11a11f410fdfaed33f796a01b6f33ea93c91fe5c49cc1"
+            "path": "owners/equivalent-whitespace.json",
+            "sha256": "15d7d32d4b8f55d064a884915008ff43b8705a8960caa7c7bde698843866b771"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6646,13 +8291,13 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
-        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
-        "finding": null,
-        "missing_fact": "Owner-record package, repository, source/release, expression or pinned policy identity conflicts with checked inputs.",
-        "required_input": "matching-owner-package-and-policy-bindings",
-        "next_category": "package-owner"
+        "evidence_contract": "Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated owner record and one separately checked, caller-accepted complete grant per distinct normalized SPDX license ID bind exactly; owner authority, release correspondence and legal grant sufficiency are trusted at the input boundary, not cryptographically proven or legally interpreted by resolver.",
+        "finding": "The checked package SPDX expression is OSI-approved and non-copyleft under pinned policy; every offered license ID has a checked grant binding matching the prevalidated owner/repository record. Caller-asserted authority, grant sufficiency and release scope were accepted at the input boundary, NOT cryptographically established or legally interpreted by this resolver.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
       },
       "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
       "evidence_pointers": [
@@ -6661,7 +8306,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -6687,10 +8332,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-policy-version.json",
-          "sha256": "4f169f7c428fb5940d78adf76414534c059fc797db00289f73e163a9a032a85c"
+          "sha256": "55cdb1d12f75f97c092cb0b4c88fa3b52dd7f91c752841c3885209330fd6ddc6"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6721,10 +8366,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-policy-version.json",
-            "sha256": "4f169f7c428fb5940d78adf76414534c059fc797db00289f73e163a9a032a85c"
+            "sha256": "55cdb1d12f75f97c092cb0b4c88fa3b52dd7f91c752841c3885209330fd6ddc6"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6735,7 +8380,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -6750,7 +8395,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -6776,10 +8421,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-policy-digest.json",
-          "sha256": "67dc714c93becc7a79849ecdd16d5d123a05167ecd2ef1659cfbc77135893a1d"
+          "sha256": "cc179a7fcc129c9004b79e24e3628d8367823308890842ba698fc2990f7404b2"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6810,10 +8455,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-policy-digest.json",
-            "sha256": "67dc714c93becc7a79849ecdd16d5d123a05167ecd2ef1659cfbc77135893a1d"
+            "sha256": "cc179a7fcc129c9004b79e24e3628d8367823308890842ba698fc2990f7404b2"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6824,7 +8469,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -6839,7 +8484,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -6865,10 +8510,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-spdx-version.json",
-          "sha256": "b0141bbd3e56183b7f2285f9a7fa5615680f4367e073c0accf2315691b6899e4"
+          "sha256": "b505ac321f764f55b108124de6b59af77fd646307055639d866aa64e93931095"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6899,10 +8544,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-spdx-version.json",
-            "sha256": "b0141bbd3e56183b7f2285f9a7fa5615680f4367e073c0accf2315691b6899e4"
+            "sha256": "b505ac321f764f55b108124de6b59af77fd646307055639d866aa64e93931095"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -6913,7 +8558,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -6928,7 +8573,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -6954,10 +8599,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-spdx-digest.json",
-          "sha256": "2e66813d3472009d329b1a8793540de4501219034671fdaef9a47cba3c5d68ad"
+          "sha256": "f1174d3719ef4e45dcfe068c9a6d7c4f350f70f6e323ce6d3cba99d072f3b68b"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -6988,10 +8633,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-spdx-digest.json",
-            "sha256": "2e66813d3472009d329b1a8793540de4501219034671fdaef9a47cba3c5d68ad"
+            "sha256": "f1174d3719ef4e45dcfe068c9a6d7c4f350f70f6e323ce6d3cba99d072f3b68b"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -7002,7 +8647,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7017,7 +8662,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -7043,10 +8688,10 @@
         {
           "role": "owner-record",
           "path": "owners/owner-reference-missing.json",
-          "sha256": "c18c931b31dddaa0a430f98acb31a13dd149ae9ac8fac6c9a6c1e3b3658af726"
+          "sha256": "adb9d9f83b832489c4964f0bcc50f4f4121b61d2e600ee2938f9ace9b2d27b5e"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -7077,10 +8722,10 @@
           {
             "role": "owner-record",
             "path": "owners/owner-reference-missing.json",
-            "sha256": "c18c931b31dddaa0a430f98acb31a13dd149ae9ac8fac6c9a6c1e3b3658af726"
+            "sha256": "adb9d9f83b832489c4964f0bcc50f4f4121b61d2e600ee2938f9ace9b2d27b5e"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -7091,7 +8736,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7106,7 +8751,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -7132,10 +8777,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-grant-digest.json",
-          "sha256": "413c5ad29efd73c274cd80140814ff8fce931da4e1fddbdedbddf2b5440ec118"
+          "sha256": "cc25885fcd5c017257ac2d4aae4fa28d604d3ab6a9d42ede0928dc3458e49e1f"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -7166,10 +8811,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-grant-digest.json",
-            "sha256": "413c5ad29efd73c274cd80140814ff8fce931da4e1fddbdedbddf2b5440ec118"
+            "sha256": "cc25885fcd5c017257ac2d4aae4fa28d604d3ab6a9d42ede0928dc3458e49e1f"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -7180,7 +8825,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7195,7 +8840,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -7221,10 +8866,10 @@
         {
           "role": "owner-record",
           "path": "owners/wrong-grant-path.json",
-          "sha256": "61e205a23651f8d0541ccce702a6e036fad710368d8ea2fbd548df119485d818"
+          "sha256": "bf1fcdf5568ac9ac23601e319d8b419f45bac2ecb99ee9719a0c1409269e696d"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -7255,10 +8900,10 @@
           {
             "role": "owner-record",
             "path": "owners/wrong-grant-path.json",
-            "sha256": "61e205a23651f8d0541ccce702a6e036fad710368d8ea2fbd548df119485d818"
+            "sha256": "bf1fcdf5568ac9ac23601e319d8b419f45bac2ecb99ee9719a0c1409269e696d"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -7269,7 +8914,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7284,7 +8929,185 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-wrong-grant-role",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-wrong-grant-role.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/wrong-grant-role.json",
+          "sha256": "8e82b67de81d8ac5acb31a59b1127cd1dfe6c99f23110408a35b1783dbce5d63"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-binding-conflict",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-wrong-grant-role.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/wrong-grant-role.json",
+            "sha256": "8e82b67de81d8ac5acb31a59b1127cd1dfe6c99f23110408a35b1783dbce5d63"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "Owner-record grant path or digest conflicts with the independently checked grant input.",
+        "required_input": "matching-checked-grant-artifact",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-duplicate-grant-binding",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-duplicate-grant-binding.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/duplicate-grant-binding.json",
+          "sha256": "adb23eb0f96d0c2312806d56a79b6493ac635df6995ac662031f3e8f4773f400"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-binding-conflict",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-duplicate-grant-binding.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/duplicate-grant-binding.json",
+            "sha256": "adb23eb0f96d0c2312806d56a79b6493ac635df6995ac662031f3e8f4773f400"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "Owner-record grant path or digest conflicts with the independently checked grant input.",
+        "required_input": "matching-checked-grant-artifact",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -7310,7 +9133,7 @@
         {
           "role": "owner-record",
           "path": "owners/no-grant.json",
-          "sha256": "44e20519441a0853f8c97206788280fb9aa5152841a82350295d119ed8515453"
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
         }
       ],
       "expected": {
@@ -7339,7 +9162,7 @@
           {
             "role": "owner-record",
             "path": "owners/no-grant.json",
-            "sha256": "44e20519441a0853f8c97206788280fb9aa5152841a82350295d119ed8515453"
+            "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
           }
         ],
         "evidence_references": [
@@ -7387,10 +9210,10 @@
         {
           "role": "owner-record",
           "path": "owners/grant-completeness-false.json",
-          "sha256": "b3dbde40c2e115dd6f742782408de8391f2cc4997510ec746d4de9ed66c8c645"
+          "sha256": "a1d2813579120770f3678645a41dddf298b902a99ff780333d4d1dbc0b0e9c14"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -7421,10 +9244,10 @@
           {
             "role": "owner-record",
             "path": "owners/grant-completeness-false.json",
-            "sha256": "b3dbde40c2e115dd6f742782408de8391f2cc4997510ec746d4de9ed66c8c645"
+            "sha256": "a1d2813579120770f3678645a41dddf298b902a99ff780333d4d1dbc0b0e9c14"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -7435,7 +9258,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7450,7 +9273,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -7476,10 +9299,10 @@
         {
           "role": "owner-record",
           "path": "owners/tag-only.json",
-          "sha256": "730b02311498b299ca5de909738947a5fbe946c6c920c1233c526a8e3ff6ee3e"
+          "sha256": "cee147e5522015ca4992171d08fe6fc6a4db6e5d83f66debdcf5acf59e72530d"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/tag-only.txt",
           "sha256": "f58783d38481ddcedebde2b7909d322fc272c80ce387e1d3679a29e356d6a00b"
         }
@@ -7510,10 +9333,10 @@
           {
             "role": "owner-record",
             "path": "owners/tag-only.json",
-            "sha256": "730b02311498b299ca5de909738947a5fbe946c6c920c1233c526a8e3ff6ee3e"
+            "sha256": "cee147e5522015ca4992171d08fe6fc6a4db6e5d83f66debdcf5acf59e72530d"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/tag-only.txt",
             "sha256": "f58783d38481ddcedebde2b7909d322fc272c80ce387e1d3679a29e356d6a00b"
           }
@@ -7524,7 +9347,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7539,7 +9362,185 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-empty-grant",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-empty-grant.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/empty-grant.json",
+          "sha256": "548274de03eedbd582124585b70175ffa8ddd9df5a31b6a3ce0238a7676a174b"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/empty-grant.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-incomplete",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-empty-grant.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/empty-grant.json",
+            "sha256": "548274de03eedbd582124585b70175ffa8ddd9df5a31b6a3ce0238a7676a174b"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/empty-grant.txt",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The checked license artifact is tag-only or the caller has not prevalidated its complete grant text.",
+        "required_input": "prevalidated-complete-license-grant-text",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-invalid-utf8-grant",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-invalid-utf8-grant.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/invalid-utf8-grant.json",
+          "sha256": "350eb34379df6f62ed8f013c3f1813ab15d7ad3bc9cdad704d00d55567c172d3"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/invalid-utf8-grant.txt",
+          "sha256": "485103abb46ca208b77aac3e431d5366335198a1b6b50979eee5dad76aaaade0"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-incomplete",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-invalid-utf8-grant.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/invalid-utf8-grant.json",
+            "sha256": "350eb34379df6f62ed8f013c3f1813ab15d7ad3bc9cdad704d00d55567c172d3"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/invalid-utf8-grant.txt",
+            "sha256": "485103abb46ca208b77aac3e431d5366335198a1b6b50979eee5dad76aaaade0"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The checked license artifact is tag-only or the caller has not prevalidated its complete grant text.",
+        "required_input": "prevalidated-complete-license-grant-text",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -7565,10 +9566,10 @@
         {
           "role": "owner-record",
           "path": "owners/oversize-grant.json",
-          "sha256": "e58770a194347f08caa68f8e972063e3b3717947479f3231eb79a9ad464b9a57"
+          "sha256": "d18c3e68e64a040533daffd5d1e2d626ca35d3cee507bb8c32e5c41cb99ce012"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/oversize-grant.txt",
           "sha256": "2e719f8c614108236919bc8a0a82cbf3f199051e9d6180d217baae6bce5930f5"
         }
@@ -7599,10 +9600,10 @@
           {
             "role": "owner-record",
             "path": "owners/oversize-grant.json",
-            "sha256": "e58770a194347f08caa68f8e972063e3b3717947479f3231eb79a9ad464b9a57"
+            "sha256": "d18c3e68e64a040533daffd5d1e2d626ca35d3cee507bb8c32e5c41cb99ce012"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/oversize-grant.txt",
             "sha256": "2e719f8c614108236919bc8a0a82cbf3f199051e9d6180d217baae6bce5930f5"
           }
@@ -7613,7 +9614,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7628,7 +9629,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -7654,10 +9655,10 @@
         {
           "role": "owner-record",
           "path": "owners/grant-gpl.json",
-          "sha256": "b1b8899a78163265ed8fc06d2340d4e036c9cfc426af5b946d00960f629f5add"
+          "sha256": "08b6443483e09f03a28c9562a5c1e07d25830b4bf4b4dcc633c5e7e2db18f54a"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/grant-gpl.txt",
           "sha256": "8ad95b464fbeb3969c65e6a1bfd90f65be66c66e0c7ce3344aa4e5d2124b335f"
         }
@@ -7688,10 +9689,10 @@
           {
             "role": "owner-record",
             "path": "owners/grant-gpl.json",
-            "sha256": "b1b8899a78163265ed8fc06d2340d4e036c9cfc426af5b946d00960f629f5add"
+            "sha256": "08b6443483e09f03a28c9562a5c1e07d25830b4bf4b4dcc633c5e7e2db18f54a"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/grant-gpl.txt",
             "sha256": "8ad95b464fbeb3969c65e6a1bfd90f65be66c66e0c7ce3344aa4e5d2124b335f"
           }
@@ -7702,7 +9703,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7717,7 +9718,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -7743,12 +9744,7 @@
         {
           "role": "owner-record",
           "path": "owners/package-gpl.json",
-          "sha256": "5b8837dc67a0f89f4dc7d0e4e35e825cd1642ea1951c1c4d1ede4a4840c8b38d"
-        },
-        {
-          "role": "grant",
-          "path": "grants/mit-full.txt",
-          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          "sha256": "6b3d5d915600b2e49528a14210e544167d0dcd6a740d196ce6b89ac20b5a1b71"
         }
       ],
       "expected": {
@@ -7777,12 +9773,7 @@
           {
             "role": "owner-record",
             "path": "owners/package-gpl.json",
-            "sha256": "5b8837dc67a0f89f4dc7d0e4e35e825cd1642ea1951c1c4d1ede4a4840c8b38d"
-          },
-          {
-            "role": "grant",
-            "path": "grants/mit-full.txt",
-            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+            "sha256": "6b3d5d915600b2e49528a14210e544167d0dcd6a740d196ce6b89ac20b5a1b71"
           }
         ],
         "evidence_references": [
@@ -7790,8 +9781,7 @@
           "package:nuspec/repository",
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
-          "owner-record:document",
-          "grant:document"
+          "owner-record:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7806,7 +9796,6 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
         "package:archive"
       ]
     },
@@ -7832,10 +9821,10 @@
         {
           "role": "owner-record",
           "path": "owners/unknown-field.json",
-          "sha256": "993f4b4b37df1f48a5f668fd601fe0db5991da27a7f6c893ab89985a397cdcc4"
+          "sha256": "4ce17d954fd811414987acc166349cb273b9dff6412718704141149bc5f50982"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -7866,10 +9855,10 @@
           {
             "role": "owner-record",
             "path": "owners/unknown-field.json",
-            "sha256": "993f4b4b37df1f48a5f668fd601fe0db5991da27a7f6c893ab89985a397cdcc4"
+            "sha256": "4ce17d954fd811414987acc166349cb273b9dff6412718704141149bc5f50982"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -7880,7 +9869,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7895,7 +9884,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -7921,10 +9910,10 @@
         {
           "role": "owner-record",
           "path": "owners/schema-version.json",
-          "sha256": "33dea85c077b94ad16ca431fe3ff4fe457a6cd138c2755c20a869e5a78ffb078"
+          "sha256": "d9f55326def7f357e163fd2396e8a643a05ae6ded0321e6f75faf2f4376a594d"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -7955,10 +9944,10 @@
           {
             "role": "owner-record",
             "path": "owners/schema-version.json",
-            "sha256": "33dea85c077b94ad16ca431fe3ff4fe457a6cd138c2755c20a869e5a78ffb078"
+            "sha256": "d9f55326def7f357e163fd2396e8a643a05ae6ded0321e6f75faf2f4376a594d"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -7969,7 +9958,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -7984,7 +9973,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -8010,10 +9999,10 @@
         {
           "role": "owner-record",
           "path": "owners/schema-boolean.json",
-          "sha256": "77c0d1020493aa0272eb6e0feb7aef6105c6e5840752e2b2cade6690fe92ee8b"
+          "sha256": "d41c96024d4ae95ee1c9efe7541d59aff2a0bad6d718878e92b1fd2f8fc7fc5d"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -8044,10 +10033,10 @@
           {
             "role": "owner-record",
             "path": "owners/schema-boolean.json",
-            "sha256": "77c0d1020493aa0272eb6e0feb7aef6105c6e5840752e2b2cade6690fe92ee8b"
+            "sha256": "d41c96024d4ae95ee1c9efe7541d59aff2a0bad6d718878e92b1fd2f8fc7fc5d"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -8058,7 +10047,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -8073,7 +10062,1097 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-reversed-fields",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-reversed-fields.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/reversed-fields.json",
+          "sha256": "593d50ec413580fefdd22b28b975652ba005bfbbb837c8888b50f35ad0e2e950"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-reversed-fields.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/reversed-fields.json",
+            "sha256": "593d50ec413580fefdd22b28b975652ba005bfbbb837c8888b50f35ad0e2e950"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-duplicate-json-key",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-duplicate-json-key.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/duplicate-json-key.json",
+          "sha256": "d2512e2de260c918d5f2dad7099130862c581cf80d762c7cf9e8397ebedbaaee"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-duplicate-json-key.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/duplicate-json-key.json",
+            "sha256": "d2512e2de260c918d5f2dad7099130862c581cf80d762c7cf9e8397ebedbaaee"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-nul-field",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-nul-field.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/nul-field.json",
+          "sha256": "0ab4aca43436c1fa0f19fdb058f1ffb11c79df2ba7de1fdacd8399b9f2ece091"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-nul-field.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/nul-field.json",
+            "sha256": "0ab4aca43436c1fa0f19fdb058f1ffb11c79df2ba7de1fdacd8399b9f2ece091"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-surrogate-field",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-surrogate-field.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/surrogate-field.json",
+          "sha256": "f482b76324020a7c6c673e45d2257c3f2100271554a1f3907c4d3082d0e305d7"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-surrogate-field.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/surrogate-field.json",
+            "sha256": "f482b76324020a7c6c673e45d2257c3f2100271554a1f3907c4d3082d0e305d7"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-non-nfc-field",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-non-nfc-field.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/non-nfc-field.json",
+          "sha256": "fa4cb2b0eb3fcb6089612740e264aba044b2b7c76e0d0a1d1d2388fb44e61b32"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-non-nfc-field.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/non-nfc-field.json",
+            "sha256": "fa4cb2b0eb3fcb6089612740e264aba044b2b7c76e0d0a1d1d2388fb44e61b32"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-record-traversal",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-record-traversal.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/record-traversal.json",
+          "sha256": "8d4134de77f28b83f091a613b0240e47694e02c32a5667006ba60950ac6032d7"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-record-traversal.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/record-traversal.json",
+            "sha256": "8d4134de77f28b83f091a613b0240e47694e02c32a5667006ba60950ac6032d7"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-record-absolute-path",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-record-absolute-path.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/record-absolute-path.json",
+          "sha256": "3054cfb64fcb4f4912de84ffe2c0e9973cafe2508e5e1c1a68e126802c3a1472"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-record-absolute-path.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/record-absolute-path.json",
+            "sha256": "3054cfb64fcb4f4912de84ffe2c0e9973cafe2508e5e1c1a68e126802c3a1472"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-record-separator-alias",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-record-separator-alias.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/record-separator-alias.json",
+          "sha256": "d273a6f4363093f6c8fc283124359ed4053be741e1fafac0d898b0d37144e650"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-record-separator-alias.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/record-separator-alias.json",
+            "sha256": "d273a6f4363093f6c8fc283124359ed4053be741e1fafac0d898b0d37144e650"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-record-dot-segment",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-record-dot-segment.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/record-dot-segment.json",
+          "sha256": "f80d53f88ccd55e1be7e717a7252cf79edbaa174cea86df86726bf8b9923ea00"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-record-dot-segment.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/record-dot-segment.json",
+            "sha256": "f80d53f88ccd55e1be7e717a7252cf79edbaa174cea86df86726bf8b9923ea00"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-role-path-mismatch",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-role-path-mismatch.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/role-path-mismatch.json",
+          "sha256": "bf1fcdf5568ac9ac23601e319d8b419f45bac2ecb99ee9719a0c1409269e696d"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-binding-conflict",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-role-path-mismatch.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/role-path-mismatch.json",
+            "sha256": "bf1fcdf5568ac9ac23601e319d8b419f45bac2ecb99ee9719a0c1409269e696d"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "Owner-record grant path or digest conflicts with the independently checked grant input.",
+        "required_input": "matching-checked-grant-artifact",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-unknown-role",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-unknown-role.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/unknown-role.json",
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        },
+        {
+          "role": "unknown-input",
+          "path": "grants/bsd-full.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-unknown-role.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/unknown-role.json",
+            "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          },
+          {
+            "role": "unknown-input",
+            "path": "grants/bsd-full.txt",
+            "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp01-owner-extra-role",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-extra-role.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/extra-role.json",
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/mit-full.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        },
+        {
+          "role": "grant-bsd-2-clause",
+          "path": "grants/bsd-full.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-record-invalid",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-extra-role.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/extra-role.json",
+            "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/mit-full.txt",
+            "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+          },
+          {
+            "role": "grant-bsd-2-clause",
+            "path": "grants/bsd-full.txt",
+            "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document",
+          "grant-bsd-2-clause:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
+        "required_input": "canonical-versioned-owner-record",
+        "next_category": "input-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "grant-bsd-2-clause:document",
         "package:archive"
       ]
     },
@@ -8102,7 +11181,7 @@
           "sha256": "c3e7d1b00a65589b59f816c0b0b668d795a3c28123697d5ab9555bdb8aa04604"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -8136,7 +11215,7 @@
             "sha256": "c3e7d1b00a65589b59f816c0b0b668d795a3c28123697d5ab9555bdb8aa04604"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -8147,7 +11226,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -8162,7 +11241,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -8188,10 +11267,10 @@
         {
           "role": "owner-record",
           "path": "owners/oversize-record.json",
-          "sha256": "041247c0e03ff871ef1372cbec4610de0ae1158719a6ffef9c9c9727205afeaf"
+          "sha256": "160293c0fd06587dadd3382221c17e0386455afa60a0f447d306f3600a859a78"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -8222,10 +11301,10 @@
           {
             "role": "owner-record",
             "path": "owners/oversize-record.json",
-            "sha256": "041247c0e03ff871ef1372cbec4610de0ae1158719a6ffef9c9c9727205afeaf"
+            "sha256": "160293c0fd06587dadd3382221c17e0386455afa60a0f447d306f3600a859a78"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -8236,7 +11315,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -8251,7 +11330,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     },
@@ -8277,15 +11356,15 @@
         {
           "role": "owner-record",
           "path": "owners/conflicting-records.json",
-          "sha256": "44e20519441a0853f8c97206788280fb9aa5152841a82350295d119ed8515453"
+          "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
         },
         {
           "role": "owner-record-conflict",
           "path": "owners/conflicting-records-secondary.json",
-          "sha256": "28c4c8c19dcde816c218cc4396e9e0f96ea8965df1c7a48469c04f49a783fc6d"
+          "sha256": "974e02650bf51f925b8825b6b9948b665c8acfb5522d52728ba3a123932bf807"
         },
         {
-          "role": "grant",
+          "role": "grant-mit",
           "path": "grants/mit-full.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         }
@@ -8316,15 +11395,15 @@
           {
             "role": "owner-record",
             "path": "owners/conflicting-records.json",
-            "sha256": "44e20519441a0853f8c97206788280fb9aa5152841a82350295d119ed8515453"
+            "sha256": "1c00c8e90ce333375f9030542a98f9ea5df223788e4d234cab3b945db5ccd3af"
           },
           {
             "role": "owner-record-conflict",
             "path": "owners/conflicting-records-secondary.json",
-            "sha256": "28c4c8c19dcde816c218cc4396e9e0f96ea8965df1c7a48469c04f49a783fc6d"
+            "sha256": "974e02650bf51f925b8825b6b9948b665c8acfb5522d52728ba3a123932bf807"
           },
           {
-            "role": "grant",
+            "role": "grant-mit",
             "path": "grants/mit-full.txt",
             "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
           }
@@ -8335,7 +11414,7 @@
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0",
           "owner-record:document",
-          "grant:document"
+          "grant-mit:document"
         ],
         "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
         "finding": null,
@@ -8350,7 +11429,7 @@
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "owner-record:document",
-        "grant:document",
+        "grant-mit:document",
         "package:archive"
       ]
     }
