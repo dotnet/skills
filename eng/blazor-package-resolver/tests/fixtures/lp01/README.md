@@ -148,25 +148,45 @@ release-to-source derivation; it does not legally interpret grant text**.
 No bespoke vendor signature is invented. A different well-formed release ref
 is therefore a caller-accepted assertion, **not** a detectable mismatch without
 a second checked scope source. The checked grant bytes must be nonempty,
-UTF-8 without BOM and at most **16384 raw bytes**; a tag-only SPDX identifier
-cannot establish text and an explicit contradictory SPDX identifier (including
-an indented identifier) fails
-closed. This is a structural screen, not proof of completeness or a comparison
-to one MIT fixture. Untagged caller-prevalidated text and benign copyright
-variations can qualify; a grant whose actual restrictions differ from the
-record remains the caller's prevalidation responsibility.
+UTF-8 without BOM and at most **16384 raw bytes**, with **16384 accepted**
+and **16385 rejected** in independent checked-grant controls. Grant declaration
+lines use the exact case-sensitive `SPDX-License-Identifier:` marker at the
+start of a line, allowing only leading ASCII space/tab, ASCII space/tab after
+the colon, and trailing ASCII space/tab. Only LF, CRLF and CR split lines.
+No comment prefix is recognized; a line containing a differently formatted
+or case-variant marker fails closed as ambiguous. **Every** declaration line
+is checked against its binding: any contradictory ID fails closed. Removing
+all recognized declaration lines and whitespace must leave nonempty grant
+text, so no-space, tab-spaced, repeated and indented tags alone cannot count
+as a grant, regardless of newline convention. This is a structural screen,
+not proof of completeness or a comparison to one MIT fixture. Untagged
+caller-prevalidated text and benign copyright variations can qualify; a
+grant whose actual restrictions differ from the record remains the caller's
+prevalidation responsibility. The local `.gitattributes` preserves grant
+fixture bytes without Git newline conversion, including CR-only and CRLF
+controls, so their pinned SHA-256 identities are stable in the commit.
 
 `owners/` holds synthetic owner records; `grants/mit-full.txt` and
 `grants/bsd-full.txt` are **example grant fixtures**, not vendor evidence.
-The 63 owner cases include 11 reachable deterministic positives (including
+The 84 owner cases include 12 reachable deterministic positives (including
 multi-license AND and OR, equivalent normalized expressions, a bounded
-8192-byte record, and benign grant variation). Their findings explicitly
+8192-byte record, an exact 16384-byte complete grant, and benign grant
+variation). Their findings explicitly
 disclose that caller-prevalidated authority was accepted at the input boundary
 and was **not cryptographically proven**. Missing one term, contradictory
 grant identifiers, non-equivalent ASTs, unaccepted authority/completeness,
 tag-only/inconsistent/missing grant bytes, malformed or oversized canonical
-records, invalid paths/roles and conflicting records escalate. A contradictory
-package GPL declaration cannot be rescued by an MIT owner record. These are
+records, invalid paths/roles and conflicting records escalate. Before any
+owner record is considered, **the same package-reader classification used by
+package-only controls** checks ZIP/root nuspec, XML/DTD, namespace and metadata
+ambiguity, direct license type/version/attributes, expression grammar and
+resource limits, and explicit packaged license declarations. Owner-bound
+controls cover duplicate license and metadata, URL/file license types,
+unsupported version/attributes, DTD/entity, foreign metadata, multiple root
+nuspecs, contradictory packaged LICENSE.txt, malformed/over-limit expression
+and GPL. Their non-positive package branches take precedence over even valid
+owner evidence: GPL yields a package-scoped copyleft negative, never a
+grant-contradiction or positive. These are
 frozen expectation branches, **not** production implementation or a statement
 that the retained vendors supplied owner evidence.
 
@@ -191,7 +211,7 @@ or a missing/inconsistent policy produces `unknown` applicability.
 Unbound/incorrect SHA-256 input paths fail in the shared replay loader;
 they are not equivalent to a valid case with no package role.
 
-`cases.json` freezes **157 cases** (94 package and 63 owner) and **156**
+`cases.json` freezes **178 cases** (94 package and 84 owner) and **177**
 reproducible, SHA-256-pinned synthetic archives, alongside six separately
 frozen pre-dispatch rejections in `rejected-inputs.json`.
 `lp01_expectations.py` checks the exact JSON, ZIP bytes, owner

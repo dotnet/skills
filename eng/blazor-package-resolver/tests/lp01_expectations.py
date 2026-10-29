@@ -378,6 +378,7 @@ OWNER_SPECS = (
     ("equivalent-flattened", "owner-evidence-accepted"),
     ("copyright-variant", "owner-evidence-accepted"),
     ("untagged-grant", "owner-evidence-accepted"),
+    ("grant-at-limit", "owner-evidence-accepted"),
     ("record-at-limit", "owner-evidence-accepted"),
     ("record-over-limit", "owner-record-invalid"),
     ("missing-bsd", "grant-missing"),
@@ -409,12 +410,32 @@ OWNER_SPECS = (
     ("no-grant", "grant-missing"),
     ("grant-completeness-false", "grant-incomplete"),
     ("tag-only", "grant-incomplete"),
+    ("tag-no-space", "grant-incomplete"),
+    ("tag-tab-space", "grant-incomplete"),
+    ("tag-repeated", "grant-incomplete"),
+    ("tag-indented", "grant-incomplete"),
+    ("tag-comment-prefix", "grant-incomplete"),
+    ("tag-crlf-gpl", "grant-contradiction"),
+    ("tag-cr-gpl", "grant-contradiction"),
+    ("tag-repeated-conflict", "grant-contradiction"),
     ("empty-grant", "grant-incomplete"),
     ("invalid-utf8-grant", "grant-incomplete"),
     ("oversize-grant", "grant-limit"),
     ("grant-gpl", "grant-contradiction"),
     ("grant-gpl-indented", "grant-contradiction"),
-    ("package-gpl", "grant-contradiction"),
+    ("package-gpl", "copyleft"),
+    ("duplicate-license", "unsafe-metadata"),
+    ("type-url", "unsafe-metadata"),
+    ("type-file", "file-declared"),
+    ("unsupported-version", "unsafe-metadata"),
+    ("unknown-license-attribute", "unsafe-metadata"),
+    ("dtd-entity", "unsafe-package"),
+    ("foreign-metadata", "unsafe-package"),
+    ("duplicate-metadata", "unsafe-package"),
+    ("multiple-nuspec", "unsafe-package"),
+    ("expression-file-conflict", "conflicting-declarations"),
+    ("invalid-expression", "invalid-expression"),
+    ("over-limit-expression", "expression-limit"),
     ("unknown-field", "owner-record-invalid"),
     ("schema-version", "owner-record-invalid"),
     ("schema-boolean", "owner-record-invalid"),
@@ -450,31 +471,125 @@ def archive(name, metadata, file_text):
         return None
     if name == "corrupt-archive":
         return b"not-a-nupkg\n"
-    namespace = ("urn:other" if name == "foreign-root" else
+    variant = name.removeprefix("owner-")
+    namespace = ("urn:other" if variant == "foreign-root" else
                  "http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd"
-                 if name == "old-namespace" else "" if name == "no-namespace" else NS)
-    extra = '<x:metadata xmlns:x="urn:other"/>' if name.startswith("foreign-metadata") else ""
-    dtd = '<!DOCTYPE package [<!ENTITY license "MIT">]>' if name == "dtd-entity" else ""
+                 if variant == "old-namespace" else "" if variant == "no-namespace" else NS)
+    extra = '<x:metadata xmlns:x="urn:other"/>' if variant.startswith("foreign-metadata") else ""
+    dtd = '<!DOCTYPE package [<!ENTITY license "MIT">]>' if variant == "dtd-entity" else ""
     recognized = (f"<metadata><id>Sample.LP01</id>"
                   f"<version>1.0.0</version>{metadata}"
                   + (f'<repository url="{REPOSITORY}" commit="{COMMIT}"/>' if name.startswith("owner-") else "")
                   + "</metadata>")
-    children = recognized + extra if name == "foreign-metadata-after" else extra + recognized
+    if variant == "duplicate-metadata":
+        extra = recognized
+    children = recognized + extra if variant == "foreign-metadata-after" else extra + recognized
     attribute = f' xmlns="{namespace}"' if namespace else ""
     nuspec = (f'<?xml version="1.0" encoding="utf-8"?>{dtd}'
               f'<package{attribute}>{children}</package>\n').encode()
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", allowZip64=False) as package:
-        if name != "no-nuspec":
-            location = "nested/Sample.LP01.nuspec" if name == "subfolder-nuspec" else "Sample.LP01.nuspec"
+        if variant != "no-nuspec":
+            location = "nested/Sample.LP01.nuspec" if variant == "subfolder-nuspec" else "Sample.LP01.nuspec"
             package.writestr(entry(location), nuspec)
-        if name == "multiple-nuspec":
+        if variant == "multiple-nuspec":
             package.writestr(entry("Second.LP01.nuspec"), nuspec)
-        if name == "no-nuspec":
+        if variant == "no-nuspec":
             package.writestr(entry("README.txt"), b"No root nuspec.\n")
         if file_text is not None:
             package.writestr(entry("LICENSE.txt"), file_text)
     return stream.getvalue()
+
+
+def declarations(text):
+    """Only unprefixed SPDX-License-Identifier lines with ASCII indentation are recognized."""
+    identifiers = []
+    remaining = []
+    ambiguous = False
+    for line in re.split(r"\r\n|\r|\n", text):
+        match = re.fullmatch(r"[ \t]*SPDX-License-Identifier:[ \t]*([A-Za-z0-9][A-Za-z0-9.+-]*)[ \t]*", line)
+        if match:
+            identifiers.append(match[1])
+        elif "spdx-license-identifier" in line.lower():
+            ambiguous = True
+        else:
+            remaining.append(line)
+    return identifiers, remaining, ambiguous
+
+
+def classify_package(content, policy, licenses):
+    """One package-reader branch for package-only and owner-bound expectation controls."""
+    if content is None:
+        return "missing-package", None, None
+    if len(content) > 64 * 1024 * 1024:
+        return "unsafe-package", None, None
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as package:
+            entries = package.infolist()
+            if len(entries) > 4096:
+                return "unsafe-package", None, None
+            nuspecs = [info for info in entries if "/" not in info.filename and
+                       info.filename.lower().endswith(".nuspec")]
+            if len(nuspecs) != 1 or nuspecs[0].file_size > 1024 * 1024:
+                return "unsafe-package", None, None
+            nuspec = package.read(nuspecs[0])
+            if b"<!DOCTYPE" in nuspec.upper() or b"<!ENTITY" in nuspec.upper():
+                return "unsafe-package", None, None
+            root = ET.fromstring(nuspec)
+            namespace = root.tag.removesuffix("package")
+            if root.tag != namespace + "package" or namespace not in (
+                "", f"{{{NS}}}",
+                "{http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd}"
+            ):
+                return "unsafe-package", None, None
+            metadata = [child for child in root if child.tag == namespace + "metadata"]
+            if len(metadata) != 1 or any(
+                child.tag.split("}")[-1] == "metadata" and child.tag != namespace + "metadata"
+                for child in root
+            ):
+                return "unsafe-package", None, None
+            metadata = metadata[0]
+            license_nodes = [child for child in metadata if child.tag == namespace + "license"]
+            if any(child.tag.split("}")[-1] == "license" and child.tag != namespace + "license"
+                   for child in metadata) or len(license_nodes) > 1:
+                return "unsafe-metadata", None, None
+            if not license_nodes:
+                return "missing-license", metadata, None
+            license_node = license_nodes[0]
+            attrs = license_node.attrib
+            if len(license_node) or set(attrs) - {"type", "version"} or "type" not in attrs:
+                return "unsafe-metadata", None, None
+            if "version" in attrs:
+                version = attrs["version"].split(".")
+                if not 2 <= len(version) <= 4 or any(
+                    re.fullmatch(r"[0-9]+", part) is None for part in version
+                ) or tuple(map(int, version)) > (1, 0, 0, 0)[:len(version)]:
+                    return "unsafe-metadata", None, None
+            value = (license_node.text or "").strip()
+            if attrs["type"].lower() == "file":
+                if not safe_path(value) or value not in package.namelist():
+                    return "file-unverified", metadata, None
+                file_text = package.read(value).decode("utf-8")
+                ids, remainder, ambiguous = declarations(file_text)
+                return ("file-declared" if ids == ["MIT"] and not ambiguous and
+                        not "".join(remainder).strip() else "file-unverified"), metadata, None
+            if attrs["type"].lower() != "expression":
+                return "unsafe-metadata", None, None
+            try:
+                state = expression_state(license_node.text or "", policy, licenses)
+            except ExpressionLimitError:
+                return "expression-limit", metadata, None
+            except ValueError:
+                return "invalid-expression", metadata, None
+            if "LICENSE.txt" in package.namelist():
+                file_text = package.read("LICENSE.txt").decode("utf-8")
+                ids, _, ambiguous = declarations(file_text)
+                if ambiguous or any(identifier not in set(leaf_ids(parse_expression(
+                        license_node.text or "")[1])) for identifier in ids):
+                    return "conflicting-declarations", metadata, None
+            return state, metadata, license_node.text
+    except (zipfile.BadZipFile, ET.ParseError, UnicodeDecodeError, RuntimeError):
+        return "unsafe-package", None, None
 
 
 def canonical_spdx(text):
@@ -558,18 +673,60 @@ def owner_inputs(name, policy_bytes, catalog_bytes):
                   "MIT AND (BSD-2-Clause OR MIT)" if name == "non-equivalent-group" else
                   "MIT OR BSD-2-Clause" if name in ("accepted-multi-or", "missing-bsd-or") else
                   "MIT AND BSD-2-Clause" if multi else "MIT AND MIT" if name == "accepted-and" else
-                  "GPL-3.0-only" if name == "package-gpl" else " MIT " if name == "equivalent-whitespace" else "MIT")
-    content = archive("owner-" + name, LICENSE.format(expression), None)
+                  "GPL-3.0-only" if name == "package-gpl" else
+                  "MIT AND" if name == "invalid-expression" else
+                  "MIT" + " " * (MAX_EXPRESSION_BYTES - 2) if name == "over-limit-expression" else
+                  " MIT " if name == "equivalent-whitespace" else "MIT")
+    metadata = {
+        "duplicate-license": LICENSE.format("MIT") + LICENSE.format("GPL-3.0-only"),
+        "type-url": '<license type="url">MIT</license>',
+        "type-file": '<license type="file">LICENSE.txt</license>',
+        "unsupported-version": '<license type="expression" version="2.0.0">MIT</license>',
+        "unknown-license-attribute": '<license type="expression" custom="yes">MIT</license>',
+        "dtd-entity": '<license type="expression">&license;</license>',
+    }.get(name, LICENSE.format(expression))
+    file_text = (b"SPDX-License-Identifier: GPL-3.0-only\n" if name == "expression-file-conflict" else
+                 b"SPDX-License-Identifier: MIT\n" if name == "type-file" else None)
+    content = archive("owner-" + name, metadata, file_text)
     grant_bytes = dict(GRANTS)
-    mit = (b"SPDX-License-Identifier: MIT\n" if name == "tag-only" else
-           b"" if name == "empty-grant" else b"\xff" + GRANT if name == "invalid-utf8-grant" else
-           GRANT.replace(b"SPDX-License-Identifier: MIT", b"SPDX-License-Identifier: GPL-3.0-only")
-           if name == "grant-gpl" else
-           GRANT.replace(b"SPDX-License-Identifier: MIT", b"  SPDX-License-Identifier: GPL-3.0-only")
-           if name == "grant-gpl-indented" else GRANT + b"x" * (MAX_GRANT_BYTES + 1 - len(GRANT))
-           if name == "oversize-grant" else GRANT.replace(b"2026 Example", b"2027 Example")
-           if name == "copyright-variant" else GRANT.replace(b"SPDX-License-Identifier: MIT\n", b"")
-           if name == "untagged-grant" else GRANT)
+    mit = GRANT
+    tag = b"SPDX-License-Identifier: MIT"
+    if name == "tag-only":
+        mit = tag + b"\n"
+    elif name == "tag-no-space":
+        mit = b"SPDX-License-Identifier:MIT\r\n"
+    elif name == "tag-tab-space":
+        mit = b"SPDX-License-Identifier:\t MIT\r"
+    elif name == "tag-repeated":
+        mit = tag + b"\r\n" + tag + b"\r\n"
+    elif name == "tag-indented":
+        mit = b"\t " + tag + b"\r"
+    elif name == "tag-comment-prefix":
+        mit = GRANT.replace(tag, b"# " + tag)
+    elif name in ("tag-crlf-gpl", "tag-cr-gpl", "tag-repeated-conflict"):
+        mit = GRANT.replace(tag, b"SPDX-License-Identifier: GPL-3.0-only", 1)
+        if name == "tag-repeated-conflict":
+            mit = tag + b"\n" + mit
+        else:
+            mit = mit.replace(b"\n", b"\r\n" if name == "tag-crlf-gpl" else b"\r")
+    elif name == "grant-gpl":
+        mit = GRANT.replace(tag, b"SPDX-License-Identifier: GPL-3.0-only")
+    elif name == "grant-gpl-indented":
+        mit = GRANT.replace(tag, b"  SPDX-License-Identifier: GPL-3.0-only")
+    elif name == "grant-at-limit":
+        notice = b"Fixture copyright notice.\n"
+        count, remainder = divmod(MAX_GRANT_BYTES - len(GRANT), len(notice))
+        mit = GRANT + notice * count + b"X" * remainder
+    elif name == "oversize-grant":
+        mit = GRANT + b"x" * (MAX_GRANT_BYTES + 1 - len(GRANT))
+    elif name == "empty-grant":
+        mit = b""
+    elif name == "invalid-utf8-grant":
+        mit = b"\xff" + GRANT
+    elif name == "copyright-variant":
+        mit = GRANT.replace(b"2026 Example", b"2027 Example")
+    elif name == "untagged-grant":
+        mit = GRANT.replace(tag + b"\n", b"")
     if mit != GRANT:
         grant_bytes["MIT"] = (f"grants/{name}.txt", mit)
     if name == "conflicting-term":
@@ -577,7 +734,8 @@ def owner_inputs(name, policy_bytes, catalog_bytes):
                                        BSD_GRANT.replace(b"BSD-2-Clause", b"MIT", 1))
     owner_expression = ("BSD-2-Clause AND MIT" if name == "equivalent-reordered" else
                         "MIT OR BSD-2-Clause" if name in ("non-equivalent-operator", "non-equivalent-group") else
-                        "MIT" if name in ("package-gpl", "wrong-expression") else expression)
+                        "MIT" if name in ("package-gpl", "wrong-expression", "invalid-expression",
+                                         "over-limit-expression") else expression)
     record = owner_record(sha(content), sha(policy_bytes), owner_expression, grant_bytes)
     if name == "wrong-expression":
         record["spdx_grant_expression"] = "Apache-2.0"
@@ -644,7 +802,7 @@ def owner_inputs(name, policy_bytes, catalog_bytes):
         inputs.append(dict(role="owner-record-conflict", path="owners/conflicting-records-secondary.json",
                            sha256=sha(second)))
     grants = {}
-    for license_id in sorted(set(leaf_ids(parse_expression(expression)[1])) & set(grant_bytes)):
+    for license_id in sorted(set(leaf_ids(parse_expression(owner_expression)[1])) & set(grant_bytes)):
         role = grant_role(license_id)
         if name in ("no-grant", "no-record") or name in ("missing-bsd", "missing-bsd-or") and license_id == "BSD-2-Clause":
             continue
@@ -677,6 +835,9 @@ def owner_state(inputs, content, record_bytes, second, grants, policy_bytes, pol
             ("owner-record" not in checked or sha(record_bytes) == checked["owner-record"]["sha256"]) and
             (second is None or sha(second) == checked["owner-record-conflict"]["sha256"]),
             "Owner fixture checked input bytes differ from pinned roles.")
+    package_branch, metadata, expression = classify_package(content, policy, licenses)
+    if package_branch != "approved-non-copyleft":
+        return package_branch
     if "owner-record" not in checked:
         return "owner-record-missing"
     if "owner-record-conflict" in checked:
@@ -717,22 +878,21 @@ def owner_state(inputs, content, record_bytes, second, grants, policy_bytes, pol
         return "owner-record-invalid"
     if not record["caller_accepts_prevalidated_authority"]:
         return "owner-acceptance-missing"
-    root = ET.fromstring(zipfile.ZipFile(io.BytesIO(content)).read("Sample.LP01.nuspec"))
-    metadata = root.find(f"{{{NS}}}metadata")
-    repository = metadata.find(f"{{{NS}}}repository")
-    expression = metadata.find(f"{{{NS}}}license").text
-    if expression_state(expression, policy, licenses) != "approved-non-copyleft":
-        return "grant-contradiction"
+    namespace = metadata.tag.removesuffix("metadata")
+    repositories = metadata.findall(namespace + "repository")
+    if len(repositories) != 1:
+        return "owner-binding-conflict"
+    repository = repositories[0]
     try:
         owner_normalized = canonical_spdx(record["spdx_grant_expression"])
         package_normalized = canonical_spdx(expression)
     except (ExpressionLimitError, ValueError):
         return "owner-binding-conflict"
     if (record["package_sha256"] != sha(content) or
-        record["package_id"] != metadata.find(f"{{{NS}}}id").text or
-        record["repository_url"] != repository.attrib["url"] or
-        record["source_commit"] != repository.attrib["commit"] or
-        record["release_version"] != metadata.find(f"{{{NS}}}version").text or
+        record["package_id"] != metadata.findtext(namespace + "id") or
+        record["repository_url"] != repository.get("url") or
+        record["source_commit"] != repository.get("commit") or
+        record["release_version"] != metadata.findtext(namespace + "version") or
         record["spdx_grant_expression"] != owner_normalized or
         owner_normalized != package_normalized or
         record["policy_version"] != policy["policy_version"] or
@@ -766,10 +926,12 @@ def owner_state(inputs, content, record_bytes, second, grants, policy_bytes, pol
             return "grant-incomplete"
         if not text.strip() or "\0" in text or data.startswith(b"\xef\xbb\xbf"):
             return "grant-incomplete"
-        declarations = re.findall(r"^[ \t]*SPDX-License-Identifier:[ \t]*([^\r\n]+)$", text, re.MULTILINE)
-        if declarations and any(declaration.strip() != license_id for declaration in declarations):
+        ids, remaining, ambiguous = declarations(text)
+        if ambiguous:
+            return "grant-incomplete"
+        if any(declaration != license_id for declaration in ids):
             return "grant-contradiction"
-        if text.strip() == f"SPDX-License-Identifier: {license_id}":
+        if not "".join(remaining).strip():
             return "grant-incomplete"
         if not binding["caller_accepts_complete_grant"]:
             return "grant-incomplete"
@@ -893,17 +1055,12 @@ def suite_data(policy_bytes, catalog_bytes, policy, licenses):
         if name != "no-corpus":
             inputs.append(dict(role="corpus", path="policy/" + (
                 f"{name}.json" if cbytes != catalog_bytes else CATALOG.name), sha256=sha(cbytes)))
-        if "<license " in metadata and 'type="expression"' in metadata.lower() and branch not in (
-                "conflicting-declarations", "unsafe-metadata", "unsafe-package",
-                "missing-policy", "missing-corpus", "invalid-policy"):
-            text = metadata.split(">", 1)[1].split("</license>", 1)[0]
-            try:
-                actual = expression_state(text, policy, licenses)
-            except ExpressionLimitError:
-                actual = "expression-limit"
-            except ValueError:
-                actual = "invalid-expression"
-            require(actual == branch, f"SPDX grammar/policy disagrees with frozen {name}: {actual} != {branch}")
+        actual = ("missing-policy" if name == "no-policy" else
+                  "missing-corpus" if name == "no-corpus" else
+                  "invalid-policy" if name in (
+                      "policy-version-mismatch", "policy-overlap", "catalog-version-mismatch") else
+                  classify_package(content, policy, licenses)[0])
+        require(actual == branch, f"Shared package reader disagrees with frozen {name}: {actual} != {branch}")
         reference = ("package:LICENSE.txt" if branch == "file-declared" else
                      "package:nuspec/license" if "<license " in metadata or
                      metadata.startswith('<license xmlns:hint=') or "<x:license " in metadata else
@@ -933,16 +1090,25 @@ def suite_data(policy_bytes, catalog_bytes, policy, licenses):
         inputs, content, record_bytes, second, grants = owner_inputs(name, policy_bytes, catalog_bytes)
         actual = owner_state(inputs, content, record_bytes, second, grants, policy_bytes, policy, licenses)
         require(actual == branch, f"Owner evidence disagrees with frozen {name}: {actual} != {branch}")
-        references = ["package:nuspec/license", "package:nuspec/repository",
-                      "policy:lp01-policy-1.0.0", "corpus:spdx-licenses-3.27.0"]
-        if name != "no-record":
-            references.append("owner-record:document")
-        references.extend(item["role"] + ":document" for item in inputs if item["role"].startswith("grant-"))
-        expected = result(branch, inputs, "package:nuspec/license")
-        expected["evidence_references"] = references
+        if branch == "owner-evidence-accepted" or branch.startswith(("owner-", "grant-")):
+            references = ["package:nuspec/license", "package:nuspec/repository",
+                          "policy:lp01-policy-1.0.0", "corpus:spdx-licenses-3.27.0"]
+            if name != "no-record":
+                references.append("owner-record:document")
+            references.extend(item["role"] + ":document" for item in inputs if item["role"].startswith("grant-"))
+            expected = result(branch, inputs, "package:nuspec/license")
+            expected["evidence_references"] = references
+        else:
+            reference = (None if branch == "unsafe-package" else
+                         "package:LICENSE.txt" if branch in ("file-declared", "conflicting-declarations") else
+                         "package:nuspec/license")
+            expected = result(branch, inputs, reference)
+            references = expected["evidence_references"]
+            if branch in ("file-declared", "conflicting-declarations"):
+                references.insert(0, "package:nuspec/license")
         cases.append(dict(case_id="lp01-owner-" + name, row_id="LP-01", inputs=inputs,
                           expected=expected,
-                          rationale="Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+                          rationale="Shared package classification precedes owner evidence; only an eligible declaration can use caller-accepted owner and grant bindings.",
                           evidence_pointers=references + ["package:archive"]))
     return dict(schema_version=1, cases=cases)
 
@@ -1147,10 +1313,21 @@ def main():
                     require((ROOT / item["path"]).read_bytes() == raw and sha(raw) == item["sha256"],
                             f"Owner fixture input differs: {name}/{item['role']}")
         with zipfile.ZipFile(io.BytesIO(content)) as package:
-            require(package.namelist() == ["Sample.LP01.nuspec"] and
+            expected_names = (["Sample.LP01.nuspec"] +
+                              (["Second.LP01.nuspec"] if name == "multiple-nuspec" else []) +
+                              (["LICENSE.txt"] if name in ("type-file", "expression-file-conflict") else []))
+            require(package.namelist() == expected_names and
                     package.getinfo("Sample.LP01.nuspec").date_time == ZIP_DATE,
                     f"Owner package ZIP changed: {name}")
     by_id = {case["case_id"]: case for case in synthetic["cases"]}
+    _, _, at_record, _, at_grants = owner_inputs("grant-at-limit", policy_bytes, catalog_bytes)
+    at_grant = at_grants["grant-mit"]
+    over_grant = owner_inputs("oversize-grant", policy_bytes, catalog_bytes)[-1]["grant-mit"]
+    require(len(at_grant) == MAX_GRANT_BYTES and len(over_grant) == MAX_GRANT_BYTES + 1 and
+            len(at_record) < 8192 and len("MIT".encode("utf-8")) < MAX_EXPRESSION_BYTES and
+            by_id["lp01-owner-grant-at-limit"]["expected"]["decision"] == "deterministic" and
+            by_id["lp01-owner-oversize-grant"]["expected"]["branch_id"] == "grant-limit",
+            "Grant byte cap must accept 16384 and reject 16385.")
     require(not any(item["role"] == "policy" for item in by_id["lp01-no-policy"]["inputs"]) and
             not any(item["role"] == "corpus" for item in by_id["lp01-no-corpus"]["inputs"]),
             "Missing policy/corpus controls must omit the exact required role.")
@@ -1213,12 +1390,27 @@ def main():
                     "package-scoped negative" in expected["finding"],
                     f"LP-01 negative lost its package scope: {case['case_id']}")
     owner_cases = [case for case in synthetic["cases"] if case["case_id"].startswith("lp01-owner-")]
+    package_precedence = (
+        "package-gpl", "duplicate-license", "type-url", "type-file", "unsupported-version",
+        "unknown-license-attribute", "dtd-entity", "foreign-metadata", "duplicate-metadata",
+        "multiple-nuspec", "expression-file-conflict", "invalid-expression", "over-limit-expression"
+    )
+    for name in package_precedence:
+        _, content, record_bytes, _, _ = owner_inputs(name, policy_bytes, catalog_bytes)
+        expected = by_id["lp01-owner-" + name]
+        require(len(record_bytes) < 8192 and any(
+            item["role"] == "owner-record" for item in expected["inputs"]
+        ) and expected["expected"]["branch_id"] ==
+            classify_package(content, policy, licenses)[0],
+            f"Owner evidence bypassed the shared package branch: {name}")
     require(len(owner_cases) == len(OWNER_SPECS) and
-            [case["expected"]["branch_id"] for case in owner_cases].count("owner-evidence-accepted") == 11 and
+            [case["expected"]["branch_id"] for case in owner_cases].count("owner-evidence-accepted") == 12 and
             all(case["expected"]["decision"] == "deterministic" and
                 "NOT cryptographically established" in case["expected"]["finding"]
                 if case["expected"]["branch_id"] == "owner-evidence-accepted" else
-                case["expected"]["decision"] == "escalated" and case["expected"]["finding"] is None
+                case["expected"]["decision"] == disposition(case["expected"]["branch_id"])[0] and
+                ((case["expected"]["finding"] is None) ==
+                 (case["expected"]["decision"] == "escalated"))
                 for case in owner_cases) and
             all(case["expected"]["decision"] == "escalated" and
                 not any(item["role"] == "owner-record" for item in case["inputs"])
