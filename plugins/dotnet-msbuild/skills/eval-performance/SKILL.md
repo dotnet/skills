@@ -1,6 +1,6 @@
 ---
 name: eval-performance
-description: "Diagnose measured MSBuild evaluation cost before targets run. USE FOR: evaluation-only repeats under global-property variants, expensive node_modules/.git/bin/obj globs, import depth >20, /pp >10K lines, file-I/O property functions, five-phase evaluation. DO NOT USE FOR: duplicate executions (find-repeated-build-work), required-variant bin/obj collisions (check-bin-obj-clash), execution bottlenecks (build-perf-diagnostics), incremental rebuilds (incremental-build), non-MSBuild systems."
+description: "Diagnose measured MSBuild evaluation cost before targets run. USE FOR: evaluation-only repeats under global-property variants, expensive node_modules/.git/bin/obj globs, import depth >20, /pp >10K lines, file-I/O property functions, five-phase evaluation. DO NOT USE FOR: duplicate executions (find-repeated-build-work), execution bottlenecks (build-perf-diagnostics), incremental rebuilds (incremental-build), non-MSBuild systems."
 license: MIT
 ---
 
