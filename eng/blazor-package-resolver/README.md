@@ -111,6 +111,11 @@ and SBOMs do not establish ownership or source correspondence. Code
 branches require per-entry public release-commit build, exact source blob
 or pinned transform, or referenced-package/upstream byte maps; safely
 passive-only packages yield a package-specific vacuous no-code finding.
+MSBuild inspection joins direct text and CDATA across comments and processing
+instructions before testing active functions and hashing locators; prolog
+recognition remains bounded and fail-closed. Supplemental oracle-derived
+probes cover these boundaries, XML declaration case, Unicode root prefixes
+and UTF-8-BOM library XML.
 The frozen 174-case matrix, numerical limits and two opt-in retained
 identities are documented in `tests/fixtures/lp10/README.md`.
 `tests/Lp10BoundaryChecks.cs` independently checks inspected-byte path
