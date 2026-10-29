@@ -144,6 +144,7 @@ internal static class Lp05BoundaryChecks
         {
             Lp06BoundaryChecks.ProbeResourceBound(registry, name, bytes, branch);
             Lp07BoundaryChecks.ProbeResourceBound(registry, name, bytes, branch);
+            Lp08BoundaryChecks.ProbeResourceBound(registry, name, bytes, branch);
         }
         var timer = Stopwatch.StartNew();
         var pinned = new PinnedInput("package", $"in-memory/{name}.nupkg", Catalog.Digest(bytes));
