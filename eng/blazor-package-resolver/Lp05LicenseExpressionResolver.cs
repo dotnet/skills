@@ -1,30 +1,11 @@
-using System.Buffers.Binary;
-using System.IO.Compression;
-using System.Text;
-using System.Xml;
 using System.Xml.Linq;
 
 namespace BlazorPackageResolver;
 
 public sealed class Lp05LicenseExpressionResolver : IDeterministicResolver
 {
-    private const int MaxPackageBytes = 64 * 1024 * 1024;
-    private const int MaxNuspecBytes = 1024 * 1024;
-    private const int MaxDirectoryBytes = 8 * 1024 * 1024;
-    private const int MaxEntries = 4096;
-    private const int MaxEntryNameLength = 512;
     private const string MissingExpression = "PackageLicenseExpression is not populated; the nuspec has no license expression.";
     private static readonly Version CurrentLicenseVersion = new(1, 0, 0);
-    private static readonly HashSet<string> NuGetNamespaces = new(StringComparer.Ordinal)
-    {
-        "",
-        "http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd",
-        "http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd",
-        "http://schemas.microsoft.com/packaging/2011/10/nuspec.xsd",
-        "http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd",
-        "http://schemas.microsoft.com/packaging/2013/01/nuspec.xsd",
-        "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd"
-    };
 
     public string RowId => "LP-05";
     public string ResolverId => "lp05-license-expression";
@@ -39,99 +20,33 @@ public sealed class Lp05LicenseExpressionResolver : IDeterministicResolver
             !input.CheckedInputs.TryGetValue("package", out var checkedPackage))
             throw new InvalidDataException("LP-05 requires exactly one checked package input.");
 
-        var content = checkedPackage.Content;
-        if (content.Length > MaxPackageBytes || !TryReadDirectory(content.Span, out var entryCount))
-            return Unreadable(input);
-        try
+        var parsed = NuGetNuspecReader.Read(checkedPackage.Content);
+        return parsed.Status switch
         {
-            using var stream = new MemoryStream(content.ToArray(), writable: false);
-            using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
-            if (archive.Entries.Count != entryCount ||
-                archive.Entries.Any(entry => entry.FullName.Length > MaxEntryNameLength))
-                return Unreadable(input);
-
-            var nuspecs = archive.Entries
-                .Where(entry => entry.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-            var roots = nuspecs
-                .Where(entry => entry.FullName.IndexOfAny(['/', '\\']) < 0)
-                .ToArray();
-            if (roots.Length > 1)
-                return Escalate(input, "ambiguous-nuspec", "unknown",
-                    "The archive has multiple root nuspec entries.", "unique-root-nuspec", "package-owner");
-            if (roots.Length == 0)
-                return nuspecs.Length == 0
-                    ? Escalate(input, "missing-nuspec", "unknown",
-                        "The archive has no nuspec entry.", "root-nuspec", "package-owner")
-                    : Escalate(input, "missing-root-nuspec", "unknown",
-                        "The only nuspec entry is nested in a subfolder.", "root-nuspec", "package-owner");
-
-            if (roots[0].Length > MaxNuspecBytes)
-                return OversizedNuspec(input);
-            using var nuspecStream = roots[0].Open();
-            using var buffer = new MemoryStream();
-            var chunk = new byte[8192];
-            int read;
-            while ((read = nuspecStream.Read(chunk)) > 0)
-            {
-                if (buffer.Length + read > MaxNuspecBytes)
-                    return OversizedNuspec(input);
-                buffer.Write(chunk, 0, read);
-            }
-            return InspectNuspec(input, buffer.ToArray());
-        }
-        catch (InvalidDataException)
-        {
-            return Unreadable(input);
-        }
-        catch (NotSupportedException)
-        {
-            return Unreadable(input);
-        }
-        catch (IOException)
-        {
-            return Unreadable(input);
-        }
+            NuspecStatus.Ready => InspectMetadata(input, parsed.Metadata!),
+            NuspecStatus.AmbiguousNuspec => Escalate(input, "ambiguous-nuspec", "unknown",
+                "The archive has multiple root nuspec entries.", "unique-root-nuspec", "package-owner"),
+            NuspecStatus.MissingNuspec => Escalate(input, "missing-nuspec", "unknown",
+                "The archive has no nuspec entry.", "root-nuspec", "package-owner"),
+            NuspecStatus.MissingRootNuspec => Escalate(input, "missing-root-nuspec", "unknown",
+                "The only nuspec entry is nested in a subfolder.", "root-nuspec", "package-owner"),
+            NuspecStatus.OversizedNuspec => OversizedNuspec(input),
+            NuspecStatus.UnsafeNuspec => UnsafeNuspec(input),
+            NuspecStatus.InvalidXml or NuspecStatus.InvalidMetadata => Escalate(input, "invalid-xml", "unknown",
+                "The nuspec XML is not well formed.", "valid-nuspec", "package-owner"),
+            NuspecStatus.ForeignRoot => Escalate(input, "foreign-root", "unknown",
+                "The package root is not in a recognized NuGet namespace.",
+                "recognized-nuspec", "package-owner"),
+            NuspecStatus.UnreadablePackage => Unreadable(input),
+            _ => throw new InvalidDataException("Unknown nuspec inspection result.")
+        };
     }
 
-    private CaseResult InspectNuspec(ResolverCase input, byte[] nuspec)
+    private CaseResult InspectMetadata(ResolverCase input, XElement metadata)
     {
-        if (ContainsDoctype(nuspec))
-            return UnsafeNuspec(input);
-        var settings = new XmlReaderSettings
-        {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null,
-            MaxCharactersInDocument = MaxNuspecBytes
-        };
-        XDocument document;
-        try
-        {
-            using var stream = new MemoryStream(nuspec, writable: false);
-            using var reader = XmlReader.Create(stream, settings);
-            document = XDocument.Load(reader);
-        }
-        catch (XmlException)
-        {
-            return Escalate(input, "invalid-xml", "unknown",
-                "The nuspec XML is not well formed.", "valid-nuspec", "package-owner");
-        }
-
-        var root = document.Root;
-        if (root is null || root.Name.LocalName != "package" ||
-            !NuGetNamespaces.Contains(root.Name.NamespaceName))
-            return Escalate(input, "foreign-root", "unknown",
-                "The package root is not in a recognized NuGet namespace.",
-                "recognized-nuspec", "package-owner");
-
-        var metadata = root.Elements(root.Name.Namespace + "metadata").ToArray();
-        if (metadata.Length != 1)
-            return Escalate(input, "invalid-xml", "unknown",
-                "The nuspec XML is not well formed.", "valid-nuspec", "package-owner");
-
-        var licenses = metadata[0].Elements()
+        var licenses = metadata.Elements()
             .Where(element => element.Name.LocalName == "license").ToArray();
-        if (licenses.Any(element => element.Name.Namespace != root.Name.Namespace))
+        if (licenses.Any(element => element.Name.Namespace != metadata.Name.Namespace))
             return Escalate(input, "foreign-license", "applicable",
                 "A foreign-namespace license element cannot establish NuGet license metadata.",
                 "recognized-license-metadata", "package-owner");
@@ -174,42 +89,6 @@ public sealed class Lp05LicenseExpressionResolver : IDeterministicResolver
             return Malformed(input);
         return Deterministic(input, "expression",
             $"PackageLicenseExpression is populated: {value}.", "package:nuspec/license");
-    }
-
-    private static bool ContainsDoctype(byte[] content)
-    {
-        foreach (var encoding in new[] { Encoding.UTF8, Encoding.Unicode, Encoding.BigEndianUnicode })
-        {
-            var marker = encoding.GetBytes("<!DOCTYPE");
-            if (content.AsSpan().IndexOf(marker) >= 0)
-                return true;
-        }
-        return false;
-    }
-
-    private static bool TryReadDirectory(ReadOnlySpan<byte> content, out int entryCount)
-    {
-        entryCount = 0;
-        for (var index = content.Length - 22; index >= Math.Max(0, content.Length - 65557); index--)
-        {
-            var tail = content[index..];
-            if (BinaryPrimitives.ReadUInt32LittleEndian(tail) != 0x06054b50 ||
-                index + 22 + BinaryPrimitives.ReadUInt16LittleEndian(tail[20..]) != content.Length)
-                continue;
-            var disk = BinaryPrimitives.ReadUInt16LittleEndian(tail[4..]);
-            var directoryDisk = BinaryPrimitives.ReadUInt16LittleEndian(tail[6..]);
-            var diskEntries = BinaryPrimitives.ReadUInt16LittleEndian(tail[8..]);
-            var entries = BinaryPrimitives.ReadUInt16LittleEndian(tail[10..]);
-            var directorySize = BinaryPrimitives.ReadUInt32LittleEndian(tail[12..]);
-            var directoryOffset = BinaryPrimitives.ReadUInt32LittleEndian(tail[16..]);
-            if (disk != 0 || directoryDisk != 0 || diskEntries != entries ||
-                entries > MaxEntries || directorySize > MaxDirectoryBytes ||
-                (ulong)directoryOffset + directorySize > (ulong)index)
-                return false;
-            entryCount = entries;
-            return true;
-        }
-        return false;
     }
 
     private CaseResult Deterministic(ResolverCase input, string branch, string finding, string reference) =>

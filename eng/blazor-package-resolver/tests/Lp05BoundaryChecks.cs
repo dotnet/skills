@@ -139,6 +139,9 @@ internal static class Lp05BoundaryChecks
 
     private static void Probe(Registry registry, string name, byte[] bytes, string branch)
     {
+        if (name.StartsWith("over-", StringComparison.Ordinal) ||
+            name.StartsWith("truncated-", StringComparison.Ordinal))
+            Lp06BoundaryChecks.ProbeResourceBound(registry, name, bytes, branch);
         var timer = Stopwatch.StartNew();
         var pinned = new PinnedInput("package", $"in-memory/{name}.nupkg", Catalog.Digest(bytes));
         var input = new ResolverCase(name, "LP-05", [pinned],

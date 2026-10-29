@@ -26,12 +26,17 @@ using (var doc = JsonDocument.Parse(coverage))
     var rows = doc.RootElement.GetProperty("rows");
     Check(rows.GetArrayLength() == 60 &&
         rows.EnumerateArray().All(row => row.GetProperty("scope").GetString() == "repository-wide" &&
-            (row.GetProperty("id").GetString() == "LP-05"
-                ? row.GetProperty("work_state").GetString() == "implemented" &&
-                  row.GetProperty("resolver_id").GetString() == "lp05-license-expression" &&
-                  row.GetProperty("resolver_version").GetString() == "1.0.0"
-                : row.GetProperty("work_state").GetString() == "tbd" &&
-                  !row.TryGetProperty("resolver_id", out _))), "Only LP-05 is registered as implemented");
+            (row.GetProperty("id").GetString() switch
+            {
+                "LP-05" => row.GetProperty("work_state").GetString() == "implemented" &&
+                           row.GetProperty("resolver_id").GetString() == "lp05-license-expression" &&
+                           row.GetProperty("resolver_version").GetString() == "1.0.0",
+                "LP-06" => row.GetProperty("work_state").GetString() == "implemented" &&
+                           row.GetProperty("resolver_id").GetString() == "lp06-repository-url" &&
+                           row.GetProperty("resolver_version").GetString() == "1.0.0",
+                _ => row.GetProperty("work_state").GetString() == "tbd" &&
+                     !row.TryGetProperty("resolver_id", out _)
+            })), "Only LP-05 and LP-06 are registered as implemented");
     NoClaims(doc.RootElement);
 }
 
@@ -187,6 +192,74 @@ Throws(() => registry.Dispatch(lp05Case with
 Check(lp05Output.SequenceEqual(Replay.Run(lp05Fixture, registry)),
     "LP-05 tamper rejection does not affect later deterministic replay");
 Lp05BoundaryChecks.Run(registry);
+var lp06Fixture = Path.Combine(AppContext.BaseDirectory, "fixtures", "lp06", "cases.json");
+var lp06Output = Replay.Run(lp06Fixture, registry);
+Check(lp06Output.SequenceEqual(Replay.Run(lp06Fixture, registry)),
+    "All frozen LP-06 branches replay with identical canonical output bytes");
+using (var doc = JsonDocument.Parse(lp06Output))
+{
+    var cases = doc.RootElement.GetProperty("cases");
+    Check(cases.GetArrayLength() == 31 &&
+        cases.EnumerateArray().All(item =>
+            item.GetProperty("result").GetProperty("row_id").GetString() == "LP-06"),
+        "Exact 31-case LP-06 synthetic branch matrix");
+    NoClaims(doc.RootElement);
+}
+var lp06Directory = Path.GetDirectoryName(lp06Fixture)!;
+using (var receipt = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(lp06Directory, "acceptance-results.json"))))
+using (var frozen = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(lp06Directory, "acceptance.json"))))
+using (var retained = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(lp06Directory, "retained-inputs.json"))))
+{
+    var record = receipt.RootElement;
+    var runs = record.GetProperty("cases");
+    var expectations = frozen.RootElement.GetProperty("cases");
+    var vendors = retained.RootElement.GetProperty("vendors");
+    Check(record.GetProperty("schema_version").GetInt32() == 1 &&
+        record.GetProperty("row_id").GetString() == "LP-06" &&
+        record.GetProperty("resolver_id").GetString() == "lp06-repository-url" &&
+        record.GetProperty("resolver_version").GetString() == "1.0.0" &&
+        record.GetProperty("suite").GetString() == "acceptance.json" &&
+        runs.GetArrayLength() == expectations.GetArrayLength() &&
+        runs.GetArrayLength() == vendors.GetArrayLength() && runs.GetArrayLength() == 2,
+        "Portable LP-06 acceptance receipt identity");
+    for (var index = 0; index < runs.GetArrayLength(); index++)
+    {
+        var item = runs[index];
+        var expectedCase = expectations[index];
+        var vendor = vendors[index];
+        var frozenResult = expectedCase.GetProperty("expected");
+        Check(item.GetProperty("case_id").GetString() == expectedCase.GetProperty("case_id").GetString() &&
+            item.GetProperty("package_id").GetString() == vendor.GetProperty("package_id").GetString() &&
+            item.GetProperty("package_version").GetString() == vendor.GetProperty("version").GetString() &&
+            item.GetProperty("size_bytes").GetInt32() == vendor.GetProperty("size_bytes").GetInt32() &&
+            item.GetProperty("sha256").GetString() == vendor.GetProperty("sha256").GetString() &&
+            item.GetProperty("sha256").GetString() == expectedCase.GetProperty("inputs")[0]
+                .GetProperty("sha256").GetString() &&
+            item.GetProperty("nuspec_entry").GetString() == vendor.GetProperty("nuspec_entry").GetString() &&
+            item.GetProperty("nuspec_sha256").GetString() == vendor.GetProperty("nuspec_sha256").GetString() &&
+            System.Text.RegularExpressions.Regex.IsMatch(
+                item.GetProperty("replay_output_sha256").GetString() ?? "", "^[a-f0-9]{64}$") &&
+            ReceiptFieldsMatch(item.GetProperty("expected"), frozenResult) &&
+            ReceiptFieldsMatch(item.GetProperty("actual"), frozenResult),
+            "Portable retained LP-06 replay receipt must match pinned input and frozen result.");
+    }
+}
+Lp06BoundaryChecks.Run(registry);
+var lp06Bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
+    "fixtures", "lp06", "packages", "url.nupkg"));
+var lp06Pinned = new PinnedInput("package", "nonexistent-but-pinned.nupkg", Catalog.Digest(lp06Bytes));
+var lp06Case = new ResolverCase("path-independent", "LP-06", [lp06Pinned],
+    new Dictionary<string, CheckedInput> { ["package"] = new(lp06Pinned, lp06Bytes) });
+Check(registry.Dispatch(lp06Case).Finding ==
+    "RepositoryUrl is populated: https://example.test/source.git.",
+    "LP-06 consumes checked bytes without reopening the pinned path");
+Throws(() => registry.Dispatch(lp06Case with
+{
+    CheckedInputs = new Dictionary<string, CheckedInput>
+        { ["package"] = new(lp06Pinned, "tampered"u8.ToArray()) }
+}));
+Check(lp06Output.SequenceEqual(Replay.Run(lp06Fixture, registry)),
+    "LP-06 tamper rejection does not affect later deterministic replay");
 Throws(() => Implemented(Fake("LP-01", input =>
     Result(input, "bad", "deterministic", "unknown", "guessed", null, null, null)))
     .Dispatch(new ResolverCase("invalid", "LP-01", [], new Dictionary<string, CheckedInput>())));
@@ -273,7 +346,8 @@ finally
 
 var source = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
 var allowed = new HashSet<string>(StringComparer.Ordinal)
-    { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs", "Lp05LicenseExpressionResolver.cs" };
+    { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs", "Lp05LicenseExpressionResolver.cs",
+      "Lp06RepositoryUrlResolver.cs", "NuGetNuspecReader.cs" };
 var allowedFiles = allowed.Concat(["BlazorPackageResolver.csproj", "README.md",
     "data/provenance.json", "data/rubric.json", "data/requirement-basis.json"])
     .ToHashSet(StringComparer.Ordinal);
@@ -291,7 +365,7 @@ foreach (var file in allowed)
         System.Text.RegularExpressions.RegexOptions.IgnoreCase),
         "No assessment, rendering, reader, library, comparison, component or AI namespace");
 }
-Console.WriteLine("Resolver foundation and LP-05 checks passed.");
+Console.WriteLine("Resolver foundation, LP-05 and LP-06 checks passed.");
 
 Registry Implemented(IDeterministicResolver handler) => new(catalog,
     [new RegistryEntry("LP-01", "implemented", "synthetic", "1.0.0"), .. registrations.Skip(1)],
