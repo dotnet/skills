@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Formats.Asn1;
 using System.IO;
 using System.IO.Compression;
@@ -739,6 +741,7 @@ static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
     int strings = metadata.GetHeapSize(HeapIndex.String);
     int blobs = metadata.GetHeapSize(HeapIndex.Blob);
     int guids = metadata.GetHeapSize(HeapIndex.Guid);
+    var typeProvider = new MetadataTypeProvider(metadata);
     for (int table = 0; table <= 44; table++)
     {
         int count = metadata.GetTableRowCount((TableIndex)table);
@@ -818,6 +821,12 @@ static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
                             if ((table, column) == (12, 2) &&
                                 (blob.Length < 4 || blob[0] != 1 || blob[1] != 0))
                                 throw new BadImageFormatException($"Malformed CustomAttribute.Value in row {row + 1}.");
+                            if (column == 2 && table == 12)
+                                ValidateAttribute(metadata, typeProvider, row + 1);
+                            else if ((table, column) is (4, 2) or (6, 4) or (10, 2) or
+                                     (17, 0) or (23, 2) or (27, 0) or (43, 1))
+                                ValidateSignature(metadata, typeProvider, table,
+                                    MetadataTokens.BlobHandle(value));
                         }
                         break;
                     case "guid":
@@ -871,12 +880,6 @@ static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
             if (position != offset + (row + 1) * size)
                 throw new BadImageFormatException($"Unsupported trailing metadata columns in table {table}.");
         }
-    }
-    for (int row = 1; row <= metadata.GetTableRowCount(TableIndex.CustomAttribute); row++)
-    {
-        var attribute = metadata.GetCustomAttribute(MetadataTokens.CustomAttributeHandle(row));
-        if (!attribute.Value.IsNil)
-            _ = metadata.GetBlobBytes(attribute.Value);
     }
 }
 
@@ -938,3 +941,274 @@ static string MetadataSchema(int table) => table switch
     44 => "t:42 c:TypeDefOrRef",
     _ => throw new BadImageFormatException($"Unsupported metadata table {table}."),
 };
+
+static void ValidateSignature(MetadataReader metadata, MetadataTypeProvider provider,
+    int table, BlobHandle handle)
+{
+    var reader = metadata.GetBlobReader(handle);
+    if (reader.Length > 1024 * 1024)
+        throw new BadImageFormatException("Metadata signature exceeds supported size.");
+    var decoder = new SignatureDecoder<string, object?>(provider, metadata, null);
+    if (table is 4 or 6 or 10 or 17 or 23 or 43)
+    {
+        var headerReader = reader;
+        var kind = headerReader.ReadSignatureHeader().Kind;
+        switch (table, kind)
+        {
+            case (4, SignatureKind.Field):
+            case (10, SignatureKind.Field):
+                _ = decoder.DecodeFieldSignature(ref reader);
+                break;
+            case (6, SignatureKind.Method):
+            case (10, SignatureKind.Method):
+            case (17, SignatureKind.Method):
+            case (23, SignatureKind.Property):
+                _ = decoder.DecodeMethodSignature(ref reader);
+                break;
+            case (17, SignatureKind.LocalVariables):
+                _ = decoder.DecodeLocalSignature(ref reader);
+                break;
+            case (43, SignatureKind.MethodSpecification):
+                _ = decoder.DecodeMethodSpecificationSignature(ref reader);
+                break;
+            default:
+                throw new BadImageFormatException($"Unsupported signature kind {kind} in table {table}.");
+        }
+    }
+    else if (table == 27)
+        _ = decoder.DecodeType(ref reader);
+    if (reader.RemainingBytes != 0)
+        throw new BadImageFormatException($"Trailing signature bytes in table {table}.");
+}
+
+static void ValidateAttribute(MetadataReader metadata, MetadataTypeProvider provider, int row)
+{
+    var attribute = metadata.GetCustomAttribute(MetadataTokens.CustomAttributeHandle(row));
+    if (attribute.Value.IsNil)
+        return;
+    BlobHandle ctor = attribute.Constructor.Kind switch
+    {
+        HandleKind.MethodDefinition =>
+            metadata.GetMethodDefinition((MethodDefinitionHandle)attribute.Constructor).Signature,
+        HandleKind.MemberReference =>
+            metadata.GetMemberReference((MemberReferenceHandle)attribute.Constructor).Signature,
+        _ => throw new BadImageFormatException("Unsupported custom attribute constructor."),
+    };
+    string constructorName = attribute.Constructor.Kind == HandleKind.MethodDefinition
+        ? metadata.GetString(metadata.GetMethodDefinition(
+            (MethodDefinitionHandle)attribute.Constructor).Name)
+        : metadata.GetString(metadata.GetMemberReference(
+            (MemberReferenceHandle)attribute.Constructor).Name);
+    if (constructorName != ".ctor")
+        throw new BadImageFormatException($"Non-constructor custom attribute in row {row}.");
+    var signatureReader = metadata.GetBlobReader(ctor);
+    var decoder = new SignatureDecoder<string, object?>(provider, metadata, null);
+    var signature = decoder.DecodeMethodSignature(ref signatureReader);
+    if (signatureReader.RemainingBytes != 0 || signature.Header.Kind != SignatureKind.Method ||
+        signature.Header.IsGeneric || !signature.Header.IsInstance ||
+        signature.ReturnType != "Void")
+        throw new BadImageFormatException($"Invalid custom attribute constructor signature in row {row}.");
+    var value = metadata.GetBlobReader(attribute.Value);
+    if (value.Length > 1024 * 1024 || value.ReadUInt16() != 1)
+        throw new BadImageFormatException($"Invalid custom attribute prolog in row {row}.");
+    foreach (string type in signature.ParameterTypes)
+        ReadAttributeValue(ref value, provider, type, 0);
+    int named = value.ReadUInt16();
+    for (int i = 0; i < named; i++)
+    {
+        byte kind = value.ReadByte();
+        if (kind is not (0x53 or 0x54))
+            throw new BadImageFormatException($"Invalid custom attribute named argument kind in row {row}.");
+        string type = ReadAttributeFieldType(ref value, provider, 0);
+        string? name = value.ReadSerializedString();
+        if (string.IsNullOrEmpty(name))
+            throw new BadImageFormatException($"Invalid custom attribute named argument name in row {row}.");
+        ReadAttributeValue(ref value, provider, type, 0);
+    }
+    if (value.RemainingBytes != 0)
+        throw new BadImageFormatException($"Trailing custom attribute data in row {row}.");
+    _ = attribute.DecodeValue(provider);
+}
+
+static string ReadAttributeFieldType(ref BlobReader reader, MetadataTypeProvider provider, int depth)
+{
+    if (depth > 32)
+        throw new BadImageFormatException("Custom attribute type nesting exceeds supported depth.");
+    var code = reader.ReadSerializationTypeCode();
+    return code switch
+    {
+        SerializationTypeCode.Type => "System.Type",
+        SerializationTypeCode.TaggedObject => "Object",
+        SerializationTypeCode.Enum => provider.GetTypeFromSerializedName(
+            reader.ReadSerializedString() ?? throw new BadImageFormatException("Null enum name.")),
+        SerializationTypeCode.SZArray => ReadAttributeFieldType(ref reader, provider, depth + 1) + "[]",
+        >= SerializationTypeCode.Boolean and <= SerializationTypeCode.String =>
+            provider.GetPrimitiveType((PrimitiveTypeCode)code),
+        _ => throw new BadImageFormatException($"Unsupported custom attribute type {code}."),
+    };
+}
+
+static void ReadAttributeValue(ref BlobReader reader, MetadataTypeProvider provider,
+    string type, int depth)
+{
+    if (depth > 32)
+        throw new BadImageFormatException("Custom attribute value nesting exceeds supported depth.");
+    if (type.EndsWith("[]", StringComparison.Ordinal))
+    {
+        int count = reader.ReadInt32();
+        if (count < -1 || count > reader.RemainingBytes + 1)
+            throw new BadImageFormatException("Custom attribute array count exceeds available bytes.");
+        for (int i = 0; i < count; i++)
+            ReadAttributeValue(ref reader, provider, type[..^2], depth + 1);
+        return;
+    }
+    if (type is "String" or "System.Type")
+    {
+        _ = reader.ReadSerializedString();
+        return;
+    }
+    if (type == "Object")
+    {
+        ReadAttributeValue(ref reader, provider, ReadAttributeFieldType(ref reader, provider, depth + 1),
+            depth + 1);
+        return;
+    }
+    var primitive = Enum.TryParse<PrimitiveTypeCode>(type, out var code) ? code
+        : provider.GetUnderlyingEnumType(type);
+    switch (primitive)
+    {
+        case PrimitiveTypeCode.Boolean:
+            if (reader.ReadByte() > 1)
+                throw new BadImageFormatException("Noncanonical custom attribute boolean.");
+            break;
+        case PrimitiveTypeCode.Char: _ = reader.ReadChar(); break;
+        case PrimitiveTypeCode.SByte: _ = reader.ReadSByte(); break;
+        case PrimitiveTypeCode.Byte: _ = reader.ReadByte(); break;
+        case PrimitiveTypeCode.Int16: _ = reader.ReadInt16(); break;
+        case PrimitiveTypeCode.UInt16: _ = reader.ReadUInt16(); break;
+        case PrimitiveTypeCode.Int32: _ = reader.ReadInt32(); break;
+        case PrimitiveTypeCode.UInt32: _ = reader.ReadUInt32(); break;
+        case PrimitiveTypeCode.Int64: _ = reader.ReadInt64(); break;
+        case PrimitiveTypeCode.UInt64: _ = reader.ReadUInt64(); break;
+        case PrimitiveTypeCode.Single: _ = reader.ReadSingle(); break;
+        case PrimitiveTypeCode.Double: _ = reader.ReadDouble(); break;
+        default: throw new BadImageFormatException($"Unsupported custom attribute value type {type}.");
+    }
+}
+
+sealed class MetadataTypeProvider(MetadataReader metadata) :
+    ISignatureTypeProvider<string, object?>, ICustomAttributeTypeProvider<string>
+{
+    private readonly HashSet<int> activeTypeSpecs = [];
+    public string GetPrimitiveType(PrimitiveTypeCode code) => code.ToString();
+    public string GetSystemType() => "System.Type";
+    public bool IsSystemType(string type) => type == "System.Type";
+    public string GetSZArrayType(string elementType) => elementType + "[]";
+    public string GetArrayType(string elementType, ArrayShape shape) =>
+        elementType + "[" + new string(',', Math.Max(0, shape.Rank - 1)) + "]";
+    public string GetByReferenceType(string elementType) => elementType + "&";
+    public string GetPointerType(string elementType) => elementType + "*";
+    public string GetPinnedType(string elementType) => elementType + " pinned";
+    public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired) =>
+        unmodifiedType + (isRequired ? " modreq(" : " modopt(") + modifier + ")";
+    public string GetGenericInstantiation(string genericType, ImmutableArray<string> typeArguments) =>
+        genericType + "<" + string.Join(",", typeArguments) + ">";
+    public string GetGenericMethodParameter(object? context, int index) => "!!" + index;
+    public string GetGenericTypeParameter(object? context, int index) => "!" + index;
+    public string GetFunctionPointerType(MethodSignature<string> signature) => "fnptr";
+    public string GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind)
+        => GetDefinitionName(reader, handle, 0);
+    private string GetDefinitionName(MetadataReader reader, TypeDefinitionHandle handle, int depth)
+    {
+        if (depth > 32)
+            throw new BadImageFormatException("Nested TypeDef chain exceeds supported depth.");
+        var type = reader.GetTypeDefinition(handle);
+        var parent = type.GetDeclaringType();
+        if (!parent.IsNil)
+            return GetDefinitionName(reader, parent, depth + 1) + "+" + reader.GetString(type.Name);
+        string ns = reader.GetString(type.Namespace);
+        return (ns.Length == 0 ? "" : ns + ".") + reader.GetString(type.Name);
+    }
+    public string GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind)
+        => GetReferenceName(reader, handle, 0);
+    private string GetReferenceName(MetadataReader reader, TypeReferenceHandle handle, int depth)
+    {
+        if (depth > 32)
+            throw new BadImageFormatException("Nested TypeRef chain exceeds supported depth.");
+        var type = reader.GetTypeReference(handle);
+        if (type.ResolutionScope.Kind == HandleKind.TypeReference)
+            return GetReferenceName(reader, (TypeReferenceHandle)type.ResolutionScope, depth + 1)
+                + "+" + reader.GetString(type.Name);
+        string ns = reader.GetString(type.Namespace);
+        return (ns.Length == 0 ? "" : ns + ".") + reader.GetString(type.Name);
+    }
+    public string GetTypeFromSpecification(MetadataReader reader, object? context,
+        TypeSpecificationHandle handle, byte rawTypeKind)
+    {
+        int index = MetadataTokens.GetRowNumber(handle);
+        if (activeTypeSpecs.Count >= 32 || !activeTypeSpecs.Add(index))
+            throw new BadImageFormatException("Recursive TypeSpec signature.");
+        try
+        {
+            var signature = reader.GetTypeSpecification(handle).Signature;
+            var blob = reader.GetBlobReader(signature);
+            var decoder = new SignatureDecoder<string, object?>(this, reader, context);
+            string result = decoder.DecodeType(ref blob);
+            if (blob.RemainingBytes != 0)
+                throw new BadImageFormatException("Trailing TypeSpec signature bytes.");
+            return result;
+        }
+        finally
+        {
+            activeTypeSpecs.Remove(index);
+        }
+    }
+    public string GetTypeFromSerializedName(string name) =>
+        string.IsNullOrWhiteSpace(name) ? throw new BadImageFormatException("Empty serialized type name.")
+        : name.Split(',')[0].Trim();
+    public bool IsEnum(string type) => type is not ("System.Type" or "String" or "Object")
+        && !Enum.TryParse<PrimitiveTypeCode>(type, out _);
+    public PrimitiveTypeCode GetUnderlyingEnumType(string type)
+    {
+        foreach (var handle in metadata.TypeDefinitions)
+        {
+            var definition = metadata.GetTypeDefinition(handle);
+            if (GetTypeFromDefinition(metadata, handle, 0) != type)
+                continue;
+            foreach (var fieldHandle in definition.GetFields())
+            {
+                var field = metadata.GetFieldDefinition(fieldHandle);
+                if (metadata.GetString(field.Name) != "value__")
+                    continue;
+                var reader = metadata.GetBlobReader(field.Signature);
+                if (reader.ReadSignatureHeader().Kind != SignatureKind.Field)
+                    break;
+                var code = (PrimitiveTypeCode)reader.ReadSignatureTypeCode();
+                if (reader.RemainingBytes == 0 && code is PrimitiveTypeCode.SByte or PrimitiveTypeCode.Byte
+                    or PrimitiveTypeCode.Int16 or PrimitiveTypeCode.UInt16 or PrimitiveTypeCode.Int32
+                    or PrimitiveTypeCode.UInt32 or PrimitiveTypeCode.Int64 or PrimitiveTypeCode.UInt64)
+                    return code;
+            }
+        }
+        if (type.StartsWith("System.", StringComparison.Ordinal))
+        {
+            Type? known = Type.GetType(type, throwOnError: false)
+                ?? typeof(System.ComponentModel.EditorBrowsableState).Assembly.GetType(type)
+                ?? typeof(System.Text.RegularExpressions.RegexOptions).Assembly.GetType(type);
+            if (known?.IsEnum == true)
+                return Type.GetTypeCode(Enum.GetUnderlyingType(known)) switch
+                {
+                    TypeCode.SByte => PrimitiveTypeCode.SByte,
+                    TypeCode.Byte => PrimitiveTypeCode.Byte,
+                    TypeCode.Int16 => PrimitiveTypeCode.Int16,
+                    TypeCode.UInt16 => PrimitiveTypeCode.UInt16,
+                    TypeCode.Int32 => PrimitiveTypeCode.Int32,
+                    TypeCode.UInt32 => PrimitiveTypeCode.UInt32,
+                    TypeCode.Int64 => PrimitiveTypeCode.Int64,
+                    TypeCode.UInt64 => PrimitiveTypeCode.UInt64,
+                    _ => throw new BadImageFormatException($"Unsupported enum backing type {type}."),
+                };
+        }
+        throw new BadImageFormatException($"Unsupported external enum type {type}.");
+    }
+}
