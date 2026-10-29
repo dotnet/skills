@@ -34,12 +34,18 @@ SHA-1/SHA-256 keys over unpadded PE headers and section raw data, omitting
 the signature reservation and zeroing the PE checksum and Authenticode
 directory. A nonzero reservation and a CLR flag alone are **not**
 validation. The verifier treats every nonempty PE overlay outside declared
-sections as incomplete inventory unless it is exactly a well-framed
-WIN_CERTIFICATE table containing DER PKCS#7 signedData. It validates that
-certificate **structure only**, not Authenticode identity or trust; bytes
-before or after the table, PE/container signatures hidden within its
-certificate data, or nonzero bytes in unhashed PE header/section padding
-still escalate. Thus a verified outer assembly
+sections as incomplete inventory unless it is exactly a bounded,
+8-byte-aligned WIN_CERTIFICATE table with zero-filled alignment and
+well-formed DER PKCS#7 SignedData containing Authenticode
+`SpcIndirectDataContent` (`1.3.6.1.4.1.311.2.1.4`) for a PE image.
+It parses the supported digest, X.509 certificate and signer structures,
+rejects unknown signed/unsigned attributes and unsupported content OIDs,
+and screens certificate bytes for nested PE, ZIP, gzip, CAB and 7z content.
+An arbitrary `id-data` SignedData envelope is not fully inventoried.
+This validates the certificate **structure only**, not Authenticode
+publisher identity or trust (the separate PI-02 row); bytes before or
+after the table, nonzero 1-7-byte WIN_CERTIFICATE alignment padding, or
+nonzero bytes in unhashed PE header/section padding escalate. Thus a verified outer assembly
 with an appended unsigned PE cannot become a package-wide positive.
 NuGet signing (`.signature.p7s`), nuspec repository
 URL/commit, PDBs, SourceLink, strong-name token strings and publisher
@@ -84,10 +90,12 @@ to verify it, but a rebuild with a new throwaway key changes its hash.
 tables, public-key presence, flags and reservations. Before *any* decisive
 assembly state it checks all present rows in the supported table schemas,
 row lengths, #Strings/#Blob/#GUID heap indices, direct/coded table
-references, ordered table lists, and required names; unexpected table
+references, ordered nonzero list starts, required names, signatures, MVIDs
+and public keys; optional null constants and absent public keys are
+permitted only where the metadata schema allows them. Unexpected table
 shapes escalate. In particular a later TypeDef Name index 65535 outside
 the 310-byte #Strings heap is unsafe, not unsigned.
-Companion controls corrupt a MethodDef #Blob signature index and a
+Companion controls corrupt a MethodDef #blob signature index, a missing MethodDef.Signature, and a
 CustomAttribute coded parent reference to prove the whole table traversal
 fails closed, not merely the first type definition.
 The `.cs.txt`
@@ -104,7 +112,7 @@ entry SHA-256 without copying either proprietary archive into this repo.
 Phase B must implement and replay this frozen verification contract; it
 must never promote structural signature presence to verified validity.
 
-The frozen matrix has 91 cases, of which 90 have independently pinned
+The frozen matrix has 104 cases, of which 103 have independently pinned
 synthetic archives. It covers empty and non-assembly archives, native PE
 and bundle-shaped input, nested/prefixed unsigned ZIP and archive-suffix controls,
 different assembly locations and suffixes, multiple framework variants,
@@ -121,14 +129,23 @@ exact-boundary controls exercise at/over entry bytes,
 total uncompressed bytes, ZIP name length and entry count, plus
 over-limit package bytes without committing giant archives.
 Overlay controls distinguish an appended unsigned PE, nonzero unhashed
-header padding, a structurally valid certificate, a certificate followed
-by an unsigned PE, an invalid certificate record, and a PE hidden inside
-certificate data.
+header padding, a genuinely signed, public-only Authenticode-profile CMS
+certificate, a certificate followed by an unsigned PE, an invalid
+certificate record, a PE hidden inside certificate data, arbitrary
+`id-data` and unknown eContent OIDs, gzip/CAB/7z payloads (including
+gzip-like content under an otherwise supported Authenticode OID), and both
+nonzero and MZ bytes in certificate alignment padding (including exact
+`dwLength=45` with three alignment bytes). The CMS fixture is signed
+with a disposable throwaway key and contains its public X.509 certificate,
+but never its private key. Its indirect-data PE digest is a synthetic
+placeholder, not an Authenticode verification of the enclosing PE.
+The oracle pins its SHA-256
+`ea7d26478fd30cb5c56fe0845fa92a10d9de8a7a3ee6ac6e73a334e979f0f885`.
 The frozen branch counts are:
 `verified-signed` 8, `invalid-signature` 3,
 `signature-unverified` 1 (unsupported hash), `unsigned-assembly` 10,
 `delay-signed` 4, `public-signed` 4, `no-assemblies` 6,
-`opaque-container` 14, `unsafe-assembly` 24, `unsafe-package` 16, and
+`opaque-container` 14, `unsafe-assembly` 37, `unsafe-package` 16, and
 `missing-package` 1.
 The generator pins every archive byte and expected JSON document and
 rejects extra/missing synthetic `.nupkg` files. Resource bounds in this
@@ -168,6 +185,13 @@ explicitly pinned hash and frozen expectations. The existing pinned
 |---|---|---:|---|
 | Syncfusion `Syncfusion.Blazor.Toolkit` 2.0.1 | `87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d` | 3 (`net8.0`, `net9.0`, `net10.0`) | `unsigned-assembly` / `deterministic`: all have CLR flags `0x1`, 0/0 signature reservation, no public key |
 | Infragistics `IgniteUI.Blazor.Lite` 0.3.0 | `e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63` | 3 (`net8.0`, `net9.0`, `net10.0`) | `verified-signed` / `deterministic`: all have CLR flags `0x9`, nonzero 128-byte reservations, a 160-byte public key, and valid RSA PKCS#1 v1.5 SHA-1 signatures |
+
+Each retained Infragistics PE also contains an exactly 12,280-byte
+WIN_CERTIFICATE table with the supported Authenticode
+`SpcIndirectDataContent` profile, matched signer certificates and an
+RFC 3161 timestamp. Its certificate structure is inventoried here;
+certificate-chain trust, publisher identity and the Authenticode PE
+digest remain outside PI-01.
 
 `retained-inputs.json` pins the vendor/package identities and per-entry
 digests and per-assembly PE hash, key hash, algorithm and cryptographic

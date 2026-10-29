@@ -30,6 +30,7 @@ if (args.Length == 1 && args[0] == "--inspect")
     }
     catch (Exception error) when (error is BadImageFormatException or InvalidDataException
                                   or ArgumentException or IndexOutOfRangeException
+                                  or CryptographicException
                                   or AsnContentException)
     {
         state = "unsafe";
@@ -316,10 +317,18 @@ static void ValidateCertificates(ReadOnlyMemory<byte> data)
             BitConverter.ToUInt16(bytes.Slice(cursor + 4, 2)) != 0x0200 ||
             BitConverter.ToUInt16(bytes.Slice(cursor + 6, 2)) != 0x0002)
             throw new BadImageFormatException("Invalid PKCS#7 WIN_CERTIFICATE record.");
+        int alignedLength = (length + 7) & ~7;
+        if (alignedLength > data.Length - cursor ||
+            data.Span.Slice(cursor + length, alignedLength - length).ContainsAnyExcept((byte)0))
+            throw new BadImageFormatException("Uninventoried WIN_CERTIFICATE alignment bytes.");
         var content = data.Slice(cursor + 8, length - 8);
         if (content.Span.IndexOf("MZ"u8) >= 0 ||
             content.Span.IndexOf("PK\x03\x04"u8) >= 0 ||
-            content.Span.IndexOf("PK\x05\x06"u8) >= 0)
+            content.Span.IndexOf("PK\x01\x02"u8) >= 0 ||
+            content.Span.IndexOf("PK\x05\x06"u8) >= 0 ||
+            content.Span.IndexOf(new byte[] { 0x1f, 0x8b }) >= 0 ||
+            content.Span.IndexOf("MSCF"u8) >= 0 ||
+            content.Span.IndexOf(new byte[] { 0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c }) >= 0)
             throw new BadImageFormatException("Potential PE or nested container in certificate data.");
         var reader = new AsnReader(content, AsnEncodingRules.DER);
         ReadOnlyMemory<byte> encoded = reader.ReadEncodedValue();
@@ -332,23 +341,275 @@ static void ValidateCertificates(ReadOnlyMemory<byte> data)
             throw new BadImageFormatException("Certificate is not PKCS#7 signedData.");
         var signedDataWrapper = sequence.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, true));
         var signedData = signedDataWrapper.ReadSequence();
-        _ = signedData.ReadInteger();
-        _ = signedData.ReadSetOf();
+        var version = signedData.ReadInteger();
+        if (version != 1 && version != 3)
+            throw new BadImageFormatException("Unsupported Authenticode signedData version.");
+        var algorithms = signedData.ReadSetOf();
         var encapsulated = signedData.ReadSequence();
-        _ = encapsulated.ReadObjectIdentifier();
-        while (encapsulated.HasData)
-            _ = encapsulated.ReadEncodedValue();
-        while (signedData.HasData && signedData.PeekTag().TagClass == TagClass.ContextSpecific)
-            _ = signedData.ReadEncodedValue();
-        _ = signedData.ReadSetOf();
+        if (encapsulated.ReadObjectIdentifier() != "1.3.6.1.4.1.311.2.1.4")
+            throw new BadImageFormatException("Unsupported Authenticode encapsulated content.");
+        if (!algorithms.HasData)
+            throw new BadImageFormatException("Missing Authenticode digest algorithm.");
+        var digestAlgorithms = new System.Collections.Generic.HashSet<string>();
+        while (algorithms.HasData)
+            digestAlgorithms.Add(ReadDigestAlgorithm(algorithms.ReadSequence()));
+        var indirectWrapper = encapsulated.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, true));
+        AsnReader indirect;
+        if (indirectWrapper.PeekTag().HasSameClassAndValue(new Asn1Tag(UniversalTagNumber.OctetString)))
+        {
+            var encodedIndirect = new AsnReader(indirectWrapper.ReadOctetString(), AsnEncodingRules.DER);
+            indirect = encodedIndirect.ReadSequence();
+            encodedIndirect.ThrowIfNotEmpty();
+        }
+        else
+            indirect = indirectWrapper.ReadSequence();
+        var attribute = indirect.ReadSequence();
+        if (attribute.ReadObjectIdentifier() != "1.3.6.1.4.1.311.2.1.15")
+            throw new BadImageFormatException("Unsupported Authenticode subject.");
+        if (attribute.HasData)
+        {
+            var peImage = attribute.ReadSequence();
+            _ = peImage.ReadBitString(out _);
+            if (peImage.HasData)
+            {
+                var link = peImage.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, true));
+                var moniker = link.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 2, true));
+                _ = moniker.ReadOctetString(new Asn1Tag(TagClass.ContextSpecific, 0));
+                moniker.ThrowIfNotEmpty();
+                link.ThrowIfNotEmpty();
+            }
+            peImage.ThrowIfNotEmpty();
+        }
+        attribute.ThrowIfNotEmpty();
+        var digestInfo = indirect.ReadSequence();
+        string digestOid = ReadDigestAlgorithm(digestInfo.ReadSequence());
+        if (!digestAlgorithms.Contains(digestOid))
+            throw new BadImageFormatException("Authenticode digest algorithm differs from signedData.");
+        int digestLength = digestOid == "1.3.14.3.2.26" ? 20 : 32;
+        if (digestInfo.ReadOctetString().Length != digestLength)
+            throw new BadImageFormatException("Invalid Authenticode digest length.");
+        digestInfo.ThrowIfNotEmpty();
+        indirect.ThrowIfNotEmpty();
+        indirectWrapper.ThrowIfNotEmpty();
+        encapsulated.ThrowIfNotEmpty();
+        ValidateCertificateSigners(signedData, digestAlgorithms, false);
         signedData.ThrowIfNotEmpty();
         signedDataWrapper.ThrowIfNotEmpty();
         sequence.ThrowIfNotEmpty();
         cms.ThrowIfNotEmpty();
-        cursor += (length + 7) & ~7;
+        cursor += alignedLength;
     }
     if (cursor != data.Length)
         throw new BadImageFormatException("Uninventoried certificate table bytes.");
+}
+
+static void ValidateCertificateSigners(
+    AsnReader signedData, System.Collections.Generic.HashSet<string> digestAlgorithms, bool timestamp)
+{
+        var certificateIdentities = new System.Collections.Generic.List<(byte[] Issuer, byte[] Serial)>();
+        if (signedData.HasData && signedData.PeekTag().HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 0)))
+        {
+            var certificates = signedData.ReadSetOf(false, new Asn1Tag(TagClass.ContextSpecific, 0, true));
+            if (!certificates.HasData)
+                throw new BadImageFormatException("Empty Authenticode certificate set.");
+            while (certificates.HasData)
+            {
+                using var cert = System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadCertificate(
+                    certificates.ReadEncodedValue().Span);
+                certificateIdentities.Add((cert.IssuerName.RawData, cert.SerialNumberBytes.ToArray()));
+            }
+        }
+        if (signedData.HasData && signedData.PeekTag().TagClass == TagClass.ContextSpecific)
+            throw new BadImageFormatException("Unsupported Authenticode revocation fields.");
+        var signers = signedData.ReadSetOf();
+        if (!signers.HasData)
+            throw new BadImageFormatException("Missing Authenticode signer.");
+        while (signers.HasData)
+            ValidateSignerInfo(signers.ReadSequence(), digestAlgorithms, certificateIdentities, timestamp);
+}
+
+static string ReadDigestAlgorithm(AsnReader algorithm)
+{
+    string oid = algorithm.ReadObjectIdentifier();
+    if (oid is not ("1.3.14.3.2.26" or "2.16.840.1.101.3.4.2.1"))
+        throw new BadImageFormatException("Unsupported Authenticode digest algorithm.");
+    if (algorithm.HasData)
+        algorithm.ReadNull();
+    algorithm.ThrowIfNotEmpty();
+    return oid;
+}
+
+static void ValidateSignerInfo(
+    AsnReader signer, System.Collections.Generic.HashSet<string> digestAlgorithms,
+    System.Collections.Generic.List<(byte[] Issuer, byte[] Serial)> certificateIdentities,
+    bool timestamp)
+{
+    if (signer.ReadInteger() != 1)
+        throw new BadImageFormatException("Unsupported Authenticode signer version.");
+    var issuerAndSerial = signer.ReadSequence();
+    ReadOnlyMemory<byte> issuer = issuerAndSerial.ReadEncodedValue();
+    var issuerName = new AsnReader(issuer, AsnEncodingRules.DER);
+    var distinguishedName = issuerName.ReadSequence();
+    while (distinguishedName.HasData)
+        ValidateDerTree(distinguishedName.ReadEncodedValue());
+    issuerName.ThrowIfNotEmpty();
+    byte[] serial = issuerAndSerial.ReadIntegerBytes().ToArray();
+    while (serial.Length > 1 && serial[0] == 0)
+        serial = serial[1..];
+    issuerAndSerial.ThrowIfNotEmpty();
+    if (!certificateIdentities.Any(certificate =>
+        certificate.Issuer.AsSpan().SequenceEqual(issuer.Span) &&
+        certificate.Serial.AsSpan().SequenceEqual(serial)))
+        throw new BadImageFormatException("Authenticode signer has no matching certificate.");
+    if (!digestAlgorithms.Contains(ReadDigestAlgorithm(signer.ReadSequence())))
+        throw new BadImageFormatException("Authenticode signer digest algorithm differs from signedData.");
+    if (signer.HasData && signer.PeekTag().HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 0)))
+        ValidateSignerAttributes(signer.ReadSetOf(false, new Asn1Tag(TagClass.ContextSpecific, 0, true)), false, timestamp);
+    var signatureAlgorithm = signer.ReadSequence();
+    if (signatureAlgorithm.ReadObjectIdentifier() != "1.2.840.113549.1.1.1")
+        throw new BadImageFormatException("Unsupported Authenticode signer key algorithm.");
+    if (signatureAlgorithm.HasData)
+        signatureAlgorithm.ReadNull();
+    signatureAlgorithm.ThrowIfNotEmpty();
+    if (signer.ReadOctetString().Length == 0)
+        throw new BadImageFormatException("Empty Authenticode signer signature.");
+    if (signer.HasData && signer.PeekTag().HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 1)))
+        ValidateSignerAttributes(signer.ReadSetOf(false, new Asn1Tag(TagClass.ContextSpecific, 1, true)), true, timestamp);
+    signer.ThrowIfNotEmpty();
+}
+
+static void ValidateSignerAttributes(AsnReader attributes, bool unsigned, bool timestamp)
+{
+    while (attributes.HasData)
+    {
+        var attribute = attributes.ReadSequence();
+        string oid = attribute.ReadObjectIdentifier();
+        if ((unsigned && (timestamp || oid != "1.3.6.1.4.1.311.3.3.1")) ||
+            (!unsigned && !timestamp && oid is not ("1.3.6.1.4.1.311.2.1.12" or
+                                                   "1.2.840.113549.1.9.3" or
+                                                   "1.3.6.1.4.1.311.2.1.11" or
+                                                   "1.2.840.113549.1.9.4")) ||
+            (!unsigned && timestamp && oid is not ("1.2.840.113549.1.9.16.2.15" or
+                                                  "1.2.840.113549.1.9.3" or
+                                                  "1.2.840.113549.1.9.5" or
+                                                  "1.2.840.113549.1.9.4" or
+                                                  "1.2.840.113549.1.9.16.2.47" or
+                                                  "1.2.840.113549.1.9.16.2.18")))
+            throw new BadImageFormatException("Unsupported Authenticode signer attribute.");
+        var values = attribute.ReadSetOf();
+        if (!values.HasData)
+            throw new BadImageFormatException("Empty Authenticode signer attribute.");
+        while (values.HasData)
+        {
+            ReadOnlyMemory<byte> encoded = values.ReadEncodedValue();
+            ValidateDerTree(encoded);
+            var value = new AsnReader(encoded, AsnEncodingRules.DER);
+            if (oid == "1.2.840.113549.1.9.3")
+            {
+                string expected = timestamp ? "1.2.840.113549.1.9.16.1.4" :
+                    "1.3.6.1.4.1.311.2.1.4";
+                if (value.ReadObjectIdentifier() != expected)
+                    throw new BadImageFormatException("Signer content type differs from Authenticode profile.");
+            }
+            else if (oid == "1.2.840.113549.1.9.4")
+            {
+                if (value.ReadOctetString().Length is not (20 or 32))
+                    throw new BadImageFormatException("Signer message digest has an unsupported length.");
+            }
+            else if (oid == "1.3.6.1.4.1.311.2.1.11")
+            {
+                var statement = value.ReadSequence();
+                if (statement.ReadObjectIdentifier() != "1.3.6.1.4.1.311.2.1.21")
+                    throw new BadImageFormatException("Unsupported Authenticode statement.");
+                statement.ThrowIfNotEmpty();
+            }
+            else if (oid == "1.2.840.113549.1.9.5")
+                _ = value.ReadUtcTime();
+            else if (oid == "1.3.6.1.4.1.311.3.3.1")
+            {
+                var timestampContentInfo = value.ReadSequence();
+                if (timestampContentInfo.ReadObjectIdentifier() != "1.2.840.113549.1.7.2")
+                    throw new BadImageFormatException("Unsupported Authenticode timestamp content.");
+                var timestampWrapper = timestampContentInfo.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, true));
+                var timestampSignedData = timestampWrapper.ReadSequence();
+                ValidateTimestampSignedData(timestampSignedData);
+                timestampSignedData.ThrowIfNotEmpty();
+                timestampWrapper.ThrowIfNotEmpty();
+                timestampContentInfo.ThrowIfNotEmpty();
+            }
+            else
+                _ = value.ReadEncodedValue();
+            value.ThrowIfNotEmpty();
+        }
+        attribute.ThrowIfNotEmpty();
+    }
+}
+
+static void ValidateTimestampSignedData(AsnReader signedData)
+{
+    if (signedData.ReadInteger() != 3)
+        throw new BadImageFormatException("Unsupported Authenticode timestamp version.");
+    var algorithms = signedData.ReadSetOf();
+    var digestAlgorithms = new System.Collections.Generic.HashSet<string>();
+    while (algorithms.HasData)
+        digestAlgorithms.Add(ReadDigestAlgorithm(algorithms.ReadSequence()));
+    if (digestAlgorithms.Count == 0)
+        throw new BadImageFormatException("Missing Authenticode timestamp digest.");
+    var encapsulated = signedData.ReadSequence();
+    if (encapsulated.ReadObjectIdentifier() != "1.2.840.113549.1.9.16.1.4")
+        throw new BadImageFormatException("Unsupported Authenticode timestamp eContent.");
+    var wrapper = encapsulated.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, true));
+    var tstReader = new AsnReader(wrapper.ReadOctetString(), AsnEncodingRules.DER);
+    var tst = tstReader.ReadSequence();
+    if (tst.ReadInteger() != 1)
+        throw new BadImageFormatException("Unsupported Authenticode timestamp token version.");
+    _ = tst.ReadObjectIdentifier();
+    var imprint = tst.ReadSequence();
+    string digestOid = ReadDigestAlgorithm(imprint.ReadSequence());
+    if (!digestAlgorithms.Contains(digestOid) ||
+        imprint.ReadOctetString().Length != (digestOid == "1.3.14.3.2.26" ? 20 : 32))
+        throw new BadImageFormatException("Invalid Authenticode timestamp imprint.");
+    imprint.ThrowIfNotEmpty();
+    _ = tst.ReadInteger();
+    _ = tst.ReadGeneralizedTime();
+    int lastOptional = 0;
+    while (tst.HasData)
+    {
+        var tag = tst.PeekTag();
+        int optional = tag.HasSameClassAndValue(new Asn1Tag(UniversalTagNumber.Sequence)) ? 1 :
+            tag.HasSameClassAndValue(new Asn1Tag(UniversalTagNumber.Boolean)) ? 2 :
+            tag.HasSameClassAndValue(new Asn1Tag(UniversalTagNumber.Integer)) ? 3 :
+            tag.TagClass == TagClass.ContextSpecific && tag.TagValue == 0 ? 4 :
+            tag.TagClass == TagClass.ContextSpecific && tag.TagValue == 1 ? 5 : 0;
+        if (optional == 0 || optional <= lastOptional)
+            throw new BadImageFormatException("Unsupported Authenticode timestamp field.");
+        lastOptional = optional;
+        ValidateDerTree(tst.ReadEncodedValue());
+    }
+    tstReader.ThrowIfNotEmpty();
+    wrapper.ThrowIfNotEmpty();
+    encapsulated.ThrowIfNotEmpty();
+    ValidateCertificateSigners(signedData, digestAlgorithms, true);
+}
+
+static void ValidateDerTree(ReadOnlyMemory<byte> encoded, int depth = 0)
+{
+    if (depth > 32)
+        throw new BadImageFormatException("Authenticator certificate DER nesting is too deep.");
+    var tag = AsnDecoder.ReadEncodedValue(encoded.Span, AsnEncodingRules.DER,
+        out int offset, out int length, out int consumed);
+    if (consumed != encoded.Length)
+        throw new BadImageFormatException("Uninventoried bytes in certificate DER field.");
+    if (!tag.IsConstructed)
+        return;
+    int cursor = offset;
+    while (cursor < offset + length)
+    {
+        _ = AsnDecoder.ReadEncodedValue(encoded.Span[cursor..], AsnEncodingRules.DER,
+            out _, out _, out int fieldLength);
+        ValidateDerTree(encoded.Slice(cursor, fieldLength), depth + 1);
+        cursor += fieldLength;
+    }
 }
 
 static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
@@ -436,7 +697,7 @@ static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
                     case "str":
                         bool requiredName = (table, column) is (0, 1) or (1, 1) or (2, 1) or
                             (4, 1) or (6, 3) or (10, 1) or (20, 1) or (23, 1) or
-                            (32, 7) or (35, 6);
+                            (32, 7) or (35, 6) or (40, 2) or (42, 3);
                         if (value == 0 && requiredName)
                             throw new BadImageFormatException($"Missing metadata name in table {table}, row {row + 1}.");
                         if (value != 0)
@@ -449,14 +710,33 @@ static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
                         }
                         break;
                     case "blob":
+                        bool requiredBlob = (table, column) is (4, 2) or (6, 4) or (10, 2) or
+                            (12, 2) or (14, 2) or (17, 0) or (23, 2) or (27, 0) or (43, 1);
+                        // Null string/class constants have no Value blob; primitive constants do.
+                        if (table == 11 && column == 2 &&
+                            content[offset + row * size] is not (0x0e or 0x12))
+                            requiredBlob = true;
+                        if (table == 35 && column == 5 &&
+                            (BitConverter.ToUInt32(content, offset + row * size + 8) & 1) != 0)
+                            requiredBlob = true;
+                        if (value == 0 && requiredBlob)
+                            throw new BadImageFormatException($"Missing metadata blob in table {table}, row {row + 1}.");
                         if (value != 0)
                         {
                             if (value >= blobs)
                                 throw new BadImageFormatException($"Out-of-range #Blob index in table {table}, row {row + 1}.");
-                            _ = metadata.GetBlobBytes(MetadataTokens.BlobHandle(value));
+                            byte[] blob = metadata.GetBlobBytes(MetadataTokens.BlobHandle(value));
+                            if (blob.Length == 0 &&
+                                ((table, column) is (4, 2) or (6, 4) or (10, 2) or
+                                    (12, 2) or (14, 2) or (17, 0) or (23, 2) or
+                                    (27, 0) or (35, 5) or (43, 1) ||
+                                 (table == 11 && content[offset + row * size] is not (0x0e or 0x12))))
+                                throw new BadImageFormatException($"Empty metadata blob in table {table}, row {row + 1}.");
                         }
                         break;
                     case "guid":
+                        if (value == 0 && (table, column) == (0, 2))
+                            throw new BadImageFormatException($"Missing module MVID in row {row + 1}.");
                         if (value != 0)
                         {
                             if (value > guids / 16)

@@ -1449,7 +1449,7 @@
         {
           "role": "package",
           "path": "packages/signed-with-authenticode-certificate.nupkg",
-          "sha256": "00072eb25a7adb3196a5c5806e4a83b48ff8232a596c3767c2c4360ab446c412"
+          "sha256": "6ee8398ddeba794a83eff40067895ba5d6230e59342903502a8118bcf4f87c7e"
         }
       ],
       "expected": {
@@ -1463,13 +1463,13 @@
           {
             "role": "package",
             "path": "packages/signed-with-authenticode-certificate.nupkg",
-            "sha256": "00072eb25a7adb3196a5c5806e4a83b48ff8232a596c3767c2c4360ab446c412"
+            "sha256": "6ee8398ddeba794a83eff40067895ba5d6230e59342903502a8118bcf4f87c7e"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"232ee4ca81f3e15d4d7335744fd3b4945c14f7ac035d8c2d6495feaed98e3775\",\"size_bytes\":4144,\"state\":\"verified-signed\"}]",
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"cryptographic_evidence\":\"RSA PKCS#1 v1.5; SHA-1; 2048-bit key; PE digest=98A8A56EF14A798860E9EFC907CC7490E58CACCB; key SHA-256=DD06A56BB1A8961BDCD2DF800EA852F602326433C28350761C1EC9DB0F58C7C0; signature valid=True.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"eca8ef3b4909229e1a699d883e698162b7717709ca24d25db011b9feaee9690a\",\"size_bytes\":5408,\"state\":\"verified-signed\"}]",
         "finding": "Every inventoried shipped .NET assembly has a cryptographically verified strong-name signature; PI-01 is met for this package.",
         "missing_fact": null,
         "required_input": null,
@@ -1482,13 +1482,403 @@
       ]
     },
     {
+      "case_id": "pi01-signed-with-nonzero-authenticode-alignment",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-nonzero-authenticode-alignment.nupkg",
+          "sha256": "0964aee6bdcac693d4553c24400bd6b989af735b1c9f0b8ac7abebb8dbab7314"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-nonzero-authenticode-alignment.nupkg",
+            "sha256": "0964aee6bdcac693d4553c24400bd6b989af735b1c9f0b8ac7abebb8dbab7314"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"ca3e0e795b27fc83739502fd264935dc8d76d307633e7b5edcab0a7470004816\",\"size_bytes\":5408,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-nonzero-authenticode-alignment: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-with-mz-authenticode-alignment",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-mz-authenticode-alignment.nupkg",
+          "sha256": "cae4c28a4e84edd96a1af2c24884bb3dd0e1c572d8727a37e4075e942a775fbc"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-mz-authenticode-alignment.nupkg",
+            "sha256": "cae4c28a4e84edd96a1af2c24884bb3dd0e1c572d8727a37e4075e942a775fbc"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"e9f5c4159e797152613a16d6e957945f5d81ce6e1f025a625513fd04de82190d\",\"size_bytes\":5408,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-mz-authenticode-alignment: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-with-id-data-certificate",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-id-data-certificate.nupkg",
+          "sha256": "7daaf9fe42651cfd917237af001f9cbe721ce5a244e4deb3dc8130be6217dd9a"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-id-data-certificate.nupkg",
+            "sha256": "7daaf9fe42651cfd917237af001f9cbe721ce5a244e4deb3dc8130be6217dd9a"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"02c62dd94100cc52e6aa3792cc83cba8be22d5634c8d043e11f7e4b2d37b73bc\",\"size_bytes\":4144,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-id-data-certificate: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-with-45-byte-nonzero-certificate-alignment",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-45-byte-nonzero-certificate-alignment.nupkg",
+          "sha256": "5ea48ba4be14ed7138306cfea74bdc6eebf10ac954d635cf40c7e92b4d548681"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-45-byte-nonzero-certificate-alignment.nupkg",
+            "sha256": "5ea48ba4be14ed7138306cfea74bdc6eebf10ac954d635cf40c7e92b4d548681"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"0d6669ab9763eb5511c1cca036dd7988ae2ebb77fecd66b8182d05b062b7e668\",\"size_bytes\":4144,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-45-byte-nonzero-certificate-alignment: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-with-45-byte-mz-certificate-alignment",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-45-byte-mz-certificate-alignment.nupkg",
+          "sha256": "ade37e14e73d49c16a4ae5400a4c1441847bd8f71f03427462a747e0f591b252"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-45-byte-mz-certificate-alignment.nupkg",
+            "sha256": "ade37e14e73d49c16a4ae5400a4c1441847bd8f71f03427462a747e0f591b252"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"9b58707cabe877f9554c8dfecb93cdf507dabd7dc4738d80ebd20e6e30e4cce0\",\"size_bytes\":4144,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-45-byte-mz-certificate-alignment: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-with-gzip-in-certificate",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-gzip-in-certificate.nupkg",
+          "sha256": "cc8c9613339af03194baedbe6c1bbd87e0d2a38ad50c6a4ed275aa962b674171"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-gzip-in-certificate.nupkg",
+            "sha256": "cc8c9613339af03194baedbe6c1bbd87e0d2a38ad50c6a4ed275aa962b674171"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"2edfe8bf0fbc981b12c9ae57f9fbc23b87e37c1578fb6147645f3148e85a2b1c\",\"size_bytes\":4160,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-gzip-in-certificate: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-with-cab-in-certificate",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-cab-in-certificate.nupkg",
+          "sha256": "aa08800e79b4b1bae63fc7b7cf748c72667dc1ae0813592f6be870f1172bb88d"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-cab-in-certificate.nupkg",
+            "sha256": "aa08800e79b4b1bae63fc7b7cf748c72667dc1ae0813592f6be870f1172bb88d"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"02cc4ca407acdff233cb712c247880e85cb3bd51bad41e319792832fef7c9210\",\"size_bytes\":4160,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-cab-in-certificate: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-with-sevenzip-in-certificate",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-sevenzip-in-certificate.nupkg",
+          "sha256": "1972884e09224a1195020cdfad6e958c211b77d3ceb454720ec4167597c257d8"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-sevenzip-in-certificate.nupkg",
+            "sha256": "1972884e09224a1195020cdfad6e958c211b77d3ceb454720ec4167597c257d8"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"f9a33c9958ac5a74b9c7f4d1c8cf92924d3d3135faa5de3b228bb33c9428a550\",\"size_bytes\":4160,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-sevenzip-in-certificate: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-with-unknown-certificate-content",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-unknown-certificate-content.nupkg",
+          "sha256": "6a19edbdbc98b6e8643f48024e8163d83f36a20492fb871b8aeceaad70d5ee82"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-unknown-certificate-content.nupkg",
+            "sha256": "6a19edbdbc98b6e8643f48024e8163d83f36a20492fb871b8aeceaad70d5ee82"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"c9f1b7e7d179ab845c5b8647a04b23c597d3e8793eb93d6c97219aa0ec0f6b59\",\"size_bytes\":5408,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-unknown-certificate-content: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-signed-with-gzip-in-authenticode-content",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/signed-with-gzip-in-authenticode-content.nupkg",
+          "sha256": "437926fe05221ba3eca1e6753700f461e3fff2dc01c798d5c37af02740f74826"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/signed-with-gzip-in-authenticode-content.nupkg",
+            "sha256": "437926fe05221ba3eca1e6753700f461e3fff2dc01c798d5c37af02740f74826"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"fed2745b8989ac1767c807dbdedd27961ec0122f4b77134d15ffa161f9ccbf22\",\"size_bytes\":5408,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 signed-with-gzip-in-authenticode-content: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
       "case_id": "pi01-signed-with-certificate-and-unsigned-overlay",
       "row_id": "PI-01",
       "inputs": [
         {
           "role": "package",
           "path": "packages/signed-with-certificate-and-unsigned-overlay.nupkg",
-          "sha256": "9066d5111993b0213e2fdc53fd0baad734c27318b6cd6a18e4d0d7c173143493"
+          "sha256": "f6e089ee58de41ecef59949926e4f6da89819b49e2089168820ea3e262ca96a2"
         }
       ],
       "expected": {
@@ -1502,13 +1892,13 @@
           {
             "role": "package",
             "path": "packages/signed-with-certificate-and-unsigned-overlay.nupkg",
-            "sha256": "9066d5111993b0213e2fdc53fd0baad734c27318b6cd6a18e4d0d7c173143493"
+            "sha256": "f6e089ee58de41ecef59949926e4f6da89819b49e2089168820ea3e262ca96a2"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"inventory_evidence\":\"Uninventoried PE overlay: 3584 bytes after certificate table.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"f62d572f8c5b58101140b02ffabb9cbe96da6805be41ad59f6d71121bf66524d\",\"size_bytes\":7728,\"state\":\"opaque-container\"}]",
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"inventory_evidence\":\"Uninventoried PE overlay: 3584 bytes after certificate table.\",\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"cab6b26dc52923ab7fbb5e17b822c447bad4466bf6624d862c510ef829af4ccd\",\"size_bytes\":8992,\"state\":\"opaque-container\"}]",
         "finding": null,
         "missing_fact": "An opaque entry, nested container or native PE could contain assemblies; packaged assembly inventory is incomplete.",
         "required_input": "complete-safe-bundle-and-nested-container-inventory",
@@ -1527,7 +1917,7 @@
         {
           "role": "package",
           "path": "packages/signed-with-invalid-certificate.nupkg",
-          "sha256": "ca5e58b870e23db02d02df01b277da03554d42edfd2a3fa91318eaed2df6fd55"
+          "sha256": "501069ed635fe05f98a02a9b28aebb44c575d510a67039c90d2ef33aa2e387b2"
         }
       ],
       "expected": {
@@ -1541,13 +1931,13 @@
           {
             "role": "package",
             "path": "packages/signed-with-invalid-certificate.nupkg",
-            "sha256": "ca5e58b870e23db02d02df01b277da03554d42edfd2a3fa91318eaed2df6fd55"
+            "sha256": "501069ed635fe05f98a02a9b28aebb44c575d510a67039c90d2ef33aa2e387b2"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"8112e3ac89ada90f18af15c1d064ccb72db262f5863e2f3f5294f433f440c9bb\",\"size_bytes\":4144,\"state\":\"unsafe\"}]",
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"78ce3f7abd6b2e5a28822d47032222082726f9a4069d4ec1960f03d13459a182\",\"size_bytes\":5408,\"state\":\"unsafe\"}]",
         "finding": null,
         "missing_fact": "Potential .NET assembly cannot be safely classified.",
         "required_input": "inspectable-complete-pe-cli-assembly",
@@ -1566,7 +1956,7 @@
         {
           "role": "package",
           "path": "packages/signed-with-unsigned-pe-inside-certificate.nupkg",
-          "sha256": "20e3f02bf6adc149e2daa5daf5fceb9b18b0631227770223bbc4e19be4655e0e"
+          "sha256": "3f209772061822face899bb26546525d4bd338367403a06d70e4cfea0eb13c5a"
         }
       ],
       "expected": {
@@ -1580,13 +1970,13 @@
           {
             "role": "package",
             "path": "packages/signed-with-unsigned-pe-inside-certificate.nupkg",
-            "sha256": "20e3f02bf6adc149e2daa5daf5fceb9b18b0631227770223bbc4e19be4655e0e"
+            "sha256": "3f209772061822face899bb26546525d4bd338367403a06d70e4cfea0eb13c5a"
           }
         ],
         "evidence_references": [
           "package:archive"
         ],
-        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"a7bc1d908169141ae883e36e11c64cc7479b453f955bbee2f988d507985b1a51\",\"size_bytes\":7744,\"state\":\"unsafe\"}]",
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"e3e98f452e1402ce3ee21cfa66060ba66b7c6c6e0d362306623b7a9d23cd70e7\",\"size_bytes\":7744,\"state\":\"unsafe\"}]",
         "finding": null,
         "missing_fact": "Potential .NET assembly cannot be safely classified.",
         "required_input": "inspectable-complete-pe-cli-assembly",
@@ -2184,6 +2574,84 @@
       ]
     },
     {
+      "case_id": "pi01-metadata-zero-typedef-name",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-zero-typedef-name.nupkg",
+          "sha256": "8cb3567b44dbb13d0060c718c879b249b6a7b612edc5866ea98550665ff24fb7"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-zero-typedef-name.nupkg",
+            "sha256": "8cb3567b44dbb13d0060c718c879b249b6a7b612edc5866ea98550665ff24fb7"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"9e713f4584009354fbafc565ed67882db6e35218d0aeee04b4e3cc399f762c57\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-zero-typedef-name: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-zero-typedef-method-list",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-zero-typedef-method-list.nupkg",
+          "sha256": "370eea2f02d57a42eb06a82dcb9d0784aa417867d9e0d0fcb6d6798fd0d75b4e"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-zero-typedef-method-list.nupkg",
+            "sha256": "370eea2f02d57a42eb06a82dcb9d0784aa417867d9e0d0fcb6d6798fd0d75b4e"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"98373cc9b42419ee8c3f4b76dc8dc3079dea35c1681850fb021679f4e2328181\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-zero-typedef-method-list: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
       "case_id": "pi01-metadata-bad-later-typedef-name",
       "row_id": "PI-01",
       "inputs": [
@@ -2217,6 +2685,45 @@
         "next_category": "package-owner"
       },
       "rationale": "PI-01 metadata-bad-later-typedef-name: a PE/CLI candidate cannot safely establish assembly signing.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "pi01-metadata-zero-method-signature-blob",
+      "row_id": "PI-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/metadata-zero-method-signature-blob.nupkg",
+          "sha256": "c3557339a6235ab23247e6194e43ef5eb55fc2512b565985bfaee9e3d2f3a695"
+        }
+      ],
+      "expected": {
+        "row_id": "PI-01",
+        "resolver_id": "pi01-strong-name",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-assembly",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/metadata-zero-method-signature-blob.nupkg",
+            "sha256": "c3557339a6235ab23247e6194e43ef5eb55fc2512b565985bfaee9e3d2f3a695"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Inspected PE/CLI candidates (sorted by ordinal path; SHA-256 covers exact ZIP entry bytes): [{\"path\":\"lib/net8.0/Sample.PI01.dll\",\"sha256\":\"72b37705835212555b78772c48895be94aab4bf259aca63d21a8d8fddca1ad27\",\"size_bytes\":3584,\"state\":\"unsafe\"}]",
+        "finding": null,
+        "missing_fact": "Potential .NET assembly cannot be safely classified.",
+        "required_input": "inspectable-complete-pe-cli-assembly",
+        "next_category": "package-owner"
+      },
+      "rationale": "PI-01 metadata-zero-method-signature-blob: a PE/CLI candidate cannot safely establish assembly signing.",
       "evidence_pointers": [
         "package:archive",
         "package:nuspec/metadata"
