@@ -88,8 +88,10 @@ public sealed class ProgramGraderTests : IDisposable
                     const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
                     const file=process.env.EVALUATE_GRADER_INPUT;
                     const input=JSON.parse(fs.readFileSync(file,'utf8'));
-                    assert.equal(process.env.EVALUATE_WORKSPACE,process.cwd());
-                    assert.equal(path.dirname(file)===process.cwd(),false);
+                    const workspace=fs.realpathSync(process.cwd());
+                    assert.equal(fs.realpathSync(process.env.EVALUATE_WORKSPACE),workspace);
+                    const relative=path.relative(workspace,fs.realpathSync(file));
+                    assert.ok(relative.startsWith('..'+path.sep)||path.isAbsolute(relative));
                     assert.equal(input.trajectory.events[0].data.toolCallId,'actual-call');
                     assert.equal(input.trajectory.output,'observed response');
                     for(const key of ['EVALUATE_ASSETS','EVALUATE_ARTIFACT_DIR','EVALUATE_ARTIFACT_DIR_STRICT'])
