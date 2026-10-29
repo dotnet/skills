@@ -58,14 +58,15 @@ place empty `urn:other` metadata beside recognized metadata with populated
 authors. NuGet's
 [`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
 selects the first root child by local name `metadata`, regardless of namespace;
-the shared reader selects only root-namespace metadata. Foreign-first inspects
-different nodes; recognized-first still contains competing root metadata.
-Both freeze `ambiguous-metadata` / `escalated` / `unknown`, no finding or field
+the shared reader now returns typed metadata ambiguity when a foreign sibling
+accompanies recognized metadata. Foreign-first makes NuGet inspect the foreign
+node; recognized-first still contains competing root metadata even though
+NuGet can see the recognized field. Both cases replay to the frozen
+`ambiguous-metadata` / `escalated` / `unknown` result, no finding or field
 evidence, an archive-level evidence pointer and `unambiguous-nuspec`
 requested from the package owner. These well-formed controls are not claims
 that authors are missing. All earlier bytes/expectations and retained
-outcomes remain intact; the two new cases intentionally mismatch the
-current shared reader.
+outcomes remain intact; both cases replay to their frozen expectations.
 
 `cases.json` freezes 52 complete structured `CaseResult` expectations (51
 synthetic archives and one absent-input case). Named branches cover plain,
@@ -105,4 +106,4 @@ For an opt-in retained resolver replay, copy verified retained inputs to a
 temporary `packages\` directory beside a copy of `acceptance.json`; record
 results in `acceptance-receipt.template.json`. This validator is not a
 retained resolver replay. LP-05 through LP-09 are implemented; the cross-row
-metadata controls above are deliberately ahead of their shared reader.
+metadata controls above replay to their frozen expectations.

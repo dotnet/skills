@@ -92,15 +92,16 @@ place empty `urn:other` metadata beside one recognized metadata element with
 a populated ProjectUrl. NuGet's
 [`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
 selects the first root child by local name `metadata` regardless of namespace,
-while the shared resolver reader selects only root-namespace metadata.
-Foreign-first makes NuGet report no ProjectUrl while the shared reader reports
-the recognized URL; recognized-first can appear to agree, but still has
-competing root metadata. Both orderings freeze `ambiguous-metadata` /
-`escalated` / `unknown`, no field finding or field evidence, an archive-level
-evidence pointer and `unambiguous-nuspec` requested from the package owner.
+while the shared resolver reader now returns typed metadata ambiguity when a
+foreign sibling accompanies recognized metadata. Foreign-first makes NuGet
+report no ProjectUrl; recognized-first can make NuGet report the recognized
+URL, but still has competing root metadata. Both orderings replay to the
+frozen `ambiguous-metadata` / `escalated` / `unknown` result, no field finding
+or field evidence, an archive-level evidence pointer and `unambiguous-nuspec`
+requested from the package owner.
 This is a well-formed XML structure/reader ambiguity, not a missing or blank
 ProjectUrl. Earlier bytes/expectations and retained outcomes are unchanged;
-the two new cases intentionally mismatch the current shared reader.
+both cases replay to their frozen expectations.
 
 `cases.json` freezes **67 complete structured CaseResult expectations**
 (66 synthetic archives and one absent-input case). The branch matrix covers:
@@ -148,5 +149,5 @@ For an opt-in retained acceptance replay, copy verified vendor packages into
 a temporary `packages\` directory beside a copy of `acceptance.json`, then
 record results in `acceptance-receipt.template.json`. This validator is not
 that replay. LP-05 through LP-09 are implemented, and the other 55 package
-rows remain `tbd`; the new cross-row metadata controls are deliberately ahead
-of the shared reader pending separately approved implementation work.
+rows remain `tbd`; both cross-row metadata controls now replay to their frozen
+expectations.

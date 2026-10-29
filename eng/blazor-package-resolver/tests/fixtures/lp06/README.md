@@ -38,15 +38,17 @@ place empty `urn:other` metadata beside one recognized metadata element
 containing a populated repository URL. NuGet's
 [`NuspecCoreReaderBase.MetadataNode`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
 selects the first root child by local name `metadata`, regardless of namespace;
-the shared resolver reader selects only root-namespace metadata. Foreign-first
-selects different nodes, while recognized-first can appear to agree yet still
-leaves competing root metadata. Both freeze `ambiguous-metadata` / `escalated`
-/ `unknown`, no field finding or field evidence, an archive-level evidence
-pointer and a request for an `unambiguous-nuspec` from the package owner.
+the shared resolver reader now returns typed metadata ambiguity when a foreign
+sibling accompanies recognized metadata. Foreign-first makes NuGet inspect
+the foreign node, while recognized-first can make NuGet report the URL yet
+still leaves competing root metadata. Both cases replay to the frozen
+`ambiguous-metadata` / `escalated` / `unknown` result, no field finding or
+field evidence, an archive-level evidence pointer and a request for an
+`unambiguous-nuspec` from the package owner.
 Well-formed XML with a recognized sibling must not silently establish a
 field. The suite now has 33 cases and 32 pinned archives; all earlier
-bytes/expectations and retained outcomes remain unchanged. The new cases
-intentionally mismatch the current shared reader pending a separate fix.
+bytes/expectations and retained outcomes remain unchanged. Both cases replay
+to their frozen expectations.
 
 `cases.json` freezes the full structured `CaseResult` for each branch. Every
 generated synthetic archive fixes its ZIP creator, version, mode, timestamp,
@@ -90,5 +92,5 @@ then run the foundation `replay` command on that temporary suite.
 `acceptance-receipt.template.json` records expectation commit, checked
 identities, exit codes and exact expected-result comparisons separately.
 The validator is **not** a retained resolver replay. LP-05 through LP-09
-are implemented; the cross-row metadata controls above are deliberately
-ahead of their shared reader.
+are implemented; both cross-row metadata controls above replay to their frozen
+expectations.
