@@ -170,6 +170,8 @@ def assembly_state(data):
         require(digest(data) == TEMPLATE_HASHES["module.netmodule"],
                 "module-only metadata needs independent validation")
         state, _ = inspect_managed(data)
+        if state == "opaque-container":
+            return state
         require(state == "module-only", "Module metadata is incoherent")
         return state
     require(counts[32] == 1 and rows + 32 <= tables_end,
@@ -178,6 +180,8 @@ def assembly_state(data):
     signature_rva, signature_size = u32(data, cli + 32), u32(data, cli + 36)
     if not signature_rva and not signature_size and not (flags & 8):
         state, _ = inspect_managed(data)
+        if state == "opaque-container":
+            return state
         require(state == "unsigned", "Assembly metadata is incoherent")
         return state
     require(signature_rva and signature_size, "inconsistent strong-name flag and reservation")
@@ -185,12 +189,15 @@ def assembly_state(data):
     offset = locate(signature_rva, signature_size)
     if not any(data[offset:offset + signature_size]):
         state, _ = inspect_managed(data)
+        if state == "opaque-container":
+            return state
         require(state == ("public-signed" if flags & 8 else "delay-signed"),
                 "Assembly metadata is incoherent")
         return state
     require(flags & 8, "flag clear with nonzero signature")
     state, _ = inspect_managed(data)
-    require(state in ("verified-signed", "invalid-signature", "signature-unverified"),
+    require(state in ("verified-signed", "invalid-signature", "signature-unverified",
+                      "opaque-container"),
             "Assembly metadata is incoherent")
     return state
 
@@ -236,6 +243,23 @@ def changed(data, offset, replacement):
     value = bytearray(data)
     value[offset:offset + len(replacement)] = replacement
     return bytes(value)
+
+
+def der(tag, content):
+    length_bytes = len(content).to_bytes(max(1, (len(content).bit_length() + 7) // 8), "big")
+    length = bytes([len(content)]) if len(content) < 128 else (
+        bytes([0x80 + len(length_bytes)]) + length_bytes)
+    return bytes([tag]) + length + content
+
+
+def certificate(payload=b""):
+    data = der(0x30, der(0x06, bytes.fromhex("2a864886f70d010701")) +
+               (der(0xa0, der(0x04, payload)) if payload else b""))
+    cms = der(0x30, der(0x06, bytes.fromhex("2a864886f70d010702")) +
+              der(0xa0, der(0x30, der(0x02, b"\x01") + der(0x31, b"") +
+                              data + der(0x31, b""))))
+    framed = struct.pack("<IHH", (8 + len(cms) + 7) & ~7, 0x0200, 0x0002) + cms
+    return framed + bytes((-len(framed)) % 8)
 
 
 def fixture(name):
@@ -344,6 +368,22 @@ SIGNED_OFF = image_offsets(SIGNED)
 VERIFIED_OFF = image_offsets(VERIFIED)
 KEY_MAGIC = VERIFIED.find(b"RSA1")
 require(KEY_MAGIC >= 20, "Signed fixture has no RSA public-key blob")
+TYPEDEF2_NAME = OFF["metadata"] + 246
+require(u16(PE, TYPEDEF2_NAME) == 10, "Pinned unsigned fixture TypeDef layout changed")
+METHOD_SIGNATURE = OFF["metadata"] + 266
+ATTRIBUTE_PARENT = OFF["metadata"] + 320
+require(u16(PE, METHOD_SIGNATURE) == 30 and u16(PE, ATTRIBUTE_PARENT) == 39,
+        "Pinned unsigned fixture metadata reference layout changed")
+WIN_CERTIFICATE = certificate()
+WITH_CERTIFICATE = changed(VERIFIED, VERIFIED_OFF["option"] + 128,
+                           struct.pack("<II", len(VERIFIED), len(WIN_CERTIFICATE))) + WIN_CERTIFICATE
+EMBEDDED_CERTIFICATE = certificate(PE)
+WITH_EMBEDDED_CERTIFICATE = changed(VERIFIED, VERIFIED_OFF["option"] + 128,
+                                    struct.pack("<II", len(VERIFIED), len(EMBEDDED_CERTIFICATE))) + EMBEDDED_CERTIFICATE
+HEADER_PADDING = (VERIFIED_OFF["option"] + u16(VERIFIED, u32(VERIFIED, 0x3c) + 20) +
+                  u16(VERIFIED, u32(VERIFIED, 0x3c) + 6) * 40)
+require(HEADER_PADDING < u32(VERIFIED, VERIFIED_OFF["option"] + 60) and
+        VERIFIED[HEADER_PADDING] == 0, "Pinned PE header padding layout changed")
 CASES = (
     spec("empty"),
     spec("readme", (("README.md", b"Package documentation\n"),)),
@@ -395,6 +435,20 @@ CASES = (
                                                    bytes([VERIFIED[VERIFIED_OFF["option"] + 2] ^ 1]))),),
          "invalid-signature"),
     spec("verified-signed", ((EXAMPLE, VERIFIED),), "verified-signed"),
+    spec("signed-with-unsigned-pe-overlay", ((EXAMPLE, VERIFIED + PE),),
+         "opaque-container"),
+    spec("signed-with-unhashed-header-padding",
+         ((EXAMPLE, changed(VERIFIED, HEADER_PADDING, b"\x01")),),
+         "opaque-container"),
+    spec("signed-with-authenticode-certificate", ((EXAMPLE, WITH_CERTIFICATE),),
+         "verified-signed"),
+    spec("signed-with-certificate-and-unsigned-overlay",
+         ((EXAMPLE, WITH_CERTIFICATE + PE),), "opaque-container"),
+    spec("signed-with-invalid-certificate",
+         ((EXAMPLE, changed(WITH_CERTIFICATE, len(VERIFIED) + 6, b"\x00\x00")),),
+         "unsafe-assembly"),
+    spec("signed-with-unsigned-pe-inside-certificate",
+         ((EXAMPLE, WITH_EMBEDDED_CERTIFICATE),), "unsafe-assembly"),
     spec("signature-unsupported-hash", ((EXAMPLE, changed(VERIFIED, KEY_MAGIC - 16,
                                                          struct.pack("<I", 0x8005))),),
          "signature-unverified"),
@@ -421,6 +475,12 @@ CASES = (
             u64(PE, OFF["tables"] + 8) & ~(1 << 32)))),), "unsafe-assembly"),
     spec("metadata-no-assembly-row", ((EXAMPLE, changed(PE, OFF["assembly_count"], bytes(4))),), "unsafe-assembly"),
     spec("metadata-no-module-row", ((EXAMPLE, changed(PE, OFF["module_count"], bytes(4))),), "unsafe-assembly"),
+    spec("metadata-bad-later-typedef-name",
+         ((EXAMPLE, changed(PE, TYPEDEF2_NAME, b"\xff\xff")),), "unsafe-assembly"),
+    spec("metadata-bad-method-signature-blob",
+         ((EXAMPLE, changed(PE, METHOD_SIGNATURE, b"\xff\xff")),), "unsafe-assembly"),
+    spec("metadata-bad-custom-attribute-parent",
+         ((EXAMPLE, changed(PE, ATTRIBUTE_PARENT, b"\xff\xff")),), "unsafe-assembly"),
     spec("metadata-no-stream", ((EXAMPLE, changed(PE, OFF["stream_count"], bytes(2))),), "unsafe-assembly"),
     spec("metadata-bad-stream", ((EXAMPLE, changed(PE, OFF["stream_offset"],
                                                  b"\xff\xff\xff\x7f")),), "unsafe-assembly"),
@@ -550,6 +610,8 @@ def scan(content):
                     record = dict(path=name, sha256=digest(raw), size_bytes=len(raw), state=state)
                     if state in ("verified-signed", "invalid-signature", "signature-unverified"):
                         record["cryptographic_evidence"] = inspect_managed(raw)[1]
+                    elif state == "opaque-container":
+                        record["inventory_evidence"] = inspect_managed(raw)[1]
                     records.append(record)
                 elif raw and not (lower.endswith((".rels", ".txt", ".md", ".png",
                                                   ".jpg", ".jpeg", ".gif", ".svg",
