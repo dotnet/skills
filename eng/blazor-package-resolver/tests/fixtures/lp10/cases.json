@@ -6363,6 +6363,162 @@
         "package:archive",
         "package:nuspec/metadata"
       ]
+    },
+    {
+      "case_id": "lp10-nuspec-comment-decoy",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nuspec-comment-decoy.nupkg",
+          "sha256": "b0b319aba0a508e4a30ed6c542b3c4cea7c47395ac057f6101663b3665bda6c4"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nuspec-comment-decoy.nupkg",
+            "sha256": "b0b319aba0a508e4a30ed6c542b3c4cea7c47395ac057f6101663b3665bda6c4"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 nuspec-comment-decoy: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-build-comment-decoy",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/build-comment-decoy.nupkg",
+          "sha256": "cbe81ccd9140771e2f8426847f4aa4b6ac94e906466fa1ff45621502f62520dc"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/build-comment-decoy.nupkg",
+            "sha256": "cbe81ccd9140771e2f8426847f4aa4b6ac94e906466fa1ff45621502f62520dc"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "All checked non-manifest entries matched the bounded passive/declaration allowlist.",
+        "finding": "No executable/code payload candidates were found among the safely classified entries; LP-10 holds vacuously for this checked package only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 build-comment-decoy: checked package inventory matches only bounded passive/declaration forms.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-pi-project-caller",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/pi-project-caller.nupkg",
+          "sha256": "775a499c2a82eaeb91d8ccd9b776c1aa20264da6b91f20aca00a3d424161fd74"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/pi-project-caller.nupkg",
+            "sha256": "775a499c2a82eaeb91d8ccd9b776c1aa20264da6b91f20aca00a3d424161fd74"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 pi-project-caller: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp10-dtd-project-caller",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/dtd-project-caller.nupkg",
+          "sha256": "c69c484995dd0e0353e3c58bd17ebbf22624344e348d6ac930a1e7e1a9ce6659"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "incomplete-inventory",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/dtd-project-caller.nupkg",
+            "sha256": "c69c484995dd0e0353e3c58bd17ebbf22624344e348d6ac930a1e7e1a9ce6659"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A required entry or build XML exceeds inspection limits or cannot be safely parsed; the package inventory is incomplete.",
+        "required_input": "bounded-safely-inspectable-package",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 dtd-project-caller: checked package inventory cannot safely be completed; archive/manifest safety takes precedence.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
     }
   ]
 }
