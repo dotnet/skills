@@ -149,9 +149,10 @@ Keep the handoff concise and evidence-based:
 
 If — and only if — the change touches a **public** symbol, an **internal** symbol exposed to a friend
 assembly through `InternalsVisibleTo`, a **multi-targeted** project, or `partial`/generated code, some
-breaks won't show up as a failing test. Invoke the
-`dotnet-breaking-changes` skill before editing; it owns the compatibility decisions, and this skill
-still owns the structural steps. Search the repo for the surface
+breaks won't show up as a failing test. Before invoking `dotnet-breaking-changes`, apply its scope
+exclusions: skip it for local/private renames and for public-member renames in an executable whose
+callers all live in that project. Otherwise invoke it before editing; it owns the compatibility
+decisions, while this skill owns the structural steps. Search the repo for the surface
 that governs the symbol (don't assume): the public-API gate (`PublicAPI.Shipped/Unshipped.txt` for
 PublicApiAnalyzers, and/or `ApiCompat`/`<EnablePackageValidation>` — not interchangeable),
 `<TargetFrameworks>`/`#if` branches, and `InternalsVisibleTo`. Moving a public type to another assembly
