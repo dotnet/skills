@@ -1,0 +1,572 @@
+"""Freeze LP-01 package license-policy expectations without dispatching a resolver."""
+
+import argparse
+import hashlib
+import io
+import json
+import os
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+import zipfile
+from pathlib import Path
+
+ROOT = Path(__file__).parent / "fixtures" / "lp01"
+POLICY = ROOT / "policy" / "lp01-policy-1.0.0.json"
+CATALOG = ROOT / "policy" / "spdx-licenses-3.27.0.json"
+CATALOG_SHA = "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+NS = "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd"
+LICENSE = '<license type="expression">{}</license>'
+ZIP_DATE = (2020, 1, 1, 0, 0, 0)
+VENDORS = (
+    ("syncfusion", "syncfusion.blazor.toolkit.2.0.1.nupkg",
+     "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d",
+     4912251, "Syncfusion.Blazor.Toolkit.nuspec",
+     "e9a55efdfc3385c1df49206839689f3f01c0bf5731b6130f05a601632a77acb7"),
+    ("infragistics", "igniteui.blazor.lite.0.3.0.nupkg",
+     "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63",
+     1417667, "IgniteUI.Blazor.Lite.nuspec",
+     "8399959e38391faa853f874f6d4c2d10a2724f3e978af5fc79fbd46a7a74833c"),
+)
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def encoded(value):
+    return (json.dumps(value, indent=2, ensure_ascii=True) + "\n").encode()
+
+
+def sha(content):
+    return hashlib.sha256(content).hexdigest()
+
+
+def policy_data():
+    policy_bytes = POLICY.read_bytes()
+    catalog_bytes = CATALOG.read_bytes()
+    require(sha(catalog_bytes) == CATALOG_SHA, "Pinned SPDX catalog SHA-256 differs.")
+    policy = json.loads(policy_bytes)
+    catalog = json.loads(catalog_bytes)
+    validate_policy(policy, catalog, sha(catalog_bytes))
+    return policy_bytes, catalog_bytes, policy, {
+        item["licenseId"]: item for item in catalog["licenses"]
+    }
+
+
+def validate_policy(policy, catalog, catalog_digest):
+    require(policy["policy_version"] == "1.0.0" and
+            policy["spdx_version"] == catalog["licenseListVersion"] == "3.27.0" and
+            policy["spdx_sha256"] == catalog_digest == CATALOG_SHA,
+            "LP-01 policy provenance is inconsistent.")
+    licenses = {item["licenseId"]: item for item in catalog["licenses"]}
+    require(len(licenses) == len(catalog["licenses"]), "Duplicate SPDX license identifiers.")
+    groups = [policy[name] for name in ("non_copyleft_allowlist", "copyleft", "weak_copyleft")]
+    ids = [name for group in groups for name in group]
+    require(len(ids) == len(set(ids)) and all(
+        name in licenses and licenses[name]["isOsiApproved"] and
+        not licenses[name].get("isDeprecatedLicenseId", False) for name in ids),
+        "LP-01 policy classifications overlap, are deprecated or lack OSI approval.")
+
+
+def expression_state(text, policy, licenses):
+    """Evaluate every SPDX alternative; an unreviewed choice cannot become a positive."""
+    tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9.+-]*|[()]|\S", text)
+    require("".join(tokens) == re.sub(r"\s+", "", text), "Invalid SPDX token spacing.")
+    position = 0
+
+    def atom():
+        nonlocal position
+        require(position < len(tokens), "Incomplete SPDX expression.")
+        if tokens[position] == "(":
+            position += 1
+            value = alternatives()
+            require(position < len(tokens) and tokens[position] == ")", "Unclosed SPDX group.")
+            position += 1
+            return value
+        token = tokens[position]
+        require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+-]*", token) and
+                token not in ("AND", "OR", "WITH"), "Invalid SPDX license term.")
+        position += 1
+        if position < len(tokens) and tokens[position] == "WITH":
+            position += 1
+            require(position < len(tokens) and
+                    re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+-]*", tokens[position]),
+                    "Missing SPDX exception.")
+            exception = tokens[position]
+            position += 1
+            return [frozenset((token, "WITH:" + exception))]
+        return [frozenset((token,))]
+
+    def conjunction():
+        nonlocal position
+        result = atom()
+        while position < len(tokens) and tokens[position] == "AND":
+            position += 1
+            right = atom()
+            result = [left | term for left in result for term in right]
+        return result
+
+    def alternatives():
+        nonlocal position
+        result = conjunction()
+        while position < len(tokens) and tokens[position] == "OR":
+            position += 1
+            result += conjunction()
+        return result
+
+    require(tokens, "Empty SPDX expression.")
+    options = alternatives()
+    require(position == len(tokens), "Trailing or misplaced SPDX tokens.")
+    terms = set().union(*options)
+    if any(term.startswith("WITH:") for term in terms):
+        return "exception-unreviewed"
+    if any(term.startswith(("LicenseRef-", "DocumentRef-")) for term in terms):
+        return "custom-license"
+    if any(term not in licenses for term in terms):
+        return "unknown-license"
+    if any(licenses[term].get("isDeprecatedLicenseId", False) or term.endswith("+")
+           for term in terms):
+        return "deprecated-license"
+    if any(not licenses[term]["isOsiApproved"] for term in terms):
+        if all(any(not licenses[term]["isOsiApproved"] for term in option) for option in options):
+            return "non-osi"
+        return "mixed-alternatives"
+    allowed = set(policy["non_copyleft_allowlist"])
+    strong = set(policy["copyleft"])
+    weak = set(policy["weak_copyleft"])
+    if all(option <= allowed for option in options):
+        return "approved-non-copyleft"
+    if all(option & weak and not option & strong for option in options):
+        return "weak-copyleft"
+    if all(option & strong for option in options):
+        return "copyleft"
+    if any(option & (strong | weak) for option in options) and any(
+            option <= allowed for option in options):
+        return "mixed-alternatives"
+    return "unclassified-osi"
+
+
+# Exact expected branch is independent of the expression parser's result.
+# name, metadata, branch, optional packaged license text
+SPECS = (
+    ("mit", LICENSE.format(" MIT "), "approved-non-copyleft", None),
+    ("apache", LICENSE.format("Apache-2.0"), "approved-non-copyleft", None),
+    ("bsd", LICENSE.format("BSD-3-Clause"), "approved-non-copyleft", None),
+    ("and-permissive", LICENSE.format("MIT AND Apache-2.0"), "approved-non-copyleft", None),
+    ("or-permissive", LICENSE.format("MIT OR BSD-3-Clause"), "approved-non-copyleft", None),
+    ("parenthesized", LICENSE.format("( MIT OR Apache-2.0 ) AND BSD-2-Clause"), "approved-non-copyleft", None),
+    ("nested", LICENSE.format("MIT AND ( Apache-2.0 OR ( BSD-2-Clause AND ISC ) )"), "approved-non-copyleft", None),
+    ("old-namespace", LICENSE.format("MIT"), "approved-non-copyleft", None),
+    ("no-namespace", LICENSE.format("MIT"), "approved-non-copyleft", None),
+    ("type-case", '<license type="Expression">MIT</license>', "approved-non-copyleft", None),
+    ("supported-version", '<license type="expression" version="1.0.0">MIT</license>', "approved-non-copyleft", None),
+    ("namespace-declaration", '<license xmlns:hint="urn:harmless" type="expression">MIT</license>', "approved-non-copyleft", None),
+    ("gpl", LICENSE.format("GPL-3.0-only"), "copyleft", None),
+    ("agpl", LICENSE.format("AGPL-3.0-only"), "copyleft", None),
+    ("gpl-and-mit", LICENSE.format("MIT AND GPL-3.0-only"), "copyleft", None),
+    ("gpl-or-agpl", LICENSE.format("GPL-3.0-only OR AGPL-3.0-only"), "copyleft", None),
+    ("mpl", LICENSE.format("MPL-2.0"), "weak-copyleft", None),
+    ("lgpl", LICENSE.format("LGPL-2.1-only"), "weak-copyleft", None),
+    ("epl-and-mit", LICENSE.format("EPL-2.0 AND MIT"), "weak-copyleft", None),
+    ("mit-or-gpl", LICENSE.format("MIT OR GPL-3.0-only"), "mixed-alternatives", None),
+    ("mit-or-mpl", LICENSE.format("MIT OR MPL-2.0"), "mixed-alternatives", None),
+    ("cc0", LICENSE.format("CC0-1.0"), "non-osi", None),
+    ("mit-and-cc0", LICENSE.format("MIT AND CC0-1.0"), "non-osi", None),
+    ("mit-or-cc0", LICENSE.format("MIT OR CC0-1.0"), "mixed-alternatives", None),
+    ("osi-unclassified", LICENSE.format("Artistic-2.0"), "unclassified-osi", None),
+    ("custom", LICENSE.format("LicenseRef-Private"), "custom-license", None),
+    ("exception", LICENSE.format("GPL-3.0-only WITH Classpath-exception-2.0"), "exception-unreviewed", None),
+    ("unknown", LICENSE.format("Unknown-1.0"), "unknown-license", None),
+    ("deprecated", LICENSE.format("GPL-2.0+"), "deprecated-license", None),
+    ("case-sensitive", LICENSE.format("mit"), "unknown-license", None),
+    ("plus-suffix", LICENSE.format("GPL-3.0+"), "deprecated-license", None),
+    ("bad-operator", LICENSE.format("MIT XOR Apache-2.0"), "invalid-expression", None),
+    ("missing-operand", LICENSE.format("MIT AND"), "invalid-expression", None),
+    ("unclosed-group", LICENSE.format("(MIT OR Apache-2.0"), "invalid-expression", None),
+    ("blank-expression", LICENSE.format("  "), "invalid-expression", None),
+    ("file-only", '<license type="file">LICENSE.txt</license>', "file-unverified", b"License text alone is not an SPDX grant.\n"),
+    ("file-declared", '<license type="file">LICENSE.txt</license>', "file-declared", b"SPDX-License-Identifier: MIT\n"),
+    ("file-missing", '<license type="file">LICENSE.txt</license>', "file-unverified", None),
+    ("file-blank", '<license type="file">  </license>', "file-unverified", None),
+    ("file-unsafe-path", '<license type="file">../LICENSE.txt</license>', "file-unverified", None),
+    ("expression-file-match", LICENSE.format("MIT"), "approved-non-copyleft", b"SPDX-License-Identifier: MIT\n"),
+    ("expression-file-conflict", LICENSE.format("MIT"), "conflicting-declarations", b"SPDX-License-Identifier: GPL-3.0-only\n"),
+    ("url-only", "<licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>", "missing-license", None),
+    ("expression-url", LICENSE.format("MIT") + "<licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>", "approved-non-copyleft", None),
+    ("expression-url-different", LICENSE.format("MIT") + "<licenseUrl>https://example.test/gpl</licenseUrl>", "approved-non-copyleft", None),
+    ("missing", "", "missing-license", None),
+    ("unsupported-type", '<license type="url">MIT</license>', "unsafe-metadata", None),
+    ("duplicate-license", LICENSE.format("MIT") + LICENSE.format("GPL-3.0-only"), "unsafe-metadata", None),
+    ("foreign-license", '<x:license xmlns:x="urn:other" type="expression">MIT</x:license>', "unsafe-metadata", None),
+    ("version-newer", '<license type="expression" version="2.0.0">MIT</license>', "unsafe-metadata", None),
+    ("unknown-attribute", '<license type="expression" custom="yes">MIT</license>', "unsafe-metadata", None),
+    ("invalid-xml", "</metadata", "unsafe-package", None),
+    ("dtd-entity", '<license type="expression">&license;</license>', "unsafe-package", None),
+    ("foreign-root", LICENSE.format("MIT"), "unsafe-package", None),
+    ("foreign-metadata", LICENSE.format("MIT"), "unsafe-package", None),
+    ("foreign-metadata-after", LICENSE.format("MIT"), "unsafe-package", None),
+    ("no-nuspec", LICENSE.format("MIT"), "unsafe-package", None),
+    ("multiple-nuspec", LICENSE.format("MIT"), "unsafe-package", None),
+    ("subfolder-nuspec", LICENSE.format("MIT"), "unsafe-package", None),
+    ("corrupt-archive", "", "unsafe-package", None),
+    ("no-package", "", "missing-package", None),
+    ("no-policy", LICENSE.format("MIT"), "missing-policy", None),
+    ("no-corpus", LICENSE.format("MIT"), "missing-corpus", None),
+    ("policy-version-mismatch", LICENSE.format("MIT"), "invalid-policy", None),
+    ("policy-overlap", LICENSE.format("MIT"), "invalid-policy", None),
+    ("catalog-version-mismatch", LICENSE.format("MIT"), "invalid-policy", None),
+)
+
+
+def entry(name):
+    info = zipfile.ZipInfo(name, ZIP_DATE)
+    info.create_system = 3
+    info.create_version = info.extract_version = 20
+    info.external_attr = 0o100644 << 16
+    info.compress_type = zipfile.ZIP_STORED
+    return info
+
+
+def archive(name, metadata, file_text):
+    if name in ("no-package",):
+        return None
+    if name == "corrupt-archive":
+        return b"not-a-nupkg\n"
+    namespace = ("urn:other" if name == "foreign-root" else
+                 "http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd"
+                 if name == "old-namespace" else "" if name == "no-namespace" else NS)
+    extra = '<x:metadata xmlns:x="urn:other"/>' if name.startswith("foreign-metadata") else ""
+    dtd = '<!DOCTYPE package [<!ENTITY license "MIT">]>' if name == "dtd-entity" else ""
+    recognized = (f"<metadata><id>Sample.LP01</id>"
+                  f"<version>1.0.0</version>{metadata}</metadata>")
+    children = recognized + extra if name == "foreign-metadata-after" else extra + recognized
+    attribute = f' xmlns="{namespace}"' if namespace else ""
+    nuspec = (f'<?xml version="1.0" encoding="utf-8"?>{dtd}'
+              f'<package{attribute}>{children}</package>\n').encode()
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, "w", allowZip64=False) as package:
+        if name != "no-nuspec":
+            location = "nested/Sample.LP01.nuspec" if name == "subfolder-nuspec" else "Sample.LP01.nuspec"
+            package.writestr(entry(location), nuspec)
+        if name == "multiple-nuspec":
+            package.writestr(entry("Second.LP01.nuspec"), nuspec)
+        if name == "no-nuspec":
+            package.writestr(entry("README.txt"), b"No root nuspec.\n")
+        if file_text is not None:
+            package.writestr(entry("LICENSE.txt"), file_text)
+    return stream.getvalue()
+
+
+def policy_variant(name, policy_bytes, catalog_bytes):
+    if name == "policy-version-mismatch":
+        value = json.loads(policy_bytes)
+        value["spdx_version"] = "0.0.0"
+        return encoded(value), catalog_bytes
+    if name == "policy-overlap":
+        value = json.loads(policy_bytes)
+        value["copyleft"].append("MIT")
+        return encoded(value), catalog_bytes
+    if name == "catalog-version-mismatch":
+        value = {"licenseListVersion": "0.0.0", "licenses": []}
+        return policy_bytes, encoded(value)
+    return policy_bytes, catalog_bytes
+
+
+def disposition(branch):
+    if branch == "approved-non-copyleft":
+        return "deterministic", "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.", None, None, None
+    if branch == "file-declared":
+        return "deterministic", "Packaged license file explicitly declares MIT, classified OSI-approved and non-copyleft by pinned LP-01 policy; owner authority and repository-wide grant remain unverified.", None, None, None
+    if branch in ("copyleft", "weak-copyleft", "non-osi"):
+        return "deterministic", f"Checked package declares a {branch} license under pinned LP-01 policy; the package does not satisfy the non-copyleft OSI license condition.", None, None, None
+    explanations = {
+        "mixed-alternatives": ("An OR alternative is not established as OSI-approved and non-copyleft.", "binding-license-choice", "package-owner"),
+        "unclassified-osi": ("SPDX marks the identifier OSI-approved but this policy does not classify its copyleft obligations.", "reviewed-copyleft-classification", "policy-owner"),
+        "custom-license": ("A custom LicenseRef has no pinned OSI/copy-left classification.", "reviewed-custom-license", "policy-owner"),
+        "exception-unreviewed": ("WITH exception semantics have no pinned policy classification.", "reviewed-exception-policy", "policy-owner"),
+        "unknown-license": ("The identifier is not an exact SPDX 3.27.0 license ID.", "corrected-spdx-expression", "package-owner"),
+        "deprecated-license": ("Deprecated SPDX spelling cannot be silently normalized.", "current-spdx-expression-and-owner-confirmation", "package-owner"),
+        "invalid-expression": ("The expression is not valid under the frozen SPDX expression grammar.", "corrected-spdx-expression", "package-owner"),
+        "file-unverified": ("A license file declaration without an unambiguous in-package SPDX identifier cannot establish its policy classification.", "owner-verified-license-grant", "package-owner"),
+        "conflicting-declarations": ("The nuspec expression and packaged explicit SPDX identifier conflict.", "reconciled-license-grant", "package-owner"),
+        "missing-license": ("No authoritative license expression or supported file declaration was supplied.", "license-grant-and-owner-confirmation", "package-owner"),
+        "unsafe-metadata": ("License metadata is malformed, unsupported or ambiguous.", "corrected-nuspec", "package-owner"),
+        "unsafe-package": ("Package or nuspec cannot be safely and unambiguously inspected.", "valid-unambiguous-package", "package-owner"),
+        "missing-package": ("Checked package bytes were not supplied.", "package", "input-owner"),
+        "missing-policy": ("Pinned LP-01 policy is missing.", "pinned-license-policy", "policy-owner"),
+        "missing-corpus": ("Pinned SPDX license catalog is missing.", "pinned-spdx-catalog", "policy-owner"),
+        "invalid-policy": ("Pinned LP-01 policy and SPDX catalog are inconsistent.", "consistent-pinned-license-policy", "policy-owner"),
+    }
+    missing, required, owner = explanations[branch]
+    return "escalated", None, missing, required, owner
+
+
+def result(branch, inputs, reference, contract=None):
+    decision, finding, missing, required, owner = disposition(branch)
+    unavailable = ("unsafe-package", "missing-package", "missing-policy", "missing-corpus", "invalid-policy")
+    unknown = branch in unavailable
+    citations = [] if branch in unavailable else [
+        "policy:lp01-policy-1.0.0", "corpus:spdx-licenses-3.27.0"]
+    if reference and branch not in unavailable:
+        citations.insert(0, reference)
+    return dict(row_id="LP-01", resolver_id="lp01-license-policy", resolver_version="1.0.0",
+                branch_id=branch, decision=decision,
+                applicability="unknown" if unknown else "applicable", inputs=inputs,
+                evidence_references=citations,
+                evidence_contract=contract, finding=finding, missing_fact=missing,
+                required_input=required, next_category=owner)
+
+
+def suite_data(policy_bytes, catalog_bytes, policy, licenses):
+    cases = []
+    for name, metadata, branch, file_text in SPECS:
+        content = archive(name, metadata, file_text)
+        pbytes, cbytes = policy_variant(name, policy_bytes, catalog_bytes)
+        inputs = []
+        if content is not None:
+            inputs.append(dict(role="package", path=f"packages/{name}.nupkg", sha256=sha(content)))
+        if name != "no-policy":
+            inputs.append(dict(role="policy", path="policy/" + (
+                f"{name}.json" if pbytes != policy_bytes else POLICY.name), sha256=sha(pbytes)))
+        if name != "no-corpus":
+            inputs.append(dict(role="corpus", path="policy/" + (
+                f"{name}.json" if cbytes != catalog_bytes else CATALOG.name), sha256=sha(cbytes)))
+        if metadata.startswith('<license type="expression">') and branch not in (
+                "conflicting-declarations", "unsafe-metadata", "unsafe-package",
+                "missing-policy", "missing-corpus", "invalid-policy"):
+            text = metadata.split(">", 1)[1].split("</license>", 1)[0].strip()
+            try:
+                actual = expression_state(text, policy, licenses)
+            except ValueError:
+                actual = "invalid-expression"
+            require(actual == branch, f"SPDX grammar/policy disagrees with frozen {name}: {actual} != {branch}")
+        reference = ("package:LICENSE.txt" if branch == "file-declared" else
+                     "package:nuspec/license" if "<license " in metadata or
+                     metadata.startswith('<license xmlns:hint=') or "<x:license " in metadata else
+                     "package:nuspec/metadata" if content is not None else None)
+        if branch == "conflicting-declarations":
+            reference = "package:LICENSE.txt"
+        pointers = (["package:archive"] if content is not None else [])
+        if name != "no-policy":
+            pointers.append("policy:lp01-policy-1.0.0")
+        if name != "no-corpus":
+            pointers.append("corpus:spdx-licenses-3.27.0")
+        if reference and reference not in pointers:
+            pointers.append(reference)
+        expected = result(branch, inputs, reference)
+        if branch in ("file-declared", "conflicting-declarations"):
+            expected["evidence_references"].insert(0, "package:nuspec/license")
+            pointers.append("package:nuspec/license")
+        case = dict(case_id="lp01-" + name, row_id="LP-01", inputs=inputs,
+                    expected=expected,
+                    rationale=f"Frozen LP-01 {name} policy/metadata branch; package-only license evidence, not release-wide compliance.",
+                    evidence_pointers=pointers)
+        cases.append(case)
+    return dict(schema_version=1, cases=cases)
+
+
+def retained_data(policy_bytes, catalog_bytes, policy, licenses):
+    require(expression_state("MIT", policy, licenses) == "approved-non-copyleft",
+            "MIT must independently classify as OSI-approved non-copyleft.")
+    cases = []
+    for vendor, filename, digest, _, _, _ in VENDORS:
+        inputs = [
+            dict(role="package", path="packages/" + filename, sha256=digest),
+            dict(role="policy", path="policy/" + POLICY.name, sha256=sha(policy_bytes)),
+            dict(role="corpus", path="policy/" + CATALOG.name, sha256=sha(catalog_bytes)),
+        ]
+        cases.append(dict(case_id="lp01-retained-" + vendor, row_id="LP-01", inputs=inputs,
+                          expected=result("approved-non-copyleft", inputs, "package:nuspec/license",
+                                          "SPDX expression MIT; SPDX license-list 3.27.0 OSI=true; LP-01 policy 1.0.0 non_copyleft_allowlist contains MIT."),
+                          rationale="Exact retained package declares MIT; independently classified using pinned policy, without inferring repository-wide or owner licensing from package metadata.",
+                          evidence_pointers=["package:nuspec/license", "package:archive",
+                                             "policy:lp01-policy-1.0.0", "corpus:spdx-licenses-3.27.0"]))
+    return dict(schema_version=1, cases=cases)
+
+
+def check_negative_bindings():
+    bindings = ["LP01_" + vendor.upper() + "_NUPKG" for vendor, *_ in VENDORS]
+    for missing in bindings:
+        for typo in (False, True):
+            env = os.environ.copy()
+            for binding in bindings:
+                env[binding] = "unreadable-placeholder"
+            env.pop(missing)
+            if typo:
+                env[missing + "_TYPO"] = "unreadable-placeholder"
+            run = subprocess.run([sys.executable, *([] if __debug__ else ["-O"]),
+                                  str(Path(__file__)), "--require-retained"],
+                                 env=env, capture_output=True, text=True, check=False)
+            require(run.returncode != 0 and
+                    f"Required retained package bindings missing: {missing}" in run.stderr,
+                    f"Negative retained binding check did not fail before archive access: {missing}")
+    print("Both missing and misspelled retained bindings rejected.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--write-fixtures", action="store_true")
+    parser.add_argument("--require-retained", action="store_true")
+    parser.add_argument("--check-negative-bindings", action="store_true")
+    args = parser.parse_args()
+    if args.check_negative_bindings:
+        check_negative_bindings()
+        return
+    policy_bytes, catalog_bytes, policy, licenses = policy_data()
+    synthetic = suite_data(policy_bytes, catalog_bytes, policy, licenses)
+    acceptance = retained_data(policy_bytes, catalog_bytes, policy, licenses)
+    retained = json.loads((ROOT / "retained-inputs.json").read_bytes())
+    receipt = json.loads((ROOT / "acceptance-receipt.template.json").read_bytes())
+    require(retained["schema_version"] == receipt["schema_version"] == 1 and
+            retained["row_id"] == receipt["row_id"] == "LP-01" and
+            retained["policy_version"] == policy["policy_version"] and
+            retained["spdx_version"] == policy["spdx_version"] and
+            retained["spdx_sha256"] == CATALOG_SHA and
+            receipt["expectation_commit"] is None and
+            receipt["suite"] == "acceptance.json" and
+            receipt["resolver_id"] == "lp01-license-policy" and
+            receipt["resolver_version"] == "1.0.0" and
+            len(retained["vendors"]) == len(receipt["runs"]) == len(acceptance["cases"]) == len(VENDORS),
+            "LP-01 retained manifest or receipt differs from frozen policy.")
+    for (vendor, filename, digest, size, nuspec_name, nuspec_digest), identity, case, run in zip(
+            VENDORS, retained["vendors"], acceptance["cases"], receipt["runs"]):
+        require(identity["vendor"] == vendor and identity["binding"] == run["binding"] ==
+                "LP01_" + vendor.upper() + "_NUPKG" and
+                identity["source_relative_path"].replace("\\", "/").endswith(filename) and
+                identity["size_bytes"] == size and identity["sha256"] == digest and
+                identity["nuspec_entry"] == nuspec_name and
+                identity["nuspec_sha256"] == nuspec_digest and
+                run["case_id"] == case["case_id"] == "lp01-retained-" + vendor and
+                case["inputs"][0]["sha256"] == digest and
+                case["expected"]["branch_id"] == "approved-non-copyleft" and
+                all(run[key] is None for key in ("archive_nuspec_and_notice_sha256_verified",
+                    "policy_and_catalog_sha256_verified", "replay_exit_code",
+                    "result_matches_frozen_expected", "replay_output_sha256")),
+                f"LP-01 retained identity or Phase A receipt mismatch: {vendor}")
+    if args.write_fixtures:
+        (ROOT / "packages").mkdir(parents=True, exist_ok=True)
+        for name, metadata, _, file_text in SPECS:
+            content = archive(name, metadata, file_text)
+            if content is not None:
+                (ROOT / "packages" / f"{name}.nupkg").write_bytes(content)
+            pbytes, cbytes = policy_variant(name, policy_bytes, catalog_bytes)
+            if pbytes != policy_bytes:
+                (ROOT / "policy" / f"{name}.json").write_bytes(pbytes)
+            if cbytes != catalog_bytes:
+                (ROOT / "policy" / f"{name}.json").write_bytes(cbytes)
+        (ROOT / "cases.json").write_bytes(encoded(synthetic))
+        (ROOT / "acceptance.json").write_bytes(encoded(acceptance))
+    else:
+        require((ROOT / "cases.json").read_bytes() == encoded(synthetic), "LP-01 synthetic expectations changed.")
+        require((ROOT / "acceptance.json").read_bytes() == encoded(acceptance), "LP-01 retained expectations changed.")
+    for name, metadata, _, file_text in SPECS:
+        content = archive(name, metadata, file_text)
+        if content is not None:
+            path = ROOT / "packages" / f"{name}.nupkg"
+            if not args.write_fixtures:
+                require(path.read_bytes() == content, f"LP-01 archive changed: {name}")
+            if name != "corrupt-archive":
+                with zipfile.ZipFile(io.BytesIO(content)) as package:
+                    expected_entries = (
+                        ["README.txt"] if name == "no-nuspec" else
+                        ["nested/Sample.LP01.nuspec" if name == "subfolder-nuspec" else
+                         "Sample.LP01.nuspec"] +
+                        (["Second.LP01.nuspec"] if name == "multiple-nuspec" else []) +
+                        (["LICENSE.txt"] if file_text is not None else [])
+                    )
+                    require(package.namelist() == expected_entries, f"LP-01 ZIP entry order differs: {name}")
+                    for entry_info in package.infolist():
+                        require(entry_info.create_system == 3 and entry_info.date_time == ZIP_DATE and
+                                entry_info.compress_type == zipfile.ZIP_STORED and
+                                entry_info.external_attr == 0o100644 << 16 and
+                                entry_info.extra == b"" and entry_info.comment == b"",
+                                f"Nonportable LP-01 ZIP entry: {name}")
+                    if file_text is not None:
+                        require(package.read("LICENSE.txt") == file_text, f"LP-01 license fixture changed: {name}")
+                    if name in ("mit", "old-namespace", "no-namespace", "type-case",
+                                "supported-version", "namespace-declaration",
+                                "foreign-metadata", "foreign-metadata-after"):
+                        root = ET.fromstring(package.read("Sample.LP01.nuspec"))
+                        namespace = root.tag.removesuffix("package")
+                        children = list(root)
+                        recognized = namespace + "metadata"
+                        expected_order = (
+                            ["{urn:other}metadata", recognized] if name == "foreign-metadata" else
+                            [recognized, "{urn:other}metadata"] if name == "foreign-metadata-after" else
+                            [recognized])
+                        require([child.tag for child in children] == expected_order and
+                                children[expected_order.index(recognized)].find(namespace + "license") is not None,
+                                f"LP-01 recognized license metadata differs: {name}")
+        pbytes, cbytes = policy_variant(name, policy_bytes, catalog_bytes)
+        if not args.write_fixtures and pbytes != policy_bytes:
+            require((ROOT / "policy" / f"{name}.json").read_bytes() == pbytes, "Policy mutation changed.")
+        if not args.write_fixtures and cbytes != catalog_bytes:
+            require((ROOT / "policy" / f"{name}.json").read_bytes() == cbytes, "Catalog mutation changed.")
+        if name in ("policy-version-mismatch", "policy-overlap", "catalog-version-mismatch"):
+            try:
+                validate_policy(json.loads(pbytes), json.loads(cbytes), sha(cbytes))
+            except ValueError:
+                pass
+            else:
+                raise ValueError(f"Invalid policy control was accepted: {name}")
+    by_id = {case["case_id"]: case for case in synthetic["cases"]}
+    require(not any(item["role"] == "policy" for item in by_id["lp01-no-policy"]["inputs"]) and
+            not any(item["role"] == "corpus" for item in by_id["lp01-no-corpus"]["inputs"]),
+            "Missing policy/corpus controls must omit the exact required role.")
+    actual_packages = {path.name for path in (ROOT / "packages").glob("*.nupkg")}
+    require(actual_packages == {name + ".nupkg" for name, *_ in SPECS if name != "no-package"},
+            "LP-01 archive inventory differs.")
+    require(len({case["case_id"] for case in synthetic["cases"]}) == len(SPECS),
+            "Duplicate LP-01 cases.")
+    for case in synthetic["cases"] + acceptance["cases"]:
+        expected = case["expected"]
+        require(expected["inputs"] == case["inputs"] and case["row_id"] == expected["row_id"] == "LP-01",
+                "LP-01 replay result input/row mismatch.")
+        require(set(expected["evidence_references"]) <= set(case["evidence_pointers"]),
+                "Uncited LP-01 evidence.")
+        require((expected["finding"] is not None) == (expected["decision"] == "deterministic"),
+                "LP-01 finding/decision mismatch.")
+        require(all(expected[key] is not None for key in ("missing_fact", "required_input", "next_category")) ==
+                (expected["decision"] == "escalated"), "LP-01 escalation contract mismatch.")
+    missing = ["LP01_" + vendor.upper() + "_NUPKG" for vendor, *_ in VENDORS
+               if not os.environ.get("LP01_" + vendor.upper() + "_NUPKG")]
+    if args.require_retained and missing:
+        raise ValueError("Required retained package bindings missing: " + ", ".join(missing))
+    for (vendor, filename, digest, size, nuspec_name, nuspec_digest), identity in zip(
+            VENDORS, retained["vendors"]):
+        binding = "LP01_" + vendor.upper() + "_NUPKG"
+        source = os.environ.get(binding)
+        if not source:
+            print(f"{binding}: skipped (binding absent)")
+            continue
+        path = Path(source)
+        require(path.is_file(), f"{binding}: retained source file unavailable.")
+        data = path.read_bytes()
+        require(len(data) == size and sha(data) == digest, f"{binding}: archive identity mismatch.")
+        with zipfile.ZipFile(io.BytesIO(data)) as package:
+            nuspec = package.read(nuspec_name)
+            for notice in identity["license_entries"]:
+                notice_bytes = package.read(notice["path"])
+                require(len(notice_bytes) == notice["size_bytes"] and
+                        sha(notice_bytes) == notice["sha256"],
+                        f"{binding}: packaged notice identity mismatch: {notice['path']}")
+        require(sha(nuspec) == nuspec_digest, f"{binding}: nuspec identity mismatch.")
+        root = ET.fromstring(nuspec)
+        metadata = root.find(f"{{{NS}}}metadata")
+        require(metadata is not None, f"{binding}: recognized metadata missing.")
+        license_node = metadata.find(f"{{{NS}}}license")
+        require(license_node is not None and license_node.attrib == {"type": "expression"} and
+                (license_node.text or "").strip() == "MIT" and
+                expression_state("MIT", policy, licenses) == "approved-non-copyleft",
+                f"{binding}: MIT policy finding differs from retained archive.")
+        print(f"{binding}: verified (archive/nuspec SHA-256; MIT OSI-approved non-copyleft under pinned policy)")
+    print(f"LP-01: {len(SPECS)} cases, {len(actual_packages)} synthetic archives, "
+          f"{len(acceptance['cases'])} retained expectations; policy {policy['policy_version']}, "
+          f"SPDX {policy['spdx_version']} SHA-256 {CATALOG_SHA}.")
+
+
+if __name__ == "__main__":
+    main()

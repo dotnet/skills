@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp01-retained-syncfusion",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+          "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+            "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": "SPDX expression MIT; SPDX license-list 3.27.0 OSI=true; LP-01 policy 1.0.0 non_copyleft_allowlist contains MIT.",
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Exact retained package declares MIT; independently classified using pinned policy, without inferring repository-wide or owner licensing from package metadata.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0"
+      ]
+    },
+    {
+      "case_id": "lp01-retained-infragistics",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+          "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "approved-non-copyleft",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+            "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0"
+        ],
+        "evidence_contract": "SPDX expression MIT; SPDX license-list 3.27.0 OSI=true; LP-01 policy 1.0.0 non_copyleft_allowlist contains MIT.",
+        "finding": "Checked package declares a license classified OSI-approved and non-copyleft by pinned LP-01 policy; repository-wide grant and owner authority remain unverified.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Exact retained package declares MIT; independently classified using pinned policy, without inferring repository-wide or owner licensing from package metadata.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:archive",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0"
+      ]
+    }
+  ]
+}
