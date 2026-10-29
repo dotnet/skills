@@ -1,25 +1,21 @@
 ---
 name: msbuild
-description: "Use before MSBuild custom-target or incremental-generation repairs, XML/import review, .binlog capture/replay, or assessing supported/unsupported build-speedup claims and controlled timings, even without a checkout. Framework/API/.NET/ASP.NET upgrades and working non-SDK-to-SDK/packages.config conversions are migrations: DO NOT activate. A failing assertion after a successful build is code/test debugging: DO NOT activate. For MSBuild authoring itself, activate before reviewing/editing .proj/.props/.targets/.csproj/.fsproj/.vbproj or Directory.Build files, including no-change import reviews. Check Import/Exists, required and NuGet packed imports, hook order, conditions, Inputs/Outputs, stale outputs and incorrect skips. Build-wiring checks must preserve source-input bytes. Also diagnose failed dotnet build/restore/pack/publish or slow evaluation/compilation/copying. Exclude SDK installation alone, C# refactoring, runtime CPU profiling and non-MSBuild builds."
+description: "Use before MSBuild build-file reviews or repairs: custom targets, hook order, optional/required or packed imports, and stale generation after input additions/deletions. Activate before editing/testing .proj/.props/.targets/.csproj/.fsproj/.vbproj or Directory.Build files; verify mutations on a copy, not original inputs. Also use for failed/slow dotnet build/restore/pack/publish, .binlog capture/replay, and assessing build-speedup claims or controlled timings without a checkout. DO NOT activate for framework/API/.NET/ASP.NET upgrades, working non-SDK-to-SDK/packages.config migrations, assertions after a successful build, SDK installation alone, C# refactoring, runtime CPU profiling, or non-MSBuild builds."
 license: MIT
 ---
 
 # MSBuild troubleshooting
 
-For advice or a static review, apply the rules below to the supplied XML, package-layout facts,
-or measurements. When they settle the question, answer directly even if checkout files are
-available: do not open references, discover a checkout, run commands, or invent verification.
-For a requested edit or investigation, start at the supplied project or artifact. Discover only what the next
-decision needs, rather than inventorying the workspace first. Choose **troubleshooting**,
-**performance**, or **authoring review**; read a reference only to resolve a specific unknown,
-not merely because its topic matches. References are not separate skills to activate.
+For advice or static review, answer from the supplied XML, package facts, or measurements when
+they settle the question: no reference reads, checkout discovery, commands, or invented verification.
+For requested work, start at the supplied project or artifact; discover only what the next decision
+needs. Read a reference only for a specific unresolved question. References are not invocable skills.
 
 ## Start with the task and evidence
 
-For tasks that need a checkout, follow the relevant repository instructions and inspect the
-project and imports before editing. Preserve the original command, working directory,
-SDK selection, configuration, target framework, runtime identifier, global properties, and target.
-Ask only for consequential information that cannot be discovered.
+Before editing, follow repository instructions and inspect the project/imports. Preserve the original
+command, working directory, SDK, configuration, target framework, runtime identifier, global properties,
+and target. Ask only for consequential information that cannot be discovered.
 
 An existing `.binlog` can be the only available artifact. Analyze it before requesting a new
 build; paths inside it do not prove a checkout exists locally.
@@ -47,19 +43,21 @@ logger-option, toolset, or privacy question.
 | The failure needs evidence and no matching log exists | [binlog-generation](references/binlog-generation.md), then [failure analysis](references/binlog-failure-analysis.md) | Capture the original invocation once and verify the artifact. Analyze it only when requested. |
 | A project/build file has incorrect conditions, items, properties, or output paths | [msbuild-antipatterns](references/msbuild-antipatterns.md) | Select the relevant catalog entries and check their exceptions before changing anything. |
 | Imports or build hooks are missing, overwritten, or run in the wrong order | [extension-points](references/extension-points.md) | Inspect the import contract, discovery order, and packed NuGet layout rather than hiding a required failure. |
-| Outputs are stale or required work is skipped | [incremental-build](references/incremental-build.md) | Prove the invalidation defect. For input-set changes, prefer a persisted membership list written with `WriteLinesToFile` and `WriteOnlyWhenDifferent`, plus the actual files in `Inputs`. A list of paths is not a content hash. |
+| Outputs are stale or required work is skipped | [incremental-build](references/incremental-build.md) | Track input-set membership as well as file timestamps; apply the repair contract below. |
 
-For a build-wiring repair, keep the existing generator and source inputs read-only unless changing
-them is explicitly in scope. Exercise deletion and empty-input cases on an owned copy of the
-project and required imports, not by deleting and recreating original sources. If an authorized
-in-place check is unavoidable, copy originals before mutation, preserve timestamps, restore in
-`finally`, and compare source hashes before claiming preservation. `Get-Content`/`Set-Content`
-round-trips do not preserve exact bytes, encodings, or line endings.
-In the final repair report, state the **cause, mechanism, and observed checks**: removed inputs
-disappear from the timestamp comparison; an older addition need not be newer than the output.
-A membership file changes for either case, while actual input timestamps still catch ordinary edits.
-`WriteOnlyWhenDifferent` preserves unchanged-build skips. Keep empty-input generation and
-missing-output recovery working; report which cases actually ran.
+For build-wiring-only work, generator and source inputs are **read-only**. Before mutating a test
+input, copy the project and required imports to a unique disposable directory. An original project
+under a temporary path is not a verification copy. Do not delete/recreate originals and restore
+shell literals or text round-trips afterward. Record original hashes before checks and compare
+afterward. If a copy cannot reproduce the environment, report blocked checks; a request to verify
+does not authorize in-place input mutation.
+
+For input-set changes, prefer a persisted membership list written with `WriteLinesToFile` and
+`WriteOnlyWhenDifferent`, plus actual files in `Inputs`. Report **cause, mechanism, observed checks**:
+removed inputs vanish from timestamp comparisons; older additions need not be newer than the output.
+Membership changes invalidate both cases; actual file timestamps still catch ordinary edits.
+A path list is not a content hash. Verify first/unchanged builds, deletion, older addition, empty
+inputs, and missing-output recovery on the copy; state which checks actually ran.
 
 After a repair, rerun the original failing scenario and check affected dependents. If only a log
 is available, provide an evidence-backed proposed fix and say it was not applied or rebuilt.
@@ -67,12 +65,10 @@ Do not turn a targeted failure investigation into solution-wide authoring cleanu
 
 ## 2. Diagnose and improve build performance
 
-**Goal:** measure the reported scenario, identify its bottleneck, change one cause, and compare
-equivalent builds without losing required behavior.
+**Goal:** measure the original workload, not an easier replacement.
 
-For advice, give the verdict, decisive supplied facts, and a concrete next step. When further
-measurements are needed, finish with how equivalent successful builds and required outputs
-will validate any gain. Do not re-prove a supplied timeline or load references to restate settled facts.
+For advice, give the verdict, decisive facts, and a concrete next step with equivalent successful
+builds and required outputs. Do not re-prove a supplied timeline or read references to restate it.
 Do not label a workload warm/no-op or assign most of a timing gap to one confound without evidence.
 
 | Supplied evidence | Decision | Smallest useful follow-up |
@@ -81,51 +77,41 @@ Do not label a workload warm/no-op or assign most of a timing gap to one confoun
 | Commands, restore policy, or starting input/output states differ | Reject attribution to the setting, not the possibility of a real gain. | Give one matched old-setting/new-setting experiment below, not a menu of different workloads or an invented setting name. |
 | Repeated successful runs have matched conditions and outputs | Accept the observed improvement for that workload; use the same summary statistic for both arms: `100 * (old - new) / old`. | Report sample count and observed elapsed-time ranges, not an invented percentage uncertainty interval. Do not require a checkout to acknowledge the supplied result. |
 
-For one minimal A/B experiment:
+When a minimal attribution experiment is needed, return **one two-arm table**, not alternatives:
 
-1. Fill in the **treatment name, old value, and new value** from the user's evidence.
-   When the claimed setting is not identified, keep the literal placeholders `<setting>`,
-   `<old>`, and `<new>`. Several differing command arguments do not identify which one is the
-   claimed setting; selecting one of them would test a different question.
-2. Copy the full original baseline command into **both arms** as the control, not a generic replacement.
-   Change only the actual setting's argument if it is supplied on the command line; otherwise
-   keep the invocation verbatim and vary its configured value.
+1. Bind the treatment to the user's identified setting and old/new values. If unidentified, retain
+   literal `<setting>`, `<old>`, `<new>` placeholders. Differing commands are confounds, not setting names.
+2. Expand the **full original baseline command in both arms**. Only an explicitly identified
+   command-line treatment may change its own argument; otherwise vary its configured value.
 
-| Arm | Treatment: supplied name/values, or these placeholders | Controlled invocation and workload |
+| Arm | Treatment, supplied or placeholder | Controlled invocation and workload |
 | --- | --- | --- |
 | A | `<setting> = <old>` | Full original baseline command, input edit, and starting outputs |
-| B | `<setting> = <new>` | Repeat A's full command, edit, and starting outputs; only the named treatment differs |
+| B | `<setting> = <new>` | Same full command, edit, and starting outputs; only the named treatment differs |
 
-3. Match all non-treatment controls: SDK, machine, configuration, instrumentation, target,
-   restore policy, input edit, and starting outputs. Preserve the original workload: do not
-   substitute ordinary Build for a supplied Rebuild or move restore outside timed samples
-   just to make measurement easier. Give this one experiment, not a menu of alternative workloads.
-   Warm both arms outside samples only for an explicitly warm-workload claim; retain cold-start
-   work for a cold claim. Never purge shared caches or stop shared build servers.
-4. Alternate several matched pairs, compare wall-time medians and observed spread, and check
-   required outputs and diagnostics. Scope the conclusion to that workload, not the original
-   confounded timing gap. Stop after this one matched experiment and its validity checks.
+3. Match non-treatment SDK, machine, configuration, instrumentation, target, restore policy,
+   input edit, and output state. **Matching both arms is not enough if both replace the original
+   workload.** When they are controls, retain supplied Rebuild and timed restore; do not prime,
+   warm, or move work outside the timer unless the original workload already did.
+4. Alternate matched pairs; compare wall-time medians and observed ranges; check required outputs
+   and diagnostics. Scope the result to that workload. Stop: no second target/restore/cache experiment.
 
-For requested optimization, reuse matching evidence or establish the relevant successful
-baseline before editing. Separate evaluation from execution, choose the measured branch
-below, and change one supported cause.
+For optimization work, establish the relevant successful baseline before changing one supported cause:
 
-| Situation | Reference if needed | Keep distinct |
-| --- | --- | --- |
-| No trustworthy before/after measurements, or a baseline/controlled optimization is requested | [build-perf-baseline](references/build-perf-baseline.md) | Cold-output, warm changed-input, and no-change builds; restore/cache state; ordinary Build versus forced Rebuild. |
-| The expensive work is not yet identified, or compiler/analyzer/reference/restore time dominates | [build-perf-diagnostics](references/build-perf-diagnostics.md) | Actual task cost versus orchestration waits, overlapping durations, and missing instrumentation. |
-| Time is spent before target execution, in globs, imports, or property evaluation | [eval-performance](references/eval-performance.md) | Evaluation versus execution; legitimate versus accidental project instances. |
-| Content copies or output I/O dominate | [copy-to-output-directory](references/copy-to-output-directory.md) | Copy mode/version support, unchanged copies, and the intended handling of a modified destination. |
-| A second unchanged build recompiles/regenerates, or incremental behavior is broken | [incremental-build](references/incremental-build.md) | Expected invalidation versus missing tracking; changed/added/removed inputs and missing outputs. |
+| Unresolved measurement | Reference if needed |
+| --- | --- |
+| Cold-output, changed-input, no-change, restore/cache state, or Build versus Rebuild | [build-perf-baseline](references/build-perf-baseline.md) |
+| Unknown task cost, compiler/analyzer/reference/restore work, or overlapping waits | [build-perf-diagnostics](references/build-perf-diagnostics.md) |
+| Pre-target globs, imports, property evaluation, or excess project instances | [eval-performance](references/eval-performance.md) |
+| Copies/output I/O, unchanged copies, or a modified destination | [copy-to-output-directory](references/copy-to-output-directory.md) |
+| Unexpected regeneration/skips, added/removed inputs, or missing outputs | [incremental-build](references/incremental-build.md) |
 
 Stop when the suspected bottleneck is not supported by evidence, results fall within noise, or
 correctness regresses. Report missing measurements rather than manufacturing a complete baseline.
 
 ## 3. Review build authoring
 
-**Goal:** improve project/build-file structure and extension contracts while preserving behavior.
-This route means MSBuild authoring cleanup, not an implicit framework, package, language,
-or legacy project-system migration.
+**Goal:** preserve build contracts, not implicitly migrate frameworks, packages, languages, or project systems.
 
 **Check evaluation phases, not just import order.** Outside targets, properties/imports are
 evaluated before items. A framework set in the project body can be unavailable to an early
@@ -140,10 +126,8 @@ and inspect SDK defaults before adding switches to suppress supposedly duplicate
 | Review/improve hooks, imports, shared-file discovery, or NuGet build extensions | [extension-points](references/extension-points.md) | Prior hooks, evaluation order, direct/transitive consumer behavior, and the packed layout. |
 | Restructure generation or copying as part of cleanup | [incremental-build](references/incremental-build.md) and [copy-to-output-directory](references/copy-to-output-directory.md), as applicable | First-build and no-change behavior, invalidation, generated-item registration, and output completeness. |
 
-Record the existing contract before editing. Review only relevant catalog entries; a matching text
-pattern is not proof of a defect. Leave already-correct patterns unchanged. After authorized
-changes, validate the original configurations, relevant consumers, and affected
-incremental/pack/publish behavior.
+Record the existing contract; a matching catalog pattern alone is not a defect. Leave correct code
+alone. Validate authorized changes against original configurations, consumers, and affected build behavior.
 
 Keep optional and required imports distinct, including inside aggregation files:
 
@@ -158,15 +142,20 @@ are supported. Check optional present/absent crossed with required present/absen
 order when both exist. When checks run, report the observed order and failure cases, not only
 "verification passed." Do not replace configurable paths with hard-coded values unnecessarily.
 
-For a packaged forwarder, separate **packing** from **consumer evaluation**. A configured
-`NuspecFile` can be outside the project; `NuspecBasePath` anchors its source-file lookup.
-Source-to-target mappings determine the package entries: do not infer that a source path
-is also shipped as an extra entry. At consumer evaluation, resolve relative imports from
-the importing file's location in the **package**, not from the source tree, feed directory,
-or consumer's framework. If supplied packed-layout facts already prove that the required
-target exists, report no change: do not add an `Exists` guard, reorganize sources, or
-rebuild/repack just to confirm those facts. Inspect artifacts when verification is requested
-or the actual package contents remain unknown.
+For a packaged forwarder, keep these bindings separate:
+
+| Binding | Meaning |
+| --- | --- |
+| `NuspecFile` | Selects the XML manifest, possibly outside the project; not a payload mapping. |
+| `NuspecBasePath` | Anchors the manifest's `file src` lookups on disk. |
+| Mapping `src` / `target` | Reads the source file and emits its mapped archive path; does not implicitly ship the source path too. |
+| Consumer import | Resolves from the importing file inside the **package**, not source, feed, or the consumer's framework. |
+
+Do not substitute the manifest path for a mapping's `src`. For a no-change verdict, explain how
+manifest/base path, source mapping, packed target, and relative import connect, and why guarding
+a required import would hide a broken package. If supplied package facts settle this, stop:
+no `Exists` guard, reorganization, or confirmatory rebuild/repack. Inspect artifacts only when
+verification is requested or contents remain unknown.
 
 ## Shared evidence and safety
 
@@ -186,9 +175,7 @@ or the actual package contents remain unknown.
 
 ## Completion
 
-For advice only, return the verdict, decisive evidence, and any necessary next measurement;
-do not manufacture a verification section or claim new measurements.
-For repository work, return the cause/bottleneck or authoring decision, supporting evidence,
-and the minimal change made or proposed. State when no change is needed. Give exact successful,
-failed, and not-run checks; performance changes also need comparable measurements and
-uncertainty. Keep the response proportional to the task.
+Advice: verdict, decisive evidence, necessary next measurement; no manufactured verification.
+Repository work: cause/decision, minimal change (or no change), and exact successful, failed,
+and not-run checks. Performance claims also need comparable measurements and uncertainty.
+Scale the response to the task.
