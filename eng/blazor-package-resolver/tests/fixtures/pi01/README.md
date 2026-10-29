@@ -33,7 +33,15 @@ finding. The expectation oracle verifies RSA PKCS#1 v1.5 with supported
 SHA-1/SHA-256 keys over unpadded PE headers and section raw data, omitting
 the signature reservation and zeroing the PE checksum and Authenticode
 directory. A nonzero reservation and a CLR flag alone are **not**
-validation. NuGet signing (`.signature.p7s`), nuspec repository
+validation. The verifier treats every nonempty PE overlay outside declared
+sections as incomplete inventory unless it is exactly a well-framed
+WIN_CERTIFICATE table containing DER PKCS#7 signedData. It validates that
+certificate **structure only**, not Authenticode identity or trust; bytes
+before or after the table, PE/container signatures hidden within its
+certificate data, or nonzero bytes in unhashed PE header/section padding
+still escalate. Thus a verified outer assembly
+with an appended unsigned PE cannot become a package-wide positive.
+NuGet signing (`.signature.p7s`), nuspec repository
 URL/commit, PDBs, SourceLink, strong-name token strings and publisher
 claims cannot substitute. No source checkout or network query is implied
 by the presence of a repository URL; repository evidence cannot turn an
@@ -73,7 +81,16 @@ the signed image was pinned. The fixture and its embedded public key suffice
 to verify it, but a rebuild with a new throwaway key changes its hash.
 `template/Validator.csproj` uses .NET
 `System.Reflection.Metadata` to independently validate the metadata
-tables, public-key presence, flags and reservations. The `.cs.txt`
+tables, public-key presence, flags and reservations. Before *any* decisive
+assembly state it checks all present rows in the supported table schemas,
+row lengths, #Strings/#Blob/#GUID heap indices, direct/coded table
+references, ordered table lists, and required names; unexpected table
+shapes escalate. In particular a later TypeDef Name index 65535 outside
+the 310-byte #Strings heap is unsafe, not unsigned.
+Companion controls corrupt a MethodDef #Blob signature index and a
+CustomAttribute coded parent reference to prove the whole table traversal
+fails closed, not merely the first type definition.
+The `.cs.txt`
 sources are explicitly compiled by their projects; normal `ResolverChecks`
 does not accidentally compile them. Their intermediates go to its
 already-excluded `tests/obj` rather than nested fixture folders. Malformed
@@ -87,7 +104,7 @@ entry SHA-256 without copying either proprietary archive into this repo.
 Phase B must implement and replay this frozen verification contract; it
 must never promote structural signature presence to verified validity.
 
-The frozen matrix has 82 cases, of which 81 have independently pinned
+The frozen matrix has 91 cases, of which 90 have independently pinned
 synthetic archives. It covers empty and non-assembly archives, native PE
 and bundle-shaped input, nested/prefixed unsigned ZIP and archive-suffix controls,
 different assembly locations and suffixes, multiple framework variants,
@@ -103,10 +120,15 @@ entries are similarly streamed with explicit byte caps. Nine runtime-generated
 exact-boundary controls exercise at/over entry bytes,
 total uncompressed bytes, ZIP name length and entry count, plus
 over-limit package bytes without committing giant archives.
-The frozen branch counts are: `verified-signed` 7, `invalid-signature` 3,
+Overlay controls distinguish an appended unsigned PE, nonzero unhashed
+header padding, a structurally valid certificate, a certificate followed
+by an unsigned PE, an invalid certificate record, and a PE hidden inside
+certificate data.
+The frozen branch counts are:
+`verified-signed` 8, `invalid-signature` 3,
 `signature-unverified` 1 (unsupported hash), `unsigned-assembly` 10,
 `delay-signed` 4, `public-signed` 4, `no-assemblies` 6,
-`opaque-container` 11, `unsafe-assembly` 19, `unsafe-package` 16, and
+`opaque-container` 14, `unsafe-assembly` 24, `unsafe-package` 16, and
 `missing-package` 1.
 The generator pins every archive byte and expected JSON document and
 rejects extra/missing synthetic `.nupkg` files. Resource bounds in this

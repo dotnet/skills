@@ -1,4 +1,5 @@
 using System;
+using System.Formats.Asn1;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -28,7 +29,8 @@ if (args.Length == 1 && args[0] == "--inspect")
         (state, detail) = Inspect(data);
     }
     catch (Exception error) when (error is BadImageFormatException or InvalidDataException
-                                  or ArgumentException or IndexOutOfRangeException)
+                                  or ArgumentException or IndexOutOfRangeException
+                                  or AsnContentException)
     {
         state = "unsafe";
         detail = error.Message;
@@ -136,6 +138,13 @@ static (string state, string? detail) Inspect(byte[] data)
     if (!pe.HasMetadata)
         throw new BadImageFormatException("Managed metadata absent.");
     var peHeader = pe.PEHeaders.PEHeader ?? throw new BadImageFormatException("PE header absent.");
+    int headersToSign = pe.PEHeaders.PEHeaderStartOffset +
+        pe.PEHeaders.CoffHeader.SizeOfOptionalHeader +
+        pe.PEHeaders.CoffHeader.NumberOfSections * 40;
+    if (headersToSign > peHeader.SizeOfHeaders)
+        throw new BadImageFormatException("PE section headers exceed declared header size.");
+    if (data.AsSpan(headersToSign, peHeader.SizeOfHeaders - headersToSign).ContainsAnyExcept((byte)0))
+        return ("opaque-container", "Uninventoried bytes in PE header alignment padding.");
     int lastSectionEnd = peHeader.SizeOfHeaders;
     foreach (var section in pe.PEHeaders.SectionHeaders.OrderBy(item => item.PointerToRawData))
     {
@@ -144,9 +153,32 @@ static (string state, string? detail) Inspect(byte[] data)
         if (section.PointerToRawData < lastSectionEnd || section.SizeOfRawData < 0 ||
             section.PointerToRawData > data.Length - section.SizeOfRawData)
             throw new BadImageFormatException("PE section overlaps headers, another section, or end of assembly.");
+        if (data.AsSpan(lastSectionEnd, section.PointerToRawData - lastSectionEnd)
+                .ContainsAnyExcept((byte)0))
+            return ("opaque-container", "Uninventoried bytes between PE sections.");
         lastSectionEnd = section.PointerToRawData + section.SizeOfRawData;
     }
+    int certificateDirectory = pe.PEHeaders.PEHeaderStartOffset +
+        (peHeader.Magic == PEMagic.PE32 ? 128 : 144);
+    int certificateOffset = BitConverter.ToInt32(data, certificateDirectory);
+    int certificateSize = BitConverter.ToInt32(data, certificateDirectory + 4);
+    if (certificateOffset == 0 && certificateSize == 0)
+    {
+        if (lastSectionEnd != data.Length)
+            return ("opaque-container", $"Uninventoried PE overlay: {data.Length - lastSectionEnd} bytes after sections.");
+    }
+    else
+    {
+        if (certificateOffset != lastSectionEnd || certificateSize <= 0 ||
+            certificateOffset % 8 != 0 || certificateSize % 8 != 0 ||
+            certificateSize > data.Length - certificateOffset)
+            throw new BadImageFormatException("Invalid Authenticode certificate table boundary.");
+        ValidateCertificates(data.AsMemory(certificateOffset, certificateSize));
+        if (certificateOffset + certificateSize != data.Length)
+            return ("opaque-container", $"Uninventoried PE overlay: {data.Length - certificateOffset - certificateSize} bytes after certificate table.");
+    }
     var metadata = pe.GetMetadataReader();
+    ValidateMetadataTables(pe, metadata);
     if (metadata.GetTableRowCount(TableIndex.Module) != 1)
         throw new BadImageFormatException("Module definition missing or ambiguous.");
     var module = metadata.GetModuleDefinition();
@@ -224,10 +256,6 @@ static (string state, string? detail) Inspect(byte[] data)
     Array.Clear(image, optional + 64, 4); // PE checksum is not signed.
     Array.Clear(image, optional + (peHeader.Magic == PEMagic.PE32 ? 128 : 144), 8); // Authenticode directory is not signed.
     using var hash = IncrementalHash.CreateHash(hashAlg == 0x8004 ? HashAlgorithmName.SHA1 : HashAlgorithmName.SHA256);
-    int headersToSign = optional + pe.PEHeaders.CoffHeader.SizeOfOptionalHeader +
-                        pe.PEHeaders.CoffHeader.NumberOfSections * 40;
-    if (headersToSign > peHeader.SizeOfHeaders)
-        throw new BadImageFormatException("PE section headers exceed declared header size.");
     hash.AppendData(image, 0, headersToSign);
     bool foundSignature = false;
     foreach (var section in pe.PEHeaders.SectionHeaders.OrderBy(item => item.PointerToRawData))
@@ -274,3 +302,267 @@ static int FileOffset(PEReader pe, int rva, int size)
             return section.PointerToRawData + rva - section.VirtualAddress;
     throw new BadImageFormatException("Unmapped signature reservation RVA.");
 }
+
+static void ValidateCertificates(ReadOnlyMemory<byte> data)
+{
+    int cursor = 0;
+    while (cursor < data.Length)
+    {
+        var bytes = data.Span;
+        if (data.Length - cursor < 8)
+            throw new BadImageFormatException("Truncated WIN_CERTIFICATE header.");
+        int length = BitConverter.ToInt32(bytes.Slice(cursor, 4));
+        if (length < 8 || length > data.Length - cursor ||
+            BitConverter.ToUInt16(bytes.Slice(cursor + 4, 2)) != 0x0200 ||
+            BitConverter.ToUInt16(bytes.Slice(cursor + 6, 2)) != 0x0002)
+            throw new BadImageFormatException("Invalid PKCS#7 WIN_CERTIFICATE record.");
+        var content = data.Slice(cursor + 8, length - 8);
+        if (content.Span.IndexOf("MZ"u8) >= 0 ||
+            content.Span.IndexOf("PK\x03\x04"u8) >= 0 ||
+            content.Span.IndexOf("PK\x05\x06"u8) >= 0)
+            throw new BadImageFormatException("Potential PE or nested container in certificate data.");
+        var reader = new AsnReader(content, AsnEncodingRules.DER);
+        ReadOnlyMemory<byte> encoded = reader.ReadEncodedValue();
+        var padding = content.Span.Slice(encoded.Length);
+        if (padding.Length >= 8 || padding.ContainsAnyExcept((byte)0))
+            throw new BadImageFormatException("Uninventoried bytes in Authenticode certificate.");
+        var cms = new AsnReader(encoded, AsnEncodingRules.DER);
+        var sequence = cms.ReadSequence();
+        if (sequence.ReadObjectIdentifier() != "1.2.840.113549.1.7.2")
+            throw new BadImageFormatException("Certificate is not PKCS#7 signedData.");
+        var signedDataWrapper = sequence.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, true));
+        var signedData = signedDataWrapper.ReadSequence();
+        _ = signedData.ReadInteger();
+        _ = signedData.ReadSetOf();
+        var encapsulated = signedData.ReadSequence();
+        _ = encapsulated.ReadObjectIdentifier();
+        while (encapsulated.HasData)
+            _ = encapsulated.ReadEncodedValue();
+        while (signedData.HasData && signedData.PeekTag().TagClass == TagClass.ContextSpecific)
+            _ = signedData.ReadEncodedValue();
+        _ = signedData.ReadSetOf();
+        signedData.ThrowIfNotEmpty();
+        signedDataWrapper.ThrowIfNotEmpty();
+        sequence.ThrowIfNotEmpty();
+        cms.ThrowIfNotEmpty();
+        cursor += (length + 7) & ~7;
+    }
+    if (cursor != data.Length)
+        throw new BadImageFormatException("Uninventoried certificate table bytes.");
+}
+
+static void ValidateMetadataTables(PEReader pe, MetadataReader metadata)
+{
+    byte[] content = pe.GetMetadata().GetContent().ToArray();
+    if (content.Length < 24 || BitConverter.ToUInt32(content, 0) != 0x424a5342)
+        throw new BadImageFormatException("Metadata root is invalid.");
+    int versionLength = BitConverter.ToInt32(content, 12);
+    if (versionLength < 0 || versionLength > content.Length - 20)
+        throw new BadImageFormatException("Metadata version header is invalid.");
+    int cursor = 16 + versionLength;
+    int streams = BitConverter.ToUInt16(content, cursor + 2);
+    if (streams is < 1 or > 64)
+        throw new BadImageFormatException("Metadata stream count is invalid.");
+    cursor += 4;
+    int tableHeader = -1;
+    int tableSize = 0;
+    for (int stream = 0; stream < streams; stream++)
+    {
+        if (cursor > content.Length - 9)
+            throw new BadImageFormatException("Metadata stream header is truncated.");
+        int offset = BitConverter.ToInt32(content, cursor);
+        int size = BitConverter.ToInt32(content, cursor + 4);
+        int end = Array.IndexOf(content, (byte)0, cursor + 8,
+            Math.Min(40, content.Length - cursor - 8));
+        if (end < 0 || offset < 0 || size < 0 || offset > content.Length - size)
+            throw new BadImageFormatException("Metadata stream is invalid.");
+        string name = System.Text.Encoding.ASCII.GetString(content, cursor + 8, end - cursor - 8);
+        if (name is "#~" or "#-")
+        {
+            if (tableHeader >= 0 || size < 24)
+                throw new BadImageFormatException("Metadata tables are ambiguous or truncated.");
+            tableHeader = offset;
+            tableSize = size;
+        }
+        cursor = (end + 4) & ~3;
+    }
+    if (tableHeader < 0)
+        throw new BadImageFormatException("Metadata tables are missing.");
+    ulong mask = BitConverter.ToUInt64(content, tableHeader + 8);
+    if ((mask & 1) == 0 || (mask >> 45) != 0)
+        throw new BadImageFormatException("Unsupported or absent metadata table shape.");
+
+    int strings = metadata.GetHeapSize(HeapIndex.String);
+    int blobs = metadata.GetHeapSize(HeapIndex.Blob);
+    int guids = metadata.GetHeapSize(HeapIndex.Guid);
+    for (int table = 0; table <= 44; table++)
+    {
+        int count = metadata.GetTableRowCount((TableIndex)table);
+        if (count == 0)
+            continue;
+        string[] fields = MetadataSchema(table).Split(' ');
+        int size = metadata.GetTableRowSize((TableIndex)table);
+        int offset = metadata.GetTableMetadataOffset((TableIndex)table);
+        if (size <= 0 || offset < tableHeader ||
+            (long)offset + (long)count * size > tableHeader + (long)tableSize)
+            throw new BadImageFormatException($"Metadata table {table} exceeds its stream.");
+        int[] lastList = new int[fields.Length];
+        for (int row = 0; row < count; row++)
+        {
+            int position = offset + row * size;
+            for (int column = 0; column < fields.Length; column++)
+            {
+                string field = fields[column];
+                int width = field switch
+                {
+                    "u2" => 2,
+                    "u4" => 4,
+                    "str" => strings > ushort.MaxValue ? 4 : 2,
+                    "blob" => blobs > ushort.MaxValue ? 4 : 2,
+                    "guid" => guids > ushort.MaxValue ? 4 : 2,
+                    _ when field.StartsWith("t:") || field.StartsWith("l:") =>
+                        metadata.GetTableRowCount((TableIndex)int.Parse(field.AsSpan(2))) > ushort.MaxValue ? 4 : 2,
+                    _ when field.StartsWith("c:") => CodedWidth(metadata, field[2..]),
+                    _ => throw new BadImageFormatException($"Unsupported metadata field {field}."),
+                };
+                if (position + width > offset + (row + 1) * size)
+                    throw new BadImageFormatException($"Truncated row in metadata table {table}.");
+                int value = width == 2 ? BitConverter.ToUInt16(content, position)
+                                       : BitConverter.ToInt32(content, position);
+                if (value < 0)
+                    throw new BadImageFormatException($"Negative metadata index in table {table}.");
+                switch (field)
+                {
+                    case "str":
+                        bool requiredName = (table, column) is (0, 1) or (1, 1) or (2, 1) or
+                            (4, 1) or (6, 3) or (10, 1) or (20, 1) or (23, 1) or
+                            (32, 7) or (35, 6);
+                        if (value == 0 && requiredName)
+                            throw new BadImageFormatException($"Missing metadata name in table {table}, row {row + 1}.");
+                        if (value != 0)
+                        {
+                            if (value >= strings)
+                                throw new BadImageFormatException($"Out-of-range #Strings index in table {table}, row {row + 1}.");
+                            string text = metadata.GetString(MetadataTokens.StringHandle(value));
+                            if (requiredName && string.IsNullOrWhiteSpace(text))
+                                throw new BadImageFormatException($"Empty metadata name in table {table}, row {row + 1}.");
+                        }
+                        break;
+                    case "blob":
+                        if (value != 0)
+                        {
+                            if (value >= blobs)
+                                throw new BadImageFormatException($"Out-of-range #Blob index in table {table}, row {row + 1}.");
+                            _ = metadata.GetBlobBytes(MetadataTokens.BlobHandle(value));
+                        }
+                        break;
+                    case "guid":
+                        if (value != 0)
+                        {
+                            if (value > guids / 16)
+                                throw new BadImageFormatException($"Out-of-range #GUID index in table {table}, row {row + 1}.");
+                            _ = metadata.GetGuid(MetadataTokens.GuidHandle(value));
+                        }
+                        break;
+                    default:
+                        if (field.StartsWith("t:") || field.StartsWith("l:"))
+                        {
+                            int target = int.Parse(field.AsSpan(2));
+                            int maximum = metadata.GetTableRowCount((TableIndex)target) +
+                                (field[0] == 'l' ? 1 : 0);
+                            if (value == 0 || value > maximum)
+                                throw new BadImageFormatException($"Out-of-range table reference in table {table}, row {row + 1}.");
+                            if (field[0] == 'l')
+                            {
+                                if (value < lastList[column])
+                                    throw new BadImageFormatException($"Unordered list reference in table {table}, row {row + 1}.");
+                                lastList[column] = value;
+                            }
+                        }
+                        else if (field.StartsWith("c:"))
+                        {
+                            bool requiredReference = (table, column) is (9, 1) or (10, 0) or
+                                (11, 1) or (12, 0) or (12, 1) or (14, 1) or (20, 2) or
+                                (24, 2) or (25, 1) or (25, 2) or (42, 2) or (43, 0) or
+                                (44, 1);
+                            if (value == 0 && requiredReference)
+                                throw new BadImageFormatException($"Missing coded reference in table {table}, row {row + 1}.");
+                            if (value == 0)
+                            {
+                                position += width;
+                                continue;
+                            }
+                            var (bits, targets) = CodedIndex(field[2..]);
+                            int tag = value & ((1 << bits) - 1), reference = value >> bits;
+                            if (tag >= targets.Length || targets[tag] < 0 || reference == 0 ||
+                                reference > metadata.GetTableRowCount((TableIndex)targets[tag]))
+                                throw new BadImageFormatException($"Out-of-range coded reference in table {table}, row {row + 1}.");
+                        }
+                        break;
+                }
+                position += width;
+            }
+            if (position != offset + (row + 1) * size)
+                throw new BadImageFormatException($"Unsupported trailing metadata columns in table {table}.");
+        }
+    }
+}
+
+static int CodedWidth(MetadataReader metadata, string name)
+{
+    var (bits, targets) = CodedIndex(name);
+    int maximum = targets.Where(target => target >= 0).Max(target =>
+        metadata.GetTableRowCount((TableIndex)target));
+    return maximum < 1 << (16 - bits) ? 2 : 4;
+}
+
+static (int bits, int[] targets) CodedIndex(string name) => name switch
+{
+    "TypeDefOrRef" => (2, [2, 1, 27]),
+    "ResolutionScope" => (2, [0, 26, 35, 1]),
+    "HasConstant" => (2, [4, 8, 23]),
+    "HasCustomAttribute" => (5, [6, 4, 1, 2, 8, 9, 10, 0, 14, 23, 20, 17,
+                                  26, 27, 32, 35, 38, 39, 40, 42, 44, 43]),
+    "CustomAttributeType" => (3, [-1, -1, 6, 10]),
+    "HasDeclSecurity" => (2, [2, 6, 32]),
+    "MemberRefParent" => (3, [2, 1, 26, 6, 27]),
+    "HasSemantics" => (1, [20, 23]),
+    "MethodDefOrRef" => (1, [6, 10]),
+    "TypeOrMethodDef" => (1, [2, 6]),
+    "Implementation" => (2, [38, 35, 39]),
+    _ => throw new BadImageFormatException($"Unsupported coded metadata reference: {name}."),
+};
+
+static string MetadataSchema(int table) => table switch
+{
+    0 => "u2 str guid guid guid",
+    1 => "c:ResolutionScope str str",
+    2 => "u4 str str c:TypeDefOrRef l:4 l:6",
+    4 => "u2 str blob",
+    6 => "u4 u2 u2 str blob l:8",
+    8 => "u2 u2 str",
+    9 => "t:2 c:TypeDefOrRef",
+    10 => "c:MemberRefParent str blob",
+    11 => "u2 c:HasConstant blob",
+    12 => "c:HasCustomAttribute c:CustomAttributeType blob",
+    14 => "u2 c:HasDeclSecurity blob",
+    15 => "u2 u4 t:2",
+    16 => "u4 t:4",
+    17 => "blob",
+    18 => "t:2 l:20",
+    20 => "u2 str c:TypeDefOrRef",
+    21 => "t:2 l:23",
+    23 => "u2 str blob",
+    24 => "u2 t:6 c:HasSemantics",
+    25 => "t:2 c:MethodDefOrRef c:MethodDefOrRef",
+    27 => "blob",
+    29 => "u4 t:4",
+    32 => "u4 u2 u2 u2 u2 u4 blob str str",
+    35 => "u2 u2 u2 u2 u4 blob str str blob",
+    40 => "u4 u4 str c:Implementation",
+    41 => "t:2 t:2",
+    42 => "u2 u2 c:TypeOrMethodDef str",
+    43 => "c:MethodDefOrRef blob",
+    44 => "t:42 c:TypeDefOrRef",
+    _ => throw new BadImageFormatException($"Unsupported metadata table {table}."),
+};
