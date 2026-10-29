@@ -149,7 +149,8 @@ No bespoke vendor signature is invented. A different well-formed release ref
 is therefore a caller-accepted assertion, **not** a detectable mismatch without
 a second checked scope source. The checked grant bytes must be nonempty,
 UTF-8 without BOM and at most **16384 raw bytes**; a tag-only SPDX identifier
-cannot establish text and an explicit contradictory SPDX identifier fails
+cannot establish text and an explicit contradictory SPDX identifier (including
+an indented identifier) fails
 closed. This is a structural screen, not proof of completeness or a comparison
 to one MIT fixture. Untagged caller-prevalidated text and benign copyright
 variations can qualify; a grant whose actual restrictions differ from the
@@ -157,7 +158,7 @@ record remains the caller's prevalidation responsibility.
 
 `owners/` holds synthetic owner records; `grants/mit-full.txt` and
 `grants/bsd-full.txt` are **example grant fixtures**, not vendor evidence.
-The 62 owner cases include 11 reachable deterministic positives (including
+The 63 owner cases include 11 reachable deterministic positives (including
 multi-license AND and OR, equivalent normalized expressions, a bounded
 8192-byte record, and benign grant variation). Their findings explicitly
 disclose that caller-prevalidated authority was accepted at the input boundary
@@ -190,7 +191,7 @@ or a missing/inconsistent policy produces `unknown` applicability.
 Unbound/incorrect SHA-256 input paths fail in the shared replay loader;
 they are not equivalent to a valid case with no package role.
 
-`cases.json` freezes **156 cases** (94 package and 62 owner) and **155**
+`cases.json` freezes **157 cases** (94 package and 63 owner) and **156**
 reproducible, SHA-256-pinned synthetic archives, alongside six separately
 frozen pre-dispatch rejections in `rejected-inputs.json`.
 `lp01_expectations.py` checks the exact JSON, ZIP bytes, owner

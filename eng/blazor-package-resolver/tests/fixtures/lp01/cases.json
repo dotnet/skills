@@ -9723,6 +9723,95 @@
       ]
     },
     {
+      "case_id": "lp01-owner-grant-gpl-indented",
+      "row_id": "LP-01",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/owner-grant-gpl-indented.nupkg",
+          "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "owner-record",
+          "path": "owners/grant-gpl-indented.json",
+          "sha256": "b674ccb8214b2e0a29b4bcc527e710e501589ce9e292e923c2c06412f19ab69c"
+        },
+        {
+          "role": "grant-mit",
+          "path": "grants/grant-gpl-indented.txt",
+          "sha256": "695faabf02e950573f08e704fcbee482a442fbfc130cb7792ce19c399b03199a"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-01",
+        "resolver_id": "lp01-license-policy",
+        "resolver_version": "1.0.0",
+        "branch_id": "grant-contradiction",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/owner-grant-gpl-indented.nupkg",
+            "sha256": "2f45dd1f81a6c0f0ee09df5bf7a1540dffd8ae2a7d5f379d1402db28ef8e0699"
+          },
+          {
+            "role": "policy",
+            "path": "policy/lp01-policy-1.0.0.json",
+            "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+          },
+          {
+            "role": "corpus",
+            "path": "policy/spdx-licenses-3.27.0.json",
+            "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+          },
+          {
+            "role": "owner-record",
+            "path": "owners/grant-gpl-indented.json",
+            "sha256": "b674ccb8214b2e0a29b4bcc527e710e501589ce9e292e923c2c06412f19ab69c"
+          },
+          {
+            "role": "grant-mit",
+            "path": "grants/grant-gpl-indented.txt",
+            "sha256": "695faabf02e950573f08e704fcbee482a442fbfc130cb7792ce19c399b03199a"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/license",
+          "package:nuspec/repository",
+          "policy:lp01-policy-1.0.0",
+          "corpus:spdx-licenses-3.27.0",
+          "owner-record:document",
+          "grant-mit:document"
+        ],
+        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "finding": null,
+        "missing_fact": "The authoritative package declaration and prevalidated grant evidence contradict each other.",
+        "required_input": "reconciled-owner-license-grant",
+        "next_category": "package-owner"
+      },
+      "rationale": "Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+      "evidence_pointers": [
+        "package:nuspec/license",
+        "package:nuspec/repository",
+        "policy:lp01-policy-1.0.0",
+        "corpus:spdx-licenses-3.27.0",
+        "owner-record:document",
+        "grant-mit:document",
+        "package:archive"
+      ]
+    },
+    {
       "case_id": "lp01-owner-package-gpl",
       "row_id": "LP-01",
       "inputs": [

@@ -413,6 +413,7 @@ OWNER_SPECS = (
     ("invalid-utf8-grant", "grant-incomplete"),
     ("oversize-grant", "grant-limit"),
     ("grant-gpl", "grant-contradiction"),
+    ("grant-gpl-indented", "grant-contradiction"),
     ("package-gpl", "grant-contradiction"),
     ("unknown-field", "owner-record-invalid"),
     ("schema-version", "owner-record-invalid"),
@@ -563,7 +564,9 @@ def owner_inputs(name, policy_bytes, catalog_bytes):
     mit = (b"SPDX-License-Identifier: MIT\n" if name == "tag-only" else
            b"" if name == "empty-grant" else b"\xff" + GRANT if name == "invalid-utf8-grant" else
            GRANT.replace(b"SPDX-License-Identifier: MIT", b"SPDX-License-Identifier: GPL-3.0-only")
-           if name == "grant-gpl" else GRANT + b"x" * (MAX_GRANT_BYTES + 1 - len(GRANT))
+           if name == "grant-gpl" else
+           GRANT.replace(b"SPDX-License-Identifier: MIT", b"  SPDX-License-Identifier: GPL-3.0-only")
+           if name == "grant-gpl-indented" else GRANT + b"x" * (MAX_GRANT_BYTES + 1 - len(GRANT))
            if name == "oversize-grant" else GRANT.replace(b"2026 Example", b"2027 Example")
            if name == "copyright-variant" else GRANT.replace(b"SPDX-License-Identifier: MIT\n", b"")
            if name == "untagged-grant" else GRANT)
@@ -763,10 +766,10 @@ def owner_state(inputs, content, record_bytes, second, grants, policy_bytes, pol
             return "grant-incomplete"
         if not text.strip() or "\0" in text or data.startswith(b"\xef\xbb\xbf"):
             return "grant-incomplete"
-        declarations = re.findall(r"^SPDX-License-Identifier: ([^\r\n]+)$", text, re.MULTILINE)
-        if declarations and any(declaration != license_id for declaration in declarations):
+        declarations = re.findall(r"^[ \t]*SPDX-License-Identifier:[ \t]*([^\r\n]+)$", text, re.MULTILINE)
+        if declarations and any(declaration.strip() != license_id for declaration in declarations):
             return "grant-contradiction"
-        if len(text) < 128 or text.strip() == f"SPDX-License-Identifier: {license_id}":
+        if text.strip() == f"SPDX-License-Identifier: {license_id}":
             return "grant-incomplete"
         if not binding["caller_accepts_complete_grant"]:
             return "grant-incomplete"
