@@ -2,17 +2,17 @@
 name: dotnet-breaking-changes
 description: >
   Use before changing .NET/C# code whose callers you do not control: a NuGet library, or a repo with
-  PublicAPI.Shipped/Unshipped.txt, ApiCompat or package validation, multiple TargetFrameworks,
-  InternalsVisibleTo, or partial/generated (.g.cs) types. Green builds miss silent breaks
-  from optional parameters, parameter names, sealing, const values, nullability, and #if.
-  USE FOR: "without breaking existing callers"; adding an optional parameter, overload, or
-  interface member; renaming a public method, parameter, or alias; renaming or removing an internal
-  helper a friend assembly may use; consolidating duplicated logic; changing a
-  signature, nullability, const/default value, or attribute; adding a target framework; fixing
-  RS0016/RS0017 or ApiCompat errors; "is this PR breaking?".
-  DO NOT USE FOR: a console app or executable whose callers all live in the same
-  project (renaming its public members is a plain refactor);
-  renaming a local or private member; formatting; framework/SDK/NuGet upgrades (use dotnet-upgrade).
+  PublicAPI.Shipped/Unshipped.txt, ApiCompat, multiple TargetFrameworks, InternalsVisibleTo, or
+  generated (.g.cs) partials. Green builds miss silent breaks from optional parameters, parameter
+  names, sealing, const values, nullability, and #if.
+  USE FOR: "without breaking existing callers"; adding a public method, overload, optional
+  parameter, or interface member to a shipped library; renaming a public method or an internal
+  helper a friend assembly uses; consolidating duplicated logic; changing a signature,
+  nullability, default, or attribute; adding a target framework; RS0016/RS0017 or ApiCompat errors;
+  "is this PR breaking?". For a rename, extract, or merge, also invoke csharp-refactoring.
+  DO NOT USE FOR: an executable whose callers all live in one project; renaming a local variable
+  or private member, even in a shipped library; formatting; framework/SDK/NuGet upgrades
+  (use dotnet-upgrade).
 license: MIT
 ---
 
