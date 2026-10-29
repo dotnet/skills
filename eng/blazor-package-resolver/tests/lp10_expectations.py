@@ -648,6 +648,13 @@ CASES = (
         ("build/run.txt", b'<?xml-stylesheet href="t.css" encoding="latin1"?>\n' + build_xml(
             '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
     ), branch="incomplete-inventory"),
+    spec("unsupported-encoding-project-caller", (
+        ("build/P.targets", build_xml(
+            '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
+            'Targets="Go" /></Target>'), None),
+        ("build/run.txt", b'<?xml version="1.0" encoding="latin1"?>\n' + build_xml(
+            '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
+    ), branch="incomplete-inventory"),
     spec("dtd-project-caller", (
         ("build/P.targets", build_xml(
             '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
@@ -992,13 +999,7 @@ def starts_project(content):
         if len(content) > XML_LIMIT and prefix.isspace():
             raise ValueError("build-xml-root-limit")
         return False
-    try:
-        text = xml_text(prefix, XML_LIMIT, "build-xml")
-    except ValueError:
-        if len(content) > XML_LIMIT or re.match(
-                rb"\s*<(?:[A-Za-z_][\w.-]*:)?Project(?=[\s/>])", prefix):
-            raise ValueError("build-xml-root-limit")
-        return False
+    text = xml_text(prefix, XML_LIMIT, "build-xml")
     if PROJECT_START.match(text):
         return True
     prelude = re.match(r"\A\s*(?:(?:<\?xml(?=\s)[^?]*\?>|<!--.*?-->)\s*)*",
@@ -1654,6 +1655,14 @@ def verify_case(case, document, writing):
                             "An XML-prefixed PI is not an XML declaration.")
                 else:
                     raise ValueError("An XML-prefixed PI hid an unsupported Project root.")
+            if name == "unsupported-encoding-project-caller" and entry_name == "build/run.txt":
+                try:
+                    starts_project(raw)
+                except ValueError as error:
+                    require(str(error) == "build-xml-encoding",
+                            "An unsupported real XML encoding must not become passive.")
+                else:
+                    raise ValueError("An unsupported real XML encoding hid a Project root.")
             if name in ("dtd-subset-comment-quote-caller",
                         "dtd-subset-comment-quote-over-limit-caller") and entry_name == "build/run.txt":
                 reason = ("build-xml-root-limit" if "over-limit" in name else
