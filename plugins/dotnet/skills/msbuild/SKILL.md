@@ -1,6 +1,6 @@
 ---
 name: msbuild
-description: "Use before MSBuild custom-target or incremental-generation repairs, XML/import/hook review, .binlog capture/replay, or assessing supported/unsupported build-speedup claims and controlled timings, even without a checkout. Framework/API/.NET/ASP.NET upgrades and working non-SDK-to-SDK/packages.config conversions are migrations: DO NOT activate. A failing assertion after a successful build is code/test debugging: DO NOT activate. For MSBuild authoring itself, activate before reviewing/editing .proj/.props/.targets/.csproj/.fsproj/.vbproj or Directory.Build files, including no-change import reviews. Check Import/Exists, required and NuGet build/buildTransitive/nuspec imports, hook order, conditions, Inputs/Outputs, stale outputs and incorrect skips. Build-wiring checks must use copies, keeping original source inputs read-only. Also diagnose failed dotnet build/restore/pack/publish or slow evaluation/compilation/copying. Exclude SDK installation alone, C# refactoring, runtime CPU profiling and non-MSBuild builds."
+description: "Use before MSBuild custom-target or incremental-generation repairs, XML/import/hook review, .binlog capture/replay, or assessing supported/unsupported build-speedup claims and controlled timings, even without a checkout. Framework/API/.NET/ASP.NET upgrade plans and working non-SDK-to-SDK/packages.config conversions are migrations, even if they mention .csproj/NuGet: DO NOT activate. A failing assertion after a successful build is code/test debugging: DO NOT activate. For MSBuild authoring itself, activate before reviewing/editing .proj/.props/.targets/.csproj/.fsproj/.vbproj or Directory.Build files, including no-change import reviews. Check Import/Exists, required and NuGet build/buildTransitive/nuspec imports, conditions, Inputs/Outputs, stale outputs and incorrect skips. Build checks use copies; source inputs stay read-only. Diagnose failed dotnet build/restore/pack/publish or slow evaluation/compilation/copying. Exclude SDK installation alone, C# refactoring, runtime CPU profiling and non-MSBuild builds."
 license: MIT
 ---
 
@@ -46,26 +46,30 @@ logger-option, toolset, or privacy question.
 | Outputs are stale or required work is skipped | [incremental-build](references/incremental-build.md) | Track input-set membership as well as file timestamps; apply the repair contract below. |
 
 For build-wiring-only work, generator and source inputs are **read-only throughout**, not restored
-after tests. Allocate scratch as a uniquely named directory **inside the owned workspace** (for
-example `mktemp -d -p <workspace>` or a GUID subdirectory), print it once, and reuse that exact path
-for the copy, logs, and hashes. No global `/tmp`, fixed names, pointer files, pre-deleting, or
-shared-temp globbing. Copy the project/input tree and required
-imports; run every input-mutating check with **the copy as working directory**. A backup is not a
-verification copy, nor is an original project already under a temporary path. Compare original hashes
-before/after; equal final hashes do not excuse intermediate mutation. If the copy cannot reproduce
-the environment, report blocked checks; verification does not authorize in-place input mutation.
+after tests; edit the original only as the requested repair requires.
+Allocate scratch as a uniquely named directory **inside the owned workspace** (for example
+`mktemp -d -p <workspace>`), print it once, and write every copy, log, and hash under that exact
+path: no global `/tmp`, fixed leaf names, pointer files, pre-deleting, or globbing to recover it.
+Copy the project/input tree and required imports; run every scenario that adds, deletes, empties,
+or retimes inputs, or deletes `obj`/outputs, with **the copy as working directory**. A backup is not
+a verification copy, nor is an original project already under a temporary path. Compare original
+hashes before/after; equal final hashes do not excuse intermediate mutation. A confirming build of
+the repaired original must not delete outputs. If the copy cannot reproduce the environment, report
+blocked checks.
 
 For input-set changes, prefer a persisted membership list written with `WriteLinesToFile` and
 `WriteOnlyWhenDifferent`, plus actual files in `Inputs`. A path list is not a content hash.
 Verify first/unchanged builds, deletion, older addition, empty inputs, and missing-output recovery
 on the copy. End the repair report, however brief, with three labeled explanations, not only a checklist:
 
-- **Cause:** a deleted input vanishes from the timestamp comparison, and an added input older than
-  the output never looks newer, so required regeneration is skipped.
+- **Cause:** state both blind spots: a deleted input vanishes from the timestamp comparison; an
+  added input older than the output never looks newer; either skips required regeneration.
 - **Mechanism:** identify the membership artifact and how its changes invalidate the output.
   Unchanged membership preserves skips; actual file timestamps still catch ordinary edits.
-- **Checks:** list passed, failed, and not-run separately with the command or path used. If the main
-  scenario passed but a later assertion failed, report both; never summarize as verified.
+- **Checks:** list passed, failed, and not-run separately with the command or path used. "None
+  failed" requires every command to exit 0; an errored script, even if fixed and rerun, is listed
+  failed with its cause. If the main scenario passed but a later assertion failed, report both;
+  never summarize as verified.
 
 After a repair, rerun the original failing scenario and check affected dependents. If only a log
 is available, provide an evidence-backed proposed fix and say it was not applied or rebuilt.
@@ -105,8 +109,8 @@ When a minimal attribution experiment is needed, return **one two-arm table**, n
    workload.** When they are controls, retain supplied Rebuild and timed restore; do not prime,
    warm, or move work outside the timer unless the original workload already did.
 4. Alternate matched pairs; compare wall-time medians and observed ranges; check required outputs
-   and diagnostics. Scope the result to that workload. End the answer after this table and its
-   validity checks: name no second experiment, optional benchmark, or follow-up variant.
+   and diagnostics. Scope the result to that workload. The table is the only experiment; the last
+   sentence states a validity check or residual limit, not an offer or variant.
 
 For optimization work, establish the relevant successful baseline before changing one supported cause:
 
