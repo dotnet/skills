@@ -43,9 +43,12 @@ using (var doc = JsonDocument.Parse(coverage))
                 "LP-09" => row.GetProperty("work_state").GetString() == "implemented" &&
                            row.GetProperty("resolver_id").GetString() == "lp09-project-url" &&
                            row.GetProperty("resolver_version").GetString() == "1.0.0",
+                "LP-10" => row.GetProperty("work_state").GetString() == "implemented" &&
+                           row.GetProperty("resolver_id").GetString() == "lp10-binary-attribution" &&
+                           row.GetProperty("resolver_version").GetString() == "1.0.0",
                 _ => row.GetProperty("work_state").GetString() == "tbd" &&
                      !row.TryGetProperty("resolver_id", out _)
-            })), "Only LP-05 through LP-09 are registered as implemented; 55 rows remain TBD");
+            })), "Only LP-05 through LP-10 are registered as implemented; 54 rows remain TBD");
     NoClaims(doc.RootElement);
 }
 
@@ -481,6 +484,20 @@ Throws(() => registry.Dispatch(lp09Case with
 }));
 Check(lp09Output.SequenceEqual(Replay.Run(lp09Fixture, registry)),
     "LP-09 tamper rejection does not affect later deterministic replay");
+var lp10Fixture = Path.Combine(AppContext.BaseDirectory, "fixtures", "lp10", "cases.json");
+var lp10Output = Replay.Run(lp10Fixture, registry);
+Check(lp10Output.SequenceEqual(Replay.Run(lp10Fixture, registry)),
+    "All frozen LP-10 branches replay with identical canonical output bytes");
+using (var doc = JsonDocument.Parse(lp10Output))
+{
+    var cases = doc.RootElement.GetProperty("cases");
+    Check(cases.GetArrayLength() == 174 &&
+        cases.EnumerateArray().All(item =>
+            item.GetProperty("result").GetProperty("row_id").GetString() == "LP-10"),
+        "Exact 174-case LP-10 synthetic branch matrix");
+    NoClaims(doc.RootElement);
+}
+Lp10BoundaryChecks.Run(registry, lp10Fixture);
 MetadataSiblingChecks.Run(registry);
 Throws(() => Implemented(Fake("LP-01", input =>
     Result(input, "bad", "deterministic", "unknown", "guessed", null, null, null)))
@@ -570,7 +587,8 @@ var source = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..",
 var allowed = new HashSet<string>(StringComparer.Ordinal)
     { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs", "Lp05LicenseExpressionResolver.cs",
       "Lp06RepositoryUrlResolver.cs", "Lp07RepositoryCommitResolver.cs",
-      "Lp08AuthorsResolver.cs", "Lp09ProjectUrlResolver.cs", "NuGetNuspecReader.cs" };
+      "Lp08AuthorsResolver.cs", "Lp09ProjectUrlResolver.cs",
+      "Lp10BinaryAttributionResolver.cs", "NuGetNuspecReader.cs" };
 var allowedFiles = allowed.Concat(["BlazorPackageResolver.csproj", "README.md",
     "data/provenance.json", "data/rubric.json", "data/requirement-basis.json"])
     .ToHashSet(StringComparer.Ordinal);
@@ -588,7 +606,7 @@ foreach (var file in allowed)
         System.Text.RegularExpressions.RegexOptions.IgnoreCase),
         "No assessment, rendering, reader, library, comparison, component or AI namespace");
 }
-Console.WriteLine("Resolver foundation and LP-05 through LP-09 checks passed.");
+Console.WriteLine("Resolver foundation and LP-05 through LP-10 checks passed.");
 
 Registry Implemented(IDeterministicResolver handler) => new(catalog,
     [new RegistryEntry("LP-01", "implemented", "synthetic", "1.0.0"), .. registrations.Skip(1)],

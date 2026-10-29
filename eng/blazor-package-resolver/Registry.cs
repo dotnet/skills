@@ -32,9 +32,11 @@ public sealed class Registry
             "LP-07" => new RegistryEntry(id, "implemented", "lp07-repository-commit", "1.0.0"),
             "LP-08" => new RegistryEntry(id, "implemented", "lp08-authors", "1.0.0"),
             "LP-09" => new RegistryEntry(id, "implemented", "lp09-project-url", "1.0.0"),
+            "LP-10" => new RegistryEntry(id, "implemented", "lp10-binary-attribution", "1.0.0"),
             _ => new RegistryEntry(id, "tbd")
         }), [new Lp05LicenseExpressionResolver(), new Lp06RepositoryUrlResolver(),
-            new Lp07RepositoryCommitResolver(), new Lp08AuthorsResolver(), new Lp09ProjectUrlResolver()]);
+            new Lp07RepositoryCommitResolver(), new Lp08AuthorsResolver(), new Lp09ProjectUrlResolver(),
+            new Lp10BinaryAttributionResolver()]);
 
     public Registry(Catalog catalog, IEnumerable<RegistryEntry> registrations,
         IEnumerable<IDeterministicResolver> implementations)
