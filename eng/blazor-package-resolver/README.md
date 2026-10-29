@@ -13,8 +13,9 @@ enter the registry; the 52 component rows and the separate TA-08 extension
 are excluded. LP-05 through LP-10 have deterministic package-byte
 handlers: `lp05-license-expression/1.0.0`, `lp06-repository-url/1.0.0`,
 `lp07-repository-commit/1.0.0`, `lp08-authors/1.0.0`,
-`lp09-project-url/1.0.0`, and `lp10-binary-attribution/1.0.0`.
-The other 54 package rows remain `tbd`. `tbd` and `implemented` are
+`lp09-project-url/1.0.0`, `lp10-binary-attribution/1.0.0`, and
+`pi01-strong-name/1.0.0`. The other 53 package rows remain `tbd`.
+`tbd` and `implemented` are
 **work states**, not evaluation results.
 
 Run from the repository root with the normal SDK in `global.json`:
@@ -28,6 +29,7 @@ dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj --
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp08/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp09/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp10/cases.json
+dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/pi01/cases.json
 dotnet run --project eng/blazor-package-resolver/tests/ResolverChecks.csproj
 ```
 
@@ -123,6 +125,25 @@ independence, culture, uncompressed resource thresholds, and both retained
 results when `LP10_SYNCFUSION_NUPKG` and `LP10_INFRAGISTICS_NUPKG` point
 to the exact pinned local archives. Both must be set together; proprietary
 bytes stay outside the repository.
+PI-01 inventories the entire checked package for managed assemblies, bounds
+ZIP/manifest/entry reads, and fails closed on opaque containers, native
+bundle candidates, malformed metadata, unaccounted PE overlays, or unsupported
+certificate profiles. It distinguishes unsigned, delay-signed, public-signed,
+cryptographically invalid and verified strong-name signed assemblies; the
+positive branch requires an unambiguous complete inventory. Strong-name RSA
+verification uses the assembly public key and detects changed signature or
+signed PE bytes. Its Authenticode certificate inspection accounts for
+certificate-table bytes but does **not** establish publisher identity or
+certificate-chain trust (the separate PI-02 requirement). Complete metadata
+table/signature/CustomAttribute decoding and full assembly-qualified enum
+identity checks precede decisive signing states; untrusted packaged code is
+never executed or loaded. The 130-case frozen matrix, evidence contracts and
+opt-in retained identities are in `tests/fixtures/pi01/README.md`.
+`tests/Pi01BoundaryChecks.cs` checks the package-only byte/count thresholds,
+culture and checked-buffer path independence; when both `PI01_SYNCFUSION_NUPKG`
+and `PI01_INFRAGISTICS_NUPKG` bind the exact local archives it also verifies
+their frozen results. Unsupported external enum identities require additional
+evidence rather than an inferred backing type.
 Portable retained-package replay identities and result hashes are in each
 row's `tests/fixtures/lp05/acceptance-results.json` and
 `tests/fixtures/lp06/acceptance-results.json` and
@@ -142,7 +163,7 @@ or a specific `missing_fact`, `required_input`, and `next_category`. Branches of
 the same future row may take different paths. Deterministic branches need a
 finding and evidence; unknown applicability must escalate. A known applicable
 branch may also escalate when a named fact/input remains missing. The dispatcher
-escalates the other 54 unimplemented rows as `package-dispatcher`, not as a claimed row
+escalates the other 53 unimplemented rows as `package-dispatcher`, not as a claimed row
 resolver. Registry construction rejects missing/extra IDs, component or extension
 IDs, handlers without registrations, implementation declarations without matching
 handlers, and handlers on TBD rows.
@@ -157,7 +178,7 @@ contract, **not** permission to update expectation and implementation together.
 Review an expectation change independently and explain its source evidence.
 When separately supplied, real Syncfusion **and** Infragistics pinned acceptance
 inputs must replay for that row; commercial inputs are opt-in and never required
-for ordinary CI. LP-05 through LP-10 were each replayed against both exact retained
+for ordinary CI. LP-05 through LP-10 and PI-01 were replayed against both exact retained
 packages; local detailed receipts and proprietary package bytes are not
 shipped with the repository. Old protocols may inform later row work, but
 port no old file without an active consumer and a test. No prior PR or

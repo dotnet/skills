@@ -46,9 +46,12 @@ using (var doc = JsonDocument.Parse(coverage))
                 "LP-10" => row.GetProperty("work_state").GetString() == "implemented" &&
                            row.GetProperty("resolver_id").GetString() == "lp10-binary-attribution" &&
                            row.GetProperty("resolver_version").GetString() == "1.0.0",
+                "PI-01" => row.GetProperty("work_state").GetString() == "implemented" &&
+                           row.GetProperty("resolver_id").GetString() == "pi01-strong-name" &&
+                           row.GetProperty("resolver_version").GetString() == "1.0.0",
                 _ => row.GetProperty("work_state").GetString() == "tbd" &&
                      !row.TryGetProperty("resolver_id", out _)
-            })), "Only LP-05 through LP-10 are registered as implemented; 54 rows remain TBD");
+            })), "Only LP-05 through LP-10 and PI-01 are implemented; 53 rows remain TBD");
     NoClaims(doc.RootElement);
 }
 
@@ -498,6 +501,20 @@ using (var doc = JsonDocument.Parse(lp10Output))
     NoClaims(doc.RootElement);
 }
 Lp10BoundaryChecks.Run(registry, lp10Fixture);
+var pi01Fixture = Path.Combine(AppContext.BaseDirectory, "fixtures", "pi01", "cases.json");
+var pi01Output = Replay.Run(pi01Fixture, registry);
+Check(pi01Output.SequenceEqual(Replay.Run(pi01Fixture, registry)),
+    "All frozen PI-01 branches replay with identical canonical output bytes");
+using (var doc = JsonDocument.Parse(pi01Output))
+{
+    var cases = doc.RootElement.GetProperty("cases");
+    Check(cases.GetArrayLength() == 130 &&
+        cases.EnumerateArray().All(item =>
+            item.GetProperty("result").GetProperty("row_id").GetString() == "PI-01"),
+        "Exact 130-case PI-01 synthetic branch matrix");
+    NoClaims(doc.RootElement);
+}
+Pi01BoundaryChecks.Run(registry);
 MetadataSiblingChecks.Run(registry);
 Throws(() => Implemented(Fake("LP-01", input =>
     Result(input, "bad", "deterministic", "unknown", "guessed", null, null, null)))
@@ -588,7 +605,8 @@ var allowed = new HashSet<string>(StringComparer.Ordinal)
     { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs", "Lp05LicenseExpressionResolver.cs",
       "Lp06RepositoryUrlResolver.cs", "Lp07RepositoryCommitResolver.cs",
       "Lp08AuthorsResolver.cs", "Lp09ProjectUrlResolver.cs",
-      "Lp10BinaryAttributionResolver.cs", "NuGetNuspecReader.cs" };
+      "Lp10BinaryAttributionResolver.cs", "NuGetNuspecReader.cs",
+      "Pi01StrongNameResolver.cs", "Pi01PeInspector.cs" };
 var allowedFiles = allowed.Concat(["BlazorPackageResolver.csproj", "README.md",
     "data/provenance.json", "data/rubric.json", "data/requirement-basis.json"])
     .ToHashSet(StringComparer.Ordinal);
@@ -606,7 +624,7 @@ foreach (var file in allowed)
         System.Text.RegularExpressions.RegexOptions.IgnoreCase),
         "No assessment, rendering, reader, library, comparison, component or AI namespace");
 }
-Console.WriteLine("Resolver foundation and LP-05 through LP-10 checks passed.");
+Console.WriteLine("Resolver foundation, LP-05 through LP-10 and PI-01 checks passed.");
 
 Registry Implemented(IDeterministicResolver handler) => new(catalog,
     [new RegistryEntry("LP-01", "implemented", "synthetic", "1.0.0"), .. registrations.Skip(1)],
