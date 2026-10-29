@@ -20,59 +20,82 @@ maps `PackageProjectUrl` to the nuspec ProjectUrl; this oracle checks the
 *archived nuspec text*, not MSBuild inputs, feeds, or package web pages.
 
 Exactly one direct, recognized `<projectUrl>` with nonblank decoded text
-establishes *population*. Outer whitespace is trimmed for this oracle's
-finding; internal spaces/newlines, Unicode characters, spelling and case
-remain unchanged. XML predefined and numeric entities decode into text,
-CDATA contributes literal text, and comments contribute no text. A plain,
-padded, relative, malformed, opaque, or non-HTTP value is therefore still
-**populated**. This does **not** certify that the string is a valid URI or URL,
-has an HTTP(S) scheme, is reachable, under partner control, safe, publicly
-sourced, or corresponds to `RepositoryUrl`/`RepositoryCommit`; it does not
+and no competing case-variant element establishes *population*. Outer
+whitespace is trimmed for this oracle's finding; internal spaces/newlines,
+Unicode characters, spelling and case remain unchanged. XML predefined and
+numeric entities decode into text; CDATA contributes literal text, while
+comments and processing instructions contribute no text. A plain, padded,
+relative, malformed, opaque, or non-HTTP value is therefore still
+**populated**. In particular, `https://[invalid` is populated although
+`.NET Uri.TryCreate(value, RelativeOrAbsolute)` rejects it. This does **not**
+certify URI or URL validity, an HTTP(S) scheme, reachability, partner
+control, safety, public source identity, or correspondence to
+`RepositoryUrl`/`RepositoryCommit`; it does not
 enforce nuget.org's 4,000-character upload limit or any whole-document
 schema-validity rule. A single empty element, whitespace-only text (including
-Unicode whitespace), comment-only text, or whitespace-only CDATA is
-deterministically **not populated**. A repository `url`, repository
-`projectUrl` attribute, metadata attribute, wrong-case `<ProjectUrl>`,
-misplaced element, or nested element cannot supply the direct field.
+U+00A0 NO-BREAK SPACE), comment-only text, processing-instruction-only text,
+or whitespace-only CDATA is deterministically **not populated**. A repository
+`url`, repository
+`projectUrl` attribute, metadata attribute, misplaced element, or nested
+element cannot supply the direct field. U+200B ZERO WIDTH SPACE is a Unicode
+format character, **not** whitespace under Python `str.strip()` or .NET
+`string.Trim()`; by itself it is a populated value, not a valid URL claim.
 An unrelated malformed repository URL cannot invalidate a present ProjectUrl.
 
 [NuGet's `NuspecReader.GetProjectUrl`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/NuspecReader.cs)
 calls `GetMetadataValue("projectUrl")`. Its
 [core reader](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/Core/NuspecCoreReaderBase.cs)
 indexes raw XML element values and uses the first duplicate; **the reader
-does not itself trim `GetMetadataValue`**. The outer trim here is an explicit
-reporting/population convention consistent with LP-06/LP-08, not a claim that
-NuGet normalizes URLs, decodes percent escapes, collapses internal whitespace,
-or validates them before retrieval. XML decoding is performed by the XML
+does not itself trim `GetMetadataValue`**. The XSD and
+[NuGet ManifestReader's exact `case "projectUrl"`](https://github.com/NuGet/NuGet.Client/blob/dev/src/NuGet.Core/NuGet.Packaging/PackageCreation/Authoring/ManifestReader.cs)
+require the canonical XML spelling, but `NuspecCoreReaderBase` indexes
+metadata with `StringComparer.OrdinalIgnoreCase`; NuGet Gallery's
+case-insensitive metadata reading can therefore see `<ProjectUrl>`. A
+standalone case variant, or one beside an exact `<projectUrl>`, **escalates**
+with archive-level evidence and a request for a corrected nuspec: neither
+deterministic absence nor a chosen populated value is safe across readers.
+The outer trim here is an explicit reporting/population convention consistent
+with LP-06/LP-08, not a claim that NuGet normalizes URLs, decodes percent
+escapes, collapses internal whitespace, or validates them before retrieval.
+XML decoding is performed by the XML
 parser, not URL decoding. Duplicate direct ProjectUrl elements escalate even
 when their outer-trimmed texts agree: a first-element choice would mask the
 ambiguous nuspec. Conflicting and identical duplicates have separate
 diagnostics; neither is an LP-09 verdict about which URL is right.
 
-The direct element's namespace must match the recognized `package` and
-`metadata` namespace. The unqualified and historical NuGet 2010/07, 2011/08,
+The direct element's namespace must **equal** its recognized `package` and
+`metadata` namespace; a different prefix spelling bound to that same
+namespace is equivalent. The unqualified and historical NuGet 2010/07, 2011/08,
 2011/10, 2012/06, 2013/01 and 2013/05 roots are recognized; a foreign root
 or metadata element escalates. Namespace declarations are not ProjectUrl
 attributes, but other ordinary/namespaced attributes or child elements
 contradict its simple-text shape and escalate. A foreign-namespace
-`projectUrl` (including one alongside a recognized value) escalates instead
-of being read by local name or silently ignored. A DTD or custom entity
-declaration is unsafe and escalates without expansion; an undefined entity
-or malformed XML escalates as invalid XML. Missing/duplicate metadata,
+`projectUrl` (including one alongside a recognized value, a child in a
+*different recognized NuGet namespace*, or an unqualified `xmlns=""` child
+under namespaced metadata) escalates instead of being read by local name,
+by membership in any recognized namespace, or silently ignored. After
+archive/XML/root/metadata safety checks, inspect **all direct field
+candidates** before deciding population: foreign-namespace and case-variant
+elements, duplicate exact elements, and unsupported attributes/children
+escalate before a sole exact-case value can establish populated, blank, or
+missing. In particular, the mixed exact-plus-variant case must not take
+the populated branch simply because the exact element appeared first.
+A DTD or custom entity declaration is unsafe and escalates without expansion;
+an undefined entity or malformed XML escalates as invalid XML. Missing/duplicate metadata,
 missing/ambiguous root nuspec, a nested-only nuspec, unreadable archive, and
 an unavailable package escalate with a named missing fact. A missing *file on
 disk* or a changed checked-input digest is a foundation loader error before
 LP-09 dispatch, not the `no-package` case.
 
-`cases.json` freezes **57 complete structured CaseResult expectations**
-(56 synthetic archives and one absent-input case). The branch matrix covers:
+`cases.json` freezes **65 complete structured CaseResult expectations**
+(64 synthetic archives and one absent-input case). The branch matrix covers:
 
 | Branch family | Controls |
 |---|---|
-| Populated direct text | plain, padded, internal whitespace/newline, Unicode and Unicode padding, entities, CDATA/comments, non-HTTP, relative, malformed and opaque values |
-| Namespace and field separation | unqualified and six historical namespaces; namespace declaration; project plus different/malformed repository URL; unrelated foreign sibling |
-| Not populated | absent, repository-only/attribute-only, metadata attribute, nested/outside-metadata, wrong-case, empty, whitespace, Unicode whitespace, comment-only, empty CDATA |
-| Field ambiguity/shape | identical/padded/conflicting/blank duplicates; foreign-only/alongside/default-namespace child; ordinary/namespaced attributes; nested content |
+| Populated direct text | plain, padded, internal whitespace/newline, Unicode padding and U+200B, entities, CDATA/comments/processing instructions, non-HTTP, relative, malformed and `Uri.TryCreate`-rejected values |
+| Namespace and field separation | unqualified and six historical namespaces; same-namespace prefix and namespace declaration; project plus different/malformed repository URL; unrelated foreign sibling |
+| Not populated | absent, repository-only/attribute-only, metadata attribute, nested/outside-metadata, empty, whitespace including U+00A0, comment-only, PI-only, empty CDATA |
+| Field ambiguity/shape | standalone or mixed exact-plus-case-variant, identical/padded/conflicting/blank duplicates; foreign-only/alongside/different-recognized-namespace/`xmlns=""` child; ordinary/namespaced attributes; nested content |
 | Input safety/availability | foreign root/metadata, missing/duplicate metadata, malformed XML/undefined entity, DTD, missing/multiple/nested-only root nuspec, corrupt archive, no supplied package |
 
 These controls prevent whole-document searches, first-element selection,

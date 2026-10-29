@@ -344,6 +344,44 @@
       ]
     },
     {
+      "case_id": "lp09-pi-interleaved",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/pi-interleaved.nupkg",
+          "sha256": "d361f93d6853719656c4019604f2ed72e22b98473b21603a84c1fb9b7c8ee7b5"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/pi-interleaved.nupkg",
+            "sha256": "d361f93d6853719656c4019604f2ed72e22b98473b21603a84c1fb9b7c8ee7b5"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/final.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 pi-interleaved: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
       "case_id": "lp09-namespace-declaration",
       "row_id": "LP-09",
       "inputs": [
@@ -377,6 +415,44 @@
         "next_category": null
       },
       "rationale": "LP-09 namespace-declaration: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-prefixed-same-namespace",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/prefixed-same-namespace.nupkg",
+          "sha256": "3f0c384fcb84f4120dfb621411d0d3edda007a6043d17e7187339deea6c65b17"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/prefixed-same-namespace.nupkg",
+            "sha256": "3f0c384fcb84f4120dfb621411d0d3edda007a6043d17e7187339deea6c65b17"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://example.test/project.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 prefixed-same-namespace: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
       "evidence_pointers": [
         "package:nuspec/projectUrl"
       ]
@@ -458,6 +534,44 @@
       ]
     },
     {
+      "case_id": "lp09-invalid-uri",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-uri.nupkg",
+          "sha256": "e3c133e6c3d5fbac38edf933c085479301f4ad0d2706fcb24658a79641911d38"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-uri.nupkg",
+            "sha256": "e3c133e6c3d5fbac38edf933c085479301f4ad0d2706fcb24658a79641911d38"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: https://[invalid.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 invalid-uri: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
       "case_id": "lp09-non-http",
       "row_id": "LP-09",
       "inputs": [
@@ -529,6 +643,44 @@
         "next_category": null
       },
       "rationale": "LP-09 opaque-nonblank: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-zero-width-space",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/zero-width-space.nupkg",
+          "sha256": "af374b8df0b79dfc0b4ccd8b51621d41f2c0d30e11430ff6eaeff377f5c3e966"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "populated",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/zero-width-space.nupkg",
+            "sha256": "af374b8df0b79dfc0b4ccd8b51621d41f2c0d30e11430ff6eaeff377f5c3e966"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is populated: \u200b.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 zero-width-space: One direct projectUrl has nonblank decoded text; URL validity and project identity are not checked.",
       "evidence_pointers": [
         "package:nuspec/projectUrl"
       ]
@@ -908,7 +1060,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 absent: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "rationale": "LP-09 absent: Repository metadata, attributes and misplaced elements do not supply ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/metadata"
       ]
@@ -946,7 +1098,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 repository-only: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "rationale": "LP-09 repository-only: Repository metadata, attributes and misplaced elements do not supply ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/metadata"
       ]
@@ -984,7 +1136,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 repository-attribute: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "rationale": "LP-09 repository-attribute: Repository metadata, attributes and misplaced elements do not supply ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/metadata"
       ]
@@ -1022,7 +1174,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 metadata-attribute: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "rationale": "LP-09 metadata-attribute: Repository metadata, attributes and misplaced elements do not supply ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/metadata"
       ]
@@ -1060,7 +1212,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 nested-project: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "rationale": "LP-09 nested-project: Repository metadata, attributes and misplaced elements do not supply ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/metadata"
       ]
@@ -1098,7 +1250,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 outside-metadata: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "rationale": "LP-09 outside-metadata: Repository metadata, attributes and misplaced elements do not supply ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/metadata"
       ]
@@ -1117,8 +1269,8 @@
         "row_id": "LP-09",
         "resolver_id": "lp09-project-url",
         "resolver_version": "1.0.0",
-        "branch_id": "missing-project-url",
-        "decision": "deterministic",
+        "branch_id": "case-variant-project-url",
+        "decision": "escalated",
         "applicability": "applicable",
         "inputs": [
           {
@@ -1127,18 +1279,16 @@
             "sha256": "bcbe430712e8dbde4790a06ca016d0387fa84677293a4926f135c8db0ba2c8b0"
           }
         ],
-        "evidence_references": [
-          "package:nuspec/metadata"
-        ],
+        "evidence_references": [],
         "evidence_contract": null,
-        "finding": "ProjectUrl is not populated; the nuspec metadata has no direct projectUrl element.",
-        "missing_fact": null,
-        "required_input": null,
-        "next_category": null
+        "finding": null,
+        "missing_fact": "A case-variant ProjectUrl has conflicting interpretation: the schema and ManifestReader require exact projectUrl, but case-insensitive NuGet metadata readers recognize ProjectUrl.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
       },
-      "rationale": "LP-09 wrong-case: Repository metadata, attributes, case variants and misplaced elements do not supply ProjectUrl.",
+      "rationale": "LP-09 wrong-case: Exact-case and case-insensitive NuGet readers disagree; correct the ambiguous nuspec before deciding.",
       "evidence_pointers": [
-        "package:nuspec/metadata"
+        "package:archive"
       ]
     },
     {
@@ -1174,7 +1324,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 empty: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "rationale": "LP-09 empty: Empty text, whitespace, comments, processing instructions and whitespace-only CDATA do not populate ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/projectUrl"
       ]
@@ -1212,7 +1362,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 whitespace: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "rationale": "LP-09 whitespace: Empty text, whitespace, comments, processing instructions and whitespace-only CDATA do not populate ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/projectUrl"
       ]
@@ -1250,7 +1400,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 unicode-whitespace: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "rationale": "LP-09 unicode-whitespace: Empty text, whitespace, comments, processing instructions and whitespace-only CDATA do not populate ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/projectUrl"
       ]
@@ -1288,7 +1438,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 comment-only: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "rationale": "LP-09 comment-only: Empty text, whitespace, comments, processing instructions and whitespace-only CDATA do not populate ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/projectUrl"
       ]
@@ -1326,9 +1476,83 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-09 empty-cdata: Empty text, whitespace, comments and whitespace-only CDATA do not populate ProjectUrl.",
+      "rationale": "LP-09 empty-cdata: Empty text, whitespace, comments, processing instructions and whitespace-only CDATA do not populate ProjectUrl.",
       "evidence_pointers": [
         "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-pi-only",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/pi-only.nupkg",
+          "sha256": "4656591a20c8e46545fb3761f44c002270d33a91a173f0d01535c425bce1782f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "blank-project-url",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/pi-only.nupkg",
+            "sha256": "4656591a20c8e46545fb3761f44c002270d33a91a173f0d01535c425bce1782f"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/projectUrl"
+        ],
+        "evidence_contract": null,
+        "finding": "ProjectUrl is not populated; the projectUrl element is empty or whitespace-only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-09 pi-only: Empty text, whitespace, comments, processing instructions and whitespace-only CDATA do not populate ProjectUrl.",
+      "evidence_pointers": [
+        "package:nuspec/projectUrl"
+      ]
+    },
+    {
+      "case_id": "lp09-case-variant-alongside",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/case-variant-alongside.nupkg",
+          "sha256": "362fe63a74109fb784ad2527c74185aea9694fca5a465abddde8ce54902b324e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "case-variant-project-url",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/case-variant-alongside.nupkg",
+            "sha256": "362fe63a74109fb784ad2527c74185aea9694fca5a465abddde8ce54902b324e"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "An exact projectUrl beside a case-variant ProjectUrl has conflicting interpretation: the schema and ManifestReader require exact projectUrl, but case-insensitive NuGet metadata readers recognize both.",
+        "required_input": "corrected-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 case-variant-alongside: Exact-case and case-insensitive NuGet readers disagree; correct the ambiguous nuspec before deciding.",
+      "evidence_pointers": [
+        "package:archive"
       ]
     },
     {
@@ -1579,6 +1803,78 @@
         "next_category": "package-owner"
       },
       "rationale": "LP-09 foreign-child-default-namespace: A foreign-namespace projectUrl is not recognized NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-foreign-recognized-namespace",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-recognized-namespace.nupkg",
+          "sha256": "343d64be6e11e0bac6d19b545f2bec5e09c76e8fa70f9a21ac812ca6a07e3d01"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-project-url",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-recognized-namespace.nupkg",
+            "sha256": "343d64be6e11e0bac6d19b545f2bec5e09c76e8fa70f9a21ac812ca6a07e3d01"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "A projectUrl in a different recognized NuGet namespace cannot establish ProjectUrl for this metadata.",
+        "required_input": "recognized-project-url-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 foreign-recognized-namespace: A foreign-namespace projectUrl is not recognized NuGet metadata.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp09-foreign-unqualified-child",
+      "row_id": "LP-09",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-unqualified-child.nupkg",
+          "sha256": "5e4c7a82f2976f96f3e1da5ea6447f101635ce7c49a9e4732526d1d331d36b5d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-09",
+        "resolver_id": "lp09-project-url",
+        "resolver_version": "1.0.0",
+        "branch_id": "foreign-project-url",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-unqualified-child.nupkg",
+            "sha256": "5e4c7a82f2976f96f3e1da5ea6447f101635ce7c49a9e4732526d1d331d36b5d"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "An unqualified projectUrl child cannot establish ProjectUrl for namespaced metadata.",
+        "required_input": "recognized-project-url-metadata",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-09 foreign-unqualified-child: A foreign-namespace projectUrl is not recognized NuGet metadata.",
       "evidence_pointers": [
         "package:archive"
       ]
