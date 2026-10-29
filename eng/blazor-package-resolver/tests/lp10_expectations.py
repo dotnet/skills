@@ -62,6 +62,7 @@ DECLARATIVE_FULL_PATH = re.compile(
 PROJECT_START = re.compile(
     r"\A\s*(?:(?:<\?xml\b[^?]*\?>|<!--.*?-->)\s*)*"
     r"<(?:[A-Za-z_][\w.-]*:)?Project(?=[\s/>])", re.DOTALL)
+PROJECT_TOKEN = re.compile(r"<(?:[A-Za-z_][\w.-]*:)?Project(?=[\s/>])")
 XML_UNSAFE_TOKEN = re.compile(r"<!\s*(?:DOCTYPE|ENTITY)\b", re.IGNORECASE)
 
 
@@ -636,6 +637,14 @@ CASES = (
         ("build/run.txt", b'<!DOCTYPE Project [<!ENTITY x "unused">]>\n' + build_xml(
             '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
     ), branch="incomplete-inventory"),
+    spec("dtd-subset-comment-quote-caller", (
+        ("build/P.targets", build_xml(
+            '<Target Name="Go"><MSBuild Projects="$(MSBuildThisFileDirectory)run.txt" '
+            'Targets="Go" /></Target>'), None),
+        ("build/run.txt", b"<!DOCTYPE Project [ <!-- it's a note --> ]>\n"
+         + build_xml("<PropertyGroup><N>'] </N></PropertyGroup>"
+                     '<Target Name="Go"><Exec Command="echo sample" /></Target>'), None),
+    ), branch="incomplete-inventory"),
 )
 
 STRUCTURAL = {
@@ -969,7 +978,6 @@ def starts_project(content):
     prelude = re.match(r"\A\s*(?:(?:<\?xml\b[^?]*\?>|<!--.*?-->)\s*)*",
                        text, re.DOTALL)
     cursor = prelude.end()
-    unsupported = False
     while True:
         while cursor < len(text) and text[cursor].isspace():
             cursor += 1
@@ -982,10 +990,12 @@ def starts_project(content):
             end = text.find("?>", cursor + 2)
             if end < 0:
                 raise ValueError("build-xml-root-limit")
-            unsupported = True
+            if PROJECT_TOKEN.search(text[prelude.end():]):
+                raise ValueError("build-xml-unsupported-prolog")
             cursor = end + 2
         elif XML_UNSAFE_TOKEN.match(text, cursor):
-            unsupported = True
+            if PROJECT_TOKEN.search(text[prelude.end():]):
+                raise ValueError("build-xml-unsupported-prolog")
             depth = 0
             quote = None
             for index in range(cursor + 2, len(text)):
@@ -1007,8 +1017,6 @@ def starts_project(content):
         else:
             break
     remaining = text[cursor:]
-    if unsupported and PROJECT_START.match(remaining):
-        raise ValueError("build-xml-unsupported-prolog")
     if len(content) > XML_LIMIT and (not remaining or remaining.startswith(("<!--", "<?"))):
         raise ValueError("build-xml-root-limit")
     return False
@@ -1594,6 +1602,14 @@ def verify_case(case, document, writing):
                 require(b"<!-- <!DOCTYPE" in raw and b"<!ENTITY" in raw and
                         b"<![CDATA[<!DOCTYPE" in raw,
                         "MSBuild comment/CDATA decoy markers missing.")
+            if name == "dtd-subset-comment-quote-caller" and entry_name == "build/run.txt":
+                try:
+                    starts_project(raw)
+                except ValueError as error:
+                    require(str(error) == "build-xml-unsupported-prolog",
+                            "Internal-subset comment must not hide the unsupported Project root.")
+                else:
+                    raise ValueError("Internal-subset comment hid an unsupported Project root.")
             if hint is not None:
                 classified, reason, _, _ = classify_payload(
                     entry_name, raw, {item[0] for item in case["entries"]})
