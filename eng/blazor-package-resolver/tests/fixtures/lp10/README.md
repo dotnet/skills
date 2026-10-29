@@ -81,7 +81,13 @@ decoded strictly; DTD/entities are prohibited, and the XML parser does not
 resolve external references. Unsupported encodings, malformed XML,
 foreign roots and limit exceedance escalate with unknown applicability;
 UTF-16 without a BOM and invalid UTF-8 `Project` roots cannot become
-passive documentation. DTD/entity detection checks actual XML declaration
+passive documentation. An ASCII-byte `Project` with a real
+`encoding="latin1"` declaration loads in a DTD-prohibiting .NET XML reader,
+but falls outside the oracle's frozen decoder allowlist; even when reached
+through a non-command MSBuild caller it escalates with `build-xml-encoding`,
+never to passive no-code. An XML-looking in-package entry reached by
+`Import` or `MSBuild Projects` cannot become passive solely because its
+bounded decoding failed. DTD/entity detection checks actual XML declaration
 tokens, not matching words inside harmless XML comments or CDATA. No-code
 nuspec-comment and declaration-only `.props` comment/CDATA decoys preserve
 this boundary without relaxing the UTF-16 DTD/entity safety controls.
@@ -202,7 +208,7 @@ and still test *uncompressed* thresholds.
 
 ## Synthetic and retained controls
 
-`cases.json` freezes **173 synthetic cases, 172 pinned input files with 172
+`cases.json` freezes **174 synthetic cases, 173 pinned input files with 173
 distinct SHA-256 identities**, and one absent-input case. The controlled
 families cover separate and mixed code (including vendor-shaped PE+JS with
 and without repository/dependency claims), executable scripts and shebangs,
