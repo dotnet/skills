@@ -1,0 +1,1668 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp10-empty",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/empty.nupkg",
+          "sha256": "02432c373761e7b24d4f2707f16592755b296bddb7c85541409b026aa1ef18dd"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/empty.nupkg",
+            "sha256": "02432c373761e7b24d4f2707f16592755b296bddb7c85541409b026aa1ef18dd"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "Checked ZIP entry inventory contains no executable/code payload candidates.",
+        "finding": "No packaged executable/code payloads were found; LP-10's per-payload attribution condition holds vacuously for this checked archive only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 empty: checked package inventory contains no code payloads.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-non-code-assets",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/non-code-assets.nupkg",
+          "sha256": "b7e0282509bb896d8e9c8b7071004aea66485498583be7c054d67545d91e5148"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/non-code-assets.nupkg",
+            "sha256": "b7e0282509bb896d8e9c8b7071004aea66485498583be7c054d67545d91e5148"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "Checked ZIP entry inventory contains no executable/code payload candidates.",
+        "finding": "No packaged executable/code payloads were found; LP-10's per-payload attribution condition holds vacuously for this checked archive only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 non-code-assets: checked package inventory contains no code payloads.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-declared-nuget-only",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/declared-nuget-only.nupkg",
+          "sha256": "4ef7df1a13fa05d279c4a4523e50f2724d248f7a4e5805277367d8720b423db7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "no-code-payload",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/declared-nuget-only.nupkg",
+            "sha256": "4ef7df1a13fa05d279c4a4523e50f2724d248f7a4e5805277367d8720b423db7"
+          }
+        ],
+        "evidence_references": [
+          "package:archive",
+          "package:nuspec/metadata"
+        ],
+        "evidence_contract": "Checked ZIP entry inventory contains no executable/code payload candidates.",
+        "finding": "No packaged executable/code payloads were found; LP-10's per-payload attribution condition holds vacuously for this checked archive only.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-10 declared-nuget-only: checked package inventory contains no code payloads.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-managed-lib",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/managed-lib.nupkg",
+          "sha256": "8d9f1408d39e8842ff5c697d19ac3723ba6eb530dfde3239aa452710b8c9c613"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/managed-lib.nupkg",
+            "sha256": "8d9f1408d39e8842ff5c697d19ac3723ba6eb530dfde3239aa452710b8c9c613"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 managed-lib: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-reference-assembly",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/reference-assembly.nupkg",
+          "sha256": "451b6ada458905d11cc1b882824a124303ad54cc7f8b099583104b753f94cf3e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/reference-assembly.nupkg",
+            "sha256": "451b6ada458905d11cc1b882824a124303ad54cc7f8b099583104b753f94cf3e"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"ref/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 reference-assembly: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-native-win",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/native-win.nupkg",
+          "sha256": "f759012daf8e0fafb87b28bd44d8849996c71035cd69f21879ae428d75634647"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/native-win.nupkg",
+            "sha256": "f759012daf8e0fafb87b28bd44d8849996c71035cd69f21879ae428d75634647"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"runtimes/win-x64/native/engine.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 native-win: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-native-linux",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/native-linux.nupkg",
+          "sha256": "0f1328a316269e11874ed848b115c541f5e681ee9e166940e0460a60bb1059e2"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/native-linux.nupkg",
+            "sha256": "0f1328a316269e11874ed848b115c541f5e681ee9e166940e0460a60bb1059e2"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"elf-candidate\",\"path\":\"runtimes/linux-x64/native/libengine.so\",\"sha256\":\"243d107b590f25beffb6503da722c387673cac5987beebbcd0e7382824e3b918\",\"size_bytes\":64}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 native-linux: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-native-macos",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/native-macos.nupkg",
+          "sha256": "6a5cea33b38f4a820bbece4a1d009a50d74b2561c088b22efe28ef5d1f76cb2a"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/native-macos.nupkg",
+            "sha256": "6a5cea33b38f4a820bbece4a1d009a50d74b2561c088b22efe28ef5d1f76cb2a"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"macho-candidate\",\"path\":\"runtimes/osx-arm64/native/libengine.dylib\",\"sha256\":\"6b94dc75b412b04b36397ac4f7f270dd402b44a6a41ade96ddd7aaa6fb47b86b\",\"size_bytes\":64}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 native-macos: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-runtime-managed",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/runtime-managed.nupkg",
+          "sha256": "8e0f0f297fcb76361256b4cc2742997f67ec4509d961c6ee367cb8e7dd82784f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/runtime-managed.nupkg",
+            "sha256": "8e0f0f297fcb76361256b4cc2742997f67ec4509d961c6ee367cb8e7dd82784f"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"runtimes/linux-x64/lib/net8.0/Runtime.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 runtime-managed: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-analyzer",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/analyzer.nupkg",
+          "sha256": "c9eacca31fd0fb406516a7a9e8077669ba814a7fa41368125a9ac0ee1a9f2128"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/analyzer.nupkg",
+            "sha256": "c9eacca31fd0fb406516a7a9e8077669ba814a7fa41368125a9ac0ee1a9f2128"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"analyzers/dotnet/cs/Analyzer.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 analyzer: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-tool",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/tool.nupkg",
+          "sha256": "a8494c721ddb1c3a143f20016dcff9413f0218eef28f9b691ec5922b69facdad"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/tool.nupkg",
+            "sha256": "a8494c721ddb1c3a143f20016dcff9413f0218eef28f9b691ec5922b69facdad"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"tools/net8.0/any/Driver.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 tool: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-build-binary",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/build-binary.nupkg",
+          "sha256": "6f7b9e9afda759852ca29154efa108ff0c2820aec36d6c4f6a9de7dfaa9a55ef"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/build-binary.nupkg",
+            "sha256": "6f7b9e9afda759852ca29154efa108ff0c2820aec36d6c4f6a9de7dfaa9a55ef"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"build/net8.0/Generator.exe\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 build-binary: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-build-transitive-binary",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/build-transitive-binary.nupkg",
+          "sha256": "d103ca3b568e5b8a80c8923c7cd72c33b4f1147e155e8b8ea846b701dc75c29b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/build-transitive-binary.nupkg",
+            "sha256": "d103ca3b568e5b8a80c8923c7cd72c33b4f1147e155e8b8ea846b701dc75c29b"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"buildTransitive/net8.0/Generator.exe\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 build-transitive-binary: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-script-tool",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/script-tool.nupkg",
+          "sha256": "4753ac0d02e9bf8fc7fff9c527d8eb7be0ab150f2a590d8a55ba1eb963c7ebad"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/script-tool.nupkg",
+            "sha256": "4753ac0d02e9bf8fc7fff9c527d8eb7be0ab150f2a590d8a55ba1eb963c7ebad"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"executable-script\",\"path\":\"tools/install.ps1\",\"sha256\":\"946a8ec1fd152e4667c22d7245fe6f83b01c0485100bcaf8202b5923778ec831\",\"size_bytes\":22}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 script-tool: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-bundled-js",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/bundled-js.nupkg",
+          "sha256": "abdb216656f88dda1bc690ab107188bf277857278817ad9936263cb272fc3b10"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-or-upstream-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/bundled-js.nupkg",
+            "sha256": "abdb216656f88dda1bc690ab107188bf277857278817ad9936263cb272fc3b10"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"bundled-js\",\"path\":\"staticwebassets/app.bundle.js\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The bundled code candidate has no verified owner and public-source or referenced NuGet/npm upstream mapping.",
+        "required_input": "per-entry-owner-and-source-or-upstream-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 bundled-js: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-content-js",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/content-js.nupkg",
+          "sha256": "76a8dd0666485086f69764514af25f0eea34b2d4ba8d0b1d4c78ca9f5b9e9885"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-or-upstream-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/content-js.nupkg",
+            "sha256": "76a8dd0666485086f69764514af25f0eea34b2d4ba8d0b1d4c78ca9f5b9e9885"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"bundled-js\",\"path\":\"contentFiles/any/any/init.js\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The bundled code candidate has no verified owner and public-source or referenced NuGet/npm upstream mapping.",
+        "required_input": "per-entry-owner-and-source-or-upstream-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 content-js: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-wasm",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/wasm.nupkg",
+          "sha256": "4a933cfaefc48a0e3bbc3cf0924e586563187d32f3464ea3fa4ba06e79a732b2"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-or-upstream-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/wasm.nupkg",
+            "sha256": "4a933cfaefc48a0e3bbc3cf0924e586563187d32f3464ea3fa4ba06e79a732b2"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"wasm-module\",\"path\":\"staticwebassets/ui.wasm\",\"sha256\":\"93a44bbb96c751218e4c00d479e4c14358122a389acca16205b1e4d0dc5f9476\",\"size_bytes\":8}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The bundled code candidate has no verified owner and public-source or referenced NuGet/npm upstream mapping.",
+        "required_input": "per-entry-owner-and-source-or-upstream-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 wasm: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-opaque-magic",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/opaque-magic.nupkg",
+          "sha256": "c27e91075a8ca845014b6ec0af43decc649aa55ac19d64ee32c28613a74ef39d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-or-upstream-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/opaque-magic.nupkg",
+            "sha256": "c27e91075a8ca845014b6ec0af43decc649aa55ac19d64ee32c28613a74ef39d"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"elf-candidate\",\"path\":\"contentFiles/any/any/payload.dat\",\"sha256\":\"243d107b590f25beffb6503da722c387673cac5987beebbcd0e7382824e3b918\",\"size_bytes\":64}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The bundled code candidate has no verified owner and public-source or referenced NuGet/npm upstream mapping.",
+        "required_input": "per-entry-owner-and-source-or-upstream-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 opaque-magic: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-opaque-blob",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/opaque-blob.nupkg",
+          "sha256": "5a378fb7ed8b5d05c75a148654eb8d98d4a001444e07436acc786757f43ae692"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unclassified-code-payload",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/opaque-blob.nupkg",
+            "sha256": "5a378fb7ed8b5d05c75a148654eb8d98d4a001444e07436acc786757f43ae692"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"unclassified-code-candidate\",\"path\":\"contentFiles/any/any/payload.bin\",\"sha256\":\"054edec1d0211f624fed0cbca9d4f9400b0e491c43742af2c5b0abebf0c990d8\",\"size_bytes\":4}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An opaque, misleading or nested payload cannot safely be excluded from executable-code attribution.",
+        "required_input": "payload-format-and-per-entry-owner-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 opaque-blob: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-nested-archive",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested-archive.nupkg",
+          "sha256": "71eb1db4b7927d8f30a35acb3c57f2f2e047cb0bdb02f6e60887add106c88dcf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unclassified-code-payload",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested-archive.nupkg",
+            "sha256": "71eb1db4b7927d8f30a35acb3c57f2f2e047cb0bdb02f6e60887add106c88dcf"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"nested-code-candidate\",\"path\":\"contentFiles/any/any/vendor.zip\",\"sha256\":\"30058332c1d34a09687a4a40d9a545a1a27f842080fb03c4768d9e6ed493b843\",\"size_bytes\":120}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An opaque, misleading or nested payload cannot safely be excluded from executable-code attribution.",
+        "required_input": "payload-format-and-per-entry-owner-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 nested-archive: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-fake-dll",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/fake-dll.nupkg",
+          "sha256": "f7e59ef9fac4100fafed9b30e48dd8f7e03298b245274e6b1ff80b083fdd9046"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unclassified-code-payload",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/fake-dll.nupkg",
+            "sha256": "f7e59ef9fac4100fafed9b30e48dd8f7e03298b245274e6b1ff80b083fdd9046"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"unclassified-code-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"04f3d5c4d678452f8e4c42fcea386559a659d578e08b3ee5dd3935416a0d301b\",\"size_bytes\":30}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "An opaque, misleading or nested payload cannot safely be excluded from executable-code attribution.",
+        "required_input": "payload-format-and-per-entry-owner-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 fake-dll: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-declared-nuget-bundled",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/declared-nuget-bundled.nupkg",
+          "sha256": "eed14be50ab897bb32995c62de9f0ba387720cf8a13761e93ef5af7bef2e8da9"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "mixed-attribution-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/declared-nuget-bundled.nupkg",
+            "sha256": "eed14be50ab897bb32995c62de9f0ba387720cf8a13761e93ef5af7bef2e8da9"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152},{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Example.Upstream.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "A NuGet dependency declaration does not map either bundled assembly to its owner or verified upstream/source commit.",
+        "required_input": "per-entry-owner-and-source-or-upstream-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 declared-nuget-bundled: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-npm-metadata-bundled",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/npm-metadata-bundled.nupkg",
+          "sha256": "12540e13f8653fd893d98a36564450b635effa205acb295ad2aafb7f4a2055d2"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "owner-or-upstream-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/npm-metadata-bundled.nupkg",
+            "sha256": "12540e13f8653fd893d98a36564450b635effa205acb295ad2aafb7f4a2055d2"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"bundled-js\",\"path\":\"staticwebassets/vendor.js\",\"sha256\":\"707094be260779a2b5a1ec5235bd5530a0009f8de29e57817895099ce3c9f368\",\"size_bytes\":34}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The bundled code candidate has no verified owner and public-source or referenced NuGet/npm upstream mapping.",
+        "required_input": "per-entry-owner-and-source-or-upstream-map",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 npm-metadata-bundled: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-repository-and-commit",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/repository-and-commit.nupkg",
+          "sha256": "b2324d3a2c88a89e0deba5bebc0ca9ffd1dc3731b4db11f8ab7c5eba11b8c828"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/repository-and-commit.nupkg",
+            "sha256": "b2324d3a2c88a89e0deba5bebc0ca9ffd1dc3731b4db11f8ab7c5eba11b8c828"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 repository-and-commit: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-repository-no-commit",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/repository-no-commit.nupkg",
+          "sha256": "8d9c8b1a924c584ee46cd341b80277188d5bba940338b955c962add0a5fbff08"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/repository-no-commit.nupkg",
+            "sha256": "8d9c8b1a924c584ee46cd341b80277188d5bba940338b955c962add0a5fbff08"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 repository-no-commit: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-commit-no-url",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/commit-no-url.nupkg",
+          "sha256": "c8a5e5816e392f95ef7ffc28a87e0748d400374432a773538c0a056f86b0068c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/commit-no-url.nupkg",
+            "sha256": "c8a5e5816e392f95ef7ffc28a87e0748d400374432a773538c0a056f86b0068c"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 commit-no-url: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-repository-absent",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/repository-absent.nupkg",
+          "sha256": "8d9f1408d39e8842ff5c697d19ac3723ba6eb530dfde3239aa452710b8c9c613"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "partner-source-unverified",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/repository-absent.nupkg",
+            "sha256": "8d9f1408d39e8842ff5c697d19ac3723ba6eb530dfde3239aa452710b8c9c613"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The packaged code candidate has no verified byte-to-public-partner-source-commit mapping.",
+        "required_input": "pinned-public-source-commit-and-binary-build-map",
+        "next_category": "source-owner"
+      },
+      "rationale": "LP-10 repository-absent: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-symbols-source-link",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/symbols-source-link.nupkg",
+          "sha256": "b7ac3b699982a192873ccbd579bec920a40c6ad93d8e743388779671ea9df8e1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unverified-supporting-evidence",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/symbols-source-link.nupkg",
+            "sha256": "b7ac3b699982a192873ccbd579bec920a40c6ad93d8e743388779671ea9df8e1"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "A PDB/SourceLink-like file or in-package SBOM/provenance claim does not verify each packaged payload against public source or a referenced upstream.",
+        "required_input": "verified-per-entry-source-build-or-upstream-map",
+        "next_category": "release-owner"
+      },
+      "rationale": "LP-10 symbols-source-link: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-malformed-symbols",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/malformed-symbols.nupkg",
+          "sha256": "8870eec4f589636b3eeea89479a8584b7b8b86b466eb7db3d2e6486429ee4d07"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed-supporting-evidence",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/malformed-symbols.nupkg",
+            "sha256": "8870eec4f589636b3eeea89479a8584b7b8b86b466eb7db3d2e6486429ee4d07"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Malformed supporting symbol, SourceLink, SBOM or provenance files cannot establish source attribution.",
+        "required_input": "valid-verified-per-entry-source-build-or-upstream-map",
+        "next_category": "release-owner"
+      },
+      "rationale": "LP-10 malformed-symbols: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-sbom-provenance",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/sbom-provenance.nupkg",
+          "sha256": "ebba3d1c58d8579947869ef6591dff60b5536472045d6866f3679d29a19fced6"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unverified-supporting-evidence",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/sbom-provenance.nupkg",
+            "sha256": "ebba3d1c58d8579947869ef6591dff60b5536472045d6866f3679d29a19fced6"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "A PDB/SourceLink-like file or in-package SBOM/provenance claim does not verify each packaged payload against public source or a referenced upstream.",
+        "required_input": "verified-per-entry-source-build-or-upstream-map",
+        "next_category": "release-owner"
+      },
+      "rationale": "LP-10 sbom-provenance: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-malformed-provenance",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/malformed-provenance.nupkg",
+          "sha256": "e86a4b39300c94c4afcc0bc1262ae1193ce87db7fb87f716e6defd089876c429"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "malformed-supporting-evidence",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/malformed-provenance.nupkg",
+            "sha256": "e86a4b39300c94c4afcc0bc1262ae1193ce87db7fb87f716e6defd089876c429"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Malformed supporting symbol, SourceLink, SBOM or provenance files cannot establish source attribution.",
+        "required_input": "valid-verified-per-entry-source-build-or-upstream-map",
+        "next_category": "release-owner"
+      },
+      "rationale": "LP-10 malformed-provenance: checked package inventory requires per-entry attribution evidence outside the package.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-duplicate-repository",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-repository.nupkg",
+          "sha256": "f7fc5555103e62a6b7f0c98bf5e1b1da6d76279a259fb643c3f15ffa3ece6dde"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-repository",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-repository.nupkg",
+            "sha256": "f7fc5555103e62a6b7f0c98bf5e1b1da6d76279a259fb643c3f15ffa3ece6dde"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Multiple conflicting repository elements cannot identify one authoritative source claim.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 duplicate-repository: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-duplicate-metadata",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-metadata.nupkg",
+          "sha256": "0ebb2565f046e3b11cfea36e1a4f20dc7ceaf12195afe951f6312197fccadebf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-metadata",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-metadata.nupkg",
+            "sha256": "0ebb2565f046e3b11cfea36e1a4f20dc7ceaf12195afe951f6312197fccadebf"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The nuspec requires exactly one recognized metadata element.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 duplicate-metadata: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-foreign-metadata-sibling",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/foreign-metadata-sibling.nupkg",
+          "sha256": "d8eb0d98030852abce9d338d9378cdbce2fec3b81a7d3666b881f53c2709147f"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-metadata",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/foreign-metadata-sibling.nupkg",
+            "sha256": "d8eb0d98030852abce9d338d9378cdbce2fec3b81a7d3666b881f53c2709147f"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "A foreign-namespace metadata sibling makes authoritative NuGet metadata ambiguous across readers.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 foreign-metadata-sibling: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-invalid-xml",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/invalid-xml.nupkg",
+          "sha256": "7c282b3a92e7b8f83b03b01ca2616de93b051440cfd74b64e1b65d07d5cbcd7c"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-xml",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/invalid-xml.nupkg",
+            "sha256": "7c282b3a92e7b8f83b03b01ca2616de93b051440cfd74b64e1b65d07d5cbcd7c"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The nuspec XML is not well formed.",
+        "required_input": "valid-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 invalid-xml: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-dtd-entity",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/dtd-entity.nupkg",
+          "sha256": "579c06720a21462402e45882e48e35259d8993f67c3bd1c206779555308d80a1"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/dtd-entity.nupkg",
+            "sha256": "579c06720a21462402e45882e48e35259d8993f67c3bd1c206779555308d80a1"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The nuspec contains a DTD/entity declaration and cannot be safely inspected.",
+        "required_input": "safe-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 dtd-entity: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-no-nuspec",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/no-nuspec.nupkg",
+          "sha256": "9dc9a487beebfd221395d2100c795ba8b2a6abc6d5f6419a88deb0a401f9924b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/no-nuspec.nupkg",
+            "sha256": "9dc9a487beebfd221395d2100c795ba8b2a6abc6d5f6419a88deb0a401f9924b"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The archive has no nuspec entry.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 no-nuspec: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-multiple-root-nuspec",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/multiple-root-nuspec.nupkg",
+          "sha256": "69c8a1bdbd54caee4d83900bc8e0534a6cc832ff5da1b979370be2cebd70dd30"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/multiple-root-nuspec.nupkg",
+            "sha256": "69c8a1bdbd54caee4d83900bc8e0534a6cc832ff5da1b979370be2cebd70dd30"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The archive has multiple root nuspec entries.",
+        "required_input": "unique-root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 multiple-root-nuspec: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-nested-only-nuspec",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/nested-only-nuspec.nupkg",
+          "sha256": "5b8059a9c43a6dd2bc29725be93a702f85804746837220a41bec8ed673c9e1f8"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-root-nuspec",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/nested-only-nuspec.nupkg",
+            "sha256": "5b8059a9c43a6dd2bc29725be93a702f85804746837220a41bec8ed673c9e1f8"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "The only nuspec entry is nested in a subfolder.",
+        "required_input": "root-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 nested-only-nuspec: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-duplicate-zip-entry",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-zip-entry.nupkg",
+          "sha256": "b99247b64cc24fbf6e2447aa82a8dd05f8b0b74c34fe08714ce9e2d2afe4ac28"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-archive",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-zip-entry.nupkg",
+            "sha256": "b99247b64cc24fbf6e2447aa82a8dd05f8b0b74c34fe08714ce9e2d2afe4ac28"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152},{\"kind\":\"elf-candidate\",\"path\":\"lib/net8.0/Sample.LP10.dll\",\"sha256\":\"243d107b590f25beffb6503da722c387673cac5987beebbcd0e7382824e3b918\",\"size_bytes\":64}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Duplicate or traversal ZIP entry paths prevent an unambiguous safe inventory.",
+        "required_input": "safe-unambiguous-nupkg",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 duplicate-zip-entry: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-traversal-entry",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/traversal-entry.nupkg",
+          "sha256": "983e561fc6cba2164751bfcd6544a14b66643989e7c6f1ab29874f5c7b8ca302"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unsafe-archive",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/traversal-entry.nupkg",
+            "sha256": "983e561fc6cba2164751bfcd6544a14b66643989e7c6f1ab29874f5c7b8ca302"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": "Checked code candidates (path, size, SHA-256, type hint only): [{\"kind\":\"pe-candidate\",\"path\":\"../lib/net8.0/Injected.dll\",\"sha256\":\"a19497ce1c79476d16b0362800169ecfcc80497d8c9b71cc2d419a9b6e957932\",\"size_bytes\":152}]. These checked bytes do not establish ownership, build correspondence or upstream.",
+        "finding": null,
+        "missing_fact": "Duplicate or traversal ZIP entry paths prevent an unambiguous safe inventory.",
+        "required_input": "safe-unambiguous-nupkg",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 traversal-entry: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-corrupt-archive",
+      "row_id": "LP-10",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/corrupt-archive.nupkg",
+          "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "unreadable-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/corrupt-archive.nupkg",
+            "sha256": "4fd1b5335d129e47342ae957b8e1705b1e44b69f0b4b6ece5e17f551af99370b"
+          }
+        ],
+        "evidence_references": [
+          "package:archive"
+        ],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The supplied checked bytes are not a readable NuGet archive.",
+        "required_input": "valid-nupkg",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-10 corrupt-archive: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": [
+        "package:archive",
+        "package:nuspec/metadata"
+      ]
+    },
+    {
+      "case_id": "lp10-no-package",
+      "row_id": "LP-10",
+      "inputs": [],
+      "expected": {
+        "row_id": "LP-10",
+        "resolver_id": "lp10-binary-attribution",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "The package bytes required for LP-10 were not supplied.",
+        "required_input": "package",
+        "next_category": "input-owner"
+      },
+      "rationale": "LP-10 no-package: checked package inventory does not prove source or upstream attribution; archive/manifest ambiguities take precedence.",
+      "evidence_pointers": []
+    }
+  ]
+}
