@@ -20,8 +20,11 @@ package, or belongs to the advertised repository.
 Hex digits are case-insensitive; a finding prints lowercase for consistency.
 Outer whitespace is trimmed (as in the existing metadata reader); whitespace
 *inside* a hash is invalid. The ASCII hex alphabet and exact 40/64 lengths
-are required: short/abbreviated hashes need a particular repository to
-resolve, and lengths 39, 41, 63 and 65 are not full Git object IDs. An
+are required for a full object ID. An ASCII-hex value of length 40 is a
+full SHA-1 ID; length 64 is a full SHA-256 ID. Lengths 4-39 and 41-63
+are *abbreviated* object names: they may resolve with a particular repository
+but do not identify a full SHA here. Lengths 1-3 cannot form Git abbreviations
+and 65+ cannot form either full ID; both are invalid-length values. An
 all-zero ID of either length is a null sentinel, not a commit. An absent
 repository, missing `commit`, or empty/whitespace `commit` deterministically
 does not identify a SHA. The `commit` attribute must occur on the single
@@ -36,7 +39,11 @@ The LP-07 finding makes **no** repository, provenance, or readiness claim.
 Consistent with the LP-05/LP-06 strict nuspec contract, XML namespace
 declarations are not extra attributes, but unknown ordinary or namespaced
 repository attributes and unsupported repository text/children escalate.
-Identical or conflicting duplicate repository elements, a foreign-namespace
+Duplicate repository elements escalate regardless of whether their commits
+agree. The diagnostic distinguishes identical *normalized commit values*
+(trimmed and ASCII case-folded, even with differing URLs) from conflicting
+commits with the same type and URL; it never compares URLs to classify the
+LP-07 commit conflict. A foreign-namespace
 repository element (even beside a recognized one), a missing or duplicate
 `metadata` element, foreign package root, malformed XML, and DTD/entity
 declarations escalate instead of guessing. Recognized roots include the
@@ -47,7 +54,7 @@ An unreadable ZIP and a case with no supplied package likewise escalate.
 A missing *file on disk* or a changed checked-input digest is a foundation
 replay-loader error, not the `no-package` case.
 
-`cases.json` freezes 50 complete structured `CaseResult` expectations (49
+`cases.json` freezes 53 complete structured `CaseResult` expectations (52
 synthetic archives and one absent-input case):
 full-form SHA-1/SHA-256 (case and whitespace variants), all recognized
 namespaces, unrelated URL/type/branch/foreign sibling content, missing and

@@ -637,7 +637,7 @@
           "package:nuspec/metadata"
         ],
         "evidence_contract": null,
-        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec has no repository element.",
+        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec metadata has no direct repository element.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
@@ -675,7 +675,7 @@
           "package:nuspec/metadata"
         ],
         "evidence_contract": null,
-        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec has no repository element.",
+        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec metadata has no direct repository element.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
@@ -832,7 +832,83 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-07 abbreviated: A prefix needs repository context to disambiguate and is not a full SHA.",
+      "rationale": "LP-07 abbreviated: A 4-39 or 41-63 hex-digit prefix needs repository context to disambiguate.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-length-3",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/length-3.nupkg",
+          "sha256": "80ddbc05285107aeb9d27b4bf65cb999485ce4957dcdd56f5b6aa2cecea2fc94"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "invalid-length",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/length-3.nupkg",
+            "sha256": "80ddbc05285107aeb9d27b4bf65cb999485ce4957dcdd56f5b6aa2cecea2fc94"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID has the wrong length.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 length-3: Fewer than four hex digits cannot form a Git abbreviation; more than 64 cannot form a full object ID.",
+      "evidence_pointers": [
+        "package:nuspec/repository"
+      ]
+    },
+    {
+      "case_id": "lp07-length-4",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/length-4.nupkg",
+          "sha256": "98232c2cd41f4a85a3332f15ef9e9e164bf2b243e8751a39c01b209e0fa3672e"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "abbreviated-commit",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/length-4.nupkg",
+            "sha256": "98232c2cd41f4a85a3332f15ef9e9e164bf2b243e8751a39c01b209e0fa3672e"
+          }
+        ],
+        "evidence_references": [
+          "package:nuspec/repository"
+        ],
+        "evidence_contract": null,
+        "finding": "RepositoryCommit does not identify a full commit SHA; abbreviated object IDs are repository-dependent.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "LP-07 length-4: A 4-39 or 41-63 hex-digit prefix needs repository context to disambiguate.",
       "evidence_pointers": [
         "package:nuspec/repository"
       ]
@@ -851,7 +927,7 @@
         "row_id": "LP-07",
         "resolver_id": "lp07-repository-commit",
         "resolver_version": "1.0.0",
-        "branch_id": "invalid-length",
+        "branch_id": "abbreviated-commit",
         "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
@@ -865,12 +941,12 @@
           "package:nuspec/repository"
         ],
         "evidence_contract": null,
-        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID has the wrong length.",
+        "finding": "RepositoryCommit does not identify a full commit SHA; abbreviated object IDs are repository-dependent.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-07 length-39: Neither Git object format has this full object ID length.",
+      "rationale": "LP-07 length-39: A 4-39 or 41-63 hex-digit prefix needs repository context to disambiguate.",
       "evidence_pointers": [
         "package:nuspec/repository"
       ]
@@ -889,7 +965,7 @@
         "row_id": "LP-07",
         "resolver_id": "lp07-repository-commit",
         "resolver_version": "1.0.0",
-        "branch_id": "invalid-length",
+        "branch_id": "abbreviated-commit",
         "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
@@ -903,12 +979,12 @@
           "package:nuspec/repository"
         ],
         "evidence_contract": null,
-        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID has the wrong length.",
+        "finding": "RepositoryCommit does not identify a full commit SHA; abbreviated object IDs are repository-dependent.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-07 length-41: Neither Git object format has this full object ID length.",
+      "rationale": "LP-07 length-41: A 4-39 or 41-63 hex-digit prefix needs repository context to disambiguate.",
       "evidence_pointers": [
         "package:nuspec/repository"
       ]
@@ -927,7 +1003,7 @@
         "row_id": "LP-07",
         "resolver_id": "lp07-repository-commit",
         "resolver_version": "1.0.0",
-        "branch_id": "invalid-length",
+        "branch_id": "abbreviated-commit",
         "decision": "deterministic",
         "applicability": "applicable",
         "inputs": [
@@ -941,12 +1017,12 @@
           "package:nuspec/repository"
         ],
         "evidence_contract": null,
-        "finding": "RepositoryCommit does not identify a full commit SHA; the object ID has the wrong length.",
+        "finding": "RepositoryCommit does not identify a full commit SHA; abbreviated object IDs are repository-dependent.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-07 length-63: Neither Git object format has this full object ID length.",
+      "rationale": "LP-07 length-63: A 4-39 or 41-63 hex-digit prefix needs repository context to disambiguate.",
       "evidence_pointers": [
         "package:nuspec/repository"
       ]
@@ -984,7 +1060,7 @@
         "required_input": null,
         "next_category": null
       },
-      "rationale": "LP-07 length-65: Neither Git object format has this full object ID length.",
+      "rationale": "LP-07 length-65: Fewer than four hex digits cannot form a Git abbreviation; more than 64 cannot form a full object ID.",
       "evidence_pointers": [
         "package:nuspec/repository"
       ]
@@ -1184,7 +1260,7 @@
         {
           "role": "package",
           "path": "packages/duplicate-conflicting.nupkg",
-          "sha256": "1d2346e27e8ae62fd4697841d222106e7016945dead5961a4082632b3da96bcb"
+          "sha256": "77871718c51f74be44148cc0df832ab5529e8238bff31fb1df0a9a5c842547a0"
         }
       ],
       "expected": {
@@ -1198,7 +1274,7 @@
           {
             "role": "package",
             "path": "packages/duplicate-conflicting.nupkg",
-            "sha256": "1d2346e27e8ae62fd4697841d222106e7016945dead5961a4082632b3da96bcb"
+            "sha256": "77871718c51f74be44148cc0df832ab5529e8238bff31fb1df0a9a5c842547a0"
           }
         ],
         "evidence_references": [],
@@ -1209,6 +1285,42 @@
         "next_category": "package-owner"
       },
       "rationale": "LP-07 duplicate-conflicting: Multiple repository declarations cannot establish one unambiguous commit.",
+      "evidence_pointers": [
+        "package:archive"
+      ]
+    },
+    {
+      "case_id": "lp07-duplicate-same-commit-different-url",
+      "row_id": "LP-07",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/duplicate-same-commit-different-url.nupkg",
+          "sha256": "870ddf5c708faa80b3acd66a0047731d390ce25e3bda370b8d00177a3ce52b41"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-07",
+        "resolver_id": "lp07-repository-commit",
+        "resolver_version": "1.0.0",
+        "branch_id": "ambiguous",
+        "decision": "escalated",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/duplicate-same-commit-different-url.nupkg",
+            "sha256": "870ddf5c708faa80b3acd66a0047731d390ce25e3bda370b8d00177a3ce52b41"
+          }
+        ],
+        "evidence_references": [],
+        "evidence_contract": null,
+        "finding": null,
+        "missing_fact": "Multiple repository elements prevent an unambiguous RepositoryCommit.",
+        "required_input": "unambiguous-nuspec",
+        "next_category": "package-owner"
+      },
+      "rationale": "LP-07 duplicate-same-commit-different-url: Multiple repository declarations cannot establish one unambiguous commit.",
       "evidence_pointers": [
         "package:archive"
       ]
@@ -1493,7 +1605,7 @@
           "package:nuspec/metadata"
         ],
         "evidence_contract": null,
-        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec has no repository element.",
+        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec metadata has no direct repository element.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
@@ -1531,7 +1643,7 @@
           "package:nuspec/metadata"
         ],
         "evidence_contract": null,
-        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec has no repository element.",
+        "finding": "RepositoryCommit does not identify a commit SHA; the nuspec metadata has no direct repository element.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
