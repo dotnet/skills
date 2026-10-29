@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -57,7 +58,8 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
     private static readonly HashSet<string> SupportJson = new(StringComparer.Ordinal)
         { "package.json", "sbom.json", "provenance.json", "sourcelink.json" };
     private static readonly Regex UnsafeXmlToken = new(
-        @"<!\s*(?:DOCTYPE|ENTITY)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        @"<![\s\u001c-\u001f]*(?:DOCTYPE|ENTITY)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex PropertyFunction = new(
         @"\$\(\s*(?:\[[^\]]+\]\s*::|[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+\s*\()",
         RegexOptions.CultureInvariant);
@@ -572,7 +574,7 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
         if (lower == "[content_types].xml" || lower.EndsWith(".psmdcp", StringComparison.Ordinal) ||
             (lower.EndsWith(".xml", StringComparison.Ordinal) &&
              lower.StartsWith("lib/", StringComparison.Ordinal) &&
-             content[..Math.Min(512, content.Length)].StartsWith("<?xml version=\"1.0\"?>"u8)))
+             HasLibXmlDeclaration(content)))
             return ClassifiedAs("passive", "explicit-xml-metadata");
         if (lower.EndsWith(".json", StringComparison.Ordinal) &&
             (SupportJson.Contains(lower[(lower.LastIndexOf('/') + 1)..]) ||
@@ -588,6 +590,14 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
 
     private static bool EndsWithAny(string value, string[] endings) =>
         endings.Any(ending => value.EndsWith(ending, StringComparison.Ordinal));
+
+    private static bool HasLibXmlDeclaration(ReadOnlySpan<byte> content)
+    {
+        var prefix = content[..Math.Min(512, content.Length)];
+        while (prefix.Length > 0 && prefix[0] is 0xef or 0xbb or 0xbf)
+            prefix = prefix[1..];
+        return prefix.StartsWith("<?xml version=\"1.0\"?>"u8);
+    }
 
     private static string XmlText(byte[] content, int limit, string label)
     {
@@ -623,7 +633,8 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
         }
         if (text.Contains('\0') || text.StartsWith('\ufeff'))
             throw new XmlProblem(label + "-encoding");
-        var declaration = Regex.Match(text, @"\A\s*<\?xml(?=\s)([^?]*)\?>",
+        var declaration = Regex.Match(text,
+            @"\A[\s\u001c-\u001f]*<\?xml(?=[\s\u001c-\u001f])([^?]*)\?>",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         if (declaration.Success)
         {
@@ -712,6 +723,17 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
     private static bool IsSpace(byte value) =>
         value is 9 or 10 or 11 or 12 or 13 or 32;
 
+    private static bool IsPythonSpace(char value) =>
+        char.IsWhiteSpace(value) || value is >= '\u001c' and <= '\u001f';
+
+    private static bool IsPythonWord(Rune value) =>
+        value.Value is '_' or '.' or '-' ||
+        Rune.GetUnicodeCategory(value) is UnicodeCategory.UppercaseLetter or
+            UnicodeCategory.LowercaseLetter or UnicodeCategory.TitlecaseLetter or
+            UnicodeCategory.ModifierLetter or UnicodeCategory.OtherLetter or
+            UnicodeCategory.DecimalDigitNumber or UnicodeCategory.LetterNumber or
+            UnicodeCategory.OtherNumber;
+
     private static bool IsProjectToken(string text, int offset)
     {
         var remaining = text.AsSpan(offset);
@@ -720,18 +742,19 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
         var index = 1;
         if (index >= remaining.Length)
             return false;
-        if (char.IsLetter(remaining[index]) || remaining[index] == '_')
+        if (remaining[index] is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or '_')
         {
-            var colon = index;
-            while (colon < remaining.Length &&
-                   (char.IsLetterOrDigit(remaining[colon]) || remaining[colon] is '_' or '.' or '-'))
-                colon++;
-            if (colon < remaining.Length && remaining[colon] == ':')
-                index = colon + 1;
+            var prefixEnd = index + 1;
+            while (prefixEnd < remaining.Length &&
+                   Rune.TryGetRuneAt(text, offset + prefixEnd, out var symbol) &&
+                   IsPythonWord(symbol))
+                prefixEnd += symbol.Utf16SequenceLength;
+            if (prefixEnd < remaining.Length && remaining[prefixEnd] == ':')
+                index = prefixEnd + 1;
         }
         return remaining[index..].StartsWith("Project", StringComparison.Ordinal) &&
             index + 7 < remaining.Length &&
-            (char.IsWhiteSpace(remaining[index + 7]) || remaining[index + 7] is '/' or '>');
+            (IsPythonSpace(remaining[index + 7]) || remaining[index + 7] is '/' or '>');
     }
 
     private static bool StartsProject(byte[] content)
@@ -761,7 +784,7 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
         var cursor = 0;
         while (true)
         {
-            while (cursor < text.Length && char.IsWhiteSpace(text[cursor]))
+            while (cursor < text.Length && IsPythonSpace(text[cursor]))
                 cursor++;
             if (text.AsSpan(cursor).StartsWith("<!--", StringComparison.Ordinal))
             {
@@ -770,8 +793,9 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
                     throw new XmlProblem("build-xml-root-limit");
                 cursor = end + 3;
             }
-            else if (Regex.Match(text[cursor..], @"\A<\?xml(?=\s)[^?]*\?>",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant) is { Success: true } xml)
+            else if (Regex.Match(text[cursor..],
+                @"\A<\?xml(?=[\s\u001c-\u001f])[^?]*\?>",
+                RegexOptions.CultureInvariant) is { Success: true } xml)
                 cursor += xml.Length;
             else
                 break;
@@ -781,7 +805,7 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
         var unsupported = false;
         while (true)
         {
-            while (cursor < text.Length && char.IsWhiteSpace(text[cursor]))
+            while (cursor < text.Length && IsPythonSpace(text[cursor]))
                 cursor++;
             if (text.AsSpan(cursor).StartsWith("<!--", StringComparison.Ordinal))
             {
@@ -966,11 +990,18 @@ public sealed class Lp10BinaryAttributionResolver : IDeterministicResolver
         return new("", bytes.Length > SnippetLimit);
     }
 
-    private static string NodeText(XElement node) =>
-        node.FirstNode is XText text ? text.Value : "";
+    private static string TextUntilElement(XNode? current)
+    {
+        var text = new StringBuilder();
+        for (; current is not null && current is not XElement; current = current.NextNode)
+            if (current is XText part)
+                text.Append(part.Value);
+        return text.ToString();
+    }
 
-    private static string TailText(XElement node) =>
-        node.NextNode is XText text ? text.Value : "";
+    private static string NodeText(XElement node) => TextUntilElement(node.FirstNode);
+
+    private static string TailText(XElement node) => TextUntilElement(node.NextNode);
 
     private static bool HasPropertyFunction(string value) =>
         PropertyFunction.IsMatch(value);
