@@ -54,6 +54,17 @@ coverage-backed risk analysis.
 Discover optional inputs from the workspace. Do not ask for a project path when
 the current directory or a supplied report is sufficient.
 
+### Generation composition
+
+When a test-generation owner supplies a bounded inventory and existing metrics,
+return only the requested .NET evidence interpretation and priorities. Inherit
+its no-collection/read-only limits; do not enter the collection path to repair
+missing, stale or unmapped evidence. Mark those outcomes unknown and return them
+to the owner. Do not apply the default thresholds as new generation requirements.
+Reuse report provenance and source mapping; a pre-change report cannot validate
+coverage after the owner edits tests. This is analysis, not a new generation
+workflow or permission to refactor production.
+
 ## Choose the smallest matching path
 
 | User intent | Required work | Do not do |

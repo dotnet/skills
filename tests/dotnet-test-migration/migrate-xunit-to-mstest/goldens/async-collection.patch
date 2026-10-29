@@ -1,0 +1,98 @@
+diff --git a/TestProject.csproj b/TestProject.csproj
+--- a/TestProject.csproj
++++ b/TestProject.csproj
+@@ -7,7 +7,7 @@
+   </PropertyGroup>
+   <ItemGroup>
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+-    <PackageReference Include="xunit" Version="2.9.3" />
+-    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
++    <PackageReference Include="MSTest.TestFramework" Version="4.4.1" />
++    <PackageReference Include="MSTest.TestAdapter" Version="4.4.1" />
+   </ItemGroup>
+ </Project>
+diff --git a/AsyncCollectionTests.cs b/AsyncCollectionTests.cs
+--- a/AsyncCollectionTests.cs
++++ b/AsyncCollectionTests.cs
+@@ -1,42 +1,61 @@
++using System;
+ using System.Threading.Tasks;
+-using Xunit;
++using Microsoft.VisualStudio.TestTools.UnitTesting;
+-
+-[CollectionDefinition("Shared")]
+-public sealed class SharedCollection : ICollectionFixture<AsyncSharedResource> { }
+-
+-public sealed class AsyncSharedResource : IAsyncLifetime
++
++[TestClass]
++public sealed class SharedCollection
++{
++    internal static readonly Lazy<AsyncSharedResource> Resource = new(() => new());
++    private static readonly Lazy<Task> initialization = new(() => Resource.Value.InitializeAsync());
++    public static Task EnsureInitialized() => initialization.Value;
++
++    [AssemblyCleanup]
++    public static async Task Cleanup()
++    {
++        if (Resource.IsValueCreated)
++            await Resource.Value.DisposeAsync();
++    }
++}
++
++public sealed class AsyncSharedResource
+ {
+     internal AsyncLifecycleProbe Probe { get; } = new();
+     public Task InitializeAsync() => Probe.InitializeAsync();
+     public Task DisposeAsync() => Probe.DisposeAsync();
+ }
+-
+-[Collection("Shared")]
++
++[TestClass]
++[DoNotParallelize]
+ public class FirstMember
+ {
+-    private readonly AsyncSharedResource resource;
+-    public FirstMember(AsyncSharedResource resource) => this.resource = resource;
+-
+-    [Fact]
++    private AsyncSharedResource resource => SharedCollection.Resource.Value;
++
++    [ClassInitialize]
++    public static Task Initialize(TestContext context) => SharedCollection.EnsureInitialized();
++
++    [TestMethod]
+     public void FirstCase()
+     {
+         resource.Probe.Enter(nameof(FirstCase));
+-        Assert.Equal(5, 2 + 3);
++        Assert.AreEqual(5, 2 + 3);
+         resource.Probe.Exit(nameof(FirstCase));
+     }
+ }
+-
+-[Collection("Shared")]
++
++[TestClass]
++[DoNotParallelize]
+ public class SecondMember
+ {
+-    private readonly AsyncSharedResource resource;
+-    public SecondMember(AsyncSharedResource resource) => this.resource = resource;
+-
+-    [Fact]
++    private AsyncSharedResource resource => SharedCollection.Resource.Value;
++
++    [ClassInitialize]
++    public static Task Initialize(TestContext context) => SharedCollection.EnsureInitialized();
++
++    [TestMethod]
+     public void SecondCase()
+     {
+         resource.Probe.Enter(nameof(SecondCase));
+-        Assert.Equal(1, -2 + 3);
++        Assert.AreEqual(1, -2 + 3);
+         resource.Probe.Exit(nameof(SecondCase));
+     }
+ }

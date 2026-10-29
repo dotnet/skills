@@ -175,6 +175,8 @@ cargo add --dev tokio --features macros,rt-multi-thread
 
 Match the major version of any tokio/serde/etc. already pinned by the workspace.
 
-## Skip Coverage Tools
+## Coverage when requested
 
-Do not configure or run coverage tools (`cargo tarpaulin`, `cargo llvm-cov`, `grcov`). Coverage is measured separately by the evaluation harness.
+Follow the [shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Reuse the configured cargo-llvm-cov, tarpaulin or grcov workflow when measurement
+is required; do not install one by default or assume a harness collects it.

@@ -103,6 +103,12 @@ If a valid bounded scope resolves to zero eligible tests, return
 
 ## Workflow
 
+After Step 0 admits the scope, reuse the caller's inventory/evidence for those
+tests only. For composition, read `references/analysis-context.md` relative to
+the supplied/runtime-listed `test-analysis-extensions` catalog when available.
+Preserve this skill's per-test decisions and rubric; neither an existing suite
+inventory nor an unavailable reference authorizes grading additional tests.
+
 ### Step 1: Detect language and load extension
 
 Identify the target codebase's language and test framework from the file

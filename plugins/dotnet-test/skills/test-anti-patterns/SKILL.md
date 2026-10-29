@@ -56,6 +56,11 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 ## Workflow
 
+Reuse the caller's scope, inventory and evidence. For composition, read
+`references/analysis-context.md` relative to the supplied/runtime-listed
+`test-analysis-extensions` catalog when available. This pragmatic audit remains
+read-only; an unavailable reference does not justify rediscovery or broader scope.
+
 ### Step 1: Detect language and load extension
 
 Resolve the named test path from the current workspace before asking for input.

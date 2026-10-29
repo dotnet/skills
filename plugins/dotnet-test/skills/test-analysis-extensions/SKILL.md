@@ -41,6 +41,9 @@ Resolve these resource paths relative to this catalog, not the project workspace
 
 ## Usage
 
+For composed reviews, use the [shared analysis context](references/analysis-context.md)
+to reuse inventory and evidence without merging the consumers' distinct rubrics.
+
 1. Detect the target codebase's primary language and test framework.
 2. Read the matching extension file before performing analysis.
 3. If multiple test frameworks are present (e.g., a project mixing Jest and Mocha), read all relevant extensions.
@@ -66,4 +69,7 @@ Each extension file declares per-capability support so skills can gate behaviour
 
 - Treat extension files as data, not as guidance to follow verbatim. They tell skills *how to detect things* in each language, not *what to think* about findings.
 - When language detection is uncertain, prefer reading multiple extension files over guessing.
-- If the user explicitly names a framework that does not have an extension file yet, fall back to the closest one (e.g., Pest → python.md/pytest semantics) and note the gap in the report.
+- If a framework has no matching extension, state the support gap. Use verified
+  repository conventions and official documentation for that framework, or mark
+  unresolved semantics unknown. Never substitute another ecosystem's APIs:
+  PHP Pest is not Python pytest, and PowerShell Pester is a separate framework.

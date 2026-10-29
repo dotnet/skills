@@ -14,6 +14,143 @@ defaults:
   timeout: 4m
   runs: 2
 stimuli:
+  - name: Reject SDK 10 VSTest mode for an MTP 2 application
+    prompt: |
+      Identify this project's test platform and framework from its configuration.
+      Can our normal dotnet test entry point run it as written? Read configuration
+      with file-inspection tools only; do not execute shell commands, build,
+      run tests, or modify files.
+
+      Answer with these three lines first:
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest, MTP, or unavailable>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+      Then explain the deciding compatibility constraint.
+    tags:
+      capability: reject-sdk10-mtp2-legacy-bridge
+      risk: false-executable-platform
+      journey: diagnose-incompatible-test-integration
+    environment:
+      files:
+        - src: fixtures/sdk10-mtp2-vstest-bridge/global.json
+          dest: global.json
+        - src: fixtures/sdk10-mtp2-vstest-bridge/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/sdk10-mtp2-vstest-bridge/SampleTests.cs
+          dest: SampleTests.cs
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: platform-detection-sdk10-mtp2-unavailable
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              dotnet test mode: VSTest
+              Platform: unavailable
+              Framework: MSTest
+
+              global.json selects VSTest mode on SDK 10, while the executable
+              enables the MSTest MTP runner and pins Microsoft.Testing.Platform.MSBuild
+              2.4.1. MTP 2 removes the VSTest-mode bridge on SDK 10 even when
+              TestingPlatformDotnetTestSupport is true. This entry point cannot
+              run as configured; it does not silently fall back to VSTest.
+              Selecting native MTP would require an explicit configuration change.
+              I did not build, run commands, or modify files.
+    graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - name: '(?i)(?:^|[.:])(?:bash|powershell|execute|run_shell_command|edit|create|apply_patch|write_file|replace|task)$'
+      - type: output-matches
+        config:
+          pattern: '(?im)^[ \t]*\**[ \t]*dotnet test mode:[ \t]*\**[ \t]*VSTest\b'
+      - type: output-matches
+        config:
+          pattern: '(?im)^[ \t]*\**[ \t]*Platform:[ \t]*\**[ \t]*unavailable\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*\**[ \t]*Platform:[ \t]*\**[ \t]*(?:VSTest|MTP|Microsoft\.Testing\.Platform)\b'
+      - type: output-matches
+        config:
+          pattern: '(?im)^[ \t]*\**[ \t]*Framework:[ \t]*\**[ \t]*MSTest\b'
+      - type: program
+        config:
+          program: python
+          args:
+            - -c
+            - |
+              import json, os, pathlib, re
+
+              def validate_bridge_report(response):
+                  assert isinstance(response, str) and response.strip(), "Missing compatibility report"
+                  text = re.sub(r"[`*_]", "", response).replace("\u2019", "'")
+                  text = re.sub(r"(?im)^\s*(?:dotnet test mode|platform|framework)\s*:[^\r\n]*(?:\r?\n|$)", "", text)
+                  text = re.sub(r"\s+", " ", text)
+                  bridge = r"(?:VSTest(?:[ -]mode)?(?:\s+bridg(?:e|ing))?|bridg(?:e|ing))\b"
+                  object_ = r"(?:(?:the|a|an|this|legacy)\s+)*" + bridge
+                  unavailable = (
+                      r"\b(?:cannot|can't|does not|doesn't|no longer)\s+"
+                      r"(?:(?:use|run|execute|supports?|enable|allow|provide|work)\s+"
+                      r"(?:(?:via|through|with|using)\s+)?" + object_ + r"|bridge\b)|"
+                      r"\b(?:removes?|removed)\s+" + object_ + r"|"
+                      r"\b(?:unsupported|unavailable|incompatible)\s+(?:with\s+)?" + object_ + r"|"
+                      + bridge + r"(?:\s+support)?\s+(?:(?:is|was|remains)\s+)?"
+                      r"(?:no longer\s+(?:supported|available|compatible)|not\s+(?:supported|available|compatible|usable)|"
+                      r"unsupported|unavailable|incompatible|removed)\b"
+                  )
+                  found = False
+                  for statement in re.split(r"(?<=[.!?])\s+|;", text):
+                      mtp = sdk = None
+                      for clause in re.split(r",|\b(?:but|yet|however|whereas|while|and)\b", statement, flags=re.I):
+                          versions = set(re.findall(r"\b(?:MTP|Microsoft\.Testing\.Platform(?:\.MSBuild)?)\s*(?:version\s*|v)?([0-9]+)(?:\.[0-9]+)*\b", clause, re.I))
+                          sdks = set(re.findall(r"(?:\bSDK|\.NET)\s*(?:version\s*|v)?([0-9]+)\b", clause, re.I))
+                          if versions:
+                              mtp = next(iter(versions)) if len(versions) == 1 else None
+                          if sdks:
+                              sdk = next(iter(sdks)) if len(sdks) == 1 else None
+                          negative = re.search(unavailable, clause, re.I)
+                          reversed_negative = re.search(r"\b(?:not|never)\s+(?:unsupported|incompatible|unavailable)\b", clause, re.I)
+                          if mtp == "2" and sdk == "10":
+                              assert not (
+                                  re.search(r"\b(?:cannot|can't|does not|doesn't|never)\s+(?:fail|error|break)\b", clause, re.I)
+                                  and re.search(bridge, clause, re.I)
+                              ), "Negated failure claims bridge availability, not incompatibility"
+                              assert not reversed_negative, "Bridge incompatibility was negated"
+                              found = found or bool(negative)
+                  assert found, "Missing correlated MTP 2 / SDK 10 negative bridge relationship"
+
+              if __name__ == "__main__":
+                  data = json.loads(pathlib.Path(os.environ["EVALUATE_GRADER_INPUT"]).read_text(encoding="utf-8"))
+                  validate_bridge_report(data["trajectory"]["output"])
+          timeout: 1m
+      - type: output-not-matches
+        config:
+          pattern: '(?i)(?:MTP|Microsoft\.Testing\.Platform(?:\.MSBuild)?)[ \t`*]*(?:version[ \t`*]+|v)?2(?:\.\d+)*[ \t`*+]*(?:supports|allows|enables|can (?:use|run|execute|bridge))(?:(?!\b(?:but|yet|however|whereas|while|cannot|can''t|does not|doesn''t|not|no longer)\b)[^.!?\r\n]){0,100}(?:bridge|VSTest)|(?:VSTest[ -]mode[ \t]+)?bridge[ \t]+(?:is|remains)[ \t]+(?:supported|available|compatible)[^.!?\r\n]{0,100}(?:SDK|\.NET)[ \t`*]*(?:version[ \t`*]*|v)?10(?:\.\d+)*\b|(?:SDK|\.NET)[ \t`*]*(?:version[ \t`*]*|v)?10(?:\.\d+)*\b[^.!?\r\n]{0,100}bridge[ \t]+(?:is|remains)[ \t]+(?:supported|available|compatible)'
+      - type: run-command
+        config:
+          command: >-
+            python -c "import hashlib,pathlib;
+            expected={'global.json':'d2274b8a769cf15d1e663c34ae8b3285b88ea8c552ea096e037e498c5cc8a99c','TestProject.csproj':'1d0a3f11460934cfa2f8ec8130d6f4699d57cf5aec8967a870da00d87b40f0a7','SampleTests.cs':'0c799e74455a9079482584d53b5a69668c84afe3c049b854509ac8e8dc97b74e'};
+            assert all(hashlib.sha256(pathlib.Path(p).read_bytes().replace(b'\r\n',b'\n')).hexdigest()==h for p,h in expected.items()), 'Read-only fixture changed';
+            additions={str(p) for p in pathlib.Path('.').rglob('*') if p.is_file() and not any(part in {'.git','.agents','.copilot','.claude'} for part in p.parts) and p.as_posix() not in expected};
+            assert not additions, 'Unexpected files in read-only fixture: '+str(sorted(additions))"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+        config:
+          evidence: [trajectory, repo]
+          prompt: >-
+            Assess the classifications against the supplied project configuration.
+            No shell execution, builds, tests or edits are permitted. Do not
+            substitute a minimum tool-call count for checking the actual
+            configuration and answer; the oracle provides reference evidence
+            without running an agent.
+    rubric:
+      - Identifies the configured VSTest command mode and MSTest framework but reports the executed platform unavailable
+      - Explains that MTP 2 cannot use the VSTest-mode bridge on SDK 10 despite enabled runner, bridge property and executable output
+      - Does not silently reclassify the incompatible entry point as VSTest or MTP, change configuration, or claim successful execution
   - name: SDK 10 VSTest mode bridges to an MSTest.Sdk MTP project
     prompt: |
       Detect this project's test platform and test framework. The SDK is pinned

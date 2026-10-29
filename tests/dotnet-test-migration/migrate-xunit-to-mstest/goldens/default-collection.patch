@@ -1,0 +1,78 @@
+diff --git a/TestProject.csproj b/TestProject.csproj
+--- a/TestProject.csproj
++++ b/TestProject.csproj
+@@ -7,7 +7,7 @@
+   </PropertyGroup>
+   <ItemGroup>
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+-    <PackageReference Include="xunit" Version="2.9.3" />
+-    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
++    <PackageReference Include="MSTest.TestFramework" Version="4.4.1" />
++    <PackageReference Include="MSTest.TestAdapter" Version="4.4.1" />
+   </ItemGroup>
+ </Project>
+diff --git a/CollectionTests.cs b/CollectionTests.cs
+--- a/CollectionTests.cs
++++ b/CollectionTests.cs
+@@ -1,8 +1,15 @@
+ using System;
+-using Xunit;
++using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+-[CollectionDefinition("Shared")]
+-public sealed class SharedCollection : ICollectionFixture<SharedResource> { }
++[TestClass]
++public sealed class SharedCollection
++{
++    internal static SharedResource Resource = null!;
++    [AssemblyInitialize]
++    public static void Initialize(TestContext context) => Resource = new SharedResource();
++    [AssemblyCleanup]
++    public static void Cleanup() => Resource.Dispose();
++}
+
+ public sealed class SharedResource : IDisposable
+ {
+@@ -11,32 +16,32 @@
+     public void Dispose() => Probe.Dispose();
+ }
+
+-[Collection("Shared")]
++[TestClass]
++[DoNotParallelize]
+ public class FirstMember
+ {
+-    private readonly SharedResource resource;
+-    public FirstMember(SharedResource resource) => this.resource = resource;
++    private SharedResource resource => SharedCollection.Resource;
+
+-    [Fact]
++    [TestMethod]
+     public void FirstCase()
+     {
+         resource.Probe.Enter(nameof(FirstCase));
+-        Assert.Equal(5, 2 + 3);
++        Assert.AreEqual(5, 2 + 3);
+         resource.Probe.Exit(nameof(FirstCase));
+     }
+ }
+
+-[Collection("Shared")]
++[TestClass]
++[DoNotParallelize]
+ public class SecondMember
+ {
+-    private readonly SharedResource resource;
+-    public SecondMember(SharedResource resource) => this.resource = resource;
++    private SharedResource resource => SharedCollection.Resource;
+
+-    [Fact]
++    [TestMethod]
+     public void SecondCase()
+     {
+         resource.Probe.Enter(nameof(SecondCase));
+-        Assert.Equal(1, -2 + 3);
++        Assert.AreEqual(1, -2 + 3);
+         resource.Probe.Exit(nameof(SecondCase));
+     }
+ }

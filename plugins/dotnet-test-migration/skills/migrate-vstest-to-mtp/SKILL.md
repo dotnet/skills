@@ -24,7 +24,9 @@ Inspect the supplied project, `Directory.Build.props`, `global.json`, and CI
 files before searching the web or answering from memory. Resolve the framework
 and SDK mode first: .NET 9 and earlier use the compatibility property plus the
 `--` separator; .NET 10 native MTP uses `global.json`, removes that property,
-and passes MTP arguments without the separator. For central properties, never
+and normally passes MTP arguments directly. Resolve MTP/MSBuild package versions
+too: MTP 2+ cannot use the legacy bridge on SDK 10+, and native mode requires
+MTP 1.7+. For central properties, never
 condition on `IsTestProject` in `Directory.Build.props`; use a property already
 available there, such as `MSBuildProjectName`.
 
@@ -61,7 +63,9 @@ available there, such as `MSBuildProjectName`.
 - Discover project, props, `global.json`, and pipeline files in the current working directory. Open literal search results; the skill directory is not the user's repository. Continue after skill activation and do not ask for a discoverable path.
 - For an implementation request, edit the files, then validate the effective MSBuild properties, the translated command, test counts, and requested artifacts. For a question, provide one exact command/configuration for the detected SDK and framework rather than a menu of near-equivalents.
 - Preserve all build arguments and avoid introducing `--no-build`, new settings files, or unrelated package upgrades. Never retain `--settings <file>` unless that file exists.
-- For .NET 9 and earlier, show the `--` separator. For .NET 10 native MTP mode, explicitly say to remove it.
+- For a supported legacy bridge, include `--`. In native MTP mode it is no
+  longer required; prefer direct flags, but do not reject an explicit delimiter
+  for forwarding test-application arguments. Keep build options before it.
 - When suppressing exit code 8 is intentional, warn that broad suppression can hide an accidental empty run caused by a bad filter; scope it to the known zero-test project/configuration.
 - For an exit-code-8 question, show all three concrete forms: `--ignore-exit-code 8`, `TestingPlatformCommandLineArguments`, and `TESTINGPLATFORM_EXITCODE_IGNORE=8`.
 - For xUnit v3 filters, give the directly usable `--filter-class`/`--filter-method`/`--filter-trait` command and explain AND behavior. When the resolved xUnit version supports it, include `--filter-query` path syntax for complex expressions and link the xUnit query-filter documentation.
@@ -172,7 +176,12 @@ xUnit.net v3 (`xunit.v3` package) has built-in MTP support. Enable it with:
 
 ### Step 4: Configure dotnet test integration
 
-The `dotnet test` integration depends on the .NET SDK version.
+The integration depends on SDK command mode and resolved MTP/MSBuild versions,
+not SDK version alone. Use `run-tests` when available for final command
+selection. Existing SDK 10 legacy bridges using compatible MTP 1.x still need
+`--`; MTP 2+ rejects that pairing. Do not bypass the compatibility guard or
+downgrade packages. A requested migration can adopt supported native mode;
+a question or narrowly scoped framework conversion cannot silently do so.
 
 #### .NET 10 SDK and later (recommended)
 
@@ -189,7 +198,10 @@ Use the native MTP mode by adding a `test` section to `global.json`:
 }
 ```
 
-In this mode, `dotnet test` arguments are passed directly -- for example, `dotnet test --report-trx`.
+Native mode requires MTP 1.7+. Pass application arguments directly by default,
+for example `dotnet test --report-trx`; an explicit `--` forwarding delimiter
+is supported but not required. Preserve the existing SDK pin rather than
+copying the illustrative version above.
 
 > **Important**: `global.json` does not support trailing commas. Ensure the JSON is strictly valid.
 

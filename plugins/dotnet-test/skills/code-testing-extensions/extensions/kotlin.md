@@ -222,6 +222,8 @@ tasks.test {
 
 If the repo uses a version catalog, add to `gradle/libs.versions.toml` and reference via `libs.junit.jupiter` etc. Match the major versions already in use.
 
-## Skip Coverage Tools
+## Coverage when requested
 
-Do not configure or run coverage tools (JaCoCo, Kover). Coverage is measured separately by the evaluation harness.
+Follow the [shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Reuse configured JaCoCo or Kover tasks when measurement is required; do not add
+instrumentation by default or assume a harness collects the report.

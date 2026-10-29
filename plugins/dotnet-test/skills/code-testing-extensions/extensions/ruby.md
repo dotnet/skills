@@ -56,23 +56,35 @@ This catches placement and load-path mistakes on turn 1 instead of after dozens 
 
 ### Harness Discovery Check
 
-Before reporting success, run the **harness-equivalent** discovery command from the repo root and confirm the example count went up by at least the number of tests you generated. CI/msbench/coverage harnesses do not know which file or sub-gem dir you targeted; they run the framework's default discovery from the repo root, so a spec that passes via `bundle exec rspec fastlane_core/spec/foo_spec.rb` is still worthless if `bundle exec rspec --dry-run` from the repo root doesn't enumerate it.
+Before reporting success, use the repository's actual discovery/CI entry point
+and working directory, not only a command targeting the changed file. Confirm
+that every intended example is selected using its file/location and example
+description or stable ID. For a root RSpec entry point this includes sub-gem
+examples only if that entry point is configured to discover them.
+
+Compare intended case identities against the baseline. A repair may keep the
+example count unchanged, and shared/parameterized examples can enumerate
+differently from source methods or rows. Raw count growth is not a completion
+gate; investigate missing cases, unexpected duplicates or filters instead.
 
 Choose the repository's configured runner **before** execution. Run the selected
 commands from the repo root in the **same Bash process** as `set -euo pipefail`,
 and require exit code zero before using any count as evidence. Do not suppress
 stderr, pipe the runner into a counting command, or switch runners after failure.
 
-For RSpec, use its dry-run example summary:
+For RSpec, use dry-run descriptions (or the repository's configured structured
+report) to identify the selected examples:
 
 ```bash
 set -euo pipefail
-bundle exec rspec --dry-run --format progress
+bundle exec rspec --dry-run --format documentation
 ```
 
 For Minitest without a repository-supported discovery mode, run the configured
-real test task and use its actual `<N> runs, <N> assertions` summary, not the number
-of Rake tasks. For a repository whose harness uses `rake test`:
+real test task and named-case/report evidence alongside its actual
+`<N> runs, <N> assertions` summary, not the number of Rake tasks. If the runner
+does not expose identities, state that discovery evidence limit rather than
+inferring case coverage from counts. For a repository using `rake test`:
 
 ```bash
 set -euo pipefail
@@ -85,13 +97,12 @@ For custom runners (Homebrew, ruby/ruby, etc.), use the repository's documented
 discovery mode or real harness-equivalent test task, with the same exit-status
 requirements.
 
-Require a successful runner exit and a nonzero test/example count, then compare
-the baseline and updated summaries for the same harness scope. If the count did
-not increase, your spec is invisible to the harness. Move it into `./spec/`,
-extend `.rspec`/`Rakefile` so the harness picks up the sub-gem dir, or switch to a
-`require_relative` strategy from a root-level spec. A failed runner or missing
-summary is a blocker, not evidence of empty discovery. Do **not** report success
-until the harness-equivalent command sees your new tests.
+Require a successful runner exit and the expected case identities at the same
+scope used for the baseline. Investigate missing examples before changing
+placement or `.rspec`/`Rakefile` registration; an unchanged total alone is not
+evidence that a repaired or parameterized test is invisible. A failed runner or
+missing report is a blocker, not evidence of empty discovery. Do not report
+discovery complete until the repository entry point sees the intended cases.
 
 ## Rule #1: Investigate the Repo First
 
@@ -277,6 +288,8 @@ bundle install
 
 Never `gem install` outside Bundler — it bypasses the lockfile and changes the global Ruby environment.
 
-## Skip Coverage Tools
+## Coverage when requested
 
-Do not configure or run coverage tools (SimpleCov). Coverage is measured separately by the evaluation harness.
+Follow the [shared coverage policy](../../code-testing/unit-test-generation.prompt.md#test-scope-guidelines).
+Reuse configured SimpleCov when measurement is required; do not add it by
+default or assume a harness collects the report.

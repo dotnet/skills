@@ -87,6 +87,56 @@ test("tool-calls required and disallowed lists affect trajectory results", async
   assert.equal((await grade(disallowed, completedToolCall("bash"))).passed, false);
 });
 
+test("testing inspection-only contracts reject every prohibited tool", async () => {
+  const contracts = [
+    [
+      "code-testing",
+      "Leave already-correct tests unchanged during a repair request",
+      ["bash", "powershell", "execute", "run_shell_command", "task"],
+    ],
+    [
+      "platform-detection",
+      "Reject SDK 10 VSTest mode for an MTP 2 application",
+      ["bash", "powershell", "execute", "run_shell_command", "edit", "create", "apply_patch", "task"],
+    ],
+    [
+      "run-tests",
+      "Select one target framework in a multi-targeted project",
+      ["bash", "edit", "create"],
+    ],
+    [
+      "run-tests",
+      "List existing solution tests across VSTest and both MTP modes",
+      ["bash", "powershell", "execute", "run_shell_command", "edit", "create", "apply_patch", "write_file", "replace", "task"],
+    ],
+  ];
+
+  for (const [skill, name, tools] of contracts) {
+    const spec = await loadEvalSpec(join("tests", "dotnet-test", skill, "eval.yaml"));
+    const item = spec.stimuli.find((entry) => entry.name === name);
+    assert.ok(item, `${skill} is missing ${name}`);
+    const grader = item.graders.find((entry) => entry.type === "tool-calls");
+    assert.ok(grader, `${name} has no tool-calls grader`);
+    assert.equal((await grade(grader, completedToolCall("view"))).passed, true);
+    for (const tool of tools) {
+      assert.equal(
+        (await grade(grader, completedToolCall(tool))).passed,
+        false,
+        `${name} allowed ${tool}`,
+      );
+    }
+  }
+});
+
+test("testing diagnosis dormancy survives the Vally runtime loader", async () => {
+  const spec = await loadEvalSpec(join("tests", "dotnet-test", "code-testing", "eval.yaml"));
+  const item = spec.stimuli.find(
+    (entry) => entry.name === "Retain a correct failing regression when production violates its contract",
+  );
+  assert.ok(item);
+  assert.equal(item.tags.expect_activation, "false");
+});
+
 test("skill-invocation required list affects trajectory results", async () => {
   const required = {
     type: "skill-invocation",
