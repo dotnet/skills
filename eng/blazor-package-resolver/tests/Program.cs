@@ -26,8 +26,12 @@ using (var doc = JsonDocument.Parse(coverage))
     var rows = doc.RootElement.GetProperty("rows");
     Check(rows.GetArrayLength() == 60 &&
         rows.EnumerateArray().All(row => row.GetProperty("scope").GetString() == "repository-wide" &&
-            row.GetProperty("work_state").GetString() == "tbd" &&
-            !row.TryGetProperty("resolver_id", out _)), "Every row is unresolved and unclaimed");
+            (row.GetProperty("id").GetString() == "LP-05"
+                ? row.GetProperty("work_state").GetString() == "implemented" &&
+                  row.GetProperty("resolver_id").GetString() == "lp05-license-expression" &&
+                  row.GetProperty("resolver_version").GetString() == "1.0.0"
+                : row.GetProperty("work_state").GetString() == "tbd" &&
+                  !row.TryGetProperty("resolver_id", out _))), "Only LP-05 is registered as implemented");
     NoClaims(doc.RootElement);
 }
 
@@ -38,6 +42,10 @@ Reject([.. registrations, registrations[0]]);
 foreach (var id in new[] { "TA-08", catalog.ExcludedIds.First(id => id != "TA-08"), "ZZ-99" })
     Reject([.. registrations.Skip(1), new RegistryEntry(id, "tbd")]);
 Reject([new RegistryEntry("LP-01", "implemented", "synthetic", "1.0.0"), .. registrations.Skip(1)]);
+Reject(registrations.Select(item => item.RowId == "LP-05"
+    ? new RegistryEntry(item.RowId, "implemented", "lp05-license-expression", "1.0.0")
+    : item).ToArray());
+Throws(() => new Registry(catalog, registrations, [new Lp05LicenseExpressionResolver()]));
 Throws(() => new Registry(catalog, registrations, [Fake("LP-01", _ => throw new Exception())]));
 Throws(() => new Registry(catalog, registrations, [Fake("ZZ-99", _ => throw new Exception())]));
 Throws(() => new Registry(catalog,
@@ -103,6 +111,42 @@ var pinned = new PinnedInput("package", "package.txt",
 Throws(() => branchRegistry.Dispatch(new ResolverCase("positive", "LP-01", [pinned],
     new Dictionary<string, CheckedInput> { ["package"] = new(pinned, "tampered"u8.ToArray()) })));
 Check(positiveInvocations == 2, "Tampered checked buffer rejected before handler invocation");
+var lp05Fixture = Path.Combine(AppContext.BaseDirectory, "fixtures", "lp05", "cases.json");
+var lp05Output = Replay.Run(lp05Fixture, registry);
+Check(lp05Output.SequenceEqual(Replay.Run(lp05Fixture, registry)),
+    "All frozen LP-05 branches replay with identical canonical output bytes");
+using (var doc = JsonDocument.Parse(lp05Output))
+{
+    var cases = doc.RootElement.GetProperty("cases");
+    Check(cases.GetArrayLength() == 25 &&
+        cases.EnumerateArray().All(item =>
+            item.GetProperty("result").GetProperty("row_id").GetString() == "LP-05"),
+        "Exact 25-case LP-05 synthetic branch matrix");
+    NoClaims(doc.RootElement);
+}
+var lp05Bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
+    "fixtures", "lp05", "packages", "expression.nupkg"));
+var lp05Pinned = new PinnedInput("package", "nonexistent-but-pinned.nupkg", Catalog.Digest(lp05Bytes));
+var lp05Case = new ResolverCase("path-independent", "LP-05", [lp05Pinned],
+    new Dictionary<string, CheckedInput> { ["package"] = new(lp05Pinned, lp05Bytes) });
+var lp05Result = registry.Dispatch(lp05Case);
+Check(lp05Result.BranchId == "expression" &&
+    lp05Result.Finding == "PackageLicenseExpression is populated: MIT." &&
+    lp05Result.Inputs.SequenceEqual(lp05Case.Inputs) &&
+    Canonical.Write(lp05Result.Write).SequenceEqual(Canonical.Write(registry.Dispatch(lp05Case).Write)),
+    "LP-05 consumes checked bytes without reopening the pinned path");
+Throws(() => registry.Dispatch(lp05Case with
+{
+    CheckedInputs = new Dictionary<string, CheckedInput>
+        { ["package"] = new(lp05Pinned, "tampered"u8.ToArray()) }
+}));
+Throws(() => registry.Dispatch(lp05Case with
+{
+    CheckedInputs = new Dictionary<string, CheckedInput>
+        { ["package"] = new(new PinnedInput("package", lp05Pinned.Path, new string('0', 64)), lp05Bytes) }
+}));
+Check(lp05Output.SequenceEqual(Replay.Run(lp05Fixture, registry)),
+    "LP-05 tamper rejection does not affect later deterministic replay");
 Throws(() => Implemented(Fake("LP-01", input =>
     Result(input, "bad", "deterministic", "unknown", "guessed", null, null, null)))
     .Dispatch(new ResolverCase("invalid", "LP-01", [], new Dictionary<string, CheckedInput>())));
@@ -189,7 +233,7 @@ finally
 
 var source = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
 var allowed = new HashSet<string>(StringComparer.Ordinal)
-    { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs" };
+    { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs", "Lp05LicenseExpressionResolver.cs" };
 var allowedFiles = allowed.Concat(["BlazorPackageResolver.csproj", "README.md",
     "data/provenance.json", "data/rubric.json", "data/requirement-basis.json"])
     .ToHashSet(StringComparer.Ordinal);
@@ -203,10 +247,11 @@ foreach (var file in allowed)
 {
     var text = File.ReadAllText(Path.Combine(source, file));
     Check(!System.Text.RegularExpressions.Regex.IsMatch(text,
-        @"\bnamespace\s+(?!BlazorPackageResolver\s*;)[\w.]+", System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+        @"(?m)^\s*namespace\s+(?!BlazorPackageResolver\s*;)[\w.]+",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase),
         "No assessment, rendering, reader, library, comparison, component or AI namespace");
 }
-Console.WriteLine("Resolver bootstrap checks passed.");
+Console.WriteLine("Resolver foundation and LP-05 checks passed.");
 
 Registry Implemented(IDeterministicResolver handler) => new(catalog,
     [new RegistryEntry("LP-01", "implemented", "synthetic", "1.0.0"), .. registrations.Skip(1)],
