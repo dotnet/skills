@@ -22,9 +22,39 @@ ZIP_DATE = (2020, 1, 1, 0, 0, 0)
 MAX_EXPRESSION_BYTES = 4096
 MAX_EXPRESSION_TOKENS = 255
 MAX_EXPRESSION_DEPTH = 16
-MAX_ALTERNATIVES = 256
+MAX_ALTERNATIVES = 128
+MAX_GRANT_BYTES = 16384
 TERM = r"(?:DocumentRef-[A-Za-z0-9.-]+:)?LicenseRef-[A-Za-z0-9.-]+|[A-Za-z0-9][A-Za-z0-9.+-]*"
 LEXEME = re.compile(rf"(?:{TERM})|[()]")
+REPOSITORY = "https://example.test/fixture/owner-lp01"
+COMMIT = "a" * 40
+RELEASE = "refs/tags/v1.0.0"
+GRANT = (b"SPDX-License-Identifier: MIT\nMIT License\n\n"
+         b"Copyright (c) 2026 Example Fixture Maintainer\n\n"
+         b"Permission is hereby granted, free of charge, to any person obtaining a copy\n"
+         b"of this software and associated documentation files (the \"Software\"), to deal\n"
+         b"in the Software without restriction, including without limitation the rights\n"
+         b"to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n"
+         b"copies of the Software, and to permit persons to whom the Software is\n"
+         b"furnished to do so, subject to the following conditions:\n\n"
+         b"The above copyright notice and this permission notice shall be included in all\n"
+         b"copies or substantial portions of the Software.\n\n"
+         b"THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
+         b"IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
+         b"FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
+         b"AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
+         b"LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
+         b"OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
+         b"SOFTWARE.\n")
+GRANT_PATH = "grants/mit-full.txt"
+OWNER_FIELDS = frozenset((
+    "schema_version", "caller_accepts_prevalidated_authority", "owner_identity",
+    "owner_reference", "package_id", "package_sha256", "repository_url",
+    "source_commit", "release_ref", "release_version", "spdx_grant_expression",
+    "grant_path", "grant_sha256", "grant_evidence_prevalidated_complete",
+    "policy_version", "policy_sha256",
+    "spdx_version", "spdx_sha256",
+))
 VENDORS = (
     ("syncfusion", "syncfusion.blazor.toolkit.2.0.1.nupkg",
      "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d",
@@ -232,13 +262,17 @@ SPECS = (
     ("ascii-whitespace", LICENSE.format("MIT\tAND\nApache-2.0"), "approved-non-copyleft", None),
     ("bytes-at-limit", LICENSE.format("MIT" + " " * (MAX_EXPRESSION_BYTES - 3)), "approved-non-copyleft", None),
     ("bytes-over-limit", LICENSE.format("MIT" + " " * (MAX_EXPRESSION_BYTES - 2)), "expression-limit", None),
+    ("multibyte-at-limit", LICENSE.format("MIT" + " " * 4091 + "\u00e9"), "invalid-expression", None),
+    ("multibyte-over-limit", LICENSE.format("MIT" + " " * 4092 + "\u00e9"), "expression-limit", None),
     ("tokens-at-limit", LICENSE.format(" OR ".join(["MIT"] * 128)), "approved-non-copyleft", None),
     ("tokens-over-limit", LICENSE.format(" OR ".join(["MIT"] * 129)), "expression-limit", None),
+    ("tokens-over-malformed", LICENSE.format(" OR ".join(["MIT"] * 129) + " AND"), "expression-limit", None),
+    ("bytes-over-malformed", LICENSE.format("MIT AND" + " " * MAX_EXPRESSION_BYTES), "expression-limit", None),
     ("depth-at-limit", LICENSE.format("(" * MAX_EXPRESSION_DEPTH + "MIT" + ")" * MAX_EXPRESSION_DEPTH), "approved-non-copyleft", None),
     ("depth-over-limit", LICENSE.format("(" * (MAX_EXPRESSION_DEPTH + 1) + "MIT" + ")" * (MAX_EXPRESSION_DEPTH + 1)), "expression-limit", None),
-    ("alternatives-at-limit", LICENSE.format("(" + " OR ".join(["MIT"] * 16) +
+    ("alternatives-at-limit", LICENSE.format("(" + " OR ".join(["MIT"] * 8) +
      ") AND (" + " OR ".join(["Apache-2.0"] * 16) + ")"), "approved-non-copyleft", None),
-    ("alternatives-over-limit", LICENSE.format("(" + " OR ".join(["MIT"] * 16) +
+    ("alternatives-over-limit", LICENSE.format("(" + " OR ".join(["MIT"] * 8) +
      ") AND (" + " OR ".join(["Apache-2.0"] * 17) + ")"), "expression-limit", None),
     ("file-only", '<license type="file">LICENSE.txt</license>', "file-unverified", b"License text alone is not an SPDX grant.\n"),
     ("file-declared", '<license type="file">LICENSE.txt</license>', "file-declared", b"SPDX-License-Identifier: MIT\n"),
@@ -273,6 +307,42 @@ SPECS = (
     ("catalog-version-mismatch", LICENSE.format("MIT"), "invalid-policy", None),
 )
 
+# name, expected branch. These controls reuse the package reader but add checked roles.
+OWNER_SPECS = (
+    ("accepted", "owner-evidence-accepted"),
+    ("accepted-and", "owner-evidence-accepted"),
+    ("no-record", "owner-record-missing"),
+    ("acceptance-false", "owner-acceptance-missing"),
+    ("acceptance-absent", "owner-record-invalid"),
+    ("wrong-package", "owner-binding-conflict"),
+    ("wrong-package-id", "owner-binding-conflict"),
+    ("wrong-repository", "owner-binding-conflict"),
+    ("wrong-commit", "owner-binding-conflict"),
+    ("wrong-release", "owner-binding-conflict"),
+    ("wrong-version", "owner-binding-conflict"),
+    ("wrong-expression", "owner-binding-conflict"),
+    ("wrong-expression-whitespace", "owner-binding-conflict"),
+    ("wrong-policy-version", "owner-binding-conflict"),
+    ("wrong-policy-digest", "owner-binding-conflict"),
+    ("wrong-spdx-version", "owner-binding-conflict"),
+    ("wrong-spdx-digest", "owner-binding-conflict"),
+    ("owner-reference-missing", "owner-record-invalid"),
+    ("wrong-grant-digest", "grant-binding-conflict"),
+    ("wrong-grant-path", "grant-binding-conflict"),
+    ("no-grant", "grant-missing"),
+    ("grant-completeness-false", "grant-incomplete"),
+    ("tag-only", "grant-incomplete"),
+    ("oversize-grant", "grant-limit"),
+    ("grant-gpl", "grant-contradiction"),
+    ("package-gpl", "grant-contradiction"),
+    ("unknown-field", "owner-record-invalid"),
+    ("schema-version", "owner-record-invalid"),
+    ("schema-boolean", "owner-record-invalid"),
+    ("malformed-record", "owner-record-invalid"),
+    ("oversize-record", "owner-record-invalid"),
+    ("conflicting-records", "owner-record-conflict"),
+)
+
 
 def entry(name):
     info = zipfile.ZipInfo(name, ZIP_DATE)
@@ -294,7 +364,9 @@ def archive(name, metadata, file_text):
     extra = '<x:metadata xmlns:x="urn:other"/>' if name.startswith("foreign-metadata") else ""
     dtd = '<!DOCTYPE package [<!ENTITY license "MIT">]>' if name == "dtd-entity" else ""
     recognized = (f"<metadata><id>Sample.LP01</id>"
-                  f"<version>1.0.0</version>{metadata}</metadata>")
+                  f"<version>1.0.0</version>{metadata}"
+                  + (f'<repository url="{REPOSITORY}" commit="{COMMIT}"/>' if name.startswith("owner-") else "")
+                  + "</metadata>")
     children = recognized + extra if name == "foreign-metadata-after" else extra + recognized
     attribute = f' xmlns="{namespace}"' if namespace else ""
     nuspec = (f'<?xml version="1.0" encoding="utf-8"?>{dtd}'
@@ -313,6 +385,142 @@ def archive(name, metadata, file_text):
     return stream.getvalue()
 
 
+def owner_record(package_digest, policy_digest, expression="MIT", grant=GRANT):
+    return dict(schema_version=1, caller_accepts_prevalidated_authority=True,
+                owner_identity="Example Fixture Maintainer",
+                owner_reference="urn:fixture:owner-lp01:2026",
+                package_id="Sample.LP01", package_sha256=package_digest,
+                repository_url=REPOSITORY, source_commit=COMMIT,
+                release_ref=RELEASE, release_version="1.0.0",
+                spdx_grant_expression=expression, grant_path=GRANT_PATH,
+                grant_sha256=sha(grant), grant_evidence_prevalidated_complete=True,
+                policy_version="1.0.0",
+                policy_sha256=policy_digest, spdx_version="3.27.0",
+                spdx_sha256=CATALOG_SHA)
+
+
+def owner_inputs(name, policy_bytes, catalog_bytes):
+    expression = "MIT AND MIT" if name == "accepted-and" else "GPL-3.0-only" if name == "package-gpl" else "MIT"
+    content = archive("owner-" + name, LICENSE.format(expression), None)
+    grant = (b"SPDX-License-Identifier: MIT\n" if name == "tag-only" else
+             GRANT.replace(b"SPDX-License-Identifier: MIT", b"SPDX-License-Identifier: GPL-3.0-only")
+             if name == "grant-gpl" else GRANT + b"x" * (MAX_GRANT_BYTES + 1 - len(GRANT))
+             if name == "oversize-grant" else GRANT)
+    record = owner_record(sha(content), sha(policy_bytes), expression, grant)
+    if grant != GRANT:
+        record["grant_path"] = f"grants/{name}.txt"
+    changes = {
+        "acceptance-false": ("caller_accepts_prevalidated_authority", False),
+        "wrong-package": ("package_sha256", "0" * 64),
+        "wrong-package-id": ("package_id", "Other.Package"),
+        "wrong-repository": ("repository_url", "https://example.test/other"),
+        "wrong-commit": ("source_commit", "b" * 40),
+        "wrong-release": ("release_ref", "refs/tags/v2.0.0"),
+        "wrong-version": ("release_version", "2.0.0"),
+        "wrong-expression": ("spdx_grant_expression", "Apache-2.0"),
+        "wrong-expression-whitespace": ("spdx_grant_expression", " MIT "),
+        "wrong-policy-version": ("policy_version", "2.0.0"),
+        "wrong-policy-digest": ("policy_sha256", "0" * 64),
+        "wrong-spdx-version": ("spdx_version", "0.0.0"),
+        "wrong-spdx-digest": ("spdx_sha256", "0" * 64),
+        "owner-reference-missing": ("owner_reference", ""),
+        "grant-completeness-false": ("grant_evidence_prevalidated_complete", False),
+        "wrong-grant-digest": ("grant_sha256", "0" * 64),
+        "wrong-grant-path": ("grant_path", "grants/other.txt"),
+        "unknown-field": ("unrecognized", "unsafe"),
+        "schema-version": ("schema_version", 2),
+        "schema-boolean": ("schema_version", True),
+    }
+    if name in changes:
+        field, value = changes[name]
+        record[field] = value
+    if name == "acceptance-absent":
+        del record["caller_accepts_prevalidated_authority"]
+    record_bytes = encoded(record)
+    if name == "malformed-record":
+        record_bytes = b"{broken json\n"
+    if name == "oversize-record":
+        record_bytes = encoded({**record, "owner_identity": "A" * 8192})
+    second = encoded({**record, "owner_identity": "Conflicting Fixture Owner"}) if name == "conflicting-records" else None
+    inputs = [dict(role="package", path=f"packages/owner-{name}.nupkg", sha256=sha(content)),
+              dict(role="policy", path="policy/" + POLICY.name, sha256=sha(policy_bytes)),
+              dict(role="corpus", path="policy/" + CATALOG.name, sha256=sha(catalog_bytes))]
+    if name != "no-record":
+        inputs.append(dict(role="owner-record", path=f"owners/{name}.json", sha256=sha(record_bytes)))
+    if second is not None:
+        inputs.append(dict(role="owner-record-conflict", path="owners/conflicting-records-secondary.json",
+                           sha256=sha(second)))
+    if name != "no-grant":
+        inputs.append(dict(role="grant", path=GRANT_PATH if grant == GRANT else f"grants/{name}.txt",
+                           sha256=sha(grant)))
+    return inputs, content, record_bytes, second, grant
+
+
+def owner_state(inputs, content, record_bytes, second, grant, policy_bytes, policy, licenses):
+    roles = {item["role"]: item for item in inputs}
+    require(sha(content) == roles["package"]["sha256"] and
+            sha(policy_bytes) == roles["policy"]["sha256"] and
+            roles["corpus"]["sha256"] == CATALOG_SHA and
+            ("owner-record" not in roles or sha(record_bytes) == roles["owner-record"]["sha256"]) and
+            (second is None or sha(second) == roles["owner-record-conflict"]["sha256"]),
+            "Owner fixture checked input bytes differ from pinned roles.")
+    if "owner-record" not in roles:
+        return "owner-record-missing"
+    if second is not None:
+        return "owner-record-conflict"
+    if len(record_bytes) > 8192:
+        return "owner-record-invalid"
+    try:
+        record = json.loads(record_bytes)
+    except json.JSONDecodeError:
+        return "owner-record-invalid"
+    if not isinstance(record, dict) or set(record) != OWNER_FIELDS or encoded(record) != record_bytes:
+        return "owner-record-invalid"
+    if type(record["schema_version"]) is not int or record["schema_version"] != 1 or any(
+        not isinstance(record[key], str) or not record[key] or len(record[key]) > 256
+        for key in OWNER_FIELDS - {"schema_version", "caller_accepts_prevalidated_authority",
+                                    "grant_evidence_prevalidated_complete"}
+    ) or not isinstance(record["caller_accepts_prevalidated_authority"], bool) or not isinstance(
+            record["grant_evidence_prevalidated_complete"], bool):
+        return "owner-record-invalid"
+    if re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", record["source_commit"]) is None or not record[
+            "release_ref"].startswith("refs/tags/") or len(record["release_ref"]) <= len("refs/tags/"):
+        return "owner-record-invalid"
+    if not record["caller_accepts_prevalidated_authority"]:
+        return "owner-acceptance-missing"
+    root = ET.fromstring(zipfile.ZipFile(io.BytesIO(content)).read("Sample.LP01.nuspec"))
+    metadata = root.find(f"{{{NS}}}metadata")
+    repository = metadata.find(f"{{{NS}}}repository")
+    expression = metadata.find(f"{{{NS}}}license").text
+    if expression_state(expression, policy, licenses) != "approved-non-copyleft":
+        return "grant-contradiction"
+    if (record["package_sha256"] != sha(content) or
+        record["package_id"] != metadata.find(f"{{{NS}}}id").text or
+        record["repository_url"] != repository.attrib["url"] or
+        record["source_commit"] != repository.attrib["commit"] or
+        record["release_version"] != metadata.find(f"{{{NS}}}version").text or
+        record["release_ref"] != RELEASE or
+        record["spdx_grant_expression"] != expression or
+        record["policy_version"] != policy["policy_version"] or
+        record["policy_sha256"] != sha(policy_bytes) or
+        record["spdx_version"] != policy["spdx_version"] or
+        record["spdx_sha256"] != CATALOG_SHA):
+        return "owner-binding-conflict"
+    if "grant" not in roles:
+        return "grant-missing"
+    if record["grant_path"] != roles["grant"]["path"] or record["grant_sha256"] != roles["grant"]["sha256"]:
+        return "grant-binding-conflict"
+    if sha(grant) != roles["grant"]["sha256"]:
+        return "grant-binding-conflict"
+    if len(grant) > MAX_GRANT_BYTES:
+        return "grant-limit"
+    if grant.startswith(b"SPDX-License-Identifier: GPL-3.0-only"):
+        return "grant-contradiction"
+    if not record["grant_evidence_prevalidated_complete"] or grant != GRANT:
+        return "grant-incomplete"
+    return "owner-evidence-accepted"
+
+
 def policy_variant(name, policy_bytes, catalog_bytes):
     if name == "policy-version-mismatch":
         value = json.loads(policy_bytes)
@@ -329,6 +537,12 @@ def policy_variant(name, policy_bytes, catalog_bytes):
 
 
 def disposition(branch):
+    if branch == "owner-evidence-accepted":
+        return "deterministic", (
+            "The checked package and grant are classified OSI-approved non-copyleft and match the "
+            "prevalidated owner/repository record. Caller-asserted owner authority was accepted at "
+            "the input boundary, NOT cryptographically established by this resolver."
+        ), None, None, None
     if branch == "approved-non-copyleft":
         return "escalated", None, (
             "An OSI-approved, non-copyleft package declaration does not establish an owner-authorized "
@@ -345,6 +559,16 @@ def disposition(branch):
             f"alternative ({branch}); this is a package-scoped negative, not a repository-wide verdict."
         ), None, None, None
     explanations = {
+        "owner-record-missing": ("No prevalidated owner/repository evidence record was supplied.", "prevalidated-owner-record", "package-owner"),
+        "owner-acceptance-missing": ("Caller did not explicitly accept the owner-authority prevalidation trust boundary.", "explicit-caller-authority-acceptance", "input-owner"),
+        "owner-record-invalid": ("The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.", "canonical-versioned-owner-record", "input-owner"),
+        "owner-record-conflict": ("Multiple owner records assert conflicting identities for the checked package.", "single-unambiguous-owner-record", "input-owner"),
+        "owner-binding-conflict": ("Owner-record package, repository, source/release, expression or pinned policy identity conflicts with checked inputs.", "matching-owner-package-and-policy-bindings", "package-owner"),
+        "grant-binding-conflict": ("Owner-record grant path or digest conflicts with the independently checked grant input.", "matching-checked-grant-artifact", "package-owner"),
+        "grant-missing": ("The checked complete grant artifact was not supplied.", "checked-complete-license-grant", "package-owner"),
+        "grant-incomplete": ("The checked license artifact is tag-only or the caller has not prevalidated its complete grant text.", "prevalidated-complete-license-grant-text", "package-owner"),
+        "grant-limit": ("The checked license grant exceeds the 16384-byte v1 inspection limit.", "bounded-complete-license-grant", "package-owner"),
+        "grant-contradiction": ("The authoritative package declaration and prevalidated grant evidence contradict each other.", "reconciled-owner-license-grant", "package-owner"),
         "mixed-alternatives": ("An OR alternative is not established as OSI-approved and non-copyleft.", "binding-license-choice", "package-owner"),
         "unclassified-osi": ("SPDX marks the identifier OSI-approved but this policy does not classify its copyleft obligations.", "reviewed-copyleft-classification", "policy-owner"),
         "custom-license": ("A custom LicenseRef has no pinned OSI/copy-left classification.", "reviewed-custom-license", "policy-owner"),
@@ -375,6 +599,13 @@ def result(branch, inputs, reference, contract=None):
     if contract is None and branch == "file-declared":
         contract = ("Checked LICENSE.txt contains only SPDX-License-Identifier: MIT; MIT is OSI-approved "
                     "and allowlisted non-copyleft, but the file supplies no actual license grant text.")
+    if branch == "owner-evidence-accepted":
+        contract = ("Checked package/nuspec, SPDX 3.27.0, policy 1.0.0, canonical prevalidated "
+                    "owner record and complete separate MIT grant bytes bind exactly; caller accepts "
+                    "owner authority at input boundary, not cryptographically proven by resolver.")
+    elif branch.startswith(("owner-", "grant-")):
+        contract = ("Available checked package, policy, owner-record and grant inputs were inspected; "
+                    "missing or conflicting evidence cannot establish owner authority or license scope.")
     unavailable = ("unsafe-package", "missing-package", "missing-policy", "missing-corpus", "invalid-policy")
     unknown = branch in unavailable
     citations = [] if branch in unavailable else [
@@ -439,6 +670,22 @@ def suite_data(policy_bytes, catalog_bytes, policy, licenses):
                     rationale=f"Frozen LP-01 {name} policy/metadata branch; package-only license evidence, not release-wide compliance.",
                     evidence_pointers=pointers)
         cases.append(case)
+    for name, branch in OWNER_SPECS:
+        inputs, content, record_bytes, second, grant = owner_inputs(name, policy_bytes, catalog_bytes)
+        actual = owner_state(inputs, content, record_bytes, second, grant, policy_bytes, policy, licenses)
+        require(actual == branch, f"Owner evidence disagrees with frozen {name}: {actual} != {branch}")
+        references = ["package:nuspec/license", "package:nuspec/repository",
+                      "policy:lp01-policy-1.0.0", "corpus:spdx-licenses-3.27.0"]
+        if name != "no-record":
+            references.append("owner-record:document")
+        if name != "no-grant":
+            references.append("grant:document")
+        expected = result(branch, inputs, "package:nuspec/license")
+        expected["evidence_references"] = references
+        cases.append(dict(case_id="lp01-owner-" + name, row_id="LP-01", inputs=inputs,
+                          expected=expected,
+                          rationale="Prevalidated owner authority is accepted only with explicit caller consent and exact checked package/repository/source/release/grant bindings.",
+                          evidence_pointers=references + ["package:archive"]))
     return dict(schema_version=1, cases=cases)
 
 
@@ -522,6 +769,8 @@ def main():
                 f"LP-01 retained identity or Phase A receipt mismatch: {vendor}")
     if args.write_fixtures:
         (ROOT / "packages").mkdir(parents=True, exist_ok=True)
+        (ROOT / "owners").mkdir(parents=True, exist_ok=True)
+        (ROOT / "grants").mkdir(parents=True, exist_ok=True)
         for name, metadata, _, file_text in SPECS:
             content = archive(name, metadata, file_text)
             if content is not None:
@@ -531,6 +780,16 @@ def main():
                 (ROOT / "policy" / f"{name}.json").write_bytes(pbytes)
             if cbytes != catalog_bytes:
                 (ROOT / "policy" / f"{name}.json").write_bytes(cbytes)
+        for name, _ in OWNER_SPECS:
+            inputs, content, record_bytes, second, grant = owner_inputs(name, policy_bytes, catalog_bytes)
+            (ROOT / inputs[0]["path"]).write_bytes(content)
+            for item in inputs:
+                if item["role"] == "owner-record":
+                    (ROOT / item["path"]).write_bytes(record_bytes)
+                elif item["role"] == "owner-record-conflict":
+                    (ROOT / item["path"]).write_bytes(second)
+                elif item["role"] == "grant":
+                    (ROOT / item["path"]).write_bytes(grant)
         (ROOT / "cases.json").write_bytes(encoded(synthetic))
         (ROOT / "acceptance.json").write_bytes(encoded(acceptance))
     else:
@@ -586,14 +845,30 @@ def main():
                 pass
             else:
                 raise ValueError(f"Invalid policy control was accepted: {name}")
+    for name, branch in OWNER_SPECS:
+        inputs, content, record_bytes, second, grant = owner_inputs(name, policy_bytes, catalog_bytes)
+        require(owner_state(inputs, content, record_bytes, second, grant, policy_bytes, policy, licenses) == branch,
+                f"Owner record branch differs: {name}")
+        if not args.write_fixtures:
+            for item in inputs:
+                if item["role"] in ("package", "owner-record", "owner-record-conflict", "grant"):
+                    raw = (content if item["role"] == "package" else record_bytes if item["role"] == "owner-record"
+                           else second if item["role"] == "owner-record-conflict" else grant)
+                    require((ROOT / item["path"]).read_bytes() == raw and sha(raw) == item["sha256"],
+                            f"Owner fixture input differs: {name}/{item['role']}")
+        with zipfile.ZipFile(io.BytesIO(content)) as package:
+            require(package.namelist() == ["Sample.LP01.nuspec"] and
+                    package.getinfo("Sample.LP01.nuspec").date_time == ZIP_DATE,
+                    f"Owner package ZIP changed: {name}")
     by_id = {case["case_id"]: case for case in synthetic["cases"]}
     require(not any(item["role"] == "policy" for item in by_id["lp01-no-policy"]["inputs"]) and
             not any(item["role"] == "corpus" for item in by_id["lp01-no-corpus"]["inputs"]),
             "Missing policy/corpus controls must omit the exact required role.")
     actual_packages = {path.name for path in (ROOT / "packages").glob("*.nupkg")}
-    require(actual_packages == {name + ".nupkg" for name, *_ in SPECS if name != "no-package"},
+    require(actual_packages == ({name + ".nupkg" for name, *_ in SPECS if name != "no-package"} |
+                               {"owner-" + name + ".nupkg" for name, _ in OWNER_SPECS}),
             "LP-01 archive inventory differs.")
-    require(len({case["case_id"] for case in synthetic["cases"]}) == len(SPECS),
+    require(len({case["case_id"] for case in synthetic["cases"]}) == len(SPECS) + len(OWNER_SPECS),
             "Duplicate LP-01 cases.")
     for name in ("bytes", "tokens", "depth", "alternatives"):
         at = by_id[f"lp01-{name}-at-limit"]["expected"]
@@ -609,6 +884,23 @@ def main():
             len(metadata_by_name["bytes-over-limit"].split(">", 1)[1].split("</license>", 1)[0]) ==
             MAX_EXPRESSION_BYTES + 1,
             "Expression byte/character boundary controls changed.")
+    for name, expected_bytes, expected_state in (
+            ("multibyte-at-limit", MAX_EXPRESSION_BYTES, "invalid-expression"),
+            ("multibyte-over-limit", MAX_EXPRESSION_BYTES + 1, "expression-limit")):
+        raw = metadata_by_name[name].split(">", 1)[1].split("</license>", 1)[0]
+        require(len(raw.encode("utf-8")) == expected_bytes and len(raw) <= MAX_EXPRESSION_BYTES and
+                by_id[f"lp01-{name}"]["expected"]["branch_id"] == expected_state,
+                f"Independent byte/character boundary differs: {name}")
+    for name, count in (("tokens-at-limit", MAX_EXPRESSION_TOKENS),
+                        ("tokens-over-limit", MAX_EXPRESSION_TOKENS + 2)):
+        text = metadata_by_name[name].split(">", 1)[1].split("</license>", 1)[0]
+        require(len(LEXEME.findall(text)) == count, f"SPDX token-count boundary differs: {name}")
+    require(8 * 16 == MAX_ALTERNATIVES and 8 * 17 > MAX_ALTERNATIVES and
+            len(LEXEME.findall(metadata_by_name["alternatives-over-limit"])) < MAX_EXPRESSION_TOKENS,
+            "Alternative-count boundary must be independently reachable below the token cap.")
+    for name in ("tokens-over-malformed", "bytes-over-malformed"):
+        require(by_id[f"lp01-{name}"]["expected"]["branch_id"] == "expression-limit",
+                f"Limit-before-syntax precedence differs: {name}")
     for case in synthetic["cases"] + acceptance["cases"]:
         expected = case["expected"]
         require(expected["inputs"] == case["inputs"] and case["row_id"] == expected["row_id"] == "LP-01",
@@ -630,6 +922,18 @@ def main():
             require(expected["decision"] == "deterministic" and
                     "package-scoped negative" in expected["finding"],
                     f"LP-01 negative lost its package scope: {case['case_id']}")
+    owner_cases = [case for case in synthetic["cases"] if case["case_id"].startswith("lp01-owner-")]
+    require(len(owner_cases) == len(OWNER_SPECS) and
+            [case["expected"]["branch_id"] for case in owner_cases].count("owner-evidence-accepted") == 2 and
+            all(case["expected"]["decision"] == "deterministic" and
+                "NOT cryptographically established" in case["expected"]["finding"]
+                if case["expected"]["branch_id"] == "owner-evidence-accepted" else
+                case["expected"]["decision"] == "escalated" and case["expected"]["finding"] is None
+                for case in owner_cases) and
+            all(case["expected"]["decision"] == "escalated" and
+                not any(item["role"] == "owner-record" for item in case["inputs"])
+                for case in acceptance["cases"]),
+            "Owner-evidence or retained authority boundary changed.")
     missing = ["LP01_" + vendor.upper() + "_NUPKG" for vendor, *_ in VENDORS
                if not os.environ.get("LP01_" + vendor.upper() + "_NUPKG")]
     if args.require_retained and missing:
@@ -662,7 +966,7 @@ def main():
                 expression_state("MIT", policy, licenses) == "approved-non-copyleft",
                 f"{binding}: MIT policy finding differs from retained archive.")
         print(f"{binding}: verified (archive/nuspec SHA-256; MIT OSI-approved non-copyleft under pinned policy)")
-    print(f"LP-01: {len(SPECS)} cases, {len(actual_packages)} synthetic archives, "
+    print(f"LP-01: {len(synthetic['cases'])} cases, {len(actual_packages)} synthetic archives, "
           f"{len(acceptance['cases'])} retained expectations; policy {policy['policy_version']}, "
           f"SPDX {policy['spdx_version']} SHA-256 {CATALOG_SHA}.")
 

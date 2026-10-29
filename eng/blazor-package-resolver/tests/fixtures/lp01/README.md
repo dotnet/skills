@@ -51,21 +51,86 @@ appear as exception identifiers (`MIT WITH OR`, `MIT WITH WITH`); these,
 invalid operator casing and incomplete/trailing expressions are malformed
 and escalate. No normalization turns deprecated identifiers into current
 ones or strips an exception. The oracle caps the UTF-8 expression at
-**4096 bytes and 4096 characters**, **255 tokens**, **16 parenthesis
-levels** and **256 expanded alternatives**. At/over fixtures for all four
+**4096 raw UTF-8 bytes and 4096 raw characters BEFORE any trim or normalization**,
+**255 tokens**, **16 parenthesis levels** and **128 expanded alternatives**,
+counted before deduplication (128 simple OR operands already use 255 tokens).
+Composite `(8 alternatives) AND (16 alternatives)` reaches 128 alternatives
+in fewer than 255 tokens; the 8-by-17 control exceeds that separate limit.
+ASCII trailing-space byte at/over controls and multibyte at/over controls
+show that non-ASCII input at the raw byte cap is invalid syntax, while one
+raw UTF-8 byte over the cap is `expression-limit`, even though the character
+count is within the cap. Over-limit inputs with malformed syntax prove
+**limit-before-syntax** precedence. At/over fixtures for all four
 bounds test fail-closed `expression-limit`; limits are expectation-contract
 choices for Phase B, not an assertion that the current reader already
 enforces them. These decisions are bounded to the pinned catalog and local
 policy, not legal opinions.
 
-**No positive package classification resolves the repository-wide LP-01
-obligation.** Every allowlisted expression, including retained MIT,
-escalates with applicable scope, explicit missing owner-authorized license
-grant and release/source correspondence, and package policy classification
-in the evidence contract. Neither a populated expression nor a matching
-URL removes that missing fact. Decisive negatives report only that an
-authoritative *package declaration* offers no acceptable alternative; they
-are not repository-wide conclusions.
+**Package metadata alone cannot resolve the repository-wide LP-01
+obligation.** Every allowlisted expression without an accepted owner record,
+including both retained MIT packages, escalates with applicable scope,
+explicit missing owner-authorized license grant and release/source
+correspondence, and package policy classification in the evidence contract.
+Neither a populated expression nor a matching URL removes that missing fact.
+Decisive negatives report only that an authoritative *package declaration*
+offers no acceptable alternative; they are not repository-wide conclusions.
+
+## Prevalidated owner evidence contract (v1)
+
+The **five checked input roles** are `package`, `policy`, `corpus`,
+`owner-record`, and `grant`. Package-only cases omit the last two roles;
+this is an *escalation*, not an alternative resolver version. One optional
+`owner-record-conflict` role is a fail-closed control: two conflicting
+records cannot be selected by order. The foundation hashes each checked
+input, with relative paths and lowercase SHA-256, before dispatch. The
+owner record is canonical UTF-8 JSON with LF newline, sorted only by the
+fixed field insertion order in `owner_record()` (not alphabetically),
+no unknown or duplicate keys, and **at most 8192 raw bytes**. Its exact
+v1 fields are:
+
+| Field | Required constraint |
+|---|---|
+| `schema_version` | Integer `1` exactly |
+| `caller_accepts_prevalidated_authority` | Boolean `true` for resolution; missing/false escalates |
+| `owner_identity`, `owner_reference` | Nonempty, each at most 256 characters; trusted caller-validated identity and reference, not a signature |
+| `package_id`, `package_sha256` | Exact checked nuspec ID and checked package digest |
+| `repository_url`, `source_commit` | Exact checked nuspec repository URL and full lowercase 40- or 64-hex source commit |
+| `release_ref`, `release_version` | Prevalidated full release ref and exact checked nuspec package version; v1 fixture pins `refs/tags/v1.0.0` and `1.0.0` |
+| `spdx_grant_expression` | Exact recognized checked package expression (no lossy case/whitespace normalization) |
+| `grant_path`, `grant_sha256` | Exact separate checked `grant` role relative path and SHA-256 |
+| `grant_evidence_prevalidated_complete` | Boolean `true` for resolution; a tag-only file is insufficient even when asserted true |
+| `policy_version`, `policy_sha256` | Exact checked v1 policy version and digest |
+| `spdx_version`, `spdx_sha256` | Exact checked SPDX catalog version and digest |
+
+Every string is nonempty and bounded to 256 characters; the record may
+not add unrecognized fields or switch versions. The fixture oracle verifies
+canonical bytes and all checked cross-input equalities; a production resolver
+must reject duplicate JSON keys, unknown fields, wrong types, oversized
+documents, missing checked roles, hash mismatches and ambiguous records,
+and must **never infer trust from a file path or vendor name**. For v1,
+the caller prevalidates owner authority, the repository/release relationship,
+and grant completeness, then explicitly accepts that boundary in the record.
+The resolver checks the record and separate grant bytes, but **does not
+cryptographically establish owner identity, authorization, tag existence,
+repository contents, or the release-to-source derivation**. No bespoke vendor
+signature is invented. A changed grant byte or path, owner claim, package
+digest, repository URL, commit, version, release ref, expression or pinned
+policy fails closed. A checked grant has a **16384-byte raw cap** before
+interpretation; the over-limit case escalates instead of reading an
+unbounded grant. An in-package SPDX identifier alone is not the grant.
+
+`owners/` holds synthetic owner records; `grants/mit-full.txt` is an
+**example fixture** with complete MIT permission/conditions/warranty text
+and its explicit MIT identifier, not a real vendor grant. The 32 owner cases
+include two reachable deterministic positives (`MIT` and `MIT AND MIT`);
+their findings explicitly disclose that caller-prevalidated authority was
+accepted at the input boundary and was **not cryptographically proven**.
+The other cases omit or deny acceptance, mismatch every binding, supply
+tag-only/inconsistent/missing grant input, corrupt or oversize a record,
+exceed the grant cap, or supply conflicting records. A contradictory package GPL declaration
+cannot be rescued by an MIT owner record. These are frozen expectation
+branches, **not** production implementation or a statement that the
+retained vendors supplied owner evidence.
 
 A URL alone, including `https://licenses.nuget.org/MIT`, is not package
 license evidence. A URL beside a recognized expression is not independently
@@ -88,8 +153,9 @@ or a missing/inconsistent policy produces `unknown` applicability.
 Unbound/incorrect SHA-256 input paths fail in the shared replay loader;
 they are not equivalent to a valid case with no package role.
 
-`cases.json` freezes 85 cases and 84 reproducible, SHA-256-pinned synthetic
-archives. `lp01_expectations.py` checks the exact JSON, ZIP bytes and
+`cases.json` freezes 121 cases and 120 reproducible, SHA-256-pinned synthetic
+archives. `lp01_expectations.py` checks the exact JSON, ZIP bytes, owner
+records and separate grant bytes, including
 portable entry metadata; `--write-fixtures` only regenerates these
 reviewed expectation artifacts. No shipping resolver, registry entry,
 runner implemented count or prior LP-05--LP-10/PI-01 fixture changes are
@@ -112,7 +178,7 @@ dependency coverage belongs to LP-03. `retained-inputs.json` pins the
 archives, nuspec and notice entry identities, without storing proprietary
 bytes or absolute workstation paths in Git. Its source hints are not
 identities. The component baseline report is not an LP-01 package verdict.
-`acceptance.json` freezes **two applicable escalations** with independent
+`acceptance.json` still freezes **two applicable escalations** with independent
 MIT classification in `evidence_contract` and an explicit missing owner
 grant and release/source correspondence. An owner-authorized license grant
 and release-to-repository scope evidence are needed before asserting the
