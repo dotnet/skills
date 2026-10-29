@@ -252,13 +252,14 @@ def der(tag, content):
     return bytes([tag]) + length + content
 
 
-def certificate(payload=b""):
-    data = der(0x30, der(0x06, bytes.fromhex("2a864886f70d010701")) +
-               (der(0xa0, der(0x04, payload)) if payload else b""))
-    cms = der(0x30, der(0x06, bytes.fromhex("2a864886f70d010702")) +
-              der(0xa0, der(0x30, der(0x02, b"\x01") + der(0x31, b"") +
-                              data + der(0x31, b""))))
-    framed = struct.pack("<IHH", (8 + len(cms) + 7) & ~7, 0x0200, 0x0002) + cms
+def certificate(payload=b"", *, cms=None):
+    if cms is None:
+        data = der(0x30, der(0x06, bytes.fromhex("2a864886f70d010701")) +
+                   (der(0xa0, der(0x04, payload)) if payload else b""))
+        cms = der(0x30, der(0x06, bytes.fromhex("2a864886f70d010702")) +
+                  der(0xa0, der(0x30, der(0x02, b"\x01") + der(0x31, b"") +
+                                  data + der(0x31, b""))))
+    framed = struct.pack("<IHH", 8 + len(cms), 0x0200, 0x0002) + cms
     return framed + bytes((-len(framed)) % 8)
 
 
@@ -278,6 +279,7 @@ TEMPLATE_HASHES = {
     "verified.dll": "6580b68e28058695cac0a2f8523971624fe27ce27579f4a2a07d640b17fe1c34",
 }
 PUBLIC_KEY_SHA256 = "6e35fc4ec1a559fce1857d5400e378e255434d8ca12c79b4dd65a1903c4e20a8"
+AUTHENTICODE_CMS_SHA256 = "ea7d26478fd30cb5c56fe0845fa92a10d9de8a7a3ee6ac6e73a334e979f0f885"
 
 
 def image_offsets(data):
@@ -370,13 +372,55 @@ KEY_MAGIC = VERIFIED.find(b"RSA1")
 require(KEY_MAGIC >= 20, "Signed fixture has no RSA public-key blob")
 TYPEDEF2_NAME = OFF["metadata"] + 246
 require(u16(PE, TYPEDEF2_NAME) == 10, "Pinned unsigned fixture TypeDef layout changed")
+TYPEDEF2_METHOD_LIST = OFF["metadata"] + 254
 METHOD_SIGNATURE = OFF["metadata"] + 266
 ATTRIBUTE_PARENT = OFF["metadata"] + 320
-require(u16(PE, METHOD_SIGNATURE) == 30 and u16(PE, ATTRIBUTE_PARENT) == 39,
+require(u16(PE, TYPEDEF2_METHOD_LIST) == 1 and u16(PE, METHOD_SIGNATURE) == 30 and
+        u16(PE, ATTRIBUTE_PARENT) == 39,
         "Pinned unsigned fixture metadata reference layout changed")
-WIN_CERTIFICATE = certificate()
+AUTHENTICODE_CMS = (ROOT / "templates" / "authenticode.p7b").read_bytes()
+require(digest(AUTHENTICODE_CMS) == AUTHENTICODE_CMS_SHA256,
+        "Compiled public-only Authenticode fixture differs")
+WIN_CERTIFICATE = certificate(cms=AUTHENTICODE_CMS)
 WITH_CERTIFICATE = changed(VERIFIED, VERIFIED_OFF["option"] + 128,
                            struct.pack("<II", len(VERIFIED), len(WIN_CERTIFICATE))) + WIN_CERTIFICATE
+require(len(WIN_CERTIFICATE) > u32(WIN_CERTIFICATE, 0) + 1,
+        "Pinned Authenticode fixture has no WIN_CERTIFICATE alignment bytes")
+WITH_NONZERO_AUTHENTICODE_ALIGNMENT = changed(
+    WITH_CERTIFICATE, len(VERIFIED) + u32(WIN_CERTIFICATE, 0), b"\x01")
+WITH_MZ_AUTHENTICODE_ALIGNMENT = changed(
+    WITH_CERTIFICATE, len(VERIFIED) + u32(WIN_CERTIFICATE, 0), b"MZ")
+ID_DATA_CERTIFICATE = certificate()
+require(u32(ID_DATA_CERTIFICATE, 0) == 45 and len(ID_DATA_CERTIFICATE) == 48,
+        "Pinned 45-byte certificate record layout changed")
+WITH_ID_DATA_CERTIFICATE = changed(VERIFIED, VERIFIED_OFF["option"] + 128,
+                                   struct.pack("<II", len(VERIFIED), len(ID_DATA_CERTIFICATE))) + ID_DATA_CERTIFICATE
+NONZERO_ALIGNMENT = changed(WITH_ID_DATA_CERTIFICATE, len(VERIFIED) + 45, b"\x01\x02\x03")
+MZ_ALIGNMENT = changed(WITH_ID_DATA_CERTIFICATE, len(VERIFIED) + 45, b"MZ\x00")
+GZIP_CERTIFICATE = certificate(b"\x1f\x8b" + bytes(8))
+WITH_GZIP_CERTIFICATE = changed(VERIFIED, VERIFIED_OFF["option"] + 128,
+                                struct.pack("<II", len(VERIFIED), len(GZIP_CERTIFICATE))) + GZIP_CERTIFICATE
+CAB_CERTIFICATE = certificate(b"MSCF" + bytes(8))
+WITH_CAB_CERTIFICATE = changed(VERIFIED, VERIFIED_OFF["option"] + 128,
+                               struct.pack("<II", len(VERIFIED), len(CAB_CERTIFICATE))) + CAB_CERTIFICATE
+SEVEN_ZIP_CERTIFICATE = certificate(bytes.fromhex("377abcaf271c") + bytes(8))
+WITH_SEVEN_ZIP_CERTIFICATE = changed(VERIFIED, VERIFIED_OFF["option"] + 128,
+                                     struct.pack("<II", len(VERIFIED), len(SEVEN_ZIP_CERTIFICATE))) + SEVEN_ZIP_CERTIFICATE
+SPC_INDIRECT_OID = bytes.fromhex("060a2b060104018237020104")
+require(AUTHENTICODE_CMS.count(SPC_INDIRECT_OID) == 1,
+        "Pinned Authenticode eContent OID layout changed")
+UNKNOWN_CONTENT_CERTIFICATE = certificate(cms=AUTHENTICODE_CMS.replace(
+    SPC_INDIRECT_OID, SPC_INDIRECT_OID[:-1] + b"\x05"))
+WITH_UNKNOWN_CONTENT_CERTIFICATE = changed(
+    VERIFIED, VERIFIED_OFF["option"] + 128,
+    struct.pack("<II", len(VERIFIED), len(UNKNOWN_CONTENT_CERTIFICATE))) + UNKNOWN_CONTENT_CERTIFICATE
+require(AUTHENTICODE_CMS.count(bytes(32)) == 1,
+        "Pinned Authenticode indirect-data digest layout changed")
+GZIP_AUTHENTICODE_CERTIFICATE = certificate(cms=AUTHENTICODE_CMS.replace(
+    bytes(32), b"\x1f\x8b" + bytes(30), 1))
+WITH_GZIP_AUTHENTICODE_CERTIFICATE = changed(
+    VERIFIED, VERIFIED_OFF["option"] + 128,
+    struct.pack("<II", len(VERIFIED), len(GZIP_AUTHENTICODE_CERTIFICATE))) + GZIP_AUTHENTICODE_CERTIFICATE
 EMBEDDED_CERTIFICATE = certificate(PE)
 WITH_EMBEDDED_CERTIFICATE = changed(VERIFIED, VERIFIED_OFF["option"] + 128,
                                     struct.pack("<II", len(VERIFIED), len(EMBEDDED_CERTIFICATE))) + EMBEDDED_CERTIFICATE
@@ -442,6 +486,26 @@ CASES = (
          "opaque-container"),
     spec("signed-with-authenticode-certificate", ((EXAMPLE, WITH_CERTIFICATE),),
          "verified-signed"),
+    spec("signed-with-nonzero-authenticode-alignment",
+         ((EXAMPLE, WITH_NONZERO_AUTHENTICODE_ALIGNMENT),), "unsafe-assembly"),
+    spec("signed-with-mz-authenticode-alignment",
+         ((EXAMPLE, WITH_MZ_AUTHENTICODE_ALIGNMENT),), "unsafe-assembly"),
+    spec("signed-with-id-data-certificate", ((EXAMPLE, WITH_ID_DATA_CERTIFICATE),),
+         "unsafe-assembly"),
+    spec("signed-with-45-byte-nonzero-certificate-alignment",
+         ((EXAMPLE, NONZERO_ALIGNMENT),), "unsafe-assembly"),
+    spec("signed-with-45-byte-mz-certificate-alignment",
+         ((EXAMPLE, MZ_ALIGNMENT),), "unsafe-assembly"),
+    spec("signed-with-gzip-in-certificate", ((EXAMPLE, WITH_GZIP_CERTIFICATE),),
+         "unsafe-assembly"),
+    spec("signed-with-cab-in-certificate", ((EXAMPLE, WITH_CAB_CERTIFICATE),),
+         "unsafe-assembly"),
+    spec("signed-with-sevenzip-in-certificate", ((EXAMPLE, WITH_SEVEN_ZIP_CERTIFICATE),),
+         "unsafe-assembly"),
+    spec("signed-with-unknown-certificate-content",
+         ((EXAMPLE, WITH_UNKNOWN_CONTENT_CERTIFICATE),), "unsafe-assembly"),
+    spec("signed-with-gzip-in-authenticode-content",
+         ((EXAMPLE, WITH_GZIP_AUTHENTICODE_CERTIFICATE),), "unsafe-assembly"),
     spec("signed-with-certificate-and-unsigned-overlay",
          ((EXAMPLE, WITH_CERTIFICATE + PE),), "opaque-container"),
     spec("signed-with-invalid-certificate",
@@ -475,8 +539,14 @@ CASES = (
             u64(PE, OFF["tables"] + 8) & ~(1 << 32)))),), "unsafe-assembly"),
     spec("metadata-no-assembly-row", ((EXAMPLE, changed(PE, OFF["assembly_count"], bytes(4))),), "unsafe-assembly"),
     spec("metadata-no-module-row", ((EXAMPLE, changed(PE, OFF["module_count"], bytes(4))),), "unsafe-assembly"),
+    spec("metadata-zero-typedef-name",
+         ((EXAMPLE, changed(PE, TYPEDEF2_NAME, bytes(2))),), "unsafe-assembly"),
+    spec("metadata-zero-typedef-method-list",
+         ((EXAMPLE, changed(PE, TYPEDEF2_METHOD_LIST, bytes(2))),), "unsafe-assembly"),
     spec("metadata-bad-later-typedef-name",
          ((EXAMPLE, changed(PE, TYPEDEF2_NAME, b"\xff\xff")),), "unsafe-assembly"),
+    spec("metadata-zero-method-signature-blob",
+         ((EXAMPLE, changed(PE, METHOD_SIGNATURE, bytes(2))),), "unsafe-assembly"),
     spec("metadata-bad-method-signature-blob",
          ((EXAMPLE, changed(PE, METHOD_SIGNATURE, b"\xff\xff")),), "unsafe-assembly"),
     spec("metadata-bad-custom-attribute-parent",
@@ -825,6 +895,35 @@ def boundary_checks():
     print("PI-01 9 generated exact-boundary controls passed.")
 
 
+def certificate_profile_checks():
+    require(inspect_managed(WITH_CERTIFICATE)[0] == "verified-signed",
+            "Authenticode-profile certificate must retain verified strong-name status")
+    for image in (WITH_NONZERO_AUTHENTICODE_ALIGNMENT, WITH_MZ_AUTHENTICODE_ALIGNMENT,
+                  NONZERO_ALIGNMENT, MZ_ALIGNMENT):
+        require(inspect_managed(image) == ("unsafe", "Uninventoried WIN_CERTIFICATE alignment bytes."),
+                "Nonzero WIN_CERTIFICATE alignment bytes must fail closed")
+    for image in (WITH_ID_DATA_CERTIFICATE, WITH_UNKNOWN_CONTENT_CERTIFICATE):
+        require(inspect_managed(image) == ("unsafe", "Unsupported Authenticode encapsulated content."),
+                "Unsupported Authenticode content OIDs must fail closed")
+    for image in (WITH_GZIP_CERTIFICATE, WITH_CAB_CERTIFICATE,
+                  WITH_SEVEN_ZIP_CERTIFICATE, WITH_GZIP_AUTHENTICODE_CERTIFICATE):
+        require(inspect_managed(image) == ("unsafe", "Potential PE or nested container in certificate data."),
+                "Embedded compressed containers in certificate data must fail closed")
+    print("PI-01 Authenticode profile and WIN_CERTIFICATE alignment controls passed.")
+
+
+def metadata_required_field_checks():
+    for image, reason in (
+        (changed(PE, METHOD_SIGNATURE, bytes(2)), "Missing metadata blob in table 6, row 1."),
+        (changed(PE, TYPEDEF2_NAME, bytes(2)), "Missing metadata name in table 2, row 2."),
+        (changed(PE, TYPEDEF2_METHOD_LIST, bytes(2)),
+         "Out-of-range table reference in table 2, row 2."),
+    ):
+        require(inspect_managed(image) == ("unsafe", reason),
+                "Required-zero metadata control must fail for its specific missing field")
+    print("PI-01 required metadata field controls passed.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write-fixtures", action="store_true")
@@ -837,6 +936,8 @@ def main():
         check_negative_bindings()
         return
     build_validator()
+    certificate_profile_checks()
+    metadata_required_field_checks()
     docs = documents()
     public_key = (ROOT / "template" / "public.snk").read_bytes()
     require(public_key[:1] == b"\x06" and digest(public_key) == PUBLIC_KEY_SHA256,
