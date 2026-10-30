@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Diagnostics;
 using System.Text;
 using BlazorPackageResolver;
@@ -28,6 +29,9 @@ using (var doc = JsonDocument.Parse(coverage))
         rows.EnumerateArray().All(row => row.GetProperty("scope").GetString() == "repository-wide" &&
             (row.GetProperty("id").GetString() switch
             {
+                "LP-01" => row.GetProperty("work_state").GetString() == "implemented" &&
+                           row.GetProperty("resolver_id").GetString() == "lp01-license-policy" &&
+                           row.GetProperty("resolver_version").GetString() == "1.0.0",
                 "LP-05" => row.GetProperty("work_state").GetString() == "implemented" &&
                            row.GetProperty("resolver_id").GetString() == "lp05-license-expression" &&
                            row.GetProperty("resolver_version").GetString() == "1.0.0",
@@ -51,7 +55,7 @@ using (var doc = JsonDocument.Parse(coverage))
                            row.GetProperty("resolver_version").GetString() == "1.0.0",
                 _ => row.GetProperty("work_state").GetString() == "tbd" &&
                      !row.TryGetProperty("resolver_id", out _)
-            })), "Only LP-05 through LP-10 and PI-01 are implemented; 53 rows remain TBD");
+            })), "Only LP-01, LP-05 through LP-10 and PI-01 are implemented; 52 rows remain TBD");
     NoClaims(doc.RootElement);
 }
 
@@ -132,6 +136,80 @@ Throws(() => branchRegistry.Dispatch(new ResolverCase("positive", "LP-01", [pinn
     new Dictionary<string, CheckedInput> { ["package"] = new(pinned, "tampered"u8.ToArray()) })));
 Check(positiveInvocations == 2, "Tampered checked buffer rejected before handler invocation");
 var lp05Fixture = Path.Combine(AppContext.BaseDirectory, "fixtures", "lp05", "cases.json");
+var lp01Directory = Path.Combine(AppContext.BaseDirectory, "fixtures", "lp01");
+var lp01Fixture = Path.Combine(lp01Directory, "cases.json");
+var lp01Output = Replay.Run(lp01Fixture, registry);
+Check(lp01Output.SequenceEqual(Replay.Run(lp01Fixture, registry)),
+    "All frozen LP-01 branches replay with identical canonical output bytes");
+using (var doc = JsonDocument.Parse(lp01Output))
+{
+    var cases = doc.RootElement.GetProperty("cases");
+    Check(cases.GetArrayLength() == 198 &&
+        cases.EnumerateArray().All(item =>
+            item.GetProperty("result").GetProperty("row_id").GetString() == "LP-01"),
+        "Exact 198-case LP-01 synthetic branch matrix");
+    NoClaims(doc.RootElement);
+}
+Lp01BoundaryChecks.Run(registry, lp01Directory);
+var lp01Syncfusion = Environment.GetEnvironmentVariable("LP01_SYNCFUSION_NUPKG");
+var lp01Infragistics = Environment.GetEnvironmentVariable("LP01_INFRAGISTICS_NUPKG");
+Check((lp01Syncfusion is null) == (lp01Infragistics is null),
+    "Both LP-01 retained bindings must be supplied together");
+if (lp01Syncfusion is not null && lp01Infragistics is not null)
+{
+    var staging = Path.Combine(Path.GetTempPath(), "lp01-retained-" + Guid.NewGuid().ToString("N"));
+    var policies = Path.Combine(staging, "policy");
+    var packages = Path.Combine(staging, "packages");
+    Directory.CreateDirectory(policies);
+    Directory.CreateDirectory(packages);
+    try
+    {
+        File.Copy(Path.Combine(lp01Directory, "acceptance.json"), Path.Combine(staging, "acceptance.json"));
+        foreach (var name in new[] { "lp01-policy-1.0.0.json", "spdx-licenses-3.27.0.json" })
+            File.Copy(Path.Combine(lp01Directory, "policy", name), Path.Combine(policies, name));
+        File.Copy(lp01Syncfusion, Path.Combine(packages, "syncfusion.blazor.toolkit.2.0.1.nupkg"));
+        File.Copy(lp01Infragistics, Path.Combine(packages, "igniteui.blazor.lite.0.3.0.nupkg"));
+        var retainedOutput = Replay.Run(Path.Combine(staging, "acceptance.json"), registry);
+        using var retained = JsonDocument.Parse(retainedOutput);
+        Check(retained.RootElement.GetProperty("cases").GetArrayLength() == 2,
+            "Both exact LP-01 retained cases replay");
+        NoClaims(retained.RootElement);
+        Console.WriteLine($"LP-01 retained replay: 2 escalations, SHA-256 {Catalog.Digest(retainedOutput)}.");
+    }
+    finally { Directory.Delete(staging, true); }
+}
+var lp01Rejected = Path.Combine(lp01Directory, "rejected-inputs.json");
+using (var rejected = JsonDocument.Parse(File.ReadAllBytes(lp01Rejected)))
+{
+    var controls = rejected.RootElement.GetProperty("controls");
+    Check(controls.GetArrayLength() == 6, "Six LP-01 pre-dispatch role/path rejection controls");
+    var accepted = JsonNode.Parse(File.ReadAllText(lp01Fixture))!["cases"]!.AsArray()
+        .Single(item => item!["case_id"]!.GetValue<string>() == "lp01-owner-accepted")!;
+    var probe = Path.Combine(lp01Directory, "loader-check-" + Guid.NewGuid().ToString("N") + ".json");
+    var rejectedDispatches = 0;
+    var guarded = Implemented(Fake("LP-01", _ =>
+    {
+        rejectedDispatches++;
+        throw new InvalidDataException("Invalid loader input reached a handler.");
+    }));
+    try
+    {
+        foreach (var control in controls.EnumerateArray())
+        {
+            var candidate = accepted.DeepClone();
+            candidate["inputs"] = JsonNode.Parse(control.GetProperty("inputs").GetRawText());
+            candidate["expected"]!["inputs"] = candidate["inputs"]!.DeepClone();
+            File.WriteAllText(probe, new JsonObject
+            {
+                ["schema_version"] = 1,
+                ["cases"] = new JsonArray(candidate)
+            }.ToJsonString());
+            Throws(() => Replay.Run(probe, guarded));
+        }
+        Check(rejectedDispatches == 0, "LP-01 loader rejects all six inputs before dispatch");
+    }
+    finally { if (File.Exists(probe)) File.Delete(probe); }
+}
 var lp05Output = Replay.Run(lp05Fixture, registry);
 Check(lp05Output.SequenceEqual(Replay.Run(lp05Fixture, registry)),
     "All frozen LP-05 branches replay with identical canonical output bytes");
@@ -602,13 +680,16 @@ finally
 
 var source = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
 var allowed = new HashSet<string>(StringComparer.Ordinal)
-    { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs", "Lp05LicenseExpressionResolver.cs",
+    { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs",
+      "Lp01LicensePolicyResolver.cs", "Lp01SpdxExpression.cs", "Lp01CaseFold.cs",
+      "Lp05LicenseExpressionResolver.cs",
       "Lp06RepositoryUrlResolver.cs", "Lp07RepositoryCommitResolver.cs",
       "Lp08AuthorsResolver.cs", "Lp09ProjectUrlResolver.cs",
       "Lp10BinaryAttributionResolver.cs", "NuGetNuspecReader.cs",
       "Pi01StrongNameResolver.cs", "Pi01PeInspector.cs" };
 var allowedFiles = allowed.Concat(["BlazorPackageResolver.csproj", "README.md",
-    "data/provenance.json", "data/rubric.json", "data/requirement-basis.json"])
+    "data/provenance.json", "data/rubric.json", "data/requirement-basis.json",
+    "data/lp01-casefold-15.0.0.json"])
     .ToHashSet(StringComparer.Ordinal);
 var production = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
     .Select(path => Path.GetRelativePath(source, path).Replace('\\', '/'))
@@ -624,7 +705,7 @@ foreach (var file in allowed)
         System.Text.RegularExpressions.RegexOptions.IgnoreCase),
         "No assessment, rendering, reader, library, comparison, component or AI namespace");
 }
-Console.WriteLine("Resolver foundation, LP-05 through LP-10 and PI-01 checks passed.");
+Console.WriteLine("Resolver foundation, LP-01, LP-05 through LP-10 and PI-01 checks passed.");
 
 Registry Implemented(IDeterministicResolver handler) => new(catalog,
     [new RegistryEntry("LP-01", "implemented", "synthetic", "1.0.0"), .. registrations.Skip(1)],

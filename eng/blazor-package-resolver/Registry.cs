@@ -27,6 +27,7 @@ public sealed class Registry
     public static Registry Bootstrap(Catalog catalog) =>
         new(catalog, PackageIds.Split(' ').Select(id => id switch
         {
+            "LP-01" => new RegistryEntry(id, "implemented", "lp01-license-policy", "1.0.0"),
             "LP-05" => new RegistryEntry(id, "implemented", "lp05-license-expression", "1.0.0"),
             "LP-06" => new RegistryEntry(id, "implemented", "lp06-repository-url", "1.0.0"),
             "LP-07" => new RegistryEntry(id, "implemented", "lp07-repository-commit", "1.0.0"),
@@ -35,7 +36,7 @@ public sealed class Registry
             "LP-10" => new RegistryEntry(id, "implemented", "lp10-binary-attribution", "1.0.0"),
             "PI-01" => new RegistryEntry(id, "implemented", "pi01-strong-name", "1.0.0"),
             _ => new RegistryEntry(id, "tbd")
-        }), [new Lp05LicenseExpressionResolver(), new Lp06RepositoryUrlResolver(),
+        }), [new Lp01LicensePolicyResolver(), new Lp05LicenseExpressionResolver(), new Lp06RepositoryUrlResolver(),
             new Lp07RepositoryCommitResolver(), new Lp08AuthorsResolver(), new Lp09ProjectUrlResolver(),
             new Lp10BinaryAttributionResolver(), new Pi01StrongNameResolver()]);
 

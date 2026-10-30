@@ -105,6 +105,9 @@ public sealed record CaseSuite(int SchemaVersion, List<ReplayCase> Cases);
 
 public static class Replay
 {
+    private static readonly Regex RelativeInputPath = new(
+        @"\A[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\z",
+        RegexOptions.CultureInvariant);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -143,12 +146,16 @@ public static class Replay
             foreach (var artifact in item.Inputs)
             {
                 if (artifact is null || string.IsNullOrWhiteSpace(artifact.Role) || !roles.Add(artifact.Role) ||
-                    string.IsNullOrWhiteSpace(artifact.Path) ||
+                    artifact.Path is not { Length: > 0 and <= 256 } ||
+                    !RelativeInputPath.IsMatch(artifact.Path) ||
+                    artifact.Path.Split('/').Any(part => part is "." or "..") ||
                     !Regex.IsMatch(artifact.Sha256 ?? "", "^[a-f0-9]{64}$", RegexOptions.CultureInvariant))
                     throw new InvalidDataException($"Conflicting or invalid pinned inputs in {item.CaseId}.");
                 var path = FullPath(root, artifact.Path);
+                var relative = Path.GetRelativePath(root, path);
                 if (Path.IsPathRooted(artifact.Path) ||
-                    Path.GetRelativePath(root, path).StartsWith("..", StringComparison.Ordinal))
+                    relative == ".." ||
+                    relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                     throw new InvalidDataException($"Missing, escaped or digest-mismatched input: {artifact.Path}");
                 var bytes = File.ReadAllBytes(path);
                 if (Catalog.Digest(bytes) != artifact.Sha256)

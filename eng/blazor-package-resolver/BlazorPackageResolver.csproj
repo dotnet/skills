@@ -9,5 +9,7 @@
   <ItemGroup>
     <Compile Remove="tests\**\*.cs" />
     <Content Include="data\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="data\lp01-casefold-15.0.0.json"
+                      LogicalName="BlazorPackageResolver.Lp01CaseFold" />
   </ItemGroup>
 </Project>

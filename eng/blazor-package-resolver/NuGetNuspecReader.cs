@@ -79,6 +79,7 @@ internal static class NuGetNuspecReader
                     return new(NuspecStatus.OversizedNuspec);
                 buffer.Write(chunk, 0, read);
             }
+
             return InspectNuspec(buffer.ToArray());
         }
         catch (InvalidDataException)
@@ -93,6 +94,12 @@ internal static class NuGetNuspecReader
         {
             return new(NuspecStatus.UnreadablePackage);
         }
+    }
+
+    internal static bool HasBoundedDirectory(ReadOnlySpan<byte> content, out int entries)
+    {
+        entries = 0;
+        return content.Length <= MaxPackageBytes && TryReadDirectory(content, out entries);
     }
 
     private static NuspecRead InspectNuspec(byte[] nuspec)
