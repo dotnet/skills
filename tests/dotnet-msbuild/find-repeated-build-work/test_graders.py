@@ -102,6 +102,38 @@ class GraderTests(unittest.TestCase):
                 tree.write(path, encoding="utf-8")
                 self.grade(work, script)
 
+    def test_equivalent_git_stamp_rewrites_are_accepted(self):
+        for variant in ("renamed-property", "property-function"):
+            with self.subTest(variant=variant):
+                work, script = self.workspace("invariant-per-project-exec")
+                base = work / "git-stamp"
+                if variant == "renamed-property":
+                    for filename in ("Directory.Build.targets", "build.sh"):
+                        path = base / filename
+                        path.write_text(
+                            path.read_text(encoding="utf-8").replace("GitCommit", "BuildRevision"),
+                            encoding="utf-8",
+                        )
+                else:
+                    path = base / "Directory.Build.targets"
+                    tree = ET.parse(path)
+                    tree.getroot().find("Target/PropertyGroup/InformationalVersion").text = (
+                        "$([System.String]::Concat('$(Version)', '+', '$(GitCommit)'))"
+                    )
+                    tree.write(path, encoding="utf-8")
+                self.grade(work, script)
+
+    def test_missing_informational_version_attribute_is_rejected(self):
+        work, script = self.workspace("invariant-per-project-exec")
+        path = work / "git-stamp" / "Directory.Build.props"
+        tree = ET.parse(path)
+        ET.SubElement(
+            tree.getroot().find("PropertyGroup"), "GenerateAssemblyInformationalVersionAttribute",
+        ).text = "false"
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("compiled informational-version attribute", result.stderr)
+
     def test_git_fallback_requires_the_property_to_be_absent(self):
         for condition in ("'true' == 'true'", "'false' == 'true'"):
             with self.subTest(condition=condition):
@@ -200,6 +232,20 @@ class GraderTests(unittest.TestCase):
         tree.write(path, encoding="utf-8")
         result = self.grade(work, script, accepted=False)
         self.assertIn("actual compilation reference", result.stderr)
+
+    def test_missing_component_title_attributes_are_rejected(self):
+        for component, flag in (
+            ("Web", "GenerateAssemblyTitleAttribute"),
+            ("Api", "GenerateAssemblyInfo"),
+        ):
+            with self.subTest(component=component, flag=flag):
+                work, script = self.workspace("global-property-instances")
+                path = work / "shared-project-instances" / component / f"{component}.csproj"
+                tree = ET.parse(path)
+                ET.SubElement(tree.getroot().find("PropertyGroup"), flag).text = "false"
+                tree.write(path, encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn("compiled component AssemblyTitle", result.stderr)
 
     def test_csharp_only_compile_include_is_accepted(self):
         work, script = self.workspace("racy-run-once-guard")
@@ -302,6 +348,18 @@ class GraderTests(unittest.TestCase):
         )
         tree.write(path, encoding="utf-8")
         self.grade(work, script)
+
+    def test_forced_recompilation_on_unchanged_builds_is_rejected(self):
+        work, script = self.workspace("racy-run-once-guard")
+        path = work / "exists-sentinel-race" / "Directory.Build.targets"
+        tree = ET.parse(path)
+        target = ET.SubElement(
+            tree.getroot(), "Target", Name="ForceRecompile", BeforeTargets="CoreCompile",
+        )
+        ET.SubElement(target, "Delete", Files="@(IntermediateAssembly)")
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("unchanged", result.stderr)
 
     def test_cross_schema_copy_and_swap_are_rejected(self):
         for swap in (False, True):

@@ -20,6 +20,8 @@ stimuli:
       files:
         - src: ./git-stamp
           dest: git-stamp
+        - src: ./graders/ReadAssemblyAttribute.targets
+          dest: .grader/ReadAssemblyAttribute.targets
     golden_patch:
       path: ./references/compute-once-pass-global-property.patch
     golden_trajectory:
@@ -45,24 +47,8 @@ stimuli:
           args:
             - -c
             - |
-              import os, pathlib, re, shutil, subprocess, tempfile, uuid
+              import json, os, pathlib, re, shutil, subprocess, tempfile, uuid
               import xml.etree.ElementTree as ET
-              root = ET.parse('git-stamp/Directory.Build.targets').getroot()
-              informational = [p for p in root.iter() if p.tag.lower() == 'informationalversion']
-              assert informational and all(p.text == '$(Version)+$(GitCommit)' for p in informational), 'the stamped version format changed'
-              props = ET.parse('git-stamp/Directory.Build.props').getroot()
-              versions = [p.text for group in props.findall('PropertyGroup') if not group.get('Condition')
-                          for p in group if p.tag.lower() == 'version' and not p.get('Condition')]
-              assert versions and versions[-1] == '3.2.0', 'preserve the stamped base version'
-              assert all(p.text == '3.2.0' for document in [props, root] for p in document.iter() if p.tag.lower() == 'version'), 'no assignment may change the base version'
-              fallbacks = [
-                  (target, task) for target in root.findall('Target') for task in target.findall('Exec')
-                  if task.get('Command') == 'git rev-parse --short HEAD'
-              ]
-              assert len(fallbacks) == 1, 'single-project builds need a commit lookup fallback'
-              target, task = fallbacks[0]
-              assert any(o.get('TaskParameter') == 'ConsoleOutput' and o.get('PropertyName') == 'GitCommit'
-                         for o in task.findall('Output')), 'the fallback must supply GitCommit'
               bash = shutil.which('bash')
               assert bash, 'Bash is required to check build.sh with mocked git and dotnet'
               dotnet = shutil.which('dotnet')
@@ -91,11 +77,18 @@ stimuli:
                       ET.SubElement(defaults, name).text = str(pathlib.Path('git-stamp', filename).resolve())
                   for name in ['Sdk.props', 'Sdk.targets']:
                       ET.SubElement(probe, 'Import', Project=name, Sdk='Microsoft.NET.Sdk')
+                  ET.SubElement(probe, 'Import', Project=str(pathlib.Path('.grader/ReadAssemblyAttribute.targets').resolve()))
                   observer = ET.SubElement(
                       probe, 'Target', Name='_GraderObserveStamp_' + uuid.uuid4().hex,
                       BeforeTargets='GetAssemblyAttributes',
                   )
                   ET.SubElement(ET.SubElement(observer, 'PropertyGroup'), 'ObservedInformationalVersion').text = '$(InformationalVersion)'
+                  ET.SubElement(observer.find('PropertyGroup'), 'ObservedBaseVersion').text = '$(Version)'
+                  metadata = ET.SubElement(probe, 'Target', Name='_GraderReadStamp_' + uuid.uuid4().hex,
+                                           AfterTargets='Build')
+                  read = ET.SubElement(metadata, '_GraderReadAssemblyAttribute', AssemblyPath='$(TargetPath)',
+                                       AttributeType='System.Reflection.AssemblyInformationalVersionAttribute')
+                  ET.SubElement(read, 'Output', TaskParameter='Value', PropertyName='ObservedAssemblyInformationalVersion')
                   probe_path = bin_dir / 'stamp.csproj'
                   ET.ElementTree(probe).write(probe_path, encoding='utf-8')
                   for _ in range(2):
@@ -122,10 +115,6 @@ stimuli:
                               assert index + 1 < len(args), 'property switches require a value'
                               values.append(args[index + 1])
                       assignments = [p for value in values for p in value.split(';')]
-                      commits = [p.partition('=')[2] for p in assignments if p.partition('=')[0].lower() == 'gitcommit']
-                      assert commits and commits[-1] == commit, 'pass the actual git result, not an empty, fixed or undefined value'
-                      assert all(p.partition('=')[2] == '3.2.0' for p in assignments if p.partition('=')[0].lower() == 'version'), 'the build must not override the base version'
-                      assert all(p.partition('=')[2] == '3.2.0+' + commit for p in assignments if p.partition('=')[0].lower() == 'informationalversion'), 'the build must not override the stamped version'
                       parallel = [match[1] for arg in args
                                   if (match := re.fullmatch(r'(?:--?|/)(?:m|maxcpucount)(?::(\d+))?', arg, re.I))]
                       assert parallel and (parallel[-1] is None or int(parallel[-1]) > 1), 'preserve parallel execution, not a missing switch or single worker'
@@ -145,16 +134,20 @@ stimuli:
                           else:
                               command = [dotnet, 'build', str(probe_path)]
                           command.extend(['-nologo', '-verbosity:quiet', '-nodeReuse:false',
-                                          '-restore', '-target:Build', '-getProperty:ObservedInformationalVersion'])
+                                          '-restore', '-target:Build',
+                                          '-getProperty:ObservedInformationalVersion,ObservedBaseVersion,ObservedAssemblyInformationalVersion'])
                           result = subprocess.run(
                               command, cwd=bin_dir, env=dict(env, PATH=tmp + os.pathsep + os.environ['PATH']),
                               capture_output=True, text=True, timeout=30,
                           )
                           assert result.returncode == 0, result.stdout + result.stderr
-                          assert result.stdout.strip() == '3.2.0+' + commit, 'the commit and version must be ready before GetAssemblyAttributes consumes them'
+                          observed = json.loads(result.stdout)['Properties']
+                          assert observed['ObservedInformationalVersion'] == '3.2.0+' + commit, 'the commit and version must be ready before GetAssemblyAttributes consumes them'
+                          assert observed['ObservedBaseVersion'] == '3.2.0', 'preserve the effective stamped base version'
+                          assert observed['ObservedAssemblyInformationalVersion'] == '3.2.0+' + commit, 'preserve the compiled informational-version attribute'
                           log = bin_dir / 'git-calls'
                           calls = log.read_text().splitlines() if log.exists() else []
-                          assert calls == ([] if supplied else ['rev-parse --short HEAD']), 'the fallback must run once only when GitCommit is absent'
+                          assert calls == ([] if supplied else ['rev-parse --short HEAD']), 'the fallback must run once only when no revision is supplied'
           expected_exit_code: 0
       - type: output-matches
         config:
@@ -185,6 +178,8 @@ stimuli:
       files:
         - src: ./shared-project-instances
           dest: shared-project-instances
+        - src: ./graders/ReadAssemblyAttribute.targets
+          dest: .grader/ReadAssemblyAttribute.targets
     golden_patch:
       path: ./references/remove-property-from-shared-reference.patch
     golden_trajectory:
@@ -230,9 +225,14 @@ stimuli:
                   for component in ['Web', 'Api', 'Worker']:
                       path = work / component / (component + '.csproj')
                       project = ET.parse(path)
+                      ET.SubElement(project.getroot(), 'Import',
+                                    Project=str(pathlib.Path('.grader/ReadAssemblyAttribute.targets').resolve()))
                       record = ET.SubElement(project.getroot(), 'Target', Name='_GraderRecordComponentBuild', AfterTargets='Build')
+                      read = ET.SubElement(record, '_GraderReadAssemblyAttribute', AssemblyPath='$(TargetPath)',
+                                           AttributeType='System.Reflection.AssemblyTitleAttribute')
+                      ET.SubElement(read, 'Output', TaskParameter='Value', PropertyName='_GraderCompiledTitle')
                       ET.SubElement(record, 'WriteLinesToFile', File=str(logs / (component + '.txt')),
-                                    Lines="$(AssemblyTitle);$(TargetPath);@(ReferencePathWithRefAssemblies->'%(FullPath)')",
+                                    Lines="$(AssemblyTitle);compiled:$(_GraderCompiledTitle);$(TargetPath);@(ReferencePathWithRefAssemblies->'%(FullPath)')",
                                     Overwrite='true', Encoding='UTF-8')
                       project.write(path, encoding='utf-8')
                   result = subprocess.run(
@@ -247,9 +247,10 @@ stimuli:
                   for component in ['Web', 'Api', 'Worker']:
                       lines = (logs / (component + '.txt')).read_text(encoding='utf-8-sig').splitlines()
                       assert lines[0] == 'Contoso ' + component, 'preserve the effective component AssemblyTitle'
-                      output = pathlib.Path(lines[1]).resolve()
+                      assert lines[1] == 'compiled:Contoso ' + component, 'preserve the compiled component AssemblyTitle'
+                      output = pathlib.Path(lines[2]).resolve()
                       assert output.is_relative_to(work) and output.is_file() and output.name == component + '.dll', 'each component must still produce its assembly'
-                      references = [pathlib.Path(p).resolve() for p in lines[2:]]
+                      references = [pathlib.Path(p).resolve() for p in lines[3:]]
                       assert any(p.name == 'Core.dll' and p.is_relative_to(work / 'Core') and p.is_file()
                                  for p in references), 'Core must remain an actual compilation reference'
                       assert (output.parent / 'Core.dll').read_bytes() == core_output.read_bytes(), 'each component must retain the built Core copy'
@@ -327,6 +328,7 @@ stimuli:
                   solution = ET.Element('Solution')
                   observations = []
                   compile_observations = []
+                  compiler_observations = []
                   boundaries = []
                   generated = (work / 'obj/buildinfo.g.cs').resolve()
                   expected = (bin_dir / 'expected-buildinfo').resolve()
@@ -337,7 +339,7 @@ stimuli:
                       ET.SubElement(probe, 'Import', Project='Sdk.props', Sdk='Microsoft.NET.Sdk')
                       properties = ET.SubElement(probe, 'PropertyGroup')
                       for property_name, value in [('Configuration', 'Release'), ('TargetFramework', 'net10.0'),
-                                                   ('IsCrossTargetingBuild', 'false')]:
+                                                   ('IsCrossTargetingBuild', 'false'), ('ProvideCommandLineArgs', 'true')]:
                           ET.SubElement(properties, property_name).text = value
                       ET.SubElement(probe, 'Import', Project='Sdk.targets', Sdk='Microsoft.NET.Sdk')
                       observation = bin_dir / (name + '.built')
@@ -345,7 +347,12 @@ stimuli:
                       observer = ET.SubElement(probe, 'Target', Name='ObserveProbeBuild_' + uuid.uuid4().hex,
                                                AfterTargets='Build')
                       ET.SubElement(observer, 'WriteLinesToFile', File=str(observation.resolve()),
-                                    Lines='$(MSBuildProjectName)', Overwrite='true')
+                                    Lines='$(MSBuildProjectName);$(TargetPath)', Overwrite='true')
+                      # Csc outputs are empty when CoreCompile skips; its hooks still run.
+                      compiler_output = bin_dir / (name + '.csc-args')
+                      compiler_observations.append(compiler_output)
+                      ET.SubElement(observer, 'WriteLinesToFile', File=str(compiler_output.resolve()),
+                                    Lines='@(CscCommandLineArgs)', Overwrite='true')
                       compiler = ET.SubElement(probe, 'Target', Name='ObserveCompile_' + uuid.uuid4().hex,
                                                BeforeTargets='CoreCompile')
                       for phase, target in [('compile', compiler), ('built', observer)]:
@@ -416,16 +423,22 @@ stimuli:
                            value.strftime('%Y%m%d') + '"; }\n').encode('utf-8')
                       )
                   set_stamp(stamp)
-                  def run_build():
-                      for path in ([path for _, path in observations] + compile_observations +
+                  def run_build(phase, should_compile):
+                      for path in ([path for _, path in observations] + compile_observations + compiler_observations +
                                    [path for pair in boundaries for path in pair]):
                           path.unlink(missing_ok=True)
                       subprocess.run(
                           [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
                           cwd=work, env=env, check=True, timeout=60,
                       )
-                      assert all(path.is_file() and path.read_text(encoding='utf-8-sig').strip() == name
-                                 for name, path in observations), 'exercise both project Build paths and their submitted target hooks'
+                      for name, path in observations:
+                          assert path.is_file(), 'exercise both project Build paths and their submitted target hooks'
+                          lines = path.read_text(encoding='utf-8-sig').splitlines()
+                          assert lines[0] == name, 'exercise both project Build paths and their submitted target hooks'
+                          output = pathlib.Path(lines[1]).resolve()
+                          assert output.is_relative_to(work.resolve()) and output.is_file(), 'each project must produce its compiled assembly'
+                      assert all(path.is_file() and bool(path.read_text(encoding='utf-8-sig').strip()) == should_compile
+                                 for path in compiler_observations), phase + ': compile changed inputs but never force compilation on an unchanged build'
                       assert all(path.is_file() and generated.resolve() in [
                           pathlib.Path(line).resolve() for line in path.read_text(encoding='utf-8-sig').splitlines()
                       ] for path in compile_observations), 'each project must retain buildinfo.g.cs in effective Compile items at the compile and build boundaries'
@@ -441,13 +454,13 @@ stimuli:
                           assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before compilation and preserve it through Build'
                       (bin_dir / 'events').unlink()
                       return generated.stat().st_mtime_ns
-                  run_build()
+                  run_build('clean', True)
                   previous = generated.stat()
                   os.utime(generated, ns=(previous.st_atime_ns, previous.st_mtime_ns - 20_000_000_000))
                   unchanged_mtime = generated.stat().st_mtime_ns
-                  assert run_build() == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
+                  assert run_build('unchanged', False) == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
                   set_stamp(stamp + datetime.timedelta(days=1))
-                  assert run_build() > previous.st_mtime_ns, 'changed generated content must advance the source timestamp'
+                  assert run_build('changed', True) > previous.st_mtime_ns, 'changed generated content must advance the source timestamp'
           expected_exit_code: 0
       - type: output-matches
         config:
