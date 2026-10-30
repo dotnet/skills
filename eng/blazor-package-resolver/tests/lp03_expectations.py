@@ -17,6 +17,7 @@ POLICY_SHA = "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
 CORPUS_SHA = "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
 PRODUCER = "lp03-resolved-target-capture/1.0.0"
 PACKAGE_FACTS = {}
+PINNED_POLICY_INPUTS = {}
 CONTRACT = (
     "Exact root bytes and explicit target-framework union only. Accepted acquisition observations "
     "supply resolved closure and package inspection; caller-prevalidated reviews supply complete "
@@ -112,6 +113,138 @@ MUTATIONS = (
     ("same-target-versions", (("same-tfm-version-conflict", "dependencies-policy-satisfied"),)),
     ("policy-pin", (("changed-policy", "dependencies-policy-satisfied"),)),
 )
+
+# Fixed recipes copy one existing packet in memory; none adds a replay or retained input.
+# (recipe, source case, weakened rule, normal branch, wrong branch)
+FIXED_PROBES = (
+    ("checked-grant-path", "multi-tfm-versions", "checked-grant-path", "binding-conflict", "dependencies-policy-satisfied"),
+    ("checked-grant-digest", "multi-tfm-versions", "checked-grant-digest", "binding-conflict", "dependencies-policy-satisfied"),
+    ("review-grant-digest", "multi-tfm-versions", "review-grant-digest", "binding-conflict", "dependencies-policy-satisfied"),
+    ("packaged-entry-path", "multi-tfm-versions", "packaged-entry-path", "binding-conflict", "dependencies-policy-satisfied"),
+    ("receipt-graph-digest", "multi-tfm-versions", "receipt-graph-digest", "binding-conflict", "dependencies-policy-satisfied"),
+    ("graph-target-set", "multi-tfm-versions", "graph-target-set", "closure-unresolved", "dependencies-policy-satisfied"),
+    ("unreachable-node", "multi-tfm-versions", "reachable-nodes", "closure-unresolved", "dependencies-policy-satisfied"),
+    ("missing-policy", "multi-tfm-versions", "policy-presence", "policy-unavailable", "dependencies-policy-satisfied"),
+    ("missing-corpus", "multi-tfm-versions", "policy-presence", "policy-unavailable", "dependencies-policy-satisfied"),
+    ("dependency-digest", "multi-tfm-versions", "dependency-digest", "binding-conflict", "dependencies-policy-satisfied"),
+    ("dependency-id", "multi-tfm-versions", "dependency-identity", "binding-conflict", "dependencies-policy-satisfied"),
+    ("dependency-version", "multi-tfm-versions", "dependency-identity", "binding-conflict", "dependencies-policy-satisfied"),
+    ("grant-role-index", "multi-tfm-versions", "grant-role", "binding-conflict", "dependencies-policy-satisfied"),
+    ("inventory-missing", "multi-tfm-versions", "inventory-equality", "closure-unresolved", "dependencies-policy-satisfied"),
+    ("inventory-extra", "multi-tfm-versions", "inventory-equality", "closure-unresolved", "dependencies-policy-satisfied"),
+    ("inventory-duplicate", "multi-tfm-versions", "inventory-equality", "closure-unresolved", "dependencies-policy-satisfied"),
+    ("owner-license", "owner-before-gap", "owner-license", "license-evidence-unresolved", "owner-evidence-required"),
+    ("owner-basis", "owner-before-gap", "owner-basis", "license-evidence-unresolved", "owner-evidence-required"),
+    ("owner-disposition", "owner-before-gap", "owner-disposition", "license-evidence-unresolved", "owner-evidence-required"),
+    ("alternate-packaged-entry", "multi-tfm-versions", "license-txt-only", "dependencies-policy-satisfied", "binding-conflict"),
+    ("root-digest", "multi-tfm-versions", "root-digest", "binding-conflict", "dependencies-policy-satisfied"),
+    ("root-version", "multi-tfm-versions", "root-identity", "binding-conflict", "dependencies-policy-satisfied"),
+    ("changed-corpus-pin", "multi-tfm-versions", "policy-pin", "policy-unavailable", "dependencies-policy-satisfied"),
+    ("dependency-key", "multi-tfm-versions", "dependency-key", "binding-conflict", "dependencies-policy-satisfied"),
+    ("review-license", "multi-tfm-versions", "review-license", "binding-conflict", "dependencies-policy-satisfied"),
+    ("graph-diagnostics", "multi-tfm-versions", "graph-diagnostics", "closure-unresolved", "dependencies-policy-satisfied"),
+    ("duplicate-node", "multi-tfm-versions", "graph-uniqueness", "closure-unresolved", "dependencies-policy-satisfied"),
+    ("duplicate-direct-edge", "multi-tfm-versions", "graph-uniqueness", "closure-unresolved", "dependencies-policy-satisfied"),
+    ("duplicate-adjacency-edge", "multi-tfm-versions", "graph-uniqueness", "closure-unresolved", "dependencies-policy-satisfied"),
+    ("missing-assessment", "multi-tfm-versions", "assessment-presence", "scope-missing", "dependencies-policy-satisfied"),
+    ("review-scope", "multi-tfm-versions", "review-scope", "input-invalid", "dependencies-policy-satisfied"),
+)
+
+# Already-protected branch witnesses, not additional weakened-oracle implementations.
+# (guard, description, existing case, counterexample branch rejected by that expectation)
+REPLAY_GUARDS = (
+    ("root-required", "Root archive must be present.", "missing-package", "dependencies-policy-satisfied"),
+    ("graph-required", "Receipt alone cannot establish closure.", "missing-closure", "dependencies-policy-satisfied"),
+    ("capture-required", "Graph alone cannot establish acquisition completeness.", "missing-capture", "dependencies-policy-satisfied"),
+    ("successful-acquisition", "Failed acquisition cannot create a vacuous positive.", "acquisition-failed", "dependencies-policy-satisfied"),
+    ("empty-captured-closure", "A completely captured empty closure is conclusive.", "zero-dependencies", "license-evidence-unresolved"),
+    ("compatible-union", "All evidenced compatible versions permit a qualified positive.", "multi-tfm-versions", "license-evidence-unresolved"),
+    ("weak-copyleft-policy", "Applicable weak-copyleft evidence is incompatible.", "transitive-weak-copyleft", "license-evidence-unresolved"),
+    ("non-osi-policy", "Applicable current non-OSI evidence is incompatible.", "non-osi", "license-evidence-unresolved"),
+    ("missing-grant-precedence", "Missing grant evidence precedes an otherwise supported gap.", "missing-evidence-before-gap", "incompatible-dependency-license"),
+    ("unknown-license", "Unknown/custom terms remain unresolved.", "custom-expression", "incompatible-dependency-license"),
+    ("dependency-required", "Every exact inventoried dependency needs bytes.", "missing-dependency", "dependencies-policy-satisfied"),
+    ("edge-closure", "Every direct/transitive edge must resolve.", "dangling-edge", "dependencies-policy-satisfied"),
+    ("duplicate-json-fields", "Duplicate JSON fields are rejected.", "duplicate-key", "dependencies-policy-satisfied"),
+    ("exact-document-fields", "Unknown JSON fields cannot assert completeness.", "unknown-field", "dependencies-policy-satisfied"),
+    ("safe-grant-paths", "Grant paths must satisfy the bounded safe-path profile.", "unsafe-grant-path", "binding-conflict"),
+    ("grant-resource-limit", "Grant bytes must not exceed the inclusive limit.", "grant-over-limit", "dependencies-policy-satisfied"),
+)
+
+# Deliberately independent, manual inventory: deleting a registration must not delete its obligation.
+CRITICAL_GUARD_IDS = (
+    "optional-reviews", "first-target-licenses", "unclassified-allow", "unclassified-gap",
+    "deprecated-id", "strip-compound", "archive-declaration", "review-disposition",
+    "review-basis", "review-package", "packaged-grant", "receipt-targets", "graph-root",
+    "dependency-role", "duplicate-reviews", "out-of-inventory-review", "unexpected-role",
+    "gap-before-owner", "early-missing-license", "root-identity", "receipt-root",
+    "completeness-counts", "same-target-versions", "policy-pin",
+    "checked-grant-path", "checked-grant-digest", "review-grant-digest", "packaged-entry-path",
+    "receipt-graph-digest", "graph-target-set", "reachable-nodes", "policy-required",
+    "corpus-required", "dependency-digest", "dependency-identity", "grant-role",
+    "inventory-equality", "owner-license", "owner-basis", "owner-disposition",
+    "any-safe-packaged-entry", "root-digest",
+    "dependency-key", "review-license", "graph-diagnostics", "graph-uniqueness",
+    "assessment-required", "review-whole-version-scope",
+    "root-required", "graph-required", "capture-required", "successful-acquisition",
+    "empty-captured-closure", "compatible-union", "weak-copyleft-policy", "non-osi-policy",
+    "missing-grant-precedence", "unknown-license", "dependency-required", "edge-closure",
+    "duplicate-json-fields", "exact-document-fields", "safe-grant-paths", "grant-resource-limit",
+)
+
+# Each weakening registration names its exact witnesses, not just a broadly related case.
+WEAKENING_GUARDS = (
+    ("optional-reviews", "Whole-document and per-version reviews are mandatory.", ("replay:optional-reviews:missing-reviews", "replay:optional-reviews:missing-one-review")),
+    ("first-target-licenses", "License decisions use every assessed target.", ("replay:first-target-licenses:multi-tfm-second-gap", "replay:first-target-licenses:multi-tfm-second-unresolved")),
+    ("unclassified-allow", "A current unclassified OSI ID is not implicitly allowed.", ("replay:unclassified-allow:osi-unclassified",)),
+    ("unclassified-gap", "A current unclassified OSI ID is not implicitly denied.", ("replay:unclassified-gap:osi-unclassified",)),
+    ("deprecated-id", "Deprecated IDs remain unresolved.", ("replay:deprecated-id:deprecated-id",)),
+    ("strip-compound", "WITH/OR/AND cannot be reduced to a single license.", ("replay:strip-compound:with-expression", "replay:strip-compound:dual-expression", "replay:strip-compound:conjunctive-expression")),
+    ("archive-declaration", "Receipt declarations match actual archive observations.", ("replay:archive-declaration:archive-declaration-mismatch",)),
+    ("review-disposition", "Conclusive reviews have an accepting disposition.", ("replay:review-disposition:review-unresolved",)),
+    ("review-basis", "Conclusive reviews have a published packaged-grant basis.", ("replay:review-basis:review-nonaccepting-basis",)),
+    ("review-package", "Reviews bind the exact dependency digest.", ("replay:review-package:review-package-binding",)),
+    ("packaged-grant", "Retained grant digest matches the actual packaged grant.", ("replay:packaged-grant:packaged-grant-binding",)),
+    ("receipt-targets", "Receipt target set equals frozen scope.", ("replay:receipt-targets:receipt-target-mismatch",)),
+    ("graph-root", "Graph root equals frozen root.", ("replay:graph-root:wrong-graph-root",)),
+    ("dependency-role", "Dependency role index follows the sorted exact-version union.", ("replay:dependency-role:dependency-role-index",)),
+    ("duplicate-reviews", "Duplicate reviews are conflicts.", ("replay:duplicate-reviews:duplicate-reviews",)),
+    ("out-of-inventory-review", "Unassessed-version reviews are conflicts.", ("replay:out-of-inventory-review:out-of-inventory-review",)),
+    ("unexpected-role", "Unused checked evidence roles are conflicts.", ("replay:unexpected-role:unexpected-evidence-role",)),
+    ("gap-before-owner", "Owner-only evidence requirement precedes a supported gap.", ("replay:gap-before-owner:owner-before-gap",)),
+    ("early-missing-license", "All bindings precede any missing-license result.", ("replay:early-missing-license:later-binding-before-unresolved",)),
+    ("root-identity", "Frozen root ID/version match archive observations.", ("replay:root-identity:wrong-root-id", "memory:root-version")),
+    ("receipt-root", "Receipt root equals frozen root.", ("replay:receipt-root:wrong-root-version",)),
+    ("completeness-counts", "Receipt target/node/edge counts equal the full graph.", ("replay:completeness-counts:incomplete-basis",)),
+    ("same-target-versions", "One target cannot select competing versions of one ID.", ("replay:same-target-versions:same-tfm-version-conflict",)),
+    ("policy-pin", "Policy/catalog bytes match the accepted pins.", ("replay:policy-pin:changed-policy", "memory:changed-corpus-pin")),
+    ("checked-grant-path", "Checked grant path equals receipt path.", ("memory:checked-grant-path",)),
+    ("checked-grant-digest", "Checked grant digest equals receipt digest.", ("memory:checked-grant-digest",)),
+    ("review-grant-digest", "Review grant digest equals receipt grant digest.", ("memory:review-grant-digest",)),
+    ("packaged-entry-path", "Claimed packaged entry equals the inspected source path.", ("memory:packaged-entry-path",)),
+    ("receipt-graph-digest", "Receipt graph digest equals checked graph bytes.", ("memory:receipt-graph-digest",)),
+    ("graph-target-set", "Graph target set independently equals frozen scope.", ("memory:graph-target-set",)),
+    ("reachable-nodes", "Every graph node is root-reachable.", ("memory:unreachable-node",)),
+    ("policy-required", "Policy evidence cannot come from an ambient default.", ("memory:missing-policy",)),
+    ("corpus-required", "Catalog evidence cannot come from an ambient default.", ("memory:missing-corpus",)),
+    ("dependency-digest", "Dependency receipt digest equals checked archive bytes.", ("memory:dependency-digest",)),
+    ("dependency-identity", "Dependency ID and version match actual archive observations.", ("memory:dependency-id", "memory:dependency-version")),
+    ("grant-role", "Grant role index follows the sorted exact-version union.", ("memory:grant-role-index",)),
+    ("inventory-equality", "Receipt inventory is unique and equals the graph union.", ("memory:inventory-missing", "memory:inventory-extra", "memory:inventory-duplicate")),
+    ("owner-license", "Owner-only route requires the exact owner license sentinel.", ("memory:owner-license",)),
+    ("owner-basis", "Owner-only route requires an unpublished-owner-grant basis.", ("memory:owner-basis",)),
+    ("owner-disposition", "Owner-only route requires an owner-grant-required disposition.", ("memory:owner-disposition",)),
+    ("any-safe-packaged-entry", "Actual safe packaged paths are not restricted to LICENSE.txt.", ("memory:alternate-packaged-entry",)),
+    ("root-digest", "Frozen root digest equals checked root bytes.", ("memory:root-digest",)),
+    ("dependency-key", "Graph/receipt key equals the exact dependency ID/version.", ("memory:dependency-key",)),
+    ("review-license", "Reviewed license equals the actual/receipted declaration.", ("memory:review-license",)),
+    ("graph-diagnostics", "Unresolved acquisition diagnostics prevent a closure claim.", ("memory:graph-diagnostics",)),
+    ("graph-uniqueness", "Graph nodes, direct edges and adjacency edges are unique.", ("memory:duplicate-node", "memory:duplicate-direct-edge", "memory:duplicate-adjacency-edge")),
+    ("assessment-required", "Assessment scope is supplied independently, never inferred from acquisition.", ("memory:missing-assessment",)),
+    ("review-whole-version-scope", "Applicability reviews cover the entire exact dependency version.", ("memory:review-scope",)),
+)
+
+WEAKENED_RULE_IDS = {name for name, _ in MUTATIONS} | {item[2] for item in FIXED_PROBES}
 
 
 def require(condition, message):
@@ -224,7 +357,7 @@ def pinned_inputs(inputs, artifacts):
     return result
 
 
-def shape(scope, capture, graph, reviews, checked):
+def shape(scope, capture, graph, reviews, checked, weakened_rule=None):
     fields(scope, "schema_version root target_frameworks")
     require(type(scope["schema_version"]) is int and scope["schema_version"] == 1, "schema-version")
     identity(scope["root"])
@@ -302,7 +435,7 @@ def shape(scope, capture, graph, reviews, checked):
             sha(item["grant_sha256"])
             for name in ("license_id", "reviewer_reference", "authority_reference", "review_reference"):
                 text(item[name])
-            require(item["scope"] == "entire-dependency-version"
+            require((weakened_rule == "review-scope" or item["scope"] == "entire-dependency-version")
                     and item["basis"] in ("published-package-grant", "unpublished-owner-grant")
                     and item["disposition"] in ("applicable-single-license", "owner-grant-required", "unresolved"),
                     "review-profile")
@@ -319,9 +452,16 @@ def shape(scope, capture, graph, reviews, checked):
 
 def classify(checked, weakened_rule=None):
     """Classify normalized observations only; never parse packages, solve or interpret grant text."""
-    require(weakened_rule is None or weakened_rule in {name for name, _ in MUTATIONS}, "unknown-weakened-rule")
+    require(weakened_rule is None or weakened_rule in WEAKENED_RULE_IDS, "unknown-weakened-rule")
+    if weakened_rule == "policy-presence":
+        checked = {**PINNED_POLICY_INPUTS, **checked}
     if "package" not in checked:
         return "missing-package"
+    if "assessment" not in checked and weakened_rule == "assessment-presence":
+        receipt = document(checked["acquisition-receipt"][1])
+        inferred = encoded({"schema_version": 1, "root": receipt["root"], "target_frameworks": receipt["target_frameworks"]})
+        checked = {**checked, "assessment": (
+            {"role": "assessment", "path": "inputs/incorrectly-inferred-scope.json", "sha256": digest(inferred)}, inferred)}
     if "assessment" not in checked:
         return "scope-missing"
     try:
@@ -329,7 +469,7 @@ def classify(checked, weakened_rule=None):
         capture = document(checked["acquisition-receipt"][1]) if "acquisition-receipt" in checked else None
         graph = document(checked["dependency-graph"][1]) if "dependency-graph" in checked else None
         reviews = document(checked["license-reviews"][1]) if "license-reviews" in checked else None
-        shape(scope, capture, graph, reviews, checked)
+        shape(scope, capture, graph, reviews, checked, weakened_rule)
     except (ValueError, UnicodeError, TypeError):
         return "input-invalid"
     if not all(role in checked for role in ("policy", "corpus")):
@@ -337,12 +477,13 @@ def classify(checked, weakened_rule=None):
     if weakened_rule != "policy-pin" and (
             digest(checked["policy"][1]) != POLICY_SHA or digest(checked["corpus"][1]) != CORPUS_SHA):
         return "policy-unavailable"
-    if scope["root"]["sha256"] != checked["package"][0]["sha256"]:
+    if weakened_rule != "root-digest" and scope["root"]["sha256"] != checked["package"][0]["sha256"]:
         return "binding-conflict"
     root_fact = PACKAGE_FACTS.get(checked["package"][0]["sha256"])
     if root_fact is None:
         return "input-invalid"
-    if weakened_rule != "root-identity" and scope["root"] != root_fact["identity"]:
+    if weakened_rule != "root-identity" and any(
+            scope["root"][field] != root_fact["identity"][field] for field in ("id", "version")):
         return "binding-conflict"
     if capture is None:
         return "evidence-missing"
@@ -353,20 +494,22 @@ def classify(checked, weakened_rule=None):
     if graph is None:
         return "evidence-missing"
     if (weakened_rule != "graph-root" and graph["root"] != scope["root"]
-            or capture["graph_sha256"] != checked["dependency-graph"][0]["sha256"]):
+            or weakened_rule != "receipt-graph-digest"
+            and capture["graph_sha256"] != checked["dependency-graph"][0]["sha256"]):
         return "binding-conflict"
     requested = sorted(scope["target_frameworks"])
     if (weakened_rule != "receipt-targets" and sorted(capture["target_frameworks"]) != requested
-            or sorted(item["tfm"] for item in graph["targets"]) != requested
-            or graph["unresolved"]):
+            or weakened_rule != "graph-target-set" and sorted(item["tfm"] for item in graph["targets"]) != requested
+            or weakened_rule != "graph-diagnostics" and graph["unresolved"]):
         return "closure-unresolved"
     union = set()
     counts = []
     for item in graph["targets"]:
         nodes = {node["key"]: node["dependencies"] for node in item["nodes"]}
         all_edges = item["direct"] + [edge for deps in nodes.values() for edge in deps]
-        if (len(nodes) != len(item["nodes"]) or len(set(item["direct"])) != len(item["direct"])
-                or any(len(set(edges)) != len(edges) for edges in nodes.values())
+        if (weakened_rule != "graph-uniqueness" and (
+                len(nodes) != len(item["nodes"]) or len(set(item["direct"])) != len(item["direct"])
+                or any(len(set(edges)) != len(edges) for edges in nodes.values()))
                 or len(all_edges) > 128 or any(edge not in nodes for edge in all_edges)):
             return "closure-unresolved"
         if (weakened_rule != "same-target-versions"
@@ -379,7 +522,7 @@ def classify(checked, weakened_rule=None):
             if name not in reached:
                 reached.add(name)
                 pending.extend(nodes[name])
-        if reached != set(nodes):
+        if weakened_rule != "reachable-nodes" and reached != set(nodes):
             return "closure-unresolved"
         union.update(nodes)
         counts.append({"tfm": item["tfm"], "node_count": len(nodes), "edge_count": len(all_edges)})
@@ -388,7 +531,8 @@ def classify(checked, weakened_rule=None):
                 capture["completeness_basis"]["targets"], key=lambda item: item["tfm"]):
         return "closure-unresolved"
     inventory = {item["key"]: item for item in capture["packages"]}
-    if len(inventory) != len(capture["packages"]) or set(inventory) != union:
+    if weakened_rule != "inventory-equality" and (
+            len(inventory) != len(capture["packages"]) or set(inventory) != union):
         return "closure-unresolved"
     review_map = {item["key"]: item for item in reviews["reviews"]} if reviews else {}
     if reviews and (
@@ -404,39 +548,47 @@ def classify(checked, weakened_rule=None):
     incompatible = False
     policy = json.loads(checked["policy"][1])
     catalog = {item["licenseId"]: item for item in json.loads(checked["corpus"][1])["licenses"]}
-    for index, name in enumerate(sorted(union)):
+    selected = union & set(inventory) if weakened_rule == "inventory-equality" else union
+    for index, name in enumerate(sorted(selected)):
         item = inventory[name]
         package_identity = item["identity"]
-        if (name != f"{package_identity['id']}/{package_identity['version']}"
+        if (weakened_rule != "dependency-key" and name != f"{package_identity['id']}/{package_identity['version']}"
                 or weakened_rule != "dependency-role" and item["role"] != f"dependency-{index:03d}"):
             return "binding-conflict"
         role = item["role"]
         used.add(role)
         if role not in checked:
             missing_package = True
-        elif checked[role][0]["sha256"] != package_identity["sha256"]:
-            return "binding-conflict"
-        elif PACKAGE_FACTS.get(package_identity["sha256"], {}).get("identity") != package_identity:
-            return "binding-conflict"
-        elif (weakened_rule != "archive-declaration"
-              and PACKAGE_FACTS[package_identity["sha256"]]["expression"] != item["declared_expression"]):
-            return "binding-conflict"
+        else:
+            package_fact = PACKAGE_FACTS.get(checked[role][0]["sha256"])
+            if weakened_rule != "dependency-digest" and checked[role][0]["sha256"] != package_identity["sha256"]:
+                return "binding-conflict"
+            if package_fact is None or weakened_rule != "dependency-identity" and any(
+                    package_fact["identity"][field] != package_identity[field] for field in ("id", "version")):
+                return "binding-conflict"
+            if weakened_rule != "archive-declaration" and package_fact["expression"] != item["declared_expression"]:
+                return "binding-conflict"
         grant = item["grant"]
         review = review_map.get(name)
         if grant is not None:
-            if grant["role"] != f"grant-{index:03d}":
+            if weakened_rule != "grant-role" and grant["role"] != f"grant-{index:03d}":
                 return "binding-conflict"
             used.add(grant["role"])
             if grant["role"] in checked:
                 grant_input = checked[grant["role"]][0]
-                if (grant_input["path"] != grant["path"] or grant_input["sha256"] != grant["sha256"]):
+                if (weakened_rule != "checked-grant-path" and grant_input["path"] != grant["path"]
+                        or weakened_rule != "checked-grant-digest" and grant_input["sha256"] != grant["sha256"]):
                     return "binding-conflict"
-            if weakened_rule != "packaged-grant" and role in checked and (
-                    grant["package_entry"] != "LICENSE.txt"
-                    or PACKAGE_FACTS[package_identity["sha256"]]["grant_sha256"] != grant["sha256"]):
-                return "binding-conflict"
+            if role in checked:
+                if weakened_rule != "packaged-entry-path" and grant["package_entry"] != package_fact["grant_path"]:
+                    return "binding-conflict"
+                if weakened_rule == "license-txt-only" and grant["package_entry"] != "LICENSE.txt":
+                    return "binding-conflict"
+                if weakened_rule != "packaged-grant" and package_fact["grant_sha256"] != grant["sha256"]:
+                    return "binding-conflict"
         if review and (weakened_rule != "review-package" and review["package_sha256"] != package_identity["sha256"]
-                       or grant is not None and review["grant_sha256"] != grant["sha256"]):
+                       or weakened_rule != "review-grant-digest"
+                       and grant is not None and review["grant_sha256"] != grant["sha256"]):
             return "binding-conflict"
         if weakened_rule == "first-target-licenses" and name not in {
                 node["key"] for node in graph["targets"][0]["nodes"]}:
@@ -449,10 +601,13 @@ def classify(checked, weakened_rule=None):
             unresolved = True
             continue
         expression = item["declared_expression"]
-        if expression != review["license_id"]:
+        if weakened_rule != "review-license" and expression != review["license_id"]:
             return "binding-conflict"
-        if review["disposition"] == "owner-grant-required":
-            if expression == "LicenseRef-owner-grant" and review["basis"] == "unpublished-owner-grant":
+        if (review["disposition"] == "owner-grant-required"
+                or weakened_rule == "owner-disposition" and expression == "LicenseRef-owner-grant"
+                and review["basis"] == "unpublished-owner-grant"):
+            if ((weakened_rule == "owner-license" or expression == "LicenseRef-owner-grant")
+                    and (weakened_rule == "owner-basis" or review["basis"] == "unpublished-owner-grant")):
                 owner = True
             else:
                 unresolved = True
@@ -514,7 +669,7 @@ def result(branch, inputs):
     }
 
 
-def package(package_id, version, expression, grant, dependency_groups=None):
+def package(package_id, version, expression, grant, dependency_groups=None, *, grant_entry="LICENSE.txt"):
     """Generate bounded synthetic archives; deliberately no ZIP/XML reader in the oracle."""
     output = io.BytesIO()
     groups = "".join(
@@ -531,7 +686,7 @@ def package(package_id, version, expression, grant, dependency_groups=None):
                 f'<license type="expression">{expression}</license><dependencies>{groups}</dependencies>'
                 "</metadata></package>"
             ).encode("ascii"),
-            "LICENSE.txt": grant,
+            grant_entry: grant,
         }.items():
             entry = zipfile.ZipInfo(path, (2020, 1, 1, 0, 0, 0))
             entry.create_system = 3
@@ -541,9 +696,200 @@ def package(package_id, version, expression, grant, dependency_groups=None):
     data = output.getvalue()
     PACKAGE_FACTS[digest(data)] = {
         "identity": {"id": package_id, "version": version, "sha256": digest(data)},
-        "expression": expression, "grant_sha256": digest(grant),
+        "expression": expression, "grant_path": grant_entry, "grant_sha256": digest(grant),
     }
     return data
+
+
+def fixed_probe(recipe, source, artifacts):
+    """Apply one manually registered recipe, then recheck every outer input digest."""
+    require(recipe in {item[0] for item in FIXED_PROBES}, "unknown-fixed-recipe")
+    inputs = copy.deepcopy(source["inputs"])
+    buffers = {item["path"]: artifacts[item["path"]] for item in inputs}
+    checked = pinned_inputs(inputs, buffers)
+    scope = document(checked["assessment"][1])
+    graph = document(checked["dependency-graph"][1])
+    capture = document(checked["acquisition-receipt"][1])
+    reviews = document(checked["license-reviews"][1])
+    subject = capture["packages"][0 if recipe.startswith("owner-") else -1]
+    review = next(item for item in reviews["reviews"] if item["key"] == subject["key"])
+    grant = subject["grant"]
+
+    def replace(role, data):
+        item = next(item for item in inputs if item["role"] == role)
+        item["sha256"] = digest(data)
+        buffers[item["path"]] = data
+
+    def drop(role):
+        inputs[:] = [item for item in inputs if item["role"] != role]
+
+    def repack(package_id=None, version=None, grant_entry=None):
+        actual = subject["identity"]
+        groups = {
+            item["tfm"]: node["dependencies"] for item in graph["targets"]
+            for node in item["nodes"] if node["key"] == subject["key"]
+        }
+        data = package(package_id or actual["id"], version or actual["version"],
+                       subject["declared_expression"], checked[grant["role"]][1], groups,
+                       grant_entry=grant_entry or grant["package_entry"])
+        replace(subject["role"], data)
+        actual["sha256"] = review["package_sha256"] = digest(data)
+
+    if recipe == "checked-grant-path":
+        grant["path"] = "grants/different-retained-path.txt"
+    elif recipe == "checked-grant-digest":
+        replace(grant["role"], checked[grant["role"]][1] + b"\nRetained-only fixed witness.\n")
+    elif recipe == "review-grant-digest":
+        review["grant_sha256"] = "0" * 64
+    elif recipe == "packaged-entry-path":
+        grant["package_entry"] = "licenses/Absent.txt"
+    elif recipe == "receipt-graph-digest":
+        pass  # Deliberately wrong only after all graph bytes below have been rehashed.
+    elif recipe == "graph-target-set":
+        graph["targets"][1]["tfm"] = "net10.0"
+    elif recipe == "unreachable-node":
+        for item in graph["targets"]:
+            for node in item["nodes"]:
+                node["dependencies"] = [name for name in node["dependencies"] if name != subject["key"]]
+    elif recipe in ("missing-policy", "missing-corpus"):
+        drop(recipe.removeprefix("missing-"))
+    elif recipe == "dependency-digest":
+        subject["identity"]["sha256"] = review["package_sha256"] = "0" * 64
+    elif recipe == "dependency-id":
+        repack(package_id="sample.different")
+    elif recipe == "dependency-version":
+        repack(version="9.0.0")
+    elif recipe == "grant-role-index":
+        next(item for item in inputs if item["role"] == grant["role"])["role"] = "grant-009"
+        grant["role"] = "grant-009"
+    elif recipe == "inventory-missing":
+        capture["packages"].remove(subject)
+        reviews["reviews"].remove(review)
+        drop(subject["role"])
+        drop(grant["role"])
+    elif recipe == "inventory-extra":
+        extra = copy.deepcopy(subject)
+        extra.update(key="sample.unlisted/1.0.0", role="dependency-003")
+        extra["identity"]["id"] = "sample.unlisted"
+        extra["grant"]["role"] = "grant-003"
+        capture["packages"].append(extra)
+    elif recipe == "inventory-duplicate":
+        capture["packages"].append(copy.deepcopy(subject))
+    elif recipe == "owner-license":
+        subject["declared_expression"] = review["license_id"] = "MIT"
+        repack()
+    elif recipe == "owner-basis":
+        review["basis"] = "published-package-grant"
+    elif recipe == "owner-disposition":
+        review["disposition"] = "unresolved"
+    elif recipe == "alternate-packaged-entry":
+        grant["package_entry"] = "licenses/COPYING.txt"
+        repack(grant_entry=grant["package_entry"])
+    elif recipe == "root-digest":
+        for item in (scope, graph, capture):
+            item["root"]["sha256"] = "0" * 64
+    elif recipe == "root-version":
+        for item in (scope, graph, capture):
+            item["root"]["version"] = "9.0.0"
+    elif recipe == "changed-corpus-pin":
+        replace("corpus", checked["corpus"][1] + b"\n")
+    elif recipe == "dependency-key":
+        previous = subject["key"]
+        subject["key"] = review["key"] = "sample.z/1.0.0"
+        for item in graph["targets"]:
+            item["direct"] = [subject["key"] if name == previous else name for name in item["direct"]]
+            for node in item["nodes"]:
+                if node["key"] == previous:
+                    node["key"] = subject["key"]
+                node["dependencies"] = [subject["key"] if name == previous else name for name in node["dependencies"]]
+    elif recipe == "review-license":
+        review["license_id"] = "MIT"
+    elif recipe == "graph-diagnostics":
+        graph["unresolved"] = ["synthetic unresolved acquisition observation"]
+    elif recipe == "duplicate-node":
+        graph["targets"][0]["nodes"].append(copy.deepcopy(graph["targets"][0]["nodes"][-1]))
+    elif recipe == "duplicate-direct-edge":
+        graph["targets"][0]["direct"].append(graph["targets"][0]["direct"][0])
+    elif recipe == "duplicate-adjacency-edge":
+        graph["targets"][0]["nodes"][0]["dependencies"].append(subject["key"])
+    elif recipe == "missing-assessment":
+        drop("assessment")
+    elif recipe == "review-scope":
+        review["scope"] = "declaration-only"
+    else:
+        raise ValueError("unimplemented-fixed-recipe")
+    capture["completeness_basis"]["targets"] = []
+    for item in graph["targets"]:
+        nodes = {node["key"]: node["dependencies"] for node in item["nodes"]}
+        capture["completeness_basis"]["targets"].append({
+            "tfm": item["tfm"], "node_count": len(nodes),
+            "edge_count": len(item["direct"]) + sum(len(edges) for edges in nodes.values()),
+        })
+    if recipe != "missing-assessment":
+        replace("assessment", encoded(scope))
+    replace("dependency-graph", encoded(graph))
+    capture["graph_sha256"] = "0" * 64 if recipe == "receipt-graph-digest" else digest(encoded(graph))
+    replace("acquisition-receipt", encoded(capture))
+    replace("license-reviews", encoded(reviews))
+    return pinned_inputs(inputs, buffers)
+
+
+def discrimination_spec(cases):
+    by_id = {item["case_id"]: item for item in cases}
+    witnesses = []
+    for rule, items in MUTATIONS:
+        for name, branch in items:
+            witnesses.append({
+                "witness_id": f"replay:{rule}:{name}", "kind": "weakened-existing-case",
+                "case_id": f"lp03-{name}", "weakened_rule": rule,
+                "normal_branch": by_id[f"lp03-{name}"]["expected"]["branch_id"], "wrong_branch": branch,
+            })
+    for recipe, source, rule, normal, wrong in FIXED_PROBES:
+        witnesses.append({
+            "witness_id": f"memory:{recipe}", "kind": "fixed-in-memory",
+            "case_id": f"lp03-{source}", "recipe": recipe, "weakened_rule": rule,
+            "normal_branch": normal, "wrong_branch": wrong,
+        })
+    for guard, _, name, wrong in REPLAY_GUARDS:
+        witnesses.append({
+            "witness_id": f"branch:{guard}", "kind": "existing-branch-witness", "case_id": f"lp03-{name}",
+            "normal_branch": by_id[f"lp03-{name}"]["expected"]["branch_id"], "wrong_branch": wrong,
+        })
+    inventory = [
+        {"guard_id": guard, "rule": rule, "witness_ids": list(ids)} for guard, rule, ids in WEAKENING_GUARDS
+    ] + [
+        {"guard_id": guard, "rule": rule, "witness_ids": [f"branch:{guard}"]}
+        for guard, rule, _, _ in REPLAY_GUARDS
+    ]
+    return {
+        "schema_version": 1, "method": "finite-manual-guard-inventory-and-fixed-witnesses",
+        "critical_guard_ids": list(CRITICAL_GUARD_IDS), "guard_inventory": inventory, "witnesses": witnesses,
+        "limits": {"original_weakened_variants": 24, "original_witness_runs": 28,
+                   "fixed_in_memory_recipes": 31, "weakened_variants_total": 47,
+                   "critical_guards": 64, "registered_witnesses": 75},
+    }
+
+
+def validate_guard_inventory(spec):
+    inventory = spec["guard_inventory"]
+    require(len(CRITICAL_GUARD_IDS) == len(set(CRITICAL_GUARD_IDS)) == 64
+            and spec["critical_guard_ids"] == list(CRITICAL_GUARD_IDS), "critical-guard-list")
+    require(len(inventory) == len({item["guard_id"] for item in inventory})
+            and {item["guard_id"] for item in inventory} == set(CRITICAL_GUARD_IDS),
+            "guard-inventory-missing-or-extra")
+    witnesses = {item["witness_id"]: item for item in spec["witnesses"]}
+    require(len(witnesses) == len(spec["witnesses"]) == 75, "witness-inventory")
+    used = set()
+    for item in inventory:
+        require(item["witness_ids"], "guard-without-witness")
+        require(len(item["witness_ids"]) == len(set(item["witness_ids"])), "duplicate-guard-witness")
+        for witness_id in item["witness_ids"]:
+            require(witness_id in witnesses, "unregistered-guard-witness")
+            witness = witnesses[witness_id]
+            require(witness["normal_branch"] in BRANCHES and witness["wrong_branch"] in BRANCHES
+                    and witness["normal_branch"] != witness["wrong_branch"], "non-discriminating-guard-witness")
+            used.add(witness_id)
+    require(used == set(witnesses), "orphan-guard-witness")
 
 
 def build():
@@ -568,6 +914,9 @@ def build():
             and not catalog["BSD-2-Clause-FreeBSD"]["isOsiApproved"], "deprecated-witness-not-independent")
     retain("policy/lp01-policy-1.0.0.json", policy)
     retain("policy/spdx-licenses-3.27.0.json", corpus)
+    PINNED_POLICY_INPUTS.clear()
+    for role, path in (("policy", "policy/lp01-policy-1.0.0.json"), ("corpus", "policy/spdx-licenses-3.27.0.json")):
+        PINNED_POLICY_INPUTS[role] = ({"role": role, "path": path, "sha256": digest(artifacts[path])}, artifacts[path])
     mit = (LP01 / "grants" / "mit-full.txt").read_bytes()
     bsd = (LP01 / "grants" / "bsd-full.txt").read_bytes()
     cases = []
@@ -799,13 +1148,15 @@ def build():
         bindings[-1]["binding"] = f"LP03_{'SYNCFUSION' if vendor['vendor'] == 'syncfusion' else 'INFRAGISTICS'}_NUPKG"
     artifacts["acceptance.json"] = encoded({"schema_version": 1, "cases": retained})
     artifacts["retained-inputs.json"] = encoded({"schema_version": 1, "vendors": bindings})
-    artifacts["discrimination.json"] = encoded({
-        "schema_version": 1,
-        "method": "fixed-weakened-oracle-rules-existing-inputs-only",
-        "variants": [{"weakened_rule": rule, "witnesses": [
-            {"case_id": f"lp03-{name}", "weakened_branch": branch} for name, branch in witnesses]}
-            for rule, witnesses in MUTATIONS],
-    })
+    spec = discrimination_spec(cases)
+    contract = (ROOT / "README.md").read_bytes()
+    guard_table = "\n".join(
+        ["| Guard ID | Registered witness IDs |", "|---|---|"]
+        + [f"| `{item['guard_id']}` | " + ", ".join(f"`{name}`" for name in item["witness_ids"]) + " |"
+           for item in spec["guard_inventory"]]
+    )
+    require(guard_table.encode("ascii") in contract, "contract-guard-table-mismatch")
+    artifacts["discrimination.json"] = encoded(spec)
     input_index = [{"path": path, "size_bytes": len(data), "sha256": digest(data)}
                    for path, data in sorted(artifacts.items())
                    if path.startswith(("inputs/", "packages/", "grants/", "policy/"))]
@@ -816,15 +1167,21 @@ def build():
         "obligation": "All direct and transitive dependencies use OSI-approved, non-copyleft licenses.",
         "resolver_id": "lp03-dependency-licenses", "resolver_version": "1.0.0",
         "production_implementation": "absent; LP-03 remains tbd",
-        "phase_a_correction_parent": "b91de23a90490f6f219e3183d5c19d160da498ea",
+        "phase_a_correction_parent": "489e75508834c740aaf191c85dea39541b685f2b",
         "synthetic_cases": 43, "rejected_inputs": 5, "retained_expectations": 2, "total_named_cases": 50,
-        "weakened_rule_variants": len(MUTATIONS), "existing_case_witness_runs": sum(len(items) for _, items in MUTATIONS),
+        "weakened_rule_variants": len(WEAKENED_RULE_IDS),
+        "original_weakened_rule_variants": len(MUTATIONS),
+        "existing_case_witness_runs": sum(len(items) for _, items in MUTATIONS),
+        "fixed_in_memory_witness_runs": len(FIXED_PROBES),
+        "acceptance_critical_guard_count": len(CRITICAL_GUARD_IDS),
+        "registered_guard_witness_count": 75, "guard_inventory_omission_checks": 128,
+        "narrowed_rule": "No fixed LICENSE.txt filename; bind the actual safe selected packaged grant path and digest.",
         "input_count": len(input_index), "input_bytes": sum(item["size_bytes"] for item in input_index),
         "branch_status_mapping": {branch: details[0] for branch, details in BRANCHES.items()},
         "manifest_sha256": {path: digest(artifacts[path]) for path in
                             ("cases.json", "rejected-inputs.json", "acceptance.json", "retained-inputs.json",
                              "input-manifest.json", "discrimination.json")},
-        "contract_sha256": digest((ROOT / "README.md").read_bytes()),
+        "contract_sha256": digest(contract),
         "policy_sha256": POLICY_SHA, "spdx_sha256": CORPUS_SHA,
     })
     return artifacts
@@ -849,13 +1206,40 @@ def check(artifacts):
     require({case["expected"]["branch_id"] for case in suite["cases"] + retained} == set(BRANCHES), "branch-coverage")
     require(len(ids) == 50, "named-expectation-limit")
     require(len(MUTATIONS) == 24 and len({rule for rule, _ in MUTATIONS}) == 24, "bounded-mutation-limit")
+    require(len(FIXED_PROBES) == len({item[0] for item in FIXED_PROBES}) == 31
+            and len(WEAKENED_RULE_IDS) == 47, "bounded-fixed-probe-limit")
     by_id = {case["case_id"]: case for case in suite["cases"]}
-    for rule, witnesses in MUTATIONS:
-        for name, weakened_branch in witnesses:
-            case = by_id[f"lp03-{name}"]
-            actual = classify(pinned_inputs(case["inputs"], artifacts), weakened_rule=rule)
-            require(actual == weakened_branch and actual != case["expected"]["branch_id"],
-                    f"non-discriminating-matrix: {rule}, {name}: got {actual}, expected weakened {weakened_branch}")
+    spec = json.loads(artifacts["discrimination.json"])
+    validate_guard_inventory(spec)
+    for witness in spec["witnesses"]:
+        case = by_id[witness["case_id"]]
+        original_facts = set(PACKAGE_FACTS)
+        try:
+            checked = (fixed_probe(witness["recipe"], case, artifacts) if witness["kind"] == "fixed-in-memory"
+                       else pinned_inputs(case["inputs"], artifacts))
+            normal = classify(checked)
+            require(normal == witness["normal_branch"], f"{witness['witness_id']}: wrong normal branch: {normal}")
+            if witness["kind"] != "existing-branch-witness":
+                actual = classify(checked, weakened_rule=witness["weakened_rule"])
+                require(actual == witness["wrong_branch"] and actual != normal,
+                        f"non-discriminating-matrix: {witness['witness_id']}: got {actual}, expected {witness['wrong_branch']}")
+        finally:
+            for package_sha in set(PACKAGE_FACTS) - original_facts:
+                del PACKAGE_FACTS[package_sha]
+    for guard in CRITICAL_GUARD_IDS:
+        for omission, expected in (("registration", "guard-inventory-missing-or-extra"),
+                                   ("witnesses", "guard-without-witness")):
+            broken = copy.deepcopy(spec)
+            if omission == "registration":
+                broken["guard_inventory"] = [item for item in broken["guard_inventory"] if item["guard_id"] != guard]
+            else:
+                next(item for item in broken["guard_inventory"] if item["guard_id"] == guard)["witness_ids"] = []
+            try:
+                validate_guard_inventory(broken)
+            except ValueError as error:
+                require(str(error) == expected, f"wrong-guard-meta-rejection: {guard}: {error}")
+            else:
+                raise ValueError(f"guard-meta-check-accepted: {guard}: {omission}")
 
 
 def retained_bindings(bindings, supplied):
@@ -944,8 +1328,10 @@ def main():
     manifest = json.loads(artifacts["acceptance-manifest.json"])
     print(f"LP-03 Phase A: 43 oracle cases, 5 loader rejections, 2 retained expectations, 12 branch expectations; "
           f"{manifest['input_count']} inputs / {manifest['input_bytes']} bytes.")
-    print(f"Discrimination: {len(MUTATIONS)} fixed weakened-rule variants rejected by "
-          f"{sum(len(items) for _, items in MUTATIONS)} existing-case witness runs; no additional inputs.")
+    print(f"Discrimination: original 24 variants / 28 witnesses preserved; {len(WEAKENED_RULE_IDS)} total variants "
+          f"/ 59 weakening runs, including {len(FIXED_PROBES)} fixed in-memory recipes; "
+          "64 guard IDs / 75 registered witnesses; 128 missing-registration/empty-witness meta-checks passed. "
+          "No added replay cases or retained inputs.")
     print(f"Retained: {check_retained(artifacts, args.retained)}.")
     print(f"Input manifest SHA-256: {digest(artifacts['input-manifest.json'])}")
     print("No resolver, package-manager execution, license-text interpretation or network used.")
