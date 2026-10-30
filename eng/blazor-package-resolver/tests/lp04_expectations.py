@@ -55,8 +55,8 @@ CASES = (
     ("missing-asset-inventory", "evidence-missing", "asset-inventory-required", None, None, "A dependency capture does not substitute for the bundled-asset inventory."),
     ("incomplete-asset-inventory", "inventories-unresolved", "all-root-entries", "all-root-entries", "notice-coverage-satisfied", "A passive root LICENSE entry alone is omitted; third-party assets and their mappings remain present."),
     ("unreviewed-asset-entry", "inventories-unresolved", "asset-classification", "asset-classification", "notice-coverage-satisfied", "An unresolved all-entry classification cannot be silently assumed first-party."),
-    ("missing-dependency-bytes", "subject-bytes-missing", "dependency-bytes-required", None, None, "Root notice presence does not supply an unavailable dependency archive."),
-    ("missing-asset-bytes", "subject-bytes-missing", "asset-bytes-required", None, None, "An inventoried bundled asset requires separately checked exact bytes, even when present in the root."),
+    ("missing-dependency-bytes", "subject-bytes-missing", "dependency-bytes-required", "subject-bytes-required", "notice-coverage-satisfied", "Root notice presence does not supply an unavailable dependency archive."),
+    ("missing-asset-bytes", "subject-bytes-missing", "asset-bytes-required", "subject-bytes-required", "notice-coverage-satisfied", "An inventoried bundled asset requires separately checked exact bytes, even when present in the root."),
     ("missing-reviews", "reviews-unresolved", "reviews-required", None, None, "Complete inventories and SPDX metadata alone are insufficient without applicability/obligation reviews."),
     ("unresolved-review", "reviews-unresolved", "review-disposition", "review-disposition", "notice-coverage-satisfied", "Unresolved dependency applicability and an unsupported generated-bundle review form use the same conservative review gate; all retained parts and mappings are intact."),
     ("missing-mapping", "mapping-unresolved", "mapping-required", None, None, "Obligation evidence cannot substitute for packaged notice coverage."),
@@ -102,6 +102,242 @@ CRITICAL_GUARDS = (
     "loader-duplicate-role", "loader-safe-path", "loader-file-presence",
     "loader-digest", "loader-exact-fields", "retained-syncfusion", "retained-infragistics",
 )
+
+# Fixed recipes are manual, finite copies of existing packets, never new replay cases or disk inputs.
+# (recipe, source case suffix, weakening, normal branch, wrong branch)
+V = "notice-coverage-satisfied"
+C = "binding-conflict"
+I = "inventories-unresolved"
+R = "reviews-unresolved"
+M = "mapping-unresolved"
+N = "no-applicable-surface"
+G = "required-representation-missing"
+O = "owner-evidence-required"
+X = "input-invalid"
+FIXED_PROBES = (
+    ("omitted-empty-reviews", "no-applicable-surface", "reviews-document", R, N),
+    ("packet-root", "all-sources-covered", "document-roots", C, V),
+    ("admission-root", "all-sources-covered", "document-roots", C, V),
+    ("dependency-root", "all-sources-covered", "document-roots", C, V),
+    ("asset-root", "all-sources-covered", "document-roots", C, V),
+    ("observed-root-id", "all-sources-covered", "root-identity", C, V),
+    ("admission-scope", "all-sources-covered", "admission-scope-binding", C, V),
+    ("admission-digest", "all-sources-covered", "admission-packet-binding", C, V),
+    ("admitted-dependencies", "all-sources-covered", "admission-document-bindings", C, V),
+    ("admitted-assets", "all-sources-covered", "admission-document-bindings", C, V),
+    ("admitted-reviews", "all-sources-covered", "admission-document-bindings", C, V),
+    ("admitted-mapping", "all-sources-covered", "admission-document-bindings", C, V),
+    ("packet-assets", "all-sources-covered", "document-digests", C, V),
+    ("packet-reviews", "all-sources-covered", "document-digests", C, V),
+    ("packet-mapping", "all-sources-covered", "document-digests", C, V),
+    ("asset-capture-unavailable", "all-sources-covered", "capture-success", I, V),
+    ("target-set", "all-sources-covered", "tfm-scope", I, V),
+    ("duplicate-target", "all-sources-covered", "tfm-scope", I, V),
+    ("duplicate-node", "all-sources-covered", "graph-unique-nodes", I, V),
+    ("duplicate-direct", "all-sources-covered", "graph-unique-direct", I, V),
+    ("duplicate-adjacency", "all-sources-covered", "graph-unique-adjacency", I, V),
+    ("edge-limit", "all-sources-covered", "graph-edge-limit", X, V),
+    ("dangling-direct", "all-sources-covered", "graph-edge-membership", I, V),
+    ("dangling-transitive", "all-sources-covered", "graph-edge-membership", I, V),
+    ("orphan-node", "all-sources-covered", "graph-reachability", I, V),
+    ("competing-versions", "multi-tfm-second-version-unresolved", "graph-version-uniqueness", I, V),
+    ("missing-package-inventory", "all-sources-covered", "inventory-equality", I, V),
+    ("extra-package-inventory", "all-sources-covered", "inventory-equality", I, V),
+    ("duplicate-package-inventory", "all-sources-covered", "inventory-unique", I, V),
+    ("duplicate-entry-inventory", "all-sources-covered", "entry-inventory-unique", I, V),
+    ("entry-inventory-digest", "all-sources-covered", "entry-inventory-digests", C, V),
+    ("duplicate-asset-inventory", "all-sources-covered", "asset-inventory-unique", I, V),
+    ("duplicate-entry-subject", "all-sources-covered", "entry-subject-unique", I, V),
+    ("unlisted-third-party", "all-sources-covered", "entry-kind-subjects", I, V),
+    ("first-party-with-subject", "all-sources-covered", "entry-kind-subjects", I, V),
+    ("repeated-asset-location", "all-sources-covered", "asset-entry-unique", I, V),
+    ("missing-listed-asset", "all-sources-covered", "asset-inventory-equality", I, V),
+    ("dependency-key", "all-sources-covered", "dependency-key", C, V),
+    ("dependency-role", "all-sources-covered", "dependency-role", C, V),
+    ("dependency-duplicate", "all-sources-covered", "dependency-safety", X, V),
+    ("dependency-alias", "all-sources-covered", "dependency-safety", X, V),
+    ("dependency-unsafe", "all-sources-covered", "dependency-safety", X, V),
+    ("dependency-digest", "all-sources-covered", "dependency-digest", C, V),
+    ("observed-dependency-id", "all-sources-covered", "dependency-identity-binding", C, V),
+    ("asset-key", "all-sources-covered", "asset-key", C, V),
+    ("asset-role", "all-sources-covered", "asset-role", C, V),
+    ("asset-entry", "all-sources-covered", "asset-entry-binding", C, V),
+    ("asset-checked-digest", "all-sources-covered", "asset-checked-digest", C, V),
+    ("duplicate-review", "all-sources-covered", "reviews-unique", C, V),
+    ("extra-review", "all-sources-covered", "reviews-inventory", C, V),
+    ("out-of-version-review", "all-sources-covered", "reviews-inventory", C, V),
+    ("missing-one-review", "all-sources-covered", "reviews-coverage", R, V),
+    ("review-state", "reviewed-no-obligations", "reviews-state", R, N),
+    ("no-obligations-missing-basis", "reviewed-no-obligations", "review-basis", R, N),
+    ("entry-reference-path", "all-sources-covered", "evidence-path", C, V),
+    ("basis-reference-path", "all-sources-covered", "evidence-path", C, V),
+    ("part-reference-path", "all-sources-covered", "evidence-path", C, V),
+    ("basis-reference-digest", "all-sources-covered", "evidence-digest", C, V),
+    ("part-reference-digest", "all-sources-covered", "evidence-digest", C, V),
+    ("entry-reference-role", "all-sources-covered", "evidence-role", C, V),
+    ("unsupported-only", "all-sources-covered", "review-disposition", R, V),
+    ("unresolved-only", "all-sources-covered", "review-disposition", R, V),
+    ("owner-fact-missing", "owner-before-gap", "owner-fact", R, O),
+    ("owner-basis-missing", "owner-before-gap", "review-basis", R, O),
+    ("owner-with-obligations", "all-sources-covered", "owner-empty-obligations", R, O),
+    ("owner-fact-without-disposition", "all-sources-covered", "owner-fact-scope", C, V),
+    ("owner-disposition", "owner-before-gap", "owner-recognition", O, G),
+    ("none-with-obligations", "all-sources-covered", "review-obligation-form", C, V),
+    ("required-without-obligations", "reviewed-no-obligations", "review-obligation-form", C, N),
+    ("duplicate-obligation", "all-sources-covered", "obligations-unique", C, V),
+    ("duplicate-part", "all-sources-covered", "parts-unique", C, V),
+    ("missing-part-bytes", "all-sources-covered", "part-bytes", R, V),
+    ("duplicate-mapping", "all-sources-covered", "mapping-unique", C, V),
+    ("extra-mapping-part", "all-sources-covered", "mapping-parts", C, V),
+    ("extra-mapping-obligation", "all-sources-covered", "mapping-parts", C, V),
+    ("out-of-inventory-mapping", "all-sources-covered", "mapping-subjects", C, V),
+    ("out-of-version-mapping", "all-sources-covered", "mapping-subjects", C, V),
+    ("omitted-empty-mapping", "no-applicable-surface", "mapping-document", M, N),
+    ("mapping-state", "no-applicable-surface", "mapping-state", M, N),
+    ("missing-subject-mapping", "all-sources-covered", "mapping-equality", M, V),
+    ("missing-obligation-mapping", "all-sources-covered", "mapping-equality", M, V),
+    ("missing-part-mapping", "all-sources-covered", "mapping-equality", M, V),
+    ("duplicate-aggregate", "all-sources-covered", "aggregate-unique", C, V),
+    ("aggregate-digest", "all-sources-covered", "aggregate-bindings", C, V),
+    ("aggregate-path", "all-sources-covered", "aggregate-bindings", C, V),
+    ("absent-present-path", "all-sources-covered", "absent-shape", C, G),
+    ("absent-entry-reference", "direct-absent", "absent-shape", C, G),
+    ("absent-offset", "direct-absent", "absent-shape", C, G),
+    ("absent-length", "direct-absent", "absent-shape", C, G),
+    ("missing-entry-reference", "all-sources-covered", "entry-reference", M, V),
+    ("missing-packaged-entry", "all-sources-covered", "entry-presence", C, V),
+    ("missing-entry-bytes", "all-sources-covered", "entry-bytes", M, V),
+    ("entry-offset", "all-sources-covered", "entry-range", C, V),
+    ("entry-length", "all-sources-covered", "entry-range", C, V),
+    ("aggregate-offset", "aggregate-shared-entry", "aggregate-segment", M, V),
+    ("aggregate-length", "aggregate-shared-entry", "aggregate-segment", M, V),
+    ("partial-exact", "all-sources-covered", "partial-proper-length", M, G),
+    ("partial-unrelated", "all-sources-covered", "partial-content", M, G),
+    ("partial-empty", "all-sources-covered", "partial-nonempty", X, G),
+    ("extra-evidence", "all-sources-covered", "extra-evidence", C, V),
+    ("reviews-before-gap", "direct-absent", "gap-before-review", R, G),
+    ("schema-version", "all-sources-covered", "schema-version", X, V),
+    ("packet-protocol", "all-sources-covered", "packet-protocol", X, V),
+    ("capture-profile", "all-sources-covered", "capture-profiles", X, V),
+    ("empty-assessment", "no-applicable-surface", "scope-nonempty", X, N),
+    ("duplicate-assessment", "no-applicable-surface", "scope-unique", X, N),
+    ("partial-asset-scope", "all-sources-covered", "asset-scope", X, V),
+    ("json-byte-limit", "all-sources-covered", "json-byte-limit", X, V),
+    ("archive-byte-limit", "all-sources-covered", "archive-byte-limit", X, V),
+    ("asset-byte-limit", "all-sources-covered", "retained-byte-limit", X, V),
+    ("aggregate-byte-limit", "all-sources-covered", "aggregate-byte-limit", X, V),
+    ("root-entry-limit", "no-applicable-surface", "root-entry-limit", X, N),
+)
+
+# Explicit audited guard registrations. Several fixed witnesses may test one shared rule.
+# A tuple is (guard ID, rule, exact fixed-recipe IDs), independently of FIXED_PROBES.
+FIXED_GUARDS = (
+    ("reviews-document", "Even zero subjects require an explicitly retained review document.", ("omitted-empty-reviews",)),
+    ("document-roots", "Every packet/admission/inventory root equals the independent scope root.", ("packet-root", "admission-root", "dependency-root", "asset-root")),
+    ("admission-scope-binding", "Admission binds the entire exact assessment, including all-entry asset scope.", ("admission-scope",)),
+    ("admission-packet-binding", "The packet binds the checked admission bytes.", ("admission-digest",)),
+    ("admission-document-bindings", "All four admitted document digests bind independently of packet digests.", ("admitted-dependencies", "admitted-assets", "admitted-reviews", "admitted-mapping")),
+    ("tfm-scope", "The complete target multiset equals assessed TFMs; assets cover every root entry without a TFM filter.", ("target-set", "duplicate-target")),
+    ("graph-unique-nodes", "Duplicate nodes cannot be silently deduplicated.", ("duplicate-node",)),
+    ("graph-unique-direct", "Duplicate root edges cannot be silently deduplicated.", ("duplicate-direct",)),
+    ("graph-unique-adjacency", "Duplicate adjacency edges cannot be silently deduplicated.", ("duplicate-adjacency",)),
+    ("graph-edge-limit", "Both declared and observed total edge counts obey the same 128-edge limit.", ("edge-limit",)),
+    ("graph-edge-membership", "Every root and transitive edge resolves to an inventoried exact node.", ("dangling-direct", "dangling-transitive")),
+    ("graph-reachability", "Every retained graph node is reachable from root direct edges.", ("orphan-node",)),
+    ("graph-version-uniqueness", "One TFM cannot select competing versions of an ID.", ("competing-versions",)),
+    ("inventory-equality", "Package inventory equals the complete distinct-version graph union.", ("missing-package-inventory", "extra-package-inventory")),
+    ("inventory-unique", "Duplicate package records cannot be silently deduplicated.", ("duplicate-package-inventory",)),
+    ("entry-inventory-unique", "All-entry inventory paths are unique.", ("duplicate-entry-inventory",)),
+    ("entry-inventory-digests", "Inventory entry digests match actual root entry bytes.", ("entry-inventory-digest",)),
+    ("asset-inventory-unique", "Bundled-asset keys are unique.", ("duplicate-asset-inventory",)),
+    ("entry-subject-unique", "A root entry cannot repeat the same component key.", ("duplicate-entry-subject",)),
+    ("entry-kind-subjects", "Only third-party entries have subjects and every such entry has subjects.", ("unlisted-third-party", "first-party-with-subject")),
+    ("asset-entry-unique", "One component key cannot be attributed to two root entry locations.", ("repeated-asset-location",)),
+    ("asset-inventory-equality", "Listed bundled assets equal all third-party entry subjects.", ("missing-listed-asset",)),
+    ("dependency-key", "Dependency key matches its inspected identity independently of role/digest.", ("dependency-key",)),
+    ("dependency-role", "Dependency roles follow sorted distinct-version indices.", ("dependency-role",)),
+    ("dependency-safety", "Every dependency archive rejects duplicate, aliased or unsafe entry observations.", ("dependency-duplicate", "dependency-alias", "dependency-unsafe")),
+    ("dependency-digest", "Checked dependency bytes match the inventoried digest independently of identity.", ("dependency-digest",)),
+    ("asset-key", "Bundled subject keys use the asset namespace.", ("asset-key",)),
+    ("asset-role", "Asset roles follow sorted component indices.", ("asset-role",)),
+    ("asset-entry-binding", "Asset locations match classified root entry subjects.", ("asset-entry",)),
+    ("asset-checked-digest", "Separately checked asset bytes bind the actual inventoried subject digest.", ("asset-checked-digest",)),
+    ("reviews-unique", "Duplicate whole-subject reviews conflict.", ("duplicate-review",)),
+    ("reviews-inventory", "Extra/unassessed-version reviews are not ignored.", ("extra-review", "out-of-version-review")),
+    ("reviews-coverage", "Every inventoried subject needs a whole-subject review.", ("missing-one-review",)),
+    ("reviews-state", "Review admission must be captured even for no-obligation conclusions.", ("review-state",)),
+    ("review-basis", "Every review, including no-obligations and owner-private, needs retained basis bytes.", ("no-obligations-missing-basis", "owner-basis-missing")),
+    ("evidence-path", "Basis, required part and entry references bind checked evidence paths.", ("entry-reference-path", "basis-reference-path", "part-reference-path")),
+    ("evidence-digest", "Retained basis and required part references bind checked evidence digests.", ("basis-reference-digest", "part-reference-digest")),
+    ("evidence-role", "Digest/path agreement does not authorize role-agnostic evidence lookup.", ("entry-reference-role",)),
+    ("owner-fact", "Owner-private disposition needs the specific genuinely private fact.", ("owner-fact-missing",)),
+    ("owner-empty-obligations", "Owner-private reviews cannot simultaneously claim resolved obligations.", ("owner-with-obligations",)),
+    ("owner-fact-scope", "Private facts cannot be attached to a non-owner disposition.", ("owner-fact-without-disposition",)),
+    ("owner-recognition", "An admitted owner-private disposition cannot be ignored before a gap.", ("owner-disposition",)),
+    ("review-obligation-form", "No-obligations is empty; obligations is nonempty.", ("none-with-obligations", "required-without-obligations")),
+    ("obligations-unique", "Duplicate obligation IDs cannot be silently deduplicated.", ("duplicate-obligation",)),
+    ("parts-unique", "Part IDs are unique per obligation.", ("duplicate-part",)),
+    ("part-bytes", "Every required part needs its separately checked complete bytes.", ("missing-part-bytes",)),
+    ("mapping-unique", "Duplicate mappings conflict independently of tuple coverage.", ("duplicate-mapping",)),
+    ("mapping-parts", "Unknown part/obligation mappings cannot be ignored.", ("extra-mapping-part", "extra-mapping-obligation")),
+    ("mapping-subjects", "Unknown or unassessed-version mapping subjects cannot be ignored.", ("out-of-inventory-mapping", "out-of-version-mapping")),
+    ("mapping-document", "An omitted mapping document is not a captured empty mapping.", ("omitted-empty-mapping",)),
+    ("mapping-state", "Mapping admission must be captured even for an empty surface.", ("mapping-state",)),
+    ("aggregate-unique", "Accepted aggregate records have unique paths.", ("duplicate-aggregate",)),
+    ("aggregate-bindings", "All accepted aggregate paths/digests match inspected root entries.", ("aggregate-digest", "aggregate-path")),
+    ("absent-shape", "Absence requires null evidence, zero range and actual observed absence.", ("absent-present-path", "absent-entry-reference", "absent-offset", "absent-length")),
+    ("entry-reference", "Non-absent mappings need an explicit checked entry reference.", ("missing-entry-reference",)),
+    ("entry-presence", "A claimed represented packaged entry must actually exist.", ("missing-packaged-entry",)),
+    ("entry-bytes", "Selected entry bytes must be separately retained, not inferred from the root.", ("missing-entry-bytes",)),
+    ("entry-range", "A full-entry mapping requires zero offset and full retained length.", ("entry-offset", "entry-length")),
+    ("aggregate-segment", "Aggregate offsets/lengths must select exactly the complete required bytes.", ("aggregate-offset", "aggregate-length")),
+    ("partial-proper-length", "A partial representation is strictly shorter, not an exact/full representation.", ("partial-exact",)),
+    ("partial-content", "Short unrelated text is not a retained prefix and cannot manufacture a gap.", ("partial-unrelated",)),
+    ("partial-nonempty", "Entry minimum length and the strict-prefix predicate both exclude empty partial text.", ("partial-empty",)),
+    ("extra-evidence", "Unused checked evidence roles conflict.", ("extra-evidence",)),
+    ("review-before-gap", "Unresolved review evidence precedes an otherwise supported gap.", ("reviews-before-gap",)),
+    ("schema-version", "Normalized documents use schema version one.", ("schema-version",)),
+    ("packet-protocol", "Only the canonical notice-coverage-v1 protocol is accepted.", ("packet-protocol",)),
+    ("capture-profiles", "Each admission component uses its accepted observation/review profile.", ("capture-profile",)),
+    ("scope-nonempty", "Assessment cannot select zero TFMs.", ("empty-assessment",)),
+    ("scope-unique", "Assessment TFMs are unique, even when graphs agree with duplicates.", ("duplicate-assessment",)),
+    ("asset-scope", "Bundled inventory always covers all root entries, not a caller-selected subset.", ("partial-asset-scope",)),
+    ("json-byte-limit", "Each normalized document fits the 65536-byte limit.", ("json-byte-limit",)),
+    ("archive-byte-limit", "Root/dependency archive bytes fit the 8 MiB limit.", ("archive-byte-limit",)),
+    ("asset-byte-limit", "Separately retained asset bytes fit the 1 MiB limit.", ("asset-byte-limit",)),
+    ("aggregate-byte-limit", "All checked bytes together fit the 64 MiB limit.", ("aggregate-byte-limit",)),
+    ("root-entry-limit", "The full all-entry inventory fits the 128-entry profile.", ("root-entry-limit",)),
+)
+
+# Additional witnesses exercise existing guard families without duplicating registrations.
+EXTRA_WITNESSES = (
+    ("root-identity", ("observed-root-id",)),
+    ("dependency-identity-binding", ("observed-dependency-id",)),
+    ("document-digests", ("packet-assets", "packet-reviews", "packet-mapping")),
+    ("successful-captures", ("asset-capture-unavailable",)),
+    ("review-disposition", ("unsupported-only", "unresolved-only")),
+    ("mapping-equality", ("missing-subject-mapping", "missing-obligation-mapping", "missing-part-mapping")),
+)
+CRITICAL_GUARDS += (
+    "reviews-document", "document-roots", "admission-scope-binding", "admission-packet-binding",
+    "admission-document-bindings", "tfm-scope", "graph-unique-nodes", "graph-unique-direct",
+    "graph-unique-adjacency", "graph-edge-limit", "graph-edge-membership", "graph-reachability",
+    "graph-version-uniqueness", "inventory-equality", "inventory-unique", "entry-inventory-unique",
+    "entry-inventory-digests", "asset-inventory-unique", "entry-subject-unique", "entry-kind-subjects",
+    "asset-entry-unique", "asset-inventory-equality", "dependency-key", "dependency-role",
+    "dependency-safety", "dependency-digest", "asset-key", "asset-role", "asset-entry-binding",
+    "asset-checked-digest", "reviews-unique", "reviews-inventory", "reviews-coverage", "reviews-state",
+    "review-basis", "evidence-path", "evidence-digest", "evidence-role", "owner-fact",
+    "owner-empty-obligations", "owner-fact-scope", "owner-recognition", "review-obligation-form",
+    "obligations-unique", "parts-unique", "part-bytes", "mapping-unique", "mapping-parts",
+    "mapping-subjects", "mapping-document", "mapping-state", "aggregate-unique", "aggregate-bindings",
+    "absent-shape", "entry-reference", "entry-presence", "entry-bytes", "entry-range",
+    "aggregate-segment", "partial-proper-length", "partial-content", "partial-nonempty", "extra-evidence",
+    "review-before-gap", "schema-version", "packet-protocol", "capture-profiles", "scope-nonempty",
+    "scope-unique", "asset-scope", "json-byte-limit", "archive-byte-limit", "asset-byte-limit",
+    "aggregate-byte-limit", "root-entry-limit",
+)
+WEAKENED_RULES = {case[3] for case in CASES if case[3]} | {item[2] for item in FIXED_PROBES}
 DOC_ROLES = {
     "dependencies": "dependency-inventory", "assets": "asset-inventory",
     "reviews": "obligation-reviews", "mapping": "notice-mapping",
@@ -167,7 +403,8 @@ def array(value, maximum=64):
 
 
 def document(data, weakened=None):
-    require(len(data) <= 65536 and not data.startswith(b"\xef\xbb\xbf"), "document-limit-or-bom")
+    require((weakened == "json-byte-limit" or len(data) <= 65536) and
+            not data.startswith(b"\xef\xbb\xbf"), "document-limit-or-bom")
 
     def pairs(items):
         result = {}
@@ -228,30 +465,35 @@ def shapes(docs, checked, weakened):
         require(role in BASE_ROLES or re.fullmatch(r"(?:dependency|asset|reference|entry)-[0-9]{3}", role) is not None,
                 "unknown-role")
         if role == "package" or role.startswith("dependency-") and role != "dependency-inventory":
-            require(0 < len(data) <= 8 * 1024 * 1024, "archive-limit")
+            require(0 < len(data) and (weakened == "archive-byte-limit" or len(data) <= 8 * 1024 * 1024), "archive-limit")
         elif role.startswith(("reference-", "entry-", "asset-")) and role != "asset-inventory":
             limit = 1024 * 1024 if role.startswith("asset-") else 16384
-            require(0 < len(data) and (len(data) <= limit or weakened == "retained-byte-limit"), "retained-byte-limit")
+            empty_partial = weakened == "partial-nonempty" and role.startswith("entry-") and not data
+            require((0 < len(data) or empty_partial) and
+                    (len(data) <= limit or weakened == "retained-byte-limit"), "retained-byte-limit")
             if not role.startswith("asset-"):
-                require(not data.startswith(b"\xef\xbb\xbf") and data.decode("utf-8").strip(), "retained-text")
-    require(sum(len(data) for _, data in checked.values()) <= 64 * 1024 * 1024, "total-byte-limit")
+                require(empty_partial or not data.startswith(b"\xef\xbb\xbf") and data.decode("utf-8").strip(), "retained-text")
+    require(weakened == "aggregate-byte-limit" or sum(len(data) for _, data in checked.values()) <= 64 * 1024 * 1024,
+            "total-byte-limit")
     for name, doc in docs.items():
         if doc is None:
             continue
-        require(type(doc) is dict and type(doc.get("schema_version")) is int and doc["schema_version"] == 1, "schema-version")
+        require(type(doc) is dict and type(doc.get("schema_version")) is int and
+                (weakened == "schema-version" or doc["schema_version"] == 1), "schema-version")
         if name != "obligation-reviews" and name != "notice-mapping":
             identity(doc["root"], weakened)
     scope = docs["assessment"]
     fields(scope, "schema_version root target_frameworks asset_scope", weakened)
     array(scope["target_frameworks"], 4)
-    require(scope["target_frameworks"] and len(set(scope["target_frameworks"])) == len(scope["target_frameworks"])
-            and scope["asset_scope"] == "all-root-package-entries", "assessment-scope")
+    require((weakened == "scope-nonempty" or scope["target_frameworks"]) and
+            (weakened == "scope-unique" or len(set(scope["target_frameworks"])) == len(scope["target_frameworks"])) and
+            (weakened == "asset-scope" or scope["asset_scope"] == "all-root-package-entries"), "assessment-scope")
     for tfm in scope["target_frameworks"]:
         token(tfm)
     packet = docs["notice-coverage"]
     if packet is not None:
         fields(packet, "schema_version protocol root assessment_sha256 dependencies assets reviews mapping admission_sha256", weakened)
-        require(packet["protocol"] == "notice-coverage-v1", "packet-protocol")
+        require(weakened == "packet-protocol" or packet["protocol"] == "notice-coverage-v1", "packet-protocol")
         sha(packet["assessment_sha256"])
         sha(packet["admission_sha256"])
         for field in DOC_ROLES:
@@ -265,7 +507,7 @@ def shapes(docs, checked, weakened):
         for name in DOC_ROLES:
             item = admission[name]
             fields(item, "profile sha256 reference authority_reference state aggregates", weakened)
-            require(item["profile"] == {
+            require(weakened == "capture-profiles" or item["profile"] == {
                 "dependencies": "resolved-target-capture/1", "assets": "all-root-entry-capture/1",
                 "reviews": "whole-subject-obligations/1", "mapping": "exhaustive-notice-mapping/1",
             }[name], "capture-profile")
@@ -295,7 +537,8 @@ def shapes(docs, checked, weakened):
             array(target["direct"])
             array(target["nodes"])
             require(type(target["node_count"]) is int and 0 <= target["node_count"] <= 64 and
-                    type(target["edge_count"]) is int and 0 <= target["edge_count"] <= 128, "graph-count-limit")
+                    type(target["edge_count"]) is int and 0 <= target["edge_count"] and
+                    (target["edge_count"] <= 128 or weakened == "graph-edge-limit"), "graph-count-limit")
             for node in target["nodes"]:
                 fields(node, "key dependencies", weakened)
                 text(node["key"], 128)
@@ -312,7 +555,7 @@ def shapes(docs, checked, weakened):
     assets = docs["asset-inventory"]
     if assets is not None:
         fields(assets, "schema_version root entries assets", weakened)
-        array(assets["entries"], 128)
+        array(assets["entries"], len(assets["entries"]) if weakened == "root-entry-limit" else 128)
         array(assets["assets"])
         for entry in assets["entries"]:
             fields(entry, "path sha256 kind subjects", weakened)
@@ -370,7 +613,7 @@ def shapes(docs, checked, weakened):
 
 def classify(checked, weakened=None):
     """Only construction-time archive observations are used; arbitrary archives are not classified."""
-    require(weakened is None or weakened in {case[3] for case in CASES if case[3]}, "unknown-mutation")
+    require(weakened is None or weakened in WEAKENED_RULES, "unknown-mutation")
     if "package" not in checked:
         return "missing-package"
     if "assessment" not in checked:
@@ -395,73 +638,82 @@ def classify(checked, weakened=None):
     if packet is None or admission is None or any(docs[DOC_ROLES[key]] is None for key in ("dependencies", "assets")):
         return "evidence-missing"
     for doc in (packet, admission, docs["dependency-inventory"], docs["asset-inventory"]):
-        if doc["root"] != scope["root"]:
+        if weakened != "document-roots" and doc["root"] != scope["root"]:
             return "binding-conflict"
     if weakened != "scope-digest" and packet["assessment_sha256"] != checked["assessment"][0]["sha256"]:
         return "binding-conflict"
-    if admission["assessment_sha256"] != checked["assessment"][0]["sha256"] or packet["admission_sha256"] != checked["admission"][0]["sha256"]:
+    if (weakened != "admission-scope-binding" and admission["assessment_sha256"] != checked["assessment"][0]["sha256"] or
+            weakened != "admission-packet-binding" and packet["admission_sha256"] != checked["admission"][0]["sha256"]):
         return "binding-conflict"
     for name, role in DOC_ROLES.items():
         actual = checked[role][0]["sha256"] if role in checked else None
-        if ((weakened != "document-digests" and packet[name] != actual) or admission[name]["sha256"] != actual):
+        if ((weakened != "document-digests" and packet[name] != actual) or
+                weakened != "admission-document-bindings" and admission[name]["sha256"] != actual):
             return "binding-conflict"
     deps, assets = docs["dependency-inventory"], docs["asset-inventory"]
     if weakened != "capture-success" and any(admission[name]["state"] != "captured" for name in ("dependencies", "assets")):
         return "inventories-unresolved"
-    if (sorted(target["tfm"] for target in deps["targets"]) != sorted(scope["target_frameworks"]) or
+    if (weakened != "tfm-scope" and sorted(target["tfm"] for target in deps["targets"]) != sorted(scope["target_frameworks"]) or
             weakened != "graph-diagnostics" and deps["unresolved"]):
         return "inventories-unresolved"
     union = set()
     for target in deps["targets"]:
         nodes = {item["key"]: item["dependencies"] for item in target["nodes"]}
         edges = target["direct"] + [edge for outgoing in nodes.values() for edge in outgoing]
-        if (len(nodes) != len(target["nodes"]) or len(set(target["direct"])) != len(target["direct"]) or
-                any(len(set(outgoing)) != len(outgoing) for outgoing in nodes.values()) or
-                len(edges) > 128 or any(edge not in nodes for edge in edges) or
-                len({key.split("/")[0] for key in nodes}) != len(nodes)):
+        if (weakened != "graph-unique-nodes" and len(nodes) != len(target["nodes"]) or
+                weakened != "graph-unique-direct" and len(set(target["direct"])) != len(target["direct"]) or
+                weakened != "graph-unique-adjacency" and any(len(set(outgoing)) != len(outgoing) for outgoing in nodes.values()) or
+                weakened != "graph-edge-limit" and len(edges) > 128 or
+                weakened != "graph-edge-membership" and any(edge not in nodes for edge in edges) or
+                weakened != "graph-version-uniqueness" and len({key.split("/")[0] for key in nodes}) != len(nodes)):
             return "inventories-unresolved"
         reached, pending = set(), list(target["direct"])
         while pending:
             key = pending.pop()
+            if weakened == "graph-edge-membership" and key not in nodes:
+                continue
             if key not in reached:
                 reached.add(key)
                 pending.extend(nodes[key])
-        if reached != set(nodes) or weakened != "graph-counts" and (
+        if weakened != "graph-reachability" and reached != set(nodes) or weakened != "graph-counts" and (
                 target["node_count"] != len(nodes) or target["edge_count"] != len(edges)):
             return "inventories-unresolved"
         union.update(nodes)
     packages = {item["key"]: item for item in deps["packages"]}
-    if len(union) > 64 or set(packages) != union or len(packages) != len(deps["packages"]):
+    if (len(union) > 64 or weakened != "inventory-equality" and set(packages) != union or
+            weakened != "inventory-unique" and len(packages) != len(deps["packages"])):
         return "inventories-unresolved"
     observed_entries = root["entries"]
     entry_map = {item["path"]: item for item in assets["entries"]}
-    if len(entry_map) != len(assets["entries"]):
+    if weakened != "entry-inventory-unique" and len(entry_map) != len(assets["entries"]):
         return "inventories-unresolved"
     if weakened != "all-root-entries" and set(entry_map) != set(observed_entries):
         return "inventories-unresolved"
-    if any(path not in observed_entries or item["sha256"] != digest(observed_entries[path]) for path, item in entry_map.items()):
+    if weakened != "entry-inventory-digests" and any(
+            path not in observed_entries or item["sha256"] != digest(observed_entries[path]) for path, item in entry_map.items()):
         return "binding-conflict"
     if weakened != "asset-classification" and any(item["kind"] == "unresolved" for item in entry_map.values()):
         return "inventories-unresolved"
     asset_map = {item["key"]: item for item in assets["assets"]}
-    if len(asset_map) != len(assets["assets"]):
+    if weakened != "asset-inventory-unique" and len(asset_map) != len(assets["assets"]):
         return "inventories-unresolved"
     classified = {}
     for item in entry_map.values():
-        if len(set(item["subjects"])) != len(item["subjects"]) or (
-                item["kind"] == "third-party") != bool(item["subjects"]):
+        if (weakened != "entry-subject-unique" and len(set(item["subjects"])) != len(item["subjects"]) or
+                weakened != "entry-kind-subjects" and (item["kind"] == "third-party") != bool(item["subjects"])):
             return "inventories-unresolved"
         for subject in item["subjects"]:
-            if subject in classified:
+            if subject in classified and weakened not in ("entry-subject-unique", "asset-entry-unique"):
                 return "inventories-unresolved"
             classified[subject] = item["path"]
-    if set(classified) != set(asset_map):
+    if weakened != "asset-inventory-equality" and set(classified) != set(asset_map):
         return "inventories-unresolved"
     subjects, used, missing = {}, set(BASE_ROLES) & set(checked), False
     for index, key in enumerate(sorted(packages)):
         item = packages[key]
         ident, role = item["identity"], item["role"]
-        if key != f"{ident['id']}/{ident['version']}" or role != f"dependency-{index:03d}":
+        if (weakened != "dependency-key" and key != f"{ident['id']}/{ident['version']}" or
+                weakened != "dependency-role" and role != f"dependency-{index:03d}"):
             return "binding-conflict"
         subjects["dependency:" + key] = ident["sha256"]
         used.add(role)
@@ -471,15 +723,16 @@ def classify(checked, weakened=None):
                 return "subject-bytes-missing"
             continue
         fact = FACTS.get(digest(checked[role][1]))
-        if fact is None or fact["duplicates"] or fact["aliases"] or not fact["safe"]:
+        if fact is None or weakened != "dependency-safety" and (fact["duplicates"] or fact["aliases"] or not fact["safe"]):
             return "input-invalid"
-        if (checked[role][0]["sha256"] != ident["sha256"] or weakened != "dependency-identity-binding" and
+        if (weakened != "dependency-digest" and checked[role][0]["sha256"] != ident["sha256"] or weakened != "dependency-identity-binding" and
                 any(ident[field] != fact["identity"][field] for field in ("id", "version"))):
             return "binding-conflict"
     for index, key in enumerate(sorted(asset_map)):
         item = asset_map[key]
-        if (not key.startswith("asset:") or item["role"] != f"asset-{index:03d}" or
-                classified[key] != item["package_entry"]):
+        if (weakened != "asset-key" and not key.startswith("asset:") or
+                weakened != "asset-role" and item["role"] != f"asset-{index:03d}" or
+                weakened != "asset-entry-binding" and classified[key] != item["package_entry"]):
             return "binding-conflict"
         if weakened != "asset-source-binding" and item["sha256"] != digest(observed_entries[item["package_entry"]]):
             return "binding-conflict"
@@ -487,22 +740,34 @@ def classify(checked, weakened=None):
         used.add(item["role"])
         if item["role"] not in checked:
             missing = True
-        elif checked[item["role"]][0]["sha256"] != item["sha256"]:
+        elif weakened != "asset-checked-digest" and checked[item["role"]][0]["sha256"] != item["sha256"]:
             return "binding-conflict"
     reviews_doc = docs["obligation-reviews"]
     reviews = {item["subject"]: item for item in reviews_doc["reviews"]} if reviews_doc else {}
-    if len(reviews) != (len(reviews_doc["reviews"]) if reviews_doc else 0) or not set(reviews) <= set(subjects):
+    if (weakened != "reviews-unique" and len(reviews) != (len(reviews_doc["reviews"]) if reviews_doc else 0) or
+            weakened != "reviews-inventory" and not set(reviews) <= set(subjects)):
         return "binding-conflict"
-    review_unresolved = (set(reviews) != set(subjects) or admission["reviews"]["state"] != "captured")
+    if weakened == "reviews-inventory":
+        reviews = {key: value for key, value in reviews.items() if key in subjects}
+    review_unresolved = (
+        weakened != "reviews-document" and reviews_doc is None or
+        weakened != "reviews-coverage" and set(reviews) != set(subjects) or
+        weakened != "reviews-state" and admission["reviews"]["state"] != "captured")
     owner = False
     parts = {}
 
     def evidence_bytes(evidence):
         used.add(evidence["role"])
         if evidence["role"] not in checked:
+            if weakened == "evidence-role":
+                for pin, data in checked.values():
+                    if pin["path"] == evidence["path"] and pin["sha256"] == evidence["sha256"]:
+                        used.add(pin["role"])
+                        return data
             return None
         pin, data = checked[evidence["role"]]
-        require(pin == evidence, "binding-conflict")
+        require((weakened == "evidence-path" or pin["path"] == evidence["path"]) and
+                (weakened == "evidence-digest" or pin["sha256"] == evidence["sha256"]), "binding-conflict")
         return data
 
     try:
@@ -513,52 +778,66 @@ def classify(checked, weakened=None):
             disposition = review["disposition"]
             if weakened == "all-tfm-versions" and subject == "dependency:sample.a/2.0.0":
                 disposition = "obligations"
-            if basis is None or disposition in ("unresolved", "unsupported") and weakened != "review-disposition":
+            if (basis is None and weakened != "review-basis" or
+                    disposition in ("unresolved", "unsupported") and weakened != "review-disposition"):
                 review_unresolved = True
             if disposition == "owner-private":
                 # The retained basis and admission prevalidation establish necessity, not owner access.
-                if basis is None or not review["owner_fact"] or review["obligations"]:
+                if (basis is None and weakened != "review-basis" or
+                        weakened != "owner-fact" and not review["owner_fact"] or
+                        weakened != "owner-empty-obligations" and review["obligations"]):
                     review_unresolved = True
                 else:
-                    owner = True
-            elif review["owner_fact"] is not None:
+                    owner = weakened != "owner-recognition"
+            elif weakened != "owner-fact-scope" and review["owner_fact"] is not None:
                 return "binding-conflict"
-            if (disposition == "no-obligations" and review["obligations"] or
+            if weakened != "review-obligation-form" and (
+                    disposition == "no-obligations" and review["obligations"] or
                     disposition == "obligations" and not review["obligations"]):
                 return "binding-conflict"
             obligation_ids = set()
-            for obligation in review["obligations"]:
+            obligations = review["obligations"]
+            if weakened == "obligations-unique":
+                obligations = list({item["id"]: item for item in obligations}.values())
+            for obligation in obligations:
                 if obligation["id"] in obligation_ids:
                     return "binding-conflict"
                 obligation_ids.add(obligation["id"])
                 for part in obligation["parts"]:
                     key = (subject, obligation["id"], part["id"])
-                    if key in parts:
+                    if weakened != "parts-unique" and key in parts:
                         return "binding-conflict"
                     parts[key] = evidence_bytes(part["evidence"])
-                    if parts[key] is None:
+                    if weakened != "part-bytes" and parts[key] is None:
                         review_unresolved = True
         mapping_doc = docs["notice-mapping"]
         mappings = {(item["subject"], item["obligation"], item["part"]): item
                     for item in mapping_doc["mappings"]} if mapping_doc else {}
         unknown_parts = {key for key in mappings if key not in parts and key[0] in reviews}
-        if (len(mappings) != (len(mapping_doc["mappings"]) if mapping_doc else 0) or unknown_parts or
-                any(key[0] not in subjects for key in mappings)):
+        if (weakened != "mapping-unique" and len(mappings) != (len(mapping_doc["mappings"]) if mapping_doc else 0) or
+                weakened != "mapping-parts" and unknown_parts or
+                weakened != "mapping-subjects" and any(key[0] not in subjects for key in mappings)):
             return "binding-conflict"
-        mapping_unresolved = (mapping_doc is None or admission["mapping"]["state"] != "captured" or
+        if weakened == "mapping-parts":
+            mappings = {key: value for key, value in mappings.items() if key in parts}
+        if weakened == "mapping-subjects":
+            mappings = {key: value for key, value in mappings.items() if key[0] in subjects}
+        mapping_unresolved = (weakened != "mapping-document" and mapping_doc is None or
+                              weakened != "mapping-state" and admission["mapping"]["state"] != "captured" or
                               weakened != "mapping-equality" and set(mappings) != set(parts))
         accepted = {item["path"]: item["sha256"] for item in admission["mapping"]["aggregates"]}
-        if len(accepted) != len(admission["mapping"]["aggregates"]):
+        if weakened != "aggregate-unique" and len(accepted) != len(admission["mapping"]["aggregates"]):
             return "binding-conflict"
         for path, expected_sha in accepted.items():
-            if path not in observed_entries or digest(observed_entries[path]) != expected_sha:
+            if weakened != "aggregate-bindings" and (path not in observed_entries or digest(observed_entries[path]) != expected_sha):
                 return "binding-conflict"
         gap = False
         for key, item in mappings.items():
             packaged = observed_entries.get(item["package_entry"])
             mode = item["mode"]
             if mode == "absent":
-                if item["entry"] is not None or item["offset"] != 0 or item["length"] != 0 or packaged is not None:
+                if weakened != "absent-shape" and (
+                        item["entry"] is not None or item["offset"] != 0 or item["length"] != 0 or packaged is not None):
                     return "binding-conflict"
                 if weakened == "absence-is-unresolved":
                     mapping_unresolved = True
@@ -566,16 +845,22 @@ def classify(checked, weakened=None):
                     gap = True
                 continue
             if item["entry"] is None:
-                mapping_unresolved = True
-                continue
-            retained = evidence_bytes(item["entry"])
-            if packaged is None or weakened != "entry-source-binding" and (
-                    digest(packaged) != item["entry"]["sha256"]):
+                if weakened != "entry-reference" or packaged is None:
+                    mapping_unresolved = True
+                    continue
+                retained = packaged
+            else:
+                retained = evidence_bytes(item["entry"])
+            if (weakened != "entry-presence" and packaged is None or
+                    packaged is not None and item["entry"] is not None and weakened != "entry-source-binding"
+                    and digest(packaged) != item["entry"]["sha256"]):
                 return "binding-conflict"
             if retained is None:
-                mapping_unresolved = True
-                continue
-            if mode != "aggregate" and (item["offset"] != 0 or item["length"] != len(retained)):
+                if weakened != "entry-bytes":
+                    mapping_unresolved = True
+                    continue
+                retained = packaged
+            if weakened != "entry-range" and mode != "aggregate" and (item["offset"] != 0 or item["length"] != len(retained)):
                 return "binding-conflict"
             expected = parts.get(key)
             if expected is None:
@@ -583,10 +868,13 @@ def classify(checked, weakened=None):
             if mode == "aggregate":
                 if weakened != "aggregate-admission" and accepted.get(item["package_entry"]) != item["entry"]["sha256"]:
                     mapping_unresolved = True
-                if retained[item["offset"]:item["offset"] + item["length"]] != expected or item["length"] != len(expected):
+                if weakened != "aggregate-segment" and (
+                        retained[item["offset"]:item["offset"] + item["length"]] != expected or item["length"] != len(expected)):
                     mapping_unresolved = True
             elif mode == "partial":
-                if 0 < len(retained) < len(expected) and expected.startswith(retained):
+                if ((weakened == "partial-nonempty" or 0 < len(retained)) and
+                        (weakened == "partial-proper-length" or len(retained) < len(expected)) and
+                        (weakened == "partial-content" or expected.startswith(retained))):
                     if weakened == "partial-is-unresolved":
                         mapping_unresolved = True
                     else:
@@ -598,11 +886,11 @@ def classify(checked, weakened=None):
     except ValueError as error:
         require(str(error) == "binding-conflict", "unexpected-evidence-error")
         return "binding-conflict"
-    if set(checked) - used:
+    if weakened != "extra-evidence" and set(checked) - used:
         return "binding-conflict"
-    if missing:
+    if weakened != "subject-bytes-required" and missing:
         return "subject-bytes-missing"
-    if review_unresolved:
+    if review_unresolved and not (gap and weakened == "gap-before-review"):
         return "reviews-unresolved"
     if mapping_unresolved and not (gap and weakened == "gap-before-unresolved"):
         return "mapping-unresolved"
@@ -662,6 +950,427 @@ def package(package_id, version, entries):
     }
     FACTS[digest(raw)] = fact
     return raw, fact
+
+
+def fixed_probe(recipe, source, artifacts):
+    """Apply one finite recipe and re-admit every changed outer digest; never write probe bytes."""
+    require(recipe in {item[0] for item in FIXED_PROBES}, "unknown-fixed-recipe")
+    checked = pinned_inputs(source["inputs"], artifacts)
+    values = {role: (copy.deepcopy(pin), data) for role, (pin, data) in checked.items()}
+    docs = {role: document(checked[role][1]) if role in checked else None for role in BASE_ROLES - {"package"}}
+    scope, packet, admission = (docs[role] for role in ("assessment", "notice-coverage", "admission"))
+    deps, assets = docs["dependency-inventory"], docs["asset-inventory"]
+    reviews, mapping = docs["obligation-reviews"], docs["notice-mapping"]
+    bad_packet, bad_admission = {}, {}
+
+    def put(role, data):
+        pin = {"role": role, "path": f"memory/{role}.bin", "sha256": digest(data)}
+        values[role] = (pin, data)
+        return copy.deepcopy(pin)
+
+    def drop(role):
+        values.pop(role, None)
+
+    def evidence(role, data):
+        pin = put(role, data)
+        for review in reviews["reviews"]:
+            if review["basis"]["role"] == role:
+                review["basis"] = copy.deepcopy(pin)
+            for obligation in review["obligations"]:
+                for part in obligation["parts"]:
+                    if part["evidence"]["role"] == role:
+                        part["evidence"] = copy.deepcopy(pin)
+        for item in mapping["mappings"]:
+            if item["entry"] is not None and item["entry"]["role"] == role:
+                item["entry"] = copy.deepcopy(pin)
+        return pin
+
+    def root_entries(changes=None, additions=()):
+        fact = FACTS[digest(values["package"][1])]
+        entries = [(path, (changes or {}).get(path, data)) for path, data in fact["entries"].items()
+                   if path != fact["identity"]["id"] + ".nuspec"]
+        entries.extend(additions)
+        raw, observed = package(fact["identity"]["id"], fact["identity"]["version"], entries)
+        put("package", raw)
+        for doc in (scope, packet, admission, deps, assets):
+            doc["root"] = copy.deepcopy(observed["identity"])
+        previous = {item["path"]: item for item in assets["entries"]}
+        assets["entries"] = [
+            {"path": path, "sha256": digest(data), "kind": previous[path]["kind"] if path in previous else "packaging",
+             "subjects": previous[path]["subjects"] if path in previous else []}
+            for path, data in sorted(observed["entries"].items())
+        ]
+        for path, data in (changes or {}).items():
+            roles = {item["entry"]["role"] for item in mapping["mappings"]
+                     if item["package_entry"] == path and item["entry"] is not None}
+            for role in roles:
+                evidence(role, data)
+            for item in mapping["mappings"]:
+                if item["package_entry"] == path and item["mode"] != "aggregate":
+                    item["length"] = len(data)
+
+    def remove_subject(subject):
+        reviews["reviews"] = [item for item in reviews["reviews"] if item["subject"] != subject]
+        mapping["mappings"] = [item for item in mapping["mappings"] if item["subject"] != subject]
+
+    def add_dependency(package_id, index, payload=b""):
+        version = "1.0.0"
+        license_part = next(part for review in reviews["reviews"] for obligation in review["obligations"]
+                            for part in obligation["parts"] if part["kind"] == "license-text")
+        grant = values[license_part["evidence"]["role"]][1]
+        raw, fact = package(package_id, version, [("LICENSE.txt", grant), ("payload.dat", payload)])
+        role = f"dependency-{index:03d}"
+        put(role, raw)
+        key = package_id + "/" + version
+        deps["packages"].append({"key": key, "identity": copy.deepcopy(fact["identity"]), "role": role})
+        subject = "dependency:" + key
+        basis = put(f"reference-{900 + index:03d}",
+                    f"Fictional retained upstream terms and admitted complete obligation review for {subject}.\n".encode("ascii"))
+        reviews["reviews"].append({
+            "subject": subject, "sha256": digest(raw), "disposition": "obligations", "basis": basis,
+            "obligations": [{"id": "preservation", "parts": [copy.deepcopy(license_part)]}], "owner_fact": None,
+        })
+        template = next(item for item in mapping["mappings"] if item["part"] == license_part["id"])
+        mapping["mappings"].append({**copy.deepcopy(template), "subject": subject, "obligation": "preservation"})
+        return key
+
+    def dependency_archive(kind):
+        item = deps["packages"][0]
+        fact = FACTS[digest(values[item["role"]][1])]
+        entries = [(path, data) for path, data in fact["entries"].items()
+                   if path != fact["identity"]["id"] + ".nuspec"]
+        if kind == "duplicate":
+            entries.append(("LICENSE.txt", fact["entries"]["LICENSE.txt"]))
+        elif kind == "alias":
+            entries.append(("license.txt", b"Fictional alias.\n"))
+        elif kind == "unsafe":
+            entries.append(("../unsafe.txt", b"Fictional unsafe path.\n"))
+        else:
+            entries.append(("additional.txt", b"Different checked archive, same observed identity.\n"))
+        raw, _ = package("sample.different" if kind == "identity-id" else fact["identity"]["id"],
+                         fact["identity"]["version"], entries)
+        put(item["role"], raw)
+        if kind != "digest":
+            item["identity"]["sha256"] = digest(raw)
+            next(review for review in reviews["reviews"] if
+                 review["subject"] == "dependency:" + item["key"])["sha256"] = digest(raw)
+
+    first_review = reviews["reviews"][0] if reviews["reviews"] else None
+    asset_review = next((item for item in reviews["reviews"] if item["subject"].startswith("asset:")), None)
+    notice_map = next((item for item in mapping["mappings"] if item["part"] == "notice"), None)
+    first_map = mapping["mappings"][0] if mapping["mappings"] else None
+    if recipe == "omitted-empty-reviews":
+        docs["obligation-reviews"] = None
+        drop("obligation-reviews")
+    elif recipe in ("packet-root", "admission-root", "dependency-root", "asset-root"):
+        {"packet-root": packet, "admission-root": admission, "dependency-root": deps,
+         "asset-root": assets}[recipe]["root"]["version"] = "9.0.0"
+    elif recipe == "observed-root-id":
+        for doc in (scope, packet, admission, deps, assets):
+            doc["root"]["id"] = "sample.different"
+    elif recipe == "admission-scope":
+        bad_admission["assessment_sha256"] = "0" * 64
+    elif recipe == "admission-digest":
+        bad_packet["admission_sha256"] = "0" * 64
+    elif recipe.startswith("admitted-"):
+        bad_admission[recipe.removeprefix("admitted-")] = "0" * 64
+    elif recipe in ("packet-assets", "packet-reviews", "packet-mapping"):
+        bad_packet[recipe.removeprefix("packet-")] = "0" * 64
+    elif recipe == "asset-capture-unavailable":
+        admission["assets"]["state"] = "unavailable"
+    elif recipe == "target-set":
+        deps["targets"][1]["tfm"] = "net10.0"
+    elif recipe == "duplicate-target":
+        deps["targets"][1]["tfm"] = deps["targets"][0]["tfm"]
+    elif recipe == "duplicate-node":
+        deps["targets"][0]["nodes"].append(copy.deepcopy(deps["targets"][0]["nodes"][-1]))
+    elif recipe == "duplicate-direct":
+        deps["targets"][0]["direct"] *= 2
+    elif recipe == "duplicate-adjacency":
+        deps["targets"][0]["nodes"][0]["dependencies"] *= 2
+    elif recipe in ("edge-limit", "aggregate-byte-limit"):
+        for item in list(deps["packages"]):
+            drop(item["role"])
+            remove_subject("dependency:" + item["key"])
+        deps["packages"] = []
+        count = 16 if recipe == "edge-limit" else 9
+        payload = b"x" * 7700000 if recipe == "aggregate-byte-limit" else b""
+        keys = [add_dependency(f"graph.node{index:02d}", index, payload) for index in range(count)]
+        for target in deps["targets"]:
+            target["direct"] = list(keys)
+            target["nodes"] = [{"key": key, "dependencies": keys[:8] if recipe == "edge-limit" else []}
+                               for key in keys]
+    elif recipe in ("dangling-direct", "dangling-transitive"):
+        edges = deps["targets"][0]["direct"] if recipe == "dangling-direct" else deps["targets"][0]["nodes"][0]["dependencies"]
+        edges.append("sample.missing/1.0.0")
+    elif recipe == "orphan-node":
+        deps["targets"][0]["nodes"][0]["dependencies"] = []
+    elif recipe == "competing-versions":
+        node = copy.deepcopy(deps["targets"][1]["nodes"][0])
+        deps["targets"][0]["nodes"].append(node)
+        deps["targets"][0]["direct"].append(node["key"])
+        for review in reviews["reviews"]:
+            review["disposition"] = "obligations"
+    elif recipe == "missing-package-inventory":
+        item = deps["packages"].pop()
+        drop(item["role"])
+        remove_subject("dependency:" + item["key"])
+    elif recipe == "extra-package-inventory":
+        add_dependency("sample.z", len(deps["packages"]))
+    elif recipe == "duplicate-package-inventory":
+        deps["packages"].append(copy.deepcopy(deps["packages"][0]))
+    elif recipe == "duplicate-entry-inventory":
+        assets["entries"].append(copy.deepcopy(assets["entries"][0]))
+    elif recipe == "entry-inventory-digest":
+        next(item for item in assets["entries"] if item["path"] == "LICENSE.txt")["sha256"] = "0" * 64
+    elif recipe == "duplicate-asset-inventory":
+        assets["assets"].append(copy.deepcopy(assets["assets"][0]))
+    elif recipe == "duplicate-entry-subject":
+        next(item for item in assets["entries"] if item["kind"] == "third-party")["subjects"] *= 2
+    elif recipe in ("unlisted-third-party", "missing-listed-asset"):
+        subject = assets["assets"][0]
+        remove_subject(subject["key"])
+        drop(subject["role"])
+        assets["assets"] = []
+        if recipe == "unlisted-third-party":
+            next(item for item in assets["entries"] if item["kind"] == "third-party")["subjects"] = []
+    elif recipe == "first-party-with-subject":
+        next(item for item in assets["entries"] if item["kind"] == "third-party")["kind"] = "first-party"
+    elif recipe == "repeated-asset-location":
+        path = "wwwroot/aa.js"
+        data = values["asset-000"][1]
+        root_entries(additions=[(path, data)])
+        next(item for item in assets["entries"] if item["path"] == path).update(
+            kind="third-party", subjects=[assets["assets"][0]["key"]])
+    elif recipe == "dependency-key":
+        old = deps["packages"][0]["key"]
+        new = "sample.aaa/1.0.0"
+        deps["packages"][0]["key"] = new
+        for target in deps["targets"]:
+            target["direct"] = [new if key == old else key for key in target["direct"]]
+            for node in target["nodes"]:
+                if node["key"] == old:
+                    node["key"] = new
+                node["dependencies"] = [new if key == old else key for key in node["dependencies"]]
+        for item in reviews["reviews"] + mapping["mappings"]:
+            if item["subject"] == "dependency:" + old:
+                item["subject"] = "dependency:" + new
+    elif recipe in ("dependency-role", "asset-role"):
+        item = deps["packages"][0] if recipe == "dependency-role" else assets["assets"][0]
+        previous, renamed = item["role"], item["role"].split("-")[0] + "-009"
+        pin, data = values.pop(previous)
+        values[renamed] = ({**pin, "role": renamed}, data)
+        item["role"] = renamed
+    elif recipe.startswith("dependency-") and recipe.removeprefix("dependency-") in ("duplicate", "alias", "unsafe", "digest"):
+        dependency_archive(recipe.removeprefix("dependency-"))
+    elif recipe == "observed-dependency-id":
+        dependency_archive("identity-id")
+    elif recipe == "asset-key":
+        old, new = assets["assets"][0]["key"], "vendor:widget"
+        assets["assets"][0]["key"] = new
+        for entry in assets["entries"]:
+            entry["subjects"] = [new if key == old else key for key in entry["subjects"]]
+        for item in reviews["reviews"] + mapping["mappings"]:
+            if item["subject"] == old:
+                item["subject"] = new
+    elif recipe == "asset-entry":
+        path = "wwwroot/other.js"
+        root_entries(additions=[(path, values["asset-000"][1])])
+        assets["assets"][0]["package_entry"] = path
+    elif recipe == "asset-checked-digest":
+        put("asset-000", b"Internally rehashed checked asset with the wrong source bytes.\n")
+    elif recipe == "duplicate-review":
+        reviews["reviews"].append(copy.deepcopy(first_review))
+    elif recipe in ("extra-review", "out-of-version-review"):
+        extra = copy.deepcopy(first_review)
+        extra["subject"] = "dependency:sample.z/1.0.0" if recipe == "extra-review" else "dependency:sample.a/9.0.0"
+        reviews["reviews"].append(extra)
+    elif recipe == "missing-one-review":
+        removed = reviews["reviews"].pop(1)["subject"]
+        mapping["mappings"] = [item for item in mapping["mappings"] if item["subject"] != removed]
+    elif recipe == "review-state":
+        admission["reviews"]["state"] = "unavailable"
+    elif recipe == "no-obligations-missing-basis":
+        drop(first_review["basis"]["role"])
+    elif recipe == "entry-reference-path":
+        first_map["entry"]["path"] = "references/different-retained-path.txt"
+    elif recipe == "basis-reference-path":
+        first_review["basis"]["path"] = "references/different-retained-path.txt"
+    elif recipe == "part-reference-path":
+        first_review["obligations"][0]["parts"][0]["evidence"]["path"] = "references/different-retained-path.txt"
+    elif recipe == "basis-reference-digest":
+        first_review["basis"]["sha256"] = "0" * 64
+    elif recipe == "part-reference-digest":
+        first_review["obligations"][0]["parts"][0]["evidence"]["sha256"] = "0" * 64
+    elif recipe == "entry-reference-role":
+        for item in mapping["mappings"]:
+            if item["entry"] is not None and item["entry"]["role"] == first_map["entry"]["role"]:
+                item["entry"]["role"] = "entry-999"
+        # Omit the claimed role but keep the same bytes under the wrong role.
+        original_role = "entry-000"
+        pin, data = values.pop(original_role)
+        values["entry-999"] = ({**pin, "role": "entry-999"}, data)
+        for item in mapping["mappings"]:
+            if item["entry"] is not None and item["entry"]["role"] == "entry-999":
+                item["entry"]["role"] = original_role
+    elif recipe in ("unsupported-only", "unresolved-only"):
+        asset_review["disposition"] = "unsupported" if recipe == "unsupported-only" else "unresolved"
+    elif recipe == "owner-fact-missing":
+        asset_review["owner_fact"] = None
+    elif recipe == "owner-basis-missing":
+        drop(asset_review["basis"]["role"])
+    elif recipe == "owner-with-obligations":
+        asset_review.update(disposition="owner-private", owner_fact="Only the owner retains the necessary private agreement.")
+    elif recipe == "owner-fact-without-disposition":
+        asset_review["owner_fact"] = "Private fact attached to the wrong disposition."
+    elif recipe == "owner-disposition":
+        pass
+    elif recipe == "none-with-obligations":
+        first_review["disposition"] = "no-obligations"
+    elif recipe == "required-without-obligations":
+        first_review["disposition"] = "obligations"
+    elif recipe == "duplicate-obligation":
+        first_review["obligations"].append(copy.deepcopy(first_review["obligations"][0]))
+    elif recipe == "duplicate-part":
+        first_review["obligations"][0]["parts"].append(copy.deepcopy(first_review["obligations"][0]["parts"][0]))
+    elif recipe == "missing-part-bytes":
+        drop(first_review["obligations"][0]["parts"][0]["evidence"]["role"])
+    elif recipe == "duplicate-mapping":
+        mapping["mappings"].append(copy.deepcopy(first_map))
+    elif recipe in ("extra-mapping-part", "extra-mapping-obligation", "out-of-inventory-mapping", "out-of-version-mapping"):
+        extra = copy.deepcopy(first_map)
+        if recipe == "extra-mapping-part":
+            extra["part"] = "unknown"
+        elif recipe == "extra-mapping-obligation":
+            extra["obligation"] = "unknown"
+        else:
+            extra["subject"] = "dependency:sample.z/1.0.0" if recipe == "out-of-inventory-mapping" else "dependency:sample.a/9.0.0"
+        mapping["mappings"].append(extra)
+    elif recipe == "omitted-empty-mapping":
+        docs["notice-mapping"] = None
+        drop("notice-mapping")
+    elif recipe == "mapping-state":
+        admission["mapping"]["state"] = "unavailable"
+    elif recipe == "missing-subject-mapping":
+        mapping["mappings"] = [item for item in mapping["mappings"] if item["subject"] != asset_review["subject"]]
+    elif recipe == "missing-obligation-mapping":
+        obligation = first_review["obligations"][0]
+        part = obligation["parts"].pop()
+        first_review["obligations"].append({"id": "second", "parts": [part]})
+        for item in mapping["mappings"]:
+            if item["subject"] == first_review["subject"] and item["part"] == part["id"]:
+                item["obligation"] = "second"
+        mapping["mappings"] = [item for item in mapping["mappings"] if
+                               (item["subject"], item["obligation"]) != (first_review["subject"], obligation["id"])]
+    elif recipe == "missing-part-mapping":
+        mapping["mappings"].remove(notice_map)
+    elif recipe in ("duplicate-aggregate", "aggregate-digest", "aggregate-path"):
+        aggregate = {"path": "LICENSE.txt", "sha256": digest(FACTS[digest(values["package"][1])]["entries"]["LICENSE.txt"])}
+        if recipe == "aggregate-digest":
+            aggregate["sha256"] = "0" * 64
+        if recipe == "aggregate-path":
+            aggregate["path"] = "notices/not-packaged.txt"
+        admission["mapping"]["aggregates"] = [aggregate, copy.deepcopy(aggregate)] if recipe == "duplicate-aggregate" else [aggregate]
+    elif recipe == "absent-present-path":
+        notice_map.update(mode="absent", entry=None, offset=0, length=0)
+    elif recipe == "absent-entry-reference":
+        notice_map["entry"] = copy.deepcopy(first_map["entry"])
+    elif recipe == "absent-offset":
+        notice_map["offset"] = 1
+    elif recipe == "absent-length":
+        notice_map["length"] = 1
+    elif recipe == "missing-entry-reference":
+        notice_map["entry"] = None
+    elif recipe == "missing-packaged-entry":
+        notice_map["package_entry"] = "notices/not-packaged.txt"
+    elif recipe == "missing-entry-bytes":
+        drop(notice_map["entry"]["role"])
+    elif recipe == "entry-offset":
+        notice_map["offset"] = 1
+    elif recipe == "entry-length":
+        notice_map["length"] -= 1
+    elif recipe == "aggregate-offset":
+        first_map["offset"] += 1
+    elif recipe == "aggregate-length":
+        first_map["length"] -= 1
+    elif recipe == "partial-exact":
+        notice_map["mode"] = "partial"
+    elif recipe in ("partial-unrelated", "partial-empty"):
+        root_entries(changes={notice_map["package_entry"]: b"UNRELATED" if recipe == "partial-unrelated" else b""})
+        notice_map["mode"] = "partial"
+    elif recipe == "extra-evidence":
+        put("reference-999", b"Unused checked evidence must not be silently ignored.\n")
+    elif recipe == "reviews-before-gap":
+        asset_review["disposition"] = "unresolved"
+    elif recipe == "schema-version":
+        packet["schema_version"] = 2
+    elif recipe == "packet-protocol":
+        packet["protocol"] = "caller-asserted-notice-v1"
+    elif recipe == "capture-profile":
+        admission["reviews"]["profile"] = "caller-asserted/1"
+    elif recipe == "empty-assessment":
+        scope["target_frameworks"] = []
+        deps["targets"] = []
+    elif recipe == "duplicate-assessment":
+        scope["target_frameworks"] = ["net8.0", "net8.0"]
+        deps["targets"][1]["tfm"] = "net8.0"
+    elif recipe == "partial-asset-scope":
+        scope["asset_scope"] = "selected-runtime-files-only"
+    elif recipe == "json-byte-limit":
+        pass
+    elif recipe == "archive-byte-limit":
+        root_entries(additions=[("padding.dat", b"x" * (8 * 1024 * 1024))])
+    elif recipe == "asset-byte-limit":
+        data = b"x" * (1024 * 1024 + 1)
+        root_entries(changes={assets["assets"][0]["package_entry"]: data})
+        put("asset-000", data)
+        assets["assets"][0]["sha256"] = asset_review["sha256"] = digest(data)
+    elif recipe == "root-entry-limit":
+        root_entries(additions=[(f"padding-{index:03d}.txt", b"x") for index in range(127)])
+    else:
+        raise ValueError("unimplemented-fixed-recipe: " + recipe)
+
+    for target in deps["targets"]:
+        nodes = {item["key"]: item["dependencies"] for item in target["nodes"]}
+        target["node_count"] = len(nodes)
+        target["edge_count"] = len(target["direct"]) + sum(len(edges) for edges in nodes.values())
+    referenced = set()
+    if docs["obligation-reviews"] is not None:
+        for review in reviews["reviews"]:
+            referenced.add(review["basis"]["role"])
+            referenced.update(part["evidence"]["role"] for obligation in review["obligations"] for part in obligation["parts"])
+    if docs["notice-mapping"] is not None:
+        referenced.update(item["entry"]["role"] for item in mapping["mappings"] if item["entry"] is not None)
+    for role in list(values):
+        if role.startswith(("entry-", "reference-")) and role not in referenced and recipe not in ("extra-evidence", "entry-reference-role"):
+            drop(role)
+    for role in ("assessment", *DOC_ROLES.values()):
+        if docs[role] is not None:
+            data = encoded(docs[role])
+            if recipe == "json-byte-limit" and role == "assessment":
+                data += b" " * (65537 - len(data))
+            put(role, data)
+    admission["assessment_sha256"] = values["assessment"][0]["sha256"]
+    for label, role in DOC_ROLES.items():
+        admission[label]["sha256"] = values[role][0]["sha256"] if role in values else None
+    for key, value in bad_admission.items():
+        if key == "assessment_sha256":
+            admission[key] = value
+        else:
+            admission[key]["sha256"] = value
+    put("admission", encoded(admission))
+    packet["assessment_sha256"] = values["assessment"][0]["sha256"]
+    packet["admission_sha256"] = values["admission"][0]["sha256"]
+    for label, role in DOC_ROLES.items():
+        packet[label] = values[role][0]["sha256"] if role in values else None
+    packet.update(bad_packet)
+    put("notice-coverage", encoded(packet))
+    inputs = [pin for role, (pin, _) in sorted(values.items())]
+    buffers = {}
+    for pin, data in values.values():
+        require(pin["path"] not in buffers or buffers[pin["path"]] == data, "probe-buffer-alias")
+        buffers[pin["path"]] = data
+    return pinned_inputs(inputs, buffers)
 
 
 def build():
@@ -937,14 +1646,14 @@ def build():
                          "evidence_pointers": expected["evidence_references"]})
     artifacts["acceptance.json"] = encoded({"schema_version": 1, "cases": retained})
     artifacts["retained-inputs.json"] = encoded({"schema_version": 1, "vendors": vendors})
-    witnesses = [{"guard_id": guard, "case_id": "lp04-" + name, "kind": "weakened-rule" if mutation else "existing-branch",
-                  "weakened_rule": mutation, "normal_branch": branch, "wrong_branch": wrong, "rule": rationale}
-                 for name, branch, guard, mutation, wrong, rationale in CASES]
-    witnesses.extend({"guard_id": item["guard_id"], "case_id": item["case_id"], "kind": "loader",
-                      "expected_rejection": item["expected_rejection"]} for item in controls)
-    witnesses.extend({"guard_id": "retained-" + vendor["vendor"], "case_id": case["case_id"],
-                      "kind": "optional-retained", "normal_branch": "scope-missing"} for vendor, case in zip(vendors, retained))
-    artifacts["discrimination.json"] = encoded({"schema_version": 1, "guard_inventory": list(CRITICAL_GUARDS), "witnesses": witnesses})
+    spec = discrimination_spec(controls, vendors, retained)
+    artifacts["discrimination.json"] = encoded(spec)
+    table = "\n".join(
+        ["| Guard ID | Registered witness IDs |", "|---|---|"] +
+        [f"| `{item['guard_id']}` | " + ", ".join(f"`{name}`" for name in item["witness_ids"]) + " |"
+         for item in spec["guard_inventory"]])
+    require(table.encode("ascii") in (ROOT / "README.md").read_bytes().replace(b"\r\n", b"\n"),
+            "contract-guard-table-mismatch")
     # Discard intermediate content-addressed artifacts no final expectation actually references.
     needed = {pin["path"] for case in cases for pin in case["inputs"]}
     artifacts = {path: data for path, data in artifacts.items() if not path.startswith(
@@ -952,16 +1661,29 @@ def build():
     index = [{"path": path, "size_bytes": len(data), "sha256": digest(data)} for path, data in sorted(artifacts.items())
              if path.startswith(("inputs/", "packages/", "references/", "assets/"))]
     artifacts["input-manifest.json"] = encoded({"schema_version": 1, "inputs": index})
+    preserved = {
+        "cases.json": "b6622f9adb92a0ba0d71e52903a0977976630129fb140bba363c36f3ad6eea9f",
+        "input-manifest.json": "2e3278df56eb90964fff2906376abb75fa0ad7affe6b4d88f01656e28d361d9c",
+        "rejected-inputs.json": "216060b4ef561e170c70712889d0ab596830bf08102ca4a543ae737dfb8930ba",
+        "acceptance.json": "627096d0d39f11a1839903f4cac43216a36796ce8969ea59e9446074fc817421",
+        "retained-inputs.json": "f975e282d5216b9c20f849cdec393e5e80a05d8b50e9c73824f02a8e991cb87b",
+    }
+    require(all(digest(artifacts[path]) == expected for path, expected in preserved.items()), "original-case-or-input-bytes-changed")
     artifacts["acceptance-manifest.json"] = encoded({
         "schema_version": 1, "phase": "A", "row_id": "LP-04", "scope": "repository-wide",
         "area": "Licensing and provenance", "clause": "2.12", "classification": "decomposition evidence check",
         "obligation": "Required third-party license and notice files are preserved.",
         "resolver_id": "lp04-notice-coverage", "resolver_version": "1.0.0", "protocol": "notice-coverage-v1",
         "accepted_parent": PARENT, "production_implementation": "absent; LP-04 remains tbd",
+        "phase_a_correction_parent": "049d202089eae80cdfcccf2282a51e55063c2a84",
         "synthetic_cases": len(cases), "rejected_inputs": len(controls), "retained_expectations": len(retained),
         "total_named_expectations": len(cases) + len(controls) + len(retained),
-        "guard_count": len(CRITICAL_GUARDS), "witness_count": len(witnesses),
-        "weakened_rule_variants": sum(case[3] is not None for case in CASES),
+        "guard_count": len(CRITICAL_GUARDS), "witness_count": len(spec["witnesses"]),
+        "weakened_rule_variants": len(WEAKENED_RULES),
+        "existing_case_weakening_runs": sum(case[3] is not None for case in CASES),
+        "fixed_in_memory_runs": len(FIXED_PROBES),
+        "weakening_executions": sum(case[3] is not None for case in CASES) + len(FIXED_PROBES),
+        "preserved_manifest_sha256": preserved,
         "guard_omission_checks": 2 * len(CRITICAL_GUARDS),
         "input_count": len(index), "input_bytes": sum(item["size_bytes"] for item in index),
         "branch_status_mapping": {branch: details[0] for branch, details in BRANCHES.items()},
@@ -974,12 +1696,69 @@ def build():
     return artifacts
 
 
+def discrimination_spec(controls, vendors, retained):
+    witnesses, inventory = [], []
+    for name, branch, guard, mutation, wrong, rationale in CASES:
+        witness_id = "case:" + name
+        witnesses.append({
+            "witness_id": witness_id, "case_id": "lp04-" + name,
+            "kind": "weakened-rule" if mutation else "existing-branch",
+            "weakened_rule": mutation, "normal_branch": branch,
+            "wrong_branch": wrong or (V if branch != V else M),
+        })
+        inventory.append({"guard_id": guard, "rule": rationale, "witness_ids": [witness_id]})
+    for control in controls:
+        witness_id = "loader:" + control["guard_id"]
+        witnesses.append({"witness_id": witness_id, "case_id": control["case_id"], "kind": "loader",
+                          "expected_rejection": control["expected_rejection"], "wrong_branch": "accepted"})
+        inventory.append({"guard_id": control["guard_id"], "rule": "Shared loader rejects " + control["expected_rejection"],
+                          "witness_ids": [witness_id]})
+    for vendor, case in zip(vendors, retained):
+        guard = "retained-" + vendor["vendor"]
+        witness_id = "retained:" + vendor["vendor"]
+        witnesses.append({"witness_id": witness_id, "case_id": case["case_id"], "kind": "optional-retained",
+                          "normal_branch": "scope-missing", "wrong_branch": V})
+        inventory.append({"guard_id": guard, "rule": "Exact retained root alone is not notice coverage.",
+                          "witness_ids": [witness_id]})
+    for recipe, source, weakening, normal, wrong in FIXED_PROBES:
+        witnesses.append({"witness_id": "memory:" + recipe, "case_id": "lp04-" + source, "kind": "fixed-in-memory",
+                          "recipe": recipe, "weakened_rule": weakening, "normal_branch": normal, "wrong_branch": wrong})
+    for guard, rule, recipes in FIXED_GUARDS:
+        inventory.append({"guard_id": guard, "rule": rule, "witness_ids": ["memory:" + recipe for recipe in recipes]})
+    for guard, recipes in EXTRA_WITNESSES:
+        next(item for item in inventory if item["guard_id"] == guard)["witness_ids"].extend("memory:" + recipe for recipe in recipes)
+    return {
+        "schema_version": 1, "method": "finite-manual-classification-guard-audit-and-fixed-recipes",
+        "critical_guard_ids": list(CRITICAL_GUARDS), "guard_inventory": inventory, "witnesses": witnesses,
+        "limits": {"guards": len(CRITICAL_GUARDS), "fixed_recipes": len(FIXED_PROBES),
+                   "weakening_variants": len(WEAKENED_RULES), "witnesses": len(witnesses)},
+    }
+
+
 def validate_guards(spec):
-    require(spec["guard_inventory"] == list(CRITICAL_GUARDS), "guard-inventory-missing-or-extra")
-    witnesses = spec["witnesses"]
-    require(len({item["case_id"] for item in witnesses}) == len(witnesses), "duplicate-witness")
-    require({item["guard_id"] for item in witnesses} == set(CRITICAL_GUARDS), "guard-without-witness")
-    require(len(witnesses) == len(CRITICAL_GUARDS), "guard-witness-count")
+    require(spec["critical_guard_ids"] == list(CRITICAL_GUARDS) and
+            len(CRITICAL_GUARDS) == len(set(CRITICAL_GUARDS)), "critical-guard-list")
+    inventory = spec["guard_inventory"]
+    require(len(inventory) == len({item["guard_id"] for item in inventory}) and
+            {item["guard_id"] for item in inventory} == set(CRITICAL_GUARDS), "guard-inventory-missing-or-extra")
+    witnesses = {item["witness_id"]: item for item in spec["witnesses"]}
+    require(len(witnesses) == len(spec["witnesses"]) == 50 + len(FIXED_PROBES), "duplicate-or-missing-witness")
+    require(len(FIXED_PROBES) == len({item[0] for item in FIXED_PROBES}), "duplicate-fixed-recipe")
+    used = set()
+    for item in inventory:
+        text(item["rule"], 512)
+        require(item["witness_ids"], "guard-without-witness")
+        require(len(item["witness_ids"]) == len(set(item["witness_ids"])) and
+                set(item["witness_ids"]) <= set(witnesses), "unknown-or-duplicate-guard-witness")
+        used.update(item["witness_ids"])
+    require(used == set(witnesses), "unregistered-witness")
+    require({item["recipe"] for item in witnesses.values() if item["kind"] == "fixed-in-memory"} ==
+            {item[0] for item in FIXED_PROBES}, "fixed-recipe-inventory")
+    for witness in witnesses.values():
+        if witness["kind"] in ("weakened-rule", "fixed-in-memory"):
+            require(witness["weakened_rule"] in WEAKENED_RULES and
+                    witness["normal_branch"] in BRANCHES and witness["wrong_branch"] in BRANCHES and
+                    witness["normal_branch"] != witness["wrong_branch"], "invalid-weakening-witness")
 
 
 def check(artifacts, mode):
@@ -1008,23 +1787,31 @@ def check(artifacts, mode):
     if mode in ("all", "discrimination"):
         by_id = {case["case_id"]: case for case in cases}
         for witness in spec["witnesses"]:
-            if witness["kind"] not in ("weakened-rule", "existing-branch"):
+            if witness["kind"] not in ("weakened-rule", "existing-branch", "fixed-in-memory"):
                 continue
             case = by_id[witness["case_id"]]
-            checked = pinned_inputs(case["inputs"], artifacts)
-            actual = classify(checked)
-            require(actual == witness["normal_branch"], "wrong-normal-witness: " + witness["case_id"])
-            if witness["kind"] == "weakened-rule":
-                wrong = classify(checked, witness["weakened_rule"])
-                require(wrong == witness["wrong_branch"] and wrong != actual,
-                        f"non-discriminating: {witness['guard_id']}: got {wrong}, expected {witness['wrong_branch']}")
+            original_facts = set(FACTS)
+            try:
+                checked = (fixed_probe(witness["recipe"], case, artifacts) if witness["kind"] == "fixed-in-memory"
+                           else pinned_inputs(case["inputs"], artifacts))
+                inputs = [pin for pin, _ in checked.values()]
+                actual = classify(checked)
+                require(result(actual, inputs) == result(witness["normal_branch"], inputs),
+                        f"wrong-normal-witness: {witness['witness_id']}: expected {witness['normal_branch']}, got {actual}")
+                if witness["kind"] != "existing-branch":
+                    wrong = classify(checked, witness["weakened_rule"])
+                    require(result(wrong, inputs) == result(witness["wrong_branch"], inputs) and wrong != actual,
+                            f"non-discriminating: {witness['witness_id']}: got {wrong}, expected {witness['wrong_branch']}")
+            finally:
+                for package_sha in set(FACTS) - original_facts:
+                    del FACTS[package_sha]
         for guard in CRITICAL_GUARDS:
             for kind, expected in (("registration", "guard-inventory-missing-or-extra"), ("witness", "guard-without-witness")):
                 broken = copy.deepcopy(spec)
                 if kind == "registration":
-                    broken["guard_inventory"].remove(guard)
+                    broken["guard_inventory"] = [item for item in broken["guard_inventory"] if item["guard_id"] != guard]
                 else:
-                    broken["witnesses"] = [item for item in broken["witnesses"] if item["guard_id"] != guard]
+                    next(item for item in broken["guard_inventory"] if item["guard_id"] == guard)["witness_ids"] = []
                 try:
                     validate_guards(broken)
                 except ValueError as error:
@@ -1119,7 +1906,9 @@ def main():
     manifest = json.loads(artifacts["acceptance-manifest.json"])
     print(f"LP-04 Phase A [{args.mode}]: 43 replays + 5 loader rejections + 2 optional retained = 50 named expectations; 13 branches.")
     print(f"Guards: {manifest['guard_count']} / {manifest['witness_count']} witnesses; "
-          f"{manifest['weakened_rule_variants']} fixed weakened variants; {manifest['guard_omission_checks']} omission checks.")
+          f"{manifest['weakened_rule_variants']} weakening variants / {manifest['weakening_executions']} executions "
+          f"({manifest['existing_case_weakening_runs']} existing + {manifest['fixed_in_memory_runs']} fixed-memory); "
+          f"{manifest['guard_omission_checks']} omission/empty-witness checks.")
     print(f"Inputs: {manifest['input_count']} / {manifest['input_bytes']} bytes; input manifest SHA-256 {digest(artifacts['input-manifest.json'])}")
     print("Retained: " + check_retained(artifacts, args.retained))
     print("No production handler, registry change, scanner, package-manager execution or network used.")
