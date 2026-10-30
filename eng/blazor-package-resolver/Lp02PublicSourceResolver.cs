@@ -99,7 +99,9 @@ public sealed class Lp02PublicSourceResolver : IDeterministicResolver
             $"At time {record.RetrievalAttempt.ObservedAtUtc}, that revision was retrieved without application credentials, " +
             "and retained files support a bounded mapping to the package's library source. " +
             "This establishes public source availability at the package-declared revision. " +
-            "It does not establish that the published binaries were built from that revision.");
+            "It does not establish that the published binaries were built from that revision. " +
+            "It also does not establish membership in the declared repository's branches or tags, " +
+            "because codeload may serve fork-network commit objects.");
     }
 
     private static string MissingFact(string branch) => branch switch
@@ -203,6 +205,7 @@ public sealed class Lp02PublicSourceResolver : IDeterministicResolver
         if (bytes.Length > MaxObservationBytes) return null;
         try
         {
+            _ = Utf8.GetCharCount(bytes.Span);
             using var json = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = 8 });
             if (!UniqueFields(json.RootElement)) return null;
             var record = json.Deserialize<Lp02Observation>(JsonOptions);
@@ -239,6 +242,9 @@ public sealed class Lp02PublicSourceResolver : IDeterministicResolver
             return record;
         }
         catch (JsonException) { return null; }
+        catch (DecoderFallbackException) { return null; }
+        // JSON field/string access can defer decoding escaped Unicode until after parsing.
+        catch (InvalidOperationException) { return null; }
     }
 
     private static bool UniqueFields(JsonElement node) => node.ValueKind switch
@@ -266,11 +272,22 @@ public sealed class Lp02PublicSourceResolver : IDeterministicResolver
             !implementation.Path.StartsWith(project.Path[..(project.Path.LastIndexOf('/') + 1)], StringComparison.Ordinal) ||
             implementation.Path.Split('/').Any(p => p is "obj" or "bin"))
             return false;
+        if (files.Keys.Any(path =>
+        {
+            var separator = path.LastIndexOf('/') + 1;
+            var name = path[separator..];
+            return (string.Equals(name, "Directory.Build.props", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(name, "Directory.Build.targets", StringComparison.OrdinalIgnoreCase)) &&
+                project.Path.StartsWith(path[..separator], StringComparison.OrdinalIgnoreCase);
+        }))
+            return false;
         try
         {
             var source = Utf8.GetString(files[implementation.Path]);
             if (string.IsNullOrWhiteSpace(source)) return false;
-            var xml = Utf8.GetString(files[project.Path]);
+            var projectBytes = files[project.Path].AsSpan();
+            if (projectBytes.StartsWith(new byte[] { 0xef, 0xbb, 0xbf })) projectBytes = projectBytes[3..];
+            var xml = Utf8.GetString(projectBytes);
             using var text = new StringReader(xml);
             using var reader = XmlReader.Create(text, new XmlReaderSettings
             {
@@ -279,15 +296,27 @@ public sealed class Lp02PublicSourceResolver : IDeterministicResolver
             });
             var document = XDocument.Load(reader);
             var root = document.Root;
-            if (root is null || root.Name != "Project" || (string?)root.Attribute("Sdk") != "Microsoft.NET.Sdk")
+            bool Named(XName name, string expected) =>
+                string.Equals(name.LocalName, expected, StringComparison.OrdinalIgnoreCase);
+            if (root is null || root.Name.NamespaceName.Length != 0 || !Named(root.Name, "Project"))
+                return false;
+            var sdk = root.Attributes().Where(a => Named(a.Name, "Sdk")).ToArray();
+            if (sdk.Length != 1 || sdk[0].Name.NamespaceName.Length != 0 || sdk[0].Value != "Microsoft.NET.Sdk")
                 return false;
             // A literal package identity and default compile inclusion are a bounded mapping, not MSBuild evaluation.
-            if (root.Descendants().Any(e => e.Name.LocalName is "Compile" or "Import" ||
-                e.Name.LocalName is "EnableDefaultItems" or "EnableDefaultCompileItems" &&
-                    !string.Equals(e.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase)))
+            if (root.DescendantsAndSelf().Any(e => e.Attributes().Any(a => Named(a.Name, "Condition"))) ||
+                root.Descendants().Any(e => Named(e.Name, "Compile") || Named(e.Name, "Import") ||
+                    Named(e.Name, "ImportGroup") || Named(e.Name, "Sdk") || Named(e.Name, "Choose") ||
+                    Named(e.Name, "Target") || Named(e.Name, "DefaultItemExcludes") ||
+                    (Named(e.Name, "EnableDefaultItems") || Named(e.Name, "EnableDefaultCompileItems")) &&
+                        (e.HasAttributes || e.HasElements ||
+                         !string.Equals(e.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase))))
                 return false;
-            var identities = root.Elements("PropertyGroup").Elements("PackageId").ToArray();
+            var identities = root.Descendants().Where(e => Named(e.Name, "PackageId")).ToArray();
             return identities.Length == 1 && !identities[0].HasAttributes && !identities[0].HasElements &&
+                identities[0].Name.NamespaceName.Length == 0 &&
+                identities[0].Parent is { } group && group.Parent == root &&
+                group.Name.NamespaceName.Length == 0 && Named(group.Name, "PropertyGroup") &&
                 !identities[0].Parent!.HasAttributes &&
                 string.Equals(identities[0].Value.Trim(), package.Id, StringComparison.OrdinalIgnoreCase);
         }

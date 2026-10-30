@@ -211,7 +211,9 @@ def build():
             f"At time {TIME}, that revision was retrieved without application credentials, "
             "and retained files support a bounded mapping to the package's library source. "
             "This establishes public source availability at the package-declared revision. "
-            "It does not establish that the published binaries were built from that revision."
+            "It does not establish that the published binaries were built from that revision. "
+            "It also does not establish membership in the declared repository's branches or tags, "
+            "because codeload may serve fork-network commit objects."
         ) if branch == "public-source-observed" else None
         references = [f"input:{item['role']}:{item['sha256']}" for item in inputs]
         result = {

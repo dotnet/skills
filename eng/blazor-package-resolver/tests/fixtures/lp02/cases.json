@@ -605,7 +605,7 @@
           "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
         ],
         "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
-        "finding": "The exact package declares repository https://github.com/example/library and commit 1234567890abcdef1234567890abcdef12345678. At time 2026-10-30T12:00:00Z, that revision was retrieved without application credentials, and retained files support a bounded mapping to the package's library source. This establishes public source availability at the package-declared revision. It does not establish that the published binaries were built from that revision.",
+        "finding": "The exact package declares repository https://github.com/example/library and commit 1234567890abcdef1234567890abcdef12345678. At time 2026-10-30T12:00:00Z, that revision was retrieved without application credentials, and retained files support a bounded mapping to the package's library source. This establishes public source availability at the package-declared revision. It does not establish that the published binaries were built from that revision. It also does not establish membership in the declared repository's branches or tags, because codeload may serve fork-network commit objects.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null
@@ -667,7 +667,7 @@
           "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
         ],
         "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
-        "finding": "The exact package declares repository https://github.com/example/library and commit 1234567890abcdef1234567890abcdef12345678. At time 2026-10-30T12:00:00Z, that revision was retrieved without application credentials, and retained files support a bounded mapping to the package's library source. This establishes public source availability at the package-declared revision. It does not establish that the published binaries were built from that revision.",
+        "finding": "The exact package declares repository https://github.com/example/library and commit 1234567890abcdef1234567890abcdef12345678. At time 2026-10-30T12:00:00Z, that revision was retrieved without application credentials, and retained files support a bounded mapping to the package's library source. This establishes public source availability at the package-declared revision. It does not establish that the published binaries were built from that revision. It also does not establish membership in the declared repository's branches or tags, because codeload may serve fork-network commit objects.",
         "missing_fact": null,
         "required_input": null,
         "next_category": null

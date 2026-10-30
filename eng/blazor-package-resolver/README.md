@@ -102,13 +102,16 @@ GitHub HTTPS repository and exact commit to a machine-generated anonymous
 codeload receipt, retained archive, and digests of a library project marker
 and implementation file. It does **not** establish that the published
 binaries were built from that revision, repository ownership, complete build
-closure, reproducibility or readiness. Missing/blocked/not-found/auth-required
+closure, reproducibility or readiness. Codeload can serve fork-network commit
+objects through the declared repository URL, so successful retrieval also
+does not prove membership in that repository's branches or tags; LP-02 does
+not perform a membership check. Missing/blocked/not-found/auth-required
 and unsupported observations remain unresolved (`not tested`), never
 closed-source or a gap. The narrowly scoped, separate `acquire-lp02`
 command disables application credentials, cookies, proxies, redirects and
 decompression; replay never retrieves anything. The full contract,
 acquisition procedure, schema, numerical limits, 33 frozen oracle cases,
-12 focused runtime cases and two opt-in retained escalations are in
+15 focused runtime cases (48 total named synthetic cases) and two opt-in retained escalations are in
 [`tests/fixtures/lp02/README.md`](tests/fixtures/lp02/README.md).
 The accepted base has no readiness skill acquisition infrastructure; this
 implementation reuses the existing checked-input/digest/replay and bounded
