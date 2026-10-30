@@ -164,6 +164,40 @@ class GraderTests(unittest.TestCase):
         result = self.grade(work, script, accepted=False)
         self.assertIn("the commit and version must be ready", result.stderr)
 
+    def test_git_metadata_probes_do_not_count_as_revision_lookups(self):
+        work, script = self.workspace("invariant-per-project-exec")
+        base = work / "git-stamp"
+        wrapper = base / "build.sh"
+        wrapper.write_text(
+            wrapper.read_text(encoding="utf-8").replace(
+                'commit="$(git rev-parse --short HEAD)"',
+                '[ "$(git rev-parse --is-inside-work-tree)" = true ]\n'
+                'commit="$(git rev-parse --short HEAD)"',
+            ), encoding="utf-8",
+        )
+        path = base / "Directory.Build.targets"
+        tree = ET.parse(path)
+        tree.getroot().find("Target").insert(
+            0, ET.Element("Exec", Command="git rev-parse --is-inside-work-tree",
+                          Condition="'$(GitCommit)' == ''"),
+        )
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
+    def test_git_metadata_probes_cannot_hide_repeated_revision_lookups(self):
+        work, script = self.workspace("invariant-per-project-exec")
+        wrapper = work / "git-stamp" / "build.sh"
+        wrapper.write_text(
+            wrapper.read_text(encoding="utf-8").replace(
+                'commit="$(git rev-parse --short HEAD)"',
+                'git rev-parse --is-inside-work-tree >/dev/null\n'
+                'commit="$(git rev-parse --short HEAD)"\n'
+                'git rev-parse HEAD >/dev/null',
+            ), encoding="utf-8",
+        )
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("the fallback must run once", result.stderr)
+
     def test_git_stamp_orchestrator_is_evaluated_by_msbuild(self):
         for forwards_revision in (True, False):
             with self.subTest(forwards_revision=forwards_revision):
@@ -397,6 +431,148 @@ class GraderTests(unittest.TestCase):
             ), encoding="utf-8",
         )
         self.grade(work, script)
+
+    def test_relocated_shared_generators_are_accepted(self):
+        for variant in ("output-argument", "stdout", "delegating-helper"):
+            with self.subTest(variant=variant):
+                work, script = self.workspace("racy-run-once-guard")
+                base = work / "exists-sentinel-race"
+                directory = base / "build-tools"
+                directory.mkdir()
+                generator = directory / "generate-info.sh"
+                (base / "tools" / "make-buildinfo.sh").rename(generator)
+                command = "sh build-tools/generate-info.sh"
+                if variant == "stdout":
+                    generator.write_text(
+                        generator.read_text(encoding="utf-8").replace('out="$1"', "out=/dev/stdout"),
+                        encoding="utf-8",
+                    )
+                    command += " >"
+                elif variant == "delegating-helper":
+                    (directory / "prepare-info.sh").write_text(
+                        '#!/usr/bin/env sh\nset -eu\nsh "$(dirname "$0")/generate-info.sh" "$@"\n',
+                        encoding="utf-8",
+                    )
+                    command = "sh build-tools/prepare-info.sh"
+                wrapper = base / "build.sh"
+                wrapper.write_text(
+                    wrapper.read_text(encoding="utf-8").replace("sh tools/make-buildinfo.sh", command),
+                    encoding="utf-8",
+                )
+                self.grade(work, script)
+
+    def test_inlined_shared_generation_is_accepted(self):
+        for keep_unused_helper in (False, True):
+            with self.subTest(keep_unused_helper=keep_unused_helper):
+                work, script = self.workspace("racy-run-once-guard")
+                base = work / "exists-sentinel-race"
+                generator = base / "tools" / "make-buildinfo.sh"
+                body = generator.read_text(encoding="utf-8")
+                if not keep_unused_helper:
+                    generator.unlink()
+                wrapper = base / "build.sh"
+                wrapper.write_text(
+                    wrapper.read_text(encoding="utf-8").replace(
+                        'sh tools/make-buildinfo.sh "$generated"',
+                        '(\nset -- "$generated"\n' + body + '\n)',
+                    ), encoding="utf-8",
+                )
+                self.grade(work, script)
+
+    def test_inlined_shared_generation_orchestrator_is_accepted(self):
+        work, script = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        (base / "tools" / "make-buildinfo.sh").unlink()
+        (base / "build.sh").write_text(
+            "#!/usr/bin/env bash\nset -euo pipefail\n"
+            "dotnet msbuild Build.proj -p:Configuration=Release -m\n",
+            encoding="utf-8",
+        )
+        project = ET.Element("Project", DefaultTargets="BuildAll")
+        task = ET.SubElement(
+            project, "UsingTask", TaskName="WriteSharedBuildInfo", TaskFactory="RoslynCodeTaskFactory",
+            AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll",
+        )
+        parameters = ET.SubElement(task, "ParameterGroup")
+        ET.SubElement(parameters, "Stamp", ParameterType="System.String", Required="true")
+        implementation = ET.SubElement(task, "Task")
+        for namespace in ("System.IO", "System.Text"):
+            ET.SubElement(implementation, "Using", Namespace=namespace)
+        ET.SubElement(implementation, "Code", Type="Fragment", Language="cs").text = (
+            'var content = "internal static class BuildInfo { public const string Stamp = \\"" '
+            '+ Stamp + "\\"; }\\n";\n'
+            'Directory.CreateDirectory("obj");\n'
+            'var output = "obj/buildinfo.g.cs";\n'
+            'if (!File.Exists(output) || File.ReadAllText(output) != content)\n'
+            '    File.WriteAllText(output, content, new UTF8Encoding(false));\n'
+        )
+        target = ET.SubElement(project, "Target", Name="BuildAll")
+        command = 'bash -c "date -u +%Y%m%d"'
+        if os.name == "nt":
+            command = command.replace("%", "%%")
+        lookup = ET.SubElement(target, "Exec", Command=command, ConsoleToMSBuild="true")
+        ET.SubElement(lookup, "Output", TaskParameter="ConsoleOutput", PropertyName="DailyStamp")
+        ET.SubElement(target, "WriteSharedBuildInfo", Stamp="$(DailyStamp)")
+        ET.SubElement(target, "Exec", Command="dotnet build Contoso.slnx -c Release -m")
+        ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
+        self.grade(work, script)
+
+    def test_inlined_shared_generation_cannot_rewrite_each_project_input(self):
+        work, script = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        generator = base / "tools" / "make-buildinfo.sh"
+        body = generator.read_text(encoding="utf-8")
+        generator.unlink()
+        wrapper = base / "build.sh"
+        wrapper.write_text(
+            wrapper.read_text(encoding="utf-8").replace(
+                'sh tools/make-buildinfo.sh "$generated"',
+                '(\nset -- "$generated"\n' + body + '\n)',
+            ), encoding="utf-8",
+        )
+        path = base / "Directory.Build.targets"
+        tree = ET.parse(path)
+        target = ET.SubElement(tree.getroot(), "Target", Name="RewriteBuildInfo", BeforeTargets="CoreCompile")
+        ET.SubElement(
+            target, "WriteLinesToFile", File="$(MSBuildThisFileDirectory)obj/buildinfo.g.cs",
+            Lines="@(Compile)", Overwrite="true",
+        )
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertNotIn("FileNotFoundError", result.stderr)
+        self.assertRegex(result.stdout + result.stderr, "error CS|preserve shared source bytes")
+
+    def test_unfixed_shared_writer_race_is_rejected(self):
+        work, script = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        for filename in ("build.sh", "Directory.Build.targets"):
+            shutil.copy2(SUITE / "exists-sentinel-race" / filename, base / filename)
+        result = self.grade(work, script, accepted=False)
+        self.assertRegex(result.stdout + result.stderr, "error CS|preserve shared source bytes")
+
+    def test_relocated_per_project_writers_are_rejected(self):
+        work, script = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        (base / "tools" / "make-buildinfo.sh").rename(base / "tools" / "generate-info.sh")
+        wrapper = base / "build.sh"
+        wrapper.write_text(
+            wrapper.read_text(encoding="utf-8").replace("tools/make-buildinfo.sh", "tools/generate-info.sh"),
+            encoding="utf-8",
+        )
+        path = base / "Directory.Build.targets"
+        tree = ET.parse(path)
+        target = ET.SubElement(tree.getroot(), "Target", Name="RepeatedGeneration", BeforeTargets="CoreCompile")
+        ET.SubElement(
+            target, "Exec", Command="sh tools/generate-info.sh obj/buildinfo.g.cs",
+            WorkingDirectory="$(MSBuildThisFileDirectory)",
+        )
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertNotIn("FileNotFoundError", result.stderr)
+        self.assertRegex(
+            result.stdout + result.stderr,
+            "unchanged|preserve shared source bytes|publish the final source timestamp|error CS1010",
+        )
 
     def test_shared_fixture_reproduces_reported_compiler_failure(self):
         work, _ = self.workspace("racy-run-once-guard")

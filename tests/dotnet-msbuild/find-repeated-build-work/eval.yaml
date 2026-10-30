@@ -47,7 +47,7 @@ stimuli:
           args:
             - -c
             - |
-              import os, pathlib, shutil, subprocess, tempfile, uuid
+              import json, os, pathlib, re, shutil, subprocess, sys, tempfile, uuid
               import xml.etree.ElementTree as ET
               bash = shutil.which('bash')
               assert bash, 'Bash is required to exercise the submitted build.sh'
@@ -60,16 +60,41 @@ stimuli:
                   bin_dir = pathlib.Path(tmp) / 'bin'
                   bin_dir.mkdir()
                   log = bin_dir / 'git-calls'
+                  log.mkdir()
+                  tracer = bin_dir / 'trace-git.py'
+                  tracer.write_text(
+                      'import json, os, pathlib, subprocess, sys, uuid\n'
+                      'result = subprocess.run([os.environ["REAL_GIT"], *sys.argv[1:]], capture_output=True)\n'
+                      'record = pathlib.Path(__file__).with_name("git-calls") / (uuid.uuid4().hex + ".json")\n'
+                      'record.write_text(json.dumps({"returncode": result.returncode, '
+                      '"stdout": result.stdout.decode("utf-8", errors="replace")}), encoding="utf-8")\n'
+                      'sys.stdout.buffer.write(result.stdout)\n'
+                      'sys.stderr.buffer.write(result.stderr)\n'
+                      'sys.exit(result.returncode)\n',
+                      encoding='utf-8', newline='\n',
+                  )
                   git = bin_dir / 'git'
                   git.write_text(
-                      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$MOCK_BIN/git-calls"\nexec "$REAL_GIT" "$@"\n',
+                      '#!/usr/bin/env bash\nexec "$GRADER_PYTHON" "$MOCK_BIN/trace-git.py" "$@"\n',
                       encoding='utf-8', newline='\n',
                   )
                   git.chmod(0o755)
                   if os.name == 'nt':
                       (bin_dir / 'git.cmd').write_text(
-                          '@echo off\necho %*>>"' + str(log) + '"\n"%REAL_GIT%" %*\n',
+                          '@echo off\n"' + sys.executable + '" "' + str(tracer) + '" %*\n',
                           encoding='utf-8', newline='\r\n',
+                      )
+                  def clear_calls():
+                      for path in log.glob('*.json'):
+                          path.unlink()
+                  def revision_calls(full_commit):
+                      calls = [json.loads(path.read_text(encoding='utf-8')) for path in log.glob('*.json')]
+                      return sum(
+                          call['returncode'] == 0 and any(
+                              full_commit.startswith(value.lower()) for value in re.findall(
+                                  r'(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])', call['stdout'], re.I,
+                              )
+                          ) for call in calls
                       )
                   capacity = bin_dir / 'capacity.proj'
                   ET.ElementTree(ET.Element('Project')).write(capacity, encoding='utf-8')
@@ -130,11 +155,11 @@ stimuli:
                           ['-C', str(work), '-c', 'user.name=Grader', '-c', 'user.email=grader@example.invalid',
                            '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=' + str(bin_dir),
                            'commit', '--quiet', '-m', uuid.uuid4().hex],
-                          ['-C', str(work), 'rev-parse', '--short', 'HEAD'],
+                          ['-C', str(work), 'log', '-1', '--format=%H%n%h'],
                       ]:
                           result = subprocess.run([real_git, *args], env=git_env, capture_output=True, text=True, timeout=10)
                           assert result.returncode == 0, result.stdout + result.stderr
-                      commit = result.stdout.strip()
+                      full_commit, commit = result.stdout.strip().splitlines()
                       solution = ET.Element('Solution')
                       records = []
                       for name in ['Api', 'Worker']:
@@ -143,8 +168,9 @@ stimuli:
                           records.append(record)
                       ET.ElementTree(solution).write(work / 'Contoso.slnx', encoding='utf-8')
                       env = dict(git_env, MOCK_BIN=str(bin_dir), REAL_GIT=pathlib.Path(real_git).as_posix(),
+                                 GRADER_PYTHON=pathlib.Path(sys.executable).as_posix(),
                                  PATH=str(bin_dir) + os.pathsep + os.environ['PATH'], MSBUILDDISABLENODEREUSE='1')
-                      log.unlink(missing_ok=True)
+                      clear_calls()
                       result = subprocess.run(
                           [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
                           cwd=work, env=env, capture_output=True, text=True, timeout=60,
@@ -152,21 +178,19 @@ stimuli:
                       assert result.returncode == 0, result.stdout + result.stderr
                       for record in records:
                           check_build(record, commit, ci=True)
-                      calls = log.read_text().splitlines() if log.exists() else []
-                      assert len(calls) == 1, 'the fallback must run once only when no revision is supplied; compute the revision once for the solution build'
+                      assert revision_calls(full_commit) == 1, 'the fallback must run once only when no revision is supplied; compute the revision once for the solution build'
                       single = pathlib.Path(tmp) / ('single-' + str(iteration))
                       shutil.copytree('git-stamp', single, ignore=shutil.ignore_patterns('bin', 'obj', '.git'))
                       shutil.copytree(work / '.git', single / '.git')
                       project, record = create_probe(single, 'Standalone', str(iteration) + '-Standalone')
-                      log.unlink(missing_ok=True)
+                      clear_calls()
                       result = subprocess.run(
                           [dotnet, 'build', str(project), '-nologo', '-verbosity:quiet', '-nodeReuse:false'],
                           cwd=project.parent, env=env, capture_output=True, text=True, timeout=30,
                       )
                       assert result.returncode == 0, result.stdout + result.stderr
                       check_build(record, commit, ci=False)
-                      calls = log.read_text().splitlines() if log.exists() else []
-                      assert len(calls) == 1, 'the fallback must run once only when no revision is supplied'
+                      assert revision_calls(full_commit) == 1, 'the fallback must run once only when no revision is supplied'
           expected_exit_code: 0
       - type: output-matches
         config:
@@ -389,11 +413,8 @@ stimuli:
                               Condition="'@(" + hashes + "->'%(FileHash)')' != '@(" + expected_hashes + "->'%(FileHash)')'",
                               Text='preserve shared source bytes at the ' + phase + ' boundary',
                           )
-                          events = bin_dir / (name + '.' + phase + '.events')
                           mtime = bin_dir / (name + '.' + phase + '.mtime')
-                          boundaries.append((events, mtime))
-                          ET.SubElement(target, 'Copy', SourceFiles=str((bin_dir / 'events').resolve()),
-                                        DestinationFiles=str(events.resolve()))
+                          boundaries.append(mtime)
                           ET.SubElement(
                               target, 'WriteLinesToFile', File=str(mtime.resolve()), Overwrite='true',
                               Lines="@(" + hashes + "->'%(ModifiedTime)')",
@@ -402,24 +423,14 @@ stimuli:
                       ET.ElementTree(probe).write(project_path, encoding='utf-8')
                       ET.SubElement(solution, 'Project', Path=project_path.relative_to(work).as_posix())
                   ET.ElementTree(solution).write(work / 'Contoso.slnx', encoding='utf-8')
-                  generator = work / 'tools/make-buildinfo.sh'
-                  submitted = generator.read_text(encoding='utf-8')
-                  shebang = submitted.splitlines(keepends=True)[0] if submitted.startswith('#!') else '#!/usr/bin/env sh\n'
-                  generator.write_text(
-                      shebang + 'set -eu\n'
-                      'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"\n'
-                      'printf "generator-start\\n" >> "$MOCK_BIN/events"\n'
-                      'sleep 1\n'
-                      '(\n' + submitted + '\n)\n'
-                      'printf "generator-done\\n" >> "$MOCK_BIN/events"\n',
-                      encoding='utf-8', newline='\n',
-                  )
                   real_date = subprocess.run([bash, '-c', 'command -v date'], check=True,
                                              capture_output=True, text=True).stdout.strip()
                   assert real_date, 'GNU date is required to vary the submitted generator input'
                   date = bin_dir / 'date'
+                  # Widen partial writes without depending on the generator's implementation or location.
                   date.write_text(
                       '#!/usr/bin/env sh\nset -eu\n'
+                      'sleep 1\n'
                       '"$REAL_DATE" --date="$EXPECTED_DATE" "$@"\n',
                       encoding='utf-8', newline='\n',
                   )
@@ -427,7 +438,6 @@ stimuli:
                   dotnet = bin_dir / 'dotnet'
                   dotnet.write_text(
                       '#!/usr/bin/env sh\nset -eu\n'
-                      'printf "build\\n" >> "$MOCK_BIN/events"\n'
                       '"$REAL_DOTNET" "$@" -nologo -verbosity:quiet\n',
                       encoding='utf-8', newline='\n',
                   )
@@ -445,7 +455,7 @@ stimuli:
                   set_stamp(stamp)
                   def run_build(phase, should_compile):
                       for path in ([path for _, path in observations] + compile_observations + compiler_observations +
-                                   [path for pair in boundaries for path in pair]):
+                                   boundaries):
                           path.unlink(missing_ok=True)
                       subprocess.run(
                           [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
@@ -462,20 +472,12 @@ stimuli:
                       assert all(path.is_file() and generated.resolve() in [
                           pathlib.Path(line).resolve() for line in path.read_text(encoding='utf-8-sig').splitlines()
                       ] for path in compile_observations), 'each project must retain buildinfo.g.cs in effective Compile items at the compile and build boundaries'
-                      generation = lambda path: [line for line in path.read_text().splitlines()
-                                                 if line.startswith('generator-')]
-                      generated_events = generation(bin_dir / 'events')
-                      assert generated_events == ['generator-start', 'generator-done'] or (
-                          not should_compile and not generated_events
-                      ), phase + ': generate once for changed inputs and at most once for current inputs'
                       assert generated.read_bytes() == expected.read_bytes(), 'preserve the original daily build-info output bytes'
                       final_ns = generated.stat().st_mtime_ns
                       expected_mtime = datetime.datetime.fromtimestamp(final_ns // 1_000_000_000).strftime('%Y-%m-%d %H:%M:%S')
                       expected_mtime += '.' + format(final_ns % 1_000_000_000 // 100, '07d')
-                      for events, mtime in boundaries:
-                          assert events.is_file() and generation(events) == generated_events, 'complete any required generation before every project consumer'
+                      for mtime in boundaries:
                           assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before compilation and preserve it through Build'
-                      (bin_dir / 'events').unlink()
                       return generated.stat().st_mtime_ns
                   run_build('clean', True)
                   previous = generated.stat()
