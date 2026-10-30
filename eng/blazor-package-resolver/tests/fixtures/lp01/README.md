@@ -168,7 +168,7 @@ controls, so their pinned SHA-256 identities are stable in the commit.
 
 `owners/` holds synthetic owner records; `grants/mit-full.txt` and
 `grants/bsd-full.txt` are **example grant fixtures**, not vendor evidence.
-The 84 owner cases include 12 reachable deterministic positives (including
+The 94 owner cases include 14 reachable deterministic positives (including
 multi-license AND and OR, equivalent normalized expressions, a bounded
 8192-byte record, an exact 16384-byte complete grant, and benign grant
 variation). Their findings explicitly
@@ -206,12 +206,23 @@ license prose are not a safe conflict detector. No real
 retained notice is silently promoted into an SPDX annotation. Shared
 nuspec-reader safety and namespace rules take precedence over individual
 license facts: malformed XML/DTD, foreign/duplicate metadata, missing or
-ambiguous root nuspec and corrupt ZIP escalate. An unavailable package
+ambiguous root nuspec and corrupt ZIP escalate. The oracle checks XML using
+Expat's doctype/entity declaration callbacks **before** ElementTree can expand
+an entity, rather than looking for an ASCII byte sequence. UTF-8 and BOM-marked
+UTF-16 LE/BE clean nuspecs remain supported; their used and unused DTD variants
+are `unsafe-package`, including when the package has an otherwise eligible
+owner record. ZIP names must be unique across **all** entries under Unicode
+`casefold()` comparison before any by-name read. This deliberately fails
+closed for exact duplicate names, case aliases (`LICENSE.txt`/`license.txt`)
+and duplicates of unrelated entries such as `README.txt`; no later entry
+can replace a contradictory GPL license with MIT. The duplicate controls
+pin entry order and bytes by ZIP entry identity, not by ambiguous filename.
+An unavailable package
 or a missing/inconsistent policy produces `unknown` applicability.
 Unbound/incorrect SHA-256 input paths fail in the shared replay loader;
 they are not equivalent to a valid case with no package role.
 
-`cases.json` freezes **178 cases** (94 package and 84 owner) and **177**
+`cases.json` freezes **198 cases** (104 package and 94 owner) and **197**
 reproducible, SHA-256-pinned synthetic archives, alongside six separately
 frozen pre-dispatch rejections in `rejected-inputs.json`.
 `lp01_expectations.py` checks the exact JSON, ZIP bytes, owner

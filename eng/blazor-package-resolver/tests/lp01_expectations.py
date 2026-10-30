@@ -9,9 +9,11 @@ import re
 import subprocess
 import sys
 import unicodedata
+import warnings
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
+from xml.parsers import expat
 
 ROOT = Path(__file__).parent / "fixtures" / "lp01"
 POLICY = ROOT / "policy" / "lp01-policy-1.0.0.json"
@@ -143,6 +145,10 @@ def validate_policy(policy, catalog, catalog_digest):
 
 
 class ExpressionLimitError(ValueError):
+    pass
+
+
+class ProhibitedXmlDeclaration(ValueError):
     pass
 
 
@@ -353,6 +359,16 @@ SPECS = (
     ("unknown-attribute", '<license type="expression" custom="yes">MIT</license>', "unsafe-metadata", None),
     ("invalid-xml", "</metadata", "unsafe-package", None),
     ("dtd-entity", '<license type="expression">&license;</license>', "unsafe-package", None),
+    ("dtd-unused", LICENSE.format("MIT"), "unsafe-package", None),
+    ("utf16-le-clean", LICENSE.format("MIT"), "approved-non-copyleft", None),
+    ("utf16-be-clean", LICENSE.format("MIT"), "approved-non-copyleft", None),
+    ("utf16-le-dtd-entity", '<license type="expression">&license;</license>', "unsafe-package", None),
+    ("utf16-be-dtd-entity", '<license type="expression">&license;</license>', "unsafe-package", None),
+    ("utf16-le-dtd-unused", LICENSE.format("MIT"), "unsafe-package", None),
+    ("utf16-be-dtd-unused", LICENSE.format("MIT"), "unsafe-package", None),
+    ("duplicate-license-entry", LICENSE.format("MIT"), "unsafe-package", None),
+    ("alias-license-entry", LICENSE.format("MIT"), "unsafe-package", None),
+    ("duplicate-readme-entry", LICENSE.format("MIT"), "unsafe-package", None),
     ("foreign-root", LICENSE.format("MIT"), "unsafe-package", None),
     ("foreign-metadata", LICENSE.format("MIT"), "unsafe-package", None),
     ("foreign-metadata-after", LICENSE.format("MIT"), "unsafe-package", None),
@@ -430,6 +446,16 @@ OWNER_SPECS = (
     ("unsupported-version", "unsafe-metadata"),
     ("unknown-license-attribute", "unsafe-metadata"),
     ("dtd-entity", "unsafe-package"),
+    ("dtd-unused", "unsafe-package"),
+    ("utf16-le-clean", "owner-evidence-accepted"),
+    ("utf16-be-clean", "owner-evidence-accepted"),
+    ("utf16-le-dtd-entity", "unsafe-package"),
+    ("utf16-be-dtd-entity", "unsafe-package"),
+    ("utf16-le-dtd-unused", "unsafe-package"),
+    ("utf16-be-dtd-unused", "unsafe-package"),
+    ("duplicate-license-entry", "unsafe-package"),
+    ("alias-license-entry", "unsafe-package"),
+    ("duplicate-readme-entry", "unsafe-package"),
     ("foreign-metadata", "unsafe-package"),
     ("duplicate-metadata", "unsafe-package"),
     ("multiple-nuspec", "unsafe-package"),
@@ -476,7 +502,9 @@ def archive(name, metadata, file_text):
                  "http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd"
                  if variant == "old-namespace" else "" if variant == "no-namespace" else NS)
     extra = '<x:metadata xmlns:x="urn:other"/>' if variant.startswith("foreign-metadata") else ""
-    dtd = '<!DOCTYPE package [<!ENTITY license "MIT">]>' if variant == "dtd-entity" else ""
+    dtd = ('<!DOCTYPE package [<!ENTITY license "MIT">]>' if
+           variant == "dtd-entity" or variant == "dtd-unused" or
+           variant.startswith(("utf16-le-dtd-", "utf16-be-dtd-")) else "")
     recognized = (f"<metadata><id>Sample.LP01</id>"
                   f"<version>1.0.0</version>{metadata}"
                   + (f'<repository url="{REPOSITORY}" commit="{COMMIT}"/>' if name.startswith("owner-") else "")
@@ -485,8 +513,11 @@ def archive(name, metadata, file_text):
         extra = recognized
     children = recognized + extra if variant == "foreign-metadata-after" else extra + recognized
     attribute = f' xmlns="{namespace}"' if namespace else ""
-    nuspec = (f'<?xml version="1.0" encoding="utf-8"?>{dtd}'
-              f'<package{attribute}>{children}</package>\n').encode()
+    xml_encoding = "utf-16" if variant.startswith(("utf16-le-", "utf16-be-")) else "utf-8"
+    xml = (f'<?xml version="1.0" encoding="{xml_encoding}"?>{dtd}'
+           f'<package{attribute}>{children}</package>\n')
+    nuspec = (b"\xff\xfe" + xml.encode("utf-16-le") if variant.startswith("utf16-le-") else
+              b"\xfe\xff" + xml.encode("utf-16-be") if variant.startswith("utf16-be-") else xml.encode())
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", allowZip64=False) as package:
         if variant != "no-nuspec":
@@ -496,9 +527,70 @@ def archive(name, metadata, file_text):
             package.writestr(entry("Second.LP01.nuspec"), nuspec)
         if variant == "no-nuspec":
             package.writestr(entry("README.txt"), b"No root nuspec.\n")
-        if file_text is not None:
+        if variant == "duplicate-license-entry":
+            package.writestr(entry("LICENSE.txt"), b"SPDX-License-Identifier: GPL-3.0-only\n")
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=r"Duplicate name: 'LICENSE.txt'", category=UserWarning)
+                package.writestr(entry("LICENSE.txt"), b"SPDX-License-Identifier: MIT\n")
+        elif variant == "alias-license-entry":
+            package.writestr(entry("LICENSE.txt"), b"SPDX-License-Identifier: MIT\n")
+            package.writestr(entry("license.txt"), b"SPDX-License-Identifier: GPL-3.0-only\n")
+        elif file_text is not None:
             package.writestr(entry("LICENSE.txt"), file_text)
+        if variant == "duplicate-readme-entry":
+            package.writestr(entry("README.txt"), b"First entry.\n")
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=r"Duplicate name: 'README.txt'", category=UserWarning)
+                package.writestr(entry("README.txt"), b"Second entry.\n")
     return stream.getvalue()
+
+
+def expected_archive_entries(name, file_text):
+    variant = name.removeprefix("owner-")
+    if variant == "no-nuspec":
+        return ["README.txt"]
+    entries = ["nested/Sample.LP01.nuspec" if variant == "subfolder-nuspec" else
+               "Sample.LP01.nuspec"]
+    if variant == "multiple-nuspec":
+        entries.append("Second.LP01.nuspec")
+    if variant == "duplicate-license-entry":
+        entries.extend(("LICENSE.txt", "LICENSE.txt"))
+    elif variant == "alias-license-entry":
+        entries.extend(("LICENSE.txt", "license.txt"))
+    elif file_text is not None:
+        entries.append("LICENSE.txt")
+    if variant == "duplicate-readme-entry":
+        entries.extend(("README.txt", "README.txt"))
+    return entries
+
+
+def verify_special_archive(package, name):
+    variant = name.removeprefix("owner-")
+    entries = package.infolist()
+    if variant == "duplicate-license-entry":
+        require([package.read(info) for info in entries[-2:]] == [
+            b"SPDX-License-Identifier: GPL-3.0-only\n",
+            b"SPDX-License-Identifier: MIT\n"
+        ], f"Duplicate LICENSE entry order or declarations changed: {name}")
+    elif variant == "alias-license-entry":
+        require([package.read(info) for info in entries[-2:]] == [
+            b"SPDX-License-Identifier: MIT\n",
+            b"SPDX-License-Identifier: GPL-3.0-only\n"
+        ], f"Case-aliased LICENSE entry declarations changed: {name}")
+    elif variant == "duplicate-readme-entry":
+        require([package.read(info) for info in entries[-2:]] ==
+                [b"First entry.\n", b"Second entry.\n"],
+                f"Duplicate non-license entry bytes changed: {name}")
+    if variant.startswith(("utf16-le-", "utf16-be-")):
+        bom = b"\xff\xfe" if variant.startswith("utf16-le-") else b"\xfe\xff"
+        require(package.read(entries[0]).startswith(bom), f"UTF-16 nuspec BOM changed: {name}")
+    if variant in ("dtd-entity", "dtd-unused") or variant.endswith(("-dtd-entity", "-dtd-unused")):
+        try:
+            checked_xml_root(package.read(entries[0]))
+        except ProhibitedXmlDeclaration:
+            pass
+        else:
+            raise ValueError(f"DTD was not rejected by the parser callback: {name}")
 
 
 def declarations(text):
@@ -517,6 +609,19 @@ def declarations(text):
     return identifiers, remaining, ambiguous
 
 
+def checked_xml_root(nuspec):
+    parser = expat.ParserCreate()
+
+    def reject_declaration(*_):
+        raise ProhibitedXmlDeclaration("DTD and entity declarations are not package evidence.")
+
+    parser.StartDoctypeDeclHandler = reject_declaration
+    parser.EntityDeclHandler = reject_declaration
+    parser.ExternalEntityRefHandler = reject_declaration
+    parser.Parse(nuspec, True)
+    return ET.fromstring(nuspec)
+
+
 def classify_package(content, policy, licenses):
     """One package-reader branch for package-only and owner-bound expectation controls."""
     if content is None:
@@ -528,14 +633,15 @@ def classify_package(content, policy, licenses):
             entries = package.infolist()
             if len(entries) > 4096:
                 return "unsafe-package", None, None
+            names = [info.filename for info in entries]
+            if len(names) != len(set(name.casefold() for name in names)):
+                return "unsafe-package", None, None
             nuspecs = [info for info in entries if "/" not in info.filename and
                        info.filename.lower().endswith(".nuspec")]
             if len(nuspecs) != 1 or nuspecs[0].file_size > 1024 * 1024:
                 return "unsafe-package", None, None
             nuspec = package.read(nuspecs[0])
-            if b"<!DOCTYPE" in nuspec.upper() or b"<!ENTITY" in nuspec.upper():
-                return "unsafe-package", None, None
-            root = ET.fromstring(nuspec)
+            root = checked_xml_root(nuspec)
             namespace = root.tag.removesuffix("package")
             if root.tag != namespace + "package" or namespace not in (
                 "", f"{{{NS}}}",
@@ -588,7 +694,8 @@ def classify_package(content, policy, licenses):
                         license_node.text or "")[1])) for identifier in ids):
                     return "conflicting-declarations", metadata, None
             return state, metadata, license_node.text
-    except (zipfile.BadZipFile, ET.ParseError, UnicodeDecodeError, RuntimeError):
+    except (zipfile.BadZipFile, expat.ExpatError, ET.ParseError,
+            ProhibitedXmlDeclaration, UnicodeDecodeError, RuntimeError):
         return "unsafe-package", None, None
 
 
@@ -684,6 +791,8 @@ def owner_inputs(name, policy_bytes, catalog_bytes):
         "unsupported-version": '<license type="expression" version="2.0.0">MIT</license>',
         "unknown-license-attribute": '<license type="expression" custom="yes">MIT</license>',
         "dtd-entity": '<license type="expression">&license;</license>',
+        "utf16-le-dtd-entity": '<license type="expression">&license;</license>',
+        "utf16-be-dtd-entity": '<license type="expression">&license;</license>',
     }.get(name, LICENSE.format(expression))
     file_text = (b"SPDX-License-Identifier: GPL-3.0-only\n" if name == "expression-file-conflict" else
                  b"SPDX-License-Identifier: MIT\n" if name == "type-file" else None)
@@ -1259,14 +1368,9 @@ def main():
                 require(path.read_bytes() == content, f"LP-01 archive changed: {name}")
             if name != "corrupt-archive":
                 with zipfile.ZipFile(io.BytesIO(content)) as package:
-                    expected_entries = (
-                        ["README.txt"] if name == "no-nuspec" else
-                        ["nested/Sample.LP01.nuspec" if name == "subfolder-nuspec" else
-                         "Sample.LP01.nuspec"] +
-                        (["Second.LP01.nuspec"] if name == "multiple-nuspec" else []) +
-                        (["LICENSE.txt"] if file_text is not None else [])
-                    )
+                    expected_entries = expected_archive_entries(name, file_text)
                     require(package.namelist() == expected_entries, f"LP-01 ZIP entry order differs: {name}")
+                    verify_special_archive(package, name)
                     for entry_info in package.infolist():
                         require(entry_info.create_system == 3 and entry_info.date_time == ZIP_DATE and
                                 entry_info.compress_type == zipfile.ZIP_STORED and
@@ -1313,12 +1417,13 @@ def main():
                     require((ROOT / item["path"]).read_bytes() == raw and sha(raw) == item["sha256"],
                             f"Owner fixture input differs: {name}/{item['role']}")
         with zipfile.ZipFile(io.BytesIO(content)) as package:
-            expected_names = (["Sample.LP01.nuspec"] +
-                              (["Second.LP01.nuspec"] if name == "multiple-nuspec" else []) +
-                              (["LICENSE.txt"] if name in ("type-file", "expression-file-conflict") else []))
+            expected_names = expected_archive_entries(
+                "owner-" + name,
+                b"supplied" if name in ("type-file", "expression-file-conflict") else None)
             require(package.namelist() == expected_names and
                     package.getinfo("Sample.LP01.nuspec").date_time == ZIP_DATE,
                     f"Owner package ZIP changed: {name}")
+            verify_special_archive(package, "owner-" + name)
     by_id = {case["case_id"]: case for case in synthetic["cases"]}
     _, _, at_record, _, at_grants = owner_inputs("grant-at-limit", policy_bytes, catalog_bytes)
     at_grant = at_grants["grant-mit"]
@@ -1393,7 +1498,10 @@ def main():
     package_precedence = (
         "package-gpl", "duplicate-license", "type-url", "type-file", "unsupported-version",
         "unknown-license-attribute", "dtd-entity", "foreign-metadata", "duplicate-metadata",
-        "multiple-nuspec", "expression-file-conflict", "invalid-expression", "over-limit-expression"
+        "multiple-nuspec", "expression-file-conflict", "invalid-expression", "over-limit-expression",
+        "dtd-unused", "utf16-le-dtd-entity", "utf16-be-dtd-entity",
+        "utf16-le-dtd-unused", "utf16-be-dtd-unused",
+        "duplicate-license-entry", "alias-license-entry", "duplicate-readme-entry"
     )
     for name in package_precedence:
         _, content, record_bytes, _, _ = owner_inputs(name, policy_bytes, catalog_bytes)
@@ -1404,7 +1512,7 @@ def main():
             classify_package(content, policy, licenses)[0],
             f"Owner evidence bypassed the shared package branch: {name}")
     require(len(owner_cases) == len(OWNER_SPECS) and
-            [case["expected"]["branch_id"] for case in owner_cases].count("owner-evidence-accepted") == 12 and
+            [case["expected"]["branch_id"] for case in owner_cases].count("owner-evidence-accepted") == 14 and
             all(case["expected"]["decision"] == "deterministic" and
                 "NOT cryptographically established" in case["expected"]["finding"]
                 if case["expected"]["branch_id"] == "owner-evidence-accepted" else

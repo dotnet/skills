@@ -21,7 +21,7 @@ handlers: `lp05-license-expression/1.0.0`, `lp06-repository-url/1.0.0`,
 LP-01 has a separate **Phase A expectation-only** package-license policy
 freeze at `tests/fixtures/lp01/README.md`. It pins SPDX license-list
 3.27.0 and an explicit versioned, conservative non-copyleft policy,
-178 synthetic cases/177 archives, six separately frozen pre-dispatch input
+198 synthetic cases/197 archives, six separately frozen pre-dispatch input
 rejections, a prevalidated caller-accepted owner record with a separately
 checked grant per distinct normalized SPDX license ID, and two opt-in retained-package MIT
 classifications that **escalate** pending owner grant and release/source
