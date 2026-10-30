@@ -192,7 +192,13 @@ The inventory must equal the graph union, not a superset or subset.
 evidence; that never establishes compatible or incompatible licensing.
 `grant.path` and digest bind the separately checked bytes;
 `package_entry` and digest bind their actual source within the dependency
-archive. v1 supports packaged grants only. An external URL, partial excerpt,
+archive. v1 selects one inspected packaged grant entry per dependency version;
+its safe canonical path is matched **exactly, case-sensitively**, not inferred
+from a conventional filename. `LICENSE.txt` above is an example, not a required
+name: an actual `licenses/COPYING.txt` entry is equally admissible when its
+path, bytes, digest and whole-version applicability review all bind.
+No directory scanning, filename guessing or merging multiple grant files is
+promised. v1 supports packaged grants only. An external URL, partial excerpt,
 tag-only file or caller-named arbitrary text is not a complete grant.
 Other evidence sources need a separately reviewed profile.
 
@@ -365,8 +371,9 @@ execution retains the same safeguards.
 The initial Phase A matrix at
 `b91de23a90490f6f219e3183d5c19d160da498ea` was not accepted: several
 bad packets failed earlier redundant checks, and important omitted-evidence
-and second-target decisions were not distinguishable. This correction
-replaces **17** replay IDs with **20** new IDs, retains **23**, and changes
+and second-target decisions were not distinguishable. The first correction,
+`489e75508834c740aaf191c85dea39541b685f2b`, replaced **17** replay IDs
+with **20** new IDs, retained **23**, and changed
 no policy classifications, readiness interpretations or production behavior.
 The prospective resolver version stays 1.0.0; this is a correction before
 Phase A acceptance, not a released resolver upgrade.
@@ -419,25 +426,154 @@ particular, the packaged-grant mismatch updates the retained path, checked
 digest, receipt digest and review digest together while leaving the actual
 dependency archive intact; only the claimed packaged-entry binding fails.
 
-### Bounded rule-weakening discrimination
+### Final bounded guard-inventory correction
 
-`discrimination.json` freezes **24 fixed weakened-oracle variants** and
-**28 witness executions against existing replay cases**. These are not new
-inputs, hidden boundary cases, model evaluations or production mutations.
-The ordinary normal and optimized runs execute the same checks. There is no
-source rewriting, dynamic code evaluation, package execution or open-ended
-mutation search; the oracle accepts only the fixed internal rule names.
+The correction on top of `489e75508834c740aaf191c85dea39541b685f2b`
+keeps **exactly the same 43 replay, 5 loader and 2 retained expectations**.
+`cases.json`, all 214 checked inputs (576483 bytes), their input manifest,
+the loader controls and retained expectations are byte-identical.
+No retired replay ID is reintroduced. The only classification-profile change
+removes the arbitrary literal `LICENSE.txt` restriction in favor of the actual
+inspected source path and digest. Root/dependency archive facts are looked up
+by their checked byte digests; digest comparisons and inspected ID/version
+comparisons are independent, with unchanged normal classification semantics.
 
-For each witness the normal result must match the frozen case, while the
-specified weakening must yield the explicitly frozen **wrong branch**.
-Merely throwing another error, or hitting another `binding-conflict`, is not
-counted as discrimination. Most weakened binding guards must turn their
-isolated packet positive; the other expected wrong outcomes demonstrate
-unclassified allow/deny, deprecated-before-non-OSI, owner-before-gap,
-closure-before-gap and later-binding precedence. This proves these specific
-matrix probes cannot be passed by simply removing the targeted check.
-It is a bounded regression check, not an exhaustive proof of all possible
-incorrect implementations.
+`discrimination.json` now freezes **64 acceptance-critical guard IDs** and
+**75 registered witnesses**:
+
+- The original **24 weakened variants / 28 existing-case executions** are
+  retained unchanged.
+- **31 explicit in-memory recipes** copy existing complete packets; together
+  with the original probes, **47 distinct weakened variants / 59 executions**
+  must reach their prescribed wrong branch.
+- **16 existing-case branch witnesses** register remaining already-covered
+  branch obligations and an explicit rejected counterexample branch. These
+  recheck existing expected results; they are **not** additional weakened
+  implementations or newly named replay expectations.
+
+For each weakened probe, the ordinary oracle on that exact packet must first
+reach its explicit expected branch; weakening the named guard must then reach
+the different, explicit **wrong branch**. Throwing an exception, or falling
+through to another `binding-conflict`, does not count. All unrelated outer
+checked-input digests and changed graph/receipt/review bindings are recomputed
+and passed through the checked-input loader. These copies and any newly
+constructed archive observations are used in memory only, then discarded.
+The checked fixture files and the normal evidence policy are not changed.
+
+The recipes isolate checked grant path and digest, review grant digest,
+actual packaged entry path, graph digest, graph target membership independently
+of receipt membership, reachability, missing policy and missing catalog,
+dependency digest/ID/version/key, grant-role index, inventory subset/superset/
+duplicates, and each owner sentinel prerequisite. The graph-target recipe
+changes only target two in the graph and its counts, leaving scope and receipt
+targets intact. The unreachable-node recipe retains inventory and evidence
+but removes incoming edges, with counts corrected. Duplicate-node counts
+describe the distinct-node view so count mismatch cannot mask uniqueness.
+Additional fixed probes protect root digest and version, catalog byte pin,
+review/declaration agreement, independently supplied assessment scope,
+whole-version review scope, unresolved diagnostics and graph node/edge
+uniqueness. The positive alternate-filename probe rejects reinstatement of
+the removed `LICENSE.txt` restriction.
+
+The three owner probes individually change license sentinel, basis or
+disposition while preserving all other bindings and the other dependency's
+complete incompatible evidence. Their ordinary result is unresolved; weakening
+the individual prerequisite incorrectly yields `owner-evidence-required`.
+The missing-policy/catalog weakening deliberately supplies the known pinned
+test buffers as an ambient default. The inventory weakening deliberately
+collapses duplicates, ignores extras and evaluates only the inventory/graph
+intersection. These are explicit **bad implementations**, not authorized
+normal fallback behavior. The missing-assessment weakening deliberately
+invents scope from the receipt; the ordinary classifier never does so.
+
+The required guard-ID list is independently enumerated, manual and finite.
+Every registered ID must have a nonempty list of known, discriminating witness
+IDs; unknown/duplicate IDs, orphan witnesses and equal normal/wrong branches
+fail. The meta-check removes each of the 64 registrations and separately
+empties each witness list: **128/128 omissions must reject**. Removing a
+registration therefore cannot silently shrink the required inventory.
+
+The normal and optimized commands run the entire fixed suite. There is no
+source rewriting, dynamic evaluation, arbitrary mutation generation/search,
+package execution, model evaluation or production mutation. The inventory
+records normative guard families, not a second language/runtime grammar or
+an exhaustive proof against every possible incorrect implementation.
+
+### Explicit finite guard table
+
+Witness IDs below are the exact IDs in `discrimination.json`; that document
+also freezes each rule's description, source case, normal branch, wrong
+branch and, when applicable, fixed recipe and weakened rule.
+`replay:` uses an unchanged existing packet with a weakened rule;
+`memory:` uses one fixed in-memory recipe; `branch:` rechecks an unchanged
+case's branch without claiming a weakened-oracle execution.
+
+| Guard ID | Registered witness IDs |
+|---|---|
+| `optional-reviews` | `replay:optional-reviews:missing-reviews`, `replay:optional-reviews:missing-one-review` |
+| `first-target-licenses` | `replay:first-target-licenses:multi-tfm-second-gap`, `replay:first-target-licenses:multi-tfm-second-unresolved` |
+| `unclassified-allow` | `replay:unclassified-allow:osi-unclassified` |
+| `unclassified-gap` | `replay:unclassified-gap:osi-unclassified` |
+| `deprecated-id` | `replay:deprecated-id:deprecated-id` |
+| `strip-compound` | `replay:strip-compound:with-expression`, `replay:strip-compound:dual-expression`, `replay:strip-compound:conjunctive-expression` |
+| `archive-declaration` | `replay:archive-declaration:archive-declaration-mismatch` |
+| `review-disposition` | `replay:review-disposition:review-unresolved` |
+| `review-basis` | `replay:review-basis:review-nonaccepting-basis` |
+| `review-package` | `replay:review-package:review-package-binding` |
+| `packaged-grant` | `replay:packaged-grant:packaged-grant-binding` |
+| `receipt-targets` | `replay:receipt-targets:receipt-target-mismatch` |
+| `graph-root` | `replay:graph-root:wrong-graph-root` |
+| `dependency-role` | `replay:dependency-role:dependency-role-index` |
+| `duplicate-reviews` | `replay:duplicate-reviews:duplicate-reviews` |
+| `out-of-inventory-review` | `replay:out-of-inventory-review:out-of-inventory-review` |
+| `unexpected-role` | `replay:unexpected-role:unexpected-evidence-role` |
+| `gap-before-owner` | `replay:gap-before-owner:owner-before-gap` |
+| `early-missing-license` | `replay:early-missing-license:later-binding-before-unresolved` |
+| `root-identity` | `replay:root-identity:wrong-root-id`, `memory:root-version` |
+| `receipt-root` | `replay:receipt-root:wrong-root-version` |
+| `completeness-counts` | `replay:completeness-counts:incomplete-basis` |
+| `same-target-versions` | `replay:same-target-versions:same-tfm-version-conflict` |
+| `policy-pin` | `replay:policy-pin:changed-policy`, `memory:changed-corpus-pin` |
+| `checked-grant-path` | `memory:checked-grant-path` |
+| `checked-grant-digest` | `memory:checked-grant-digest` |
+| `review-grant-digest` | `memory:review-grant-digest` |
+| `packaged-entry-path` | `memory:packaged-entry-path` |
+| `receipt-graph-digest` | `memory:receipt-graph-digest` |
+| `graph-target-set` | `memory:graph-target-set` |
+| `reachable-nodes` | `memory:unreachable-node` |
+| `policy-required` | `memory:missing-policy` |
+| `corpus-required` | `memory:missing-corpus` |
+| `dependency-digest` | `memory:dependency-digest` |
+| `dependency-identity` | `memory:dependency-id`, `memory:dependency-version` |
+| `grant-role` | `memory:grant-role-index` |
+| `inventory-equality` | `memory:inventory-missing`, `memory:inventory-extra`, `memory:inventory-duplicate` |
+| `owner-license` | `memory:owner-license` |
+| `owner-basis` | `memory:owner-basis` |
+| `owner-disposition` | `memory:owner-disposition` |
+| `any-safe-packaged-entry` | `memory:alternate-packaged-entry` |
+| `root-digest` | `memory:root-digest` |
+| `dependency-key` | `memory:dependency-key` |
+| `review-license` | `memory:review-license` |
+| `graph-diagnostics` | `memory:graph-diagnostics` |
+| `graph-uniqueness` | `memory:duplicate-node`, `memory:duplicate-direct-edge`, `memory:duplicate-adjacency-edge` |
+| `assessment-required` | `memory:missing-assessment` |
+| `review-whole-version-scope` | `memory:review-scope` |
+| `root-required` | `branch:root-required` |
+| `graph-required` | `branch:graph-required` |
+| `capture-required` | `branch:capture-required` |
+| `successful-acquisition` | `branch:successful-acquisition` |
+| `empty-captured-closure` | `branch:empty-captured-closure` |
+| `compatible-union` | `branch:compatible-union` |
+| `weak-copyleft-policy` | `branch:weak-copyleft-policy` |
+| `non-osi-policy` | `branch:non-osi-policy` |
+| `missing-grant-precedence` | `branch:missing-grant-precedence` |
+| `unknown-license` | `branch:unknown-license` |
+| `dependency-required` | `branch:dependency-required` |
+| `edge-closure` | `branch:edge-closure` |
+| `duplicate-json-fields` | `branch:duplicate-json-fields` |
+| `exact-document-fields` | `branch:exact-document-fields` |
+| `safe-grant-paths` | `branch:safe-grant-paths` |
+| `grant-resource-limit` | `branch:grant-resource-limit` |
 
 `input-manifest.json` lists every synthetic input's exact byte count/digest.
 `acceptance-manifest.json` binds this contract's exact bytes, all manifests,

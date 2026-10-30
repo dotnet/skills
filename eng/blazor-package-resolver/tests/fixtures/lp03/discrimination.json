@@ -1,238 +1,1156 @@
 {
   "schema_version": 1,
-  "method": "fixed-weakened-oracle-rules-existing-inputs-only",
-  "variants": [
+  "method": "finite-manual-guard-inventory-and-fixed-witnesses",
+  "critical_guard_ids": [
+    "optional-reviews",
+    "first-target-licenses",
+    "unclassified-allow",
+    "unclassified-gap",
+    "deprecated-id",
+    "strip-compound",
+    "archive-declaration",
+    "review-disposition",
+    "review-basis",
+    "review-package",
+    "packaged-grant",
+    "receipt-targets",
+    "graph-root",
+    "dependency-role",
+    "duplicate-reviews",
+    "out-of-inventory-review",
+    "unexpected-role",
+    "gap-before-owner",
+    "early-missing-license",
+    "root-identity",
+    "receipt-root",
+    "completeness-counts",
+    "same-target-versions",
+    "policy-pin",
+    "checked-grant-path",
+    "checked-grant-digest",
+    "review-grant-digest",
+    "packaged-entry-path",
+    "receipt-graph-digest",
+    "graph-target-set",
+    "reachable-nodes",
+    "policy-required",
+    "corpus-required",
+    "dependency-digest",
+    "dependency-identity",
+    "grant-role",
+    "inventory-equality",
+    "owner-license",
+    "owner-basis",
+    "owner-disposition",
+    "any-safe-packaged-entry",
+    "root-digest",
+    "dependency-key",
+    "review-license",
+    "graph-diagnostics",
+    "graph-uniqueness",
+    "assessment-required",
+    "review-whole-version-scope",
+    "root-required",
+    "graph-required",
+    "capture-required",
+    "successful-acquisition",
+    "empty-captured-closure",
+    "compatible-union",
+    "weak-copyleft-policy",
+    "non-osi-policy",
+    "missing-grant-precedence",
+    "unknown-license",
+    "dependency-required",
+    "edge-closure",
+    "duplicate-json-fields",
+    "exact-document-fields",
+    "safe-grant-paths",
+    "grant-resource-limit"
+  ],
+  "guard_inventory": [
     {
-      "weakened_rule": "optional-reviews",
-      "witnesses": [
-        {
-          "case_id": "lp03-missing-reviews",
-          "weakened_branch": "dependencies-policy-satisfied"
-        },
-        {
-          "case_id": "lp03-missing-one-review",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "optional-reviews",
+      "rule": "Whole-document and per-version reviews are mandatory.",
+      "witness_ids": [
+        "replay:optional-reviews:missing-reviews",
+        "replay:optional-reviews:missing-one-review"
       ]
     },
     {
-      "weakened_rule": "first-target-licenses",
-      "witnesses": [
-        {
-          "case_id": "lp03-multi-tfm-second-gap",
-          "weakened_branch": "dependencies-policy-satisfied"
-        },
-        {
-          "case_id": "lp03-multi-tfm-second-unresolved",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "first-target-licenses",
+      "rule": "License decisions use every assessed target.",
+      "witness_ids": [
+        "replay:first-target-licenses:multi-tfm-second-gap",
+        "replay:first-target-licenses:multi-tfm-second-unresolved"
       ]
     },
     {
-      "weakened_rule": "unclassified-allow",
-      "witnesses": [
-        {
-          "case_id": "lp03-osi-unclassified",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "unclassified-allow",
+      "rule": "A current unclassified OSI ID is not implicitly allowed.",
+      "witness_ids": [
+        "replay:unclassified-allow:osi-unclassified"
       ]
     },
     {
-      "weakened_rule": "unclassified-gap",
-      "witnesses": [
-        {
-          "case_id": "lp03-osi-unclassified",
-          "weakened_branch": "incompatible-dependency-license"
-        }
+      "guard_id": "unclassified-gap",
+      "rule": "A current unclassified OSI ID is not implicitly denied.",
+      "witness_ids": [
+        "replay:unclassified-gap:osi-unclassified"
       ]
     },
     {
-      "weakened_rule": "deprecated-id",
-      "witnesses": [
-        {
-          "case_id": "lp03-deprecated-id",
-          "weakened_branch": "incompatible-dependency-license"
-        }
+      "guard_id": "deprecated-id",
+      "rule": "Deprecated IDs remain unresolved.",
+      "witness_ids": [
+        "replay:deprecated-id:deprecated-id"
       ]
     },
     {
-      "weakened_rule": "strip-compound",
-      "witnesses": [
-        {
-          "case_id": "lp03-with-expression",
-          "weakened_branch": "dependencies-policy-satisfied"
-        },
-        {
-          "case_id": "lp03-dual-expression",
-          "weakened_branch": "dependencies-policy-satisfied"
-        },
-        {
-          "case_id": "lp03-conjunctive-expression",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "strip-compound",
+      "rule": "WITH/OR/AND cannot be reduced to a single license.",
+      "witness_ids": [
+        "replay:strip-compound:with-expression",
+        "replay:strip-compound:dual-expression",
+        "replay:strip-compound:conjunctive-expression"
       ]
     },
     {
-      "weakened_rule": "archive-declaration",
-      "witnesses": [
-        {
-          "case_id": "lp03-archive-declaration-mismatch",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "archive-declaration",
+      "rule": "Receipt declarations match actual archive observations.",
+      "witness_ids": [
+        "replay:archive-declaration:archive-declaration-mismatch"
       ]
     },
     {
-      "weakened_rule": "review-disposition",
-      "witnesses": [
-        {
-          "case_id": "lp03-review-unresolved",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "review-disposition",
+      "rule": "Conclusive reviews have an accepting disposition.",
+      "witness_ids": [
+        "replay:review-disposition:review-unresolved"
       ]
     },
     {
-      "weakened_rule": "review-basis",
-      "witnesses": [
-        {
-          "case_id": "lp03-review-nonaccepting-basis",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "review-basis",
+      "rule": "Conclusive reviews have a published packaged-grant basis.",
+      "witness_ids": [
+        "replay:review-basis:review-nonaccepting-basis"
       ]
     },
     {
-      "weakened_rule": "review-package",
-      "witnesses": [
-        {
-          "case_id": "lp03-review-package-binding",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "review-package",
+      "rule": "Reviews bind the exact dependency digest.",
+      "witness_ids": [
+        "replay:review-package:review-package-binding"
       ]
     },
     {
-      "weakened_rule": "packaged-grant",
-      "witnesses": [
-        {
-          "case_id": "lp03-packaged-grant-binding",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "packaged-grant",
+      "rule": "Retained grant digest matches the actual packaged grant.",
+      "witness_ids": [
+        "replay:packaged-grant:packaged-grant-binding"
       ]
     },
     {
-      "weakened_rule": "receipt-targets",
-      "witnesses": [
-        {
-          "case_id": "lp03-receipt-target-mismatch",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "receipt-targets",
+      "rule": "Receipt target set equals frozen scope.",
+      "witness_ids": [
+        "replay:receipt-targets:receipt-target-mismatch"
       ]
     },
     {
-      "weakened_rule": "graph-root",
-      "witnesses": [
-        {
-          "case_id": "lp03-wrong-graph-root",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "graph-root",
+      "rule": "Graph root equals frozen root.",
+      "witness_ids": [
+        "replay:graph-root:wrong-graph-root"
       ]
     },
     {
-      "weakened_rule": "dependency-role",
-      "witnesses": [
-        {
-          "case_id": "lp03-dependency-role-index",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "dependency-role",
+      "rule": "Dependency role index follows the sorted exact-version union.",
+      "witness_ids": [
+        "replay:dependency-role:dependency-role-index"
       ]
     },
     {
-      "weakened_rule": "duplicate-reviews",
-      "witnesses": [
-        {
-          "case_id": "lp03-duplicate-reviews",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "duplicate-reviews",
+      "rule": "Duplicate reviews are conflicts.",
+      "witness_ids": [
+        "replay:duplicate-reviews:duplicate-reviews"
       ]
     },
     {
-      "weakened_rule": "out-of-inventory-review",
-      "witnesses": [
-        {
-          "case_id": "lp03-out-of-inventory-review",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "out-of-inventory-review",
+      "rule": "Unassessed-version reviews are conflicts.",
+      "witness_ids": [
+        "replay:out-of-inventory-review:out-of-inventory-review"
       ]
     },
     {
-      "weakened_rule": "unexpected-role",
-      "witnesses": [
-        {
-          "case_id": "lp03-unexpected-evidence-role",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "unexpected-role",
+      "rule": "Unused checked evidence roles are conflicts.",
+      "witness_ids": [
+        "replay:unexpected-role:unexpected-evidence-role"
       ]
     },
     {
-      "weakened_rule": "gap-before-owner",
-      "witnesses": [
-        {
-          "case_id": "lp03-owner-before-gap",
-          "weakened_branch": "incompatible-dependency-license"
-        }
+      "guard_id": "gap-before-owner",
+      "rule": "Owner-only evidence requirement precedes a supported gap.",
+      "witness_ids": [
+        "replay:gap-before-owner:owner-before-gap"
       ]
     },
     {
-      "weakened_rule": "early-missing-license",
-      "witnesses": [
-        {
-          "case_id": "lp03-later-binding-before-unresolved",
-          "weakened_branch": "license-evidence-unresolved"
-        }
+      "guard_id": "early-missing-license",
+      "rule": "All bindings precede any missing-license result.",
+      "witness_ids": [
+        "replay:early-missing-license:later-binding-before-unresolved"
       ]
     },
     {
-      "weakened_rule": "root-identity",
-      "witnesses": [
-        {
-          "case_id": "lp03-wrong-root-id",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "root-identity",
+      "rule": "Frozen root ID/version match archive observations.",
+      "witness_ids": [
+        "replay:root-identity:wrong-root-id",
+        "memory:root-version"
       ]
     },
     {
-      "weakened_rule": "receipt-root",
-      "witnesses": [
-        {
-          "case_id": "lp03-wrong-root-version",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "receipt-root",
+      "rule": "Receipt root equals frozen root.",
+      "witness_ids": [
+        "replay:receipt-root:wrong-root-version"
       ]
     },
     {
-      "weakened_rule": "completeness-counts",
-      "witnesses": [
-        {
-          "case_id": "lp03-incomplete-basis",
-          "weakened_branch": "incompatible-dependency-license"
-        }
+      "guard_id": "completeness-counts",
+      "rule": "Receipt target/node/edge counts equal the full graph.",
+      "witness_ids": [
+        "replay:completeness-counts:incomplete-basis"
       ]
     },
     {
-      "weakened_rule": "same-target-versions",
-      "witnesses": [
-        {
-          "case_id": "lp03-same-tfm-version-conflict",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "same-target-versions",
+      "rule": "One target cannot select competing versions of one ID.",
+      "witness_ids": [
+        "replay:same-target-versions:same-tfm-version-conflict"
       ]
     },
     {
-      "weakened_rule": "policy-pin",
-      "witnesses": [
-        {
-          "case_id": "lp03-changed-policy",
-          "weakened_branch": "dependencies-policy-satisfied"
-        }
+      "guard_id": "policy-pin",
+      "rule": "Policy/catalog bytes match the accepted pins.",
+      "witness_ids": [
+        "replay:policy-pin:changed-policy",
+        "memory:changed-corpus-pin"
+      ]
+    },
+    {
+      "guard_id": "checked-grant-path",
+      "rule": "Checked grant path equals receipt path.",
+      "witness_ids": [
+        "memory:checked-grant-path"
+      ]
+    },
+    {
+      "guard_id": "checked-grant-digest",
+      "rule": "Checked grant digest equals receipt digest.",
+      "witness_ids": [
+        "memory:checked-grant-digest"
+      ]
+    },
+    {
+      "guard_id": "review-grant-digest",
+      "rule": "Review grant digest equals receipt grant digest.",
+      "witness_ids": [
+        "memory:review-grant-digest"
+      ]
+    },
+    {
+      "guard_id": "packaged-entry-path",
+      "rule": "Claimed packaged entry equals the inspected source path.",
+      "witness_ids": [
+        "memory:packaged-entry-path"
+      ]
+    },
+    {
+      "guard_id": "receipt-graph-digest",
+      "rule": "Receipt graph digest equals checked graph bytes.",
+      "witness_ids": [
+        "memory:receipt-graph-digest"
+      ]
+    },
+    {
+      "guard_id": "graph-target-set",
+      "rule": "Graph target set independently equals frozen scope.",
+      "witness_ids": [
+        "memory:graph-target-set"
+      ]
+    },
+    {
+      "guard_id": "reachable-nodes",
+      "rule": "Every graph node is root-reachable.",
+      "witness_ids": [
+        "memory:unreachable-node"
+      ]
+    },
+    {
+      "guard_id": "policy-required",
+      "rule": "Policy evidence cannot come from an ambient default.",
+      "witness_ids": [
+        "memory:missing-policy"
+      ]
+    },
+    {
+      "guard_id": "corpus-required",
+      "rule": "Catalog evidence cannot come from an ambient default.",
+      "witness_ids": [
+        "memory:missing-corpus"
+      ]
+    },
+    {
+      "guard_id": "dependency-digest",
+      "rule": "Dependency receipt digest equals checked archive bytes.",
+      "witness_ids": [
+        "memory:dependency-digest"
+      ]
+    },
+    {
+      "guard_id": "dependency-identity",
+      "rule": "Dependency ID and version match actual archive observations.",
+      "witness_ids": [
+        "memory:dependency-id",
+        "memory:dependency-version"
+      ]
+    },
+    {
+      "guard_id": "grant-role",
+      "rule": "Grant role index follows the sorted exact-version union.",
+      "witness_ids": [
+        "memory:grant-role-index"
+      ]
+    },
+    {
+      "guard_id": "inventory-equality",
+      "rule": "Receipt inventory is unique and equals the graph union.",
+      "witness_ids": [
+        "memory:inventory-missing",
+        "memory:inventory-extra",
+        "memory:inventory-duplicate"
+      ]
+    },
+    {
+      "guard_id": "owner-license",
+      "rule": "Owner-only route requires the exact owner license sentinel.",
+      "witness_ids": [
+        "memory:owner-license"
+      ]
+    },
+    {
+      "guard_id": "owner-basis",
+      "rule": "Owner-only route requires an unpublished-owner-grant basis.",
+      "witness_ids": [
+        "memory:owner-basis"
+      ]
+    },
+    {
+      "guard_id": "owner-disposition",
+      "rule": "Owner-only route requires an owner-grant-required disposition.",
+      "witness_ids": [
+        "memory:owner-disposition"
+      ]
+    },
+    {
+      "guard_id": "any-safe-packaged-entry",
+      "rule": "Actual safe packaged paths are not restricted to LICENSE.txt.",
+      "witness_ids": [
+        "memory:alternate-packaged-entry"
+      ]
+    },
+    {
+      "guard_id": "root-digest",
+      "rule": "Frozen root digest equals checked root bytes.",
+      "witness_ids": [
+        "memory:root-digest"
+      ]
+    },
+    {
+      "guard_id": "dependency-key",
+      "rule": "Graph/receipt key equals the exact dependency ID/version.",
+      "witness_ids": [
+        "memory:dependency-key"
+      ]
+    },
+    {
+      "guard_id": "review-license",
+      "rule": "Reviewed license equals the actual/receipted declaration.",
+      "witness_ids": [
+        "memory:review-license"
+      ]
+    },
+    {
+      "guard_id": "graph-diagnostics",
+      "rule": "Unresolved acquisition diagnostics prevent a closure claim.",
+      "witness_ids": [
+        "memory:graph-diagnostics"
+      ]
+    },
+    {
+      "guard_id": "graph-uniqueness",
+      "rule": "Graph nodes, direct edges and adjacency edges are unique.",
+      "witness_ids": [
+        "memory:duplicate-node",
+        "memory:duplicate-direct-edge",
+        "memory:duplicate-adjacency-edge"
+      ]
+    },
+    {
+      "guard_id": "assessment-required",
+      "rule": "Assessment scope is supplied independently, never inferred from acquisition.",
+      "witness_ids": [
+        "memory:missing-assessment"
+      ]
+    },
+    {
+      "guard_id": "review-whole-version-scope",
+      "rule": "Applicability reviews cover the entire exact dependency version.",
+      "witness_ids": [
+        "memory:review-scope"
+      ]
+    },
+    {
+      "guard_id": "root-required",
+      "rule": "Root archive must be present.",
+      "witness_ids": [
+        "branch:root-required"
+      ]
+    },
+    {
+      "guard_id": "graph-required",
+      "rule": "Receipt alone cannot establish closure.",
+      "witness_ids": [
+        "branch:graph-required"
+      ]
+    },
+    {
+      "guard_id": "capture-required",
+      "rule": "Graph alone cannot establish acquisition completeness.",
+      "witness_ids": [
+        "branch:capture-required"
+      ]
+    },
+    {
+      "guard_id": "successful-acquisition",
+      "rule": "Failed acquisition cannot create a vacuous positive.",
+      "witness_ids": [
+        "branch:successful-acquisition"
+      ]
+    },
+    {
+      "guard_id": "empty-captured-closure",
+      "rule": "A completely captured empty closure is conclusive.",
+      "witness_ids": [
+        "branch:empty-captured-closure"
+      ]
+    },
+    {
+      "guard_id": "compatible-union",
+      "rule": "All evidenced compatible versions permit a qualified positive.",
+      "witness_ids": [
+        "branch:compatible-union"
+      ]
+    },
+    {
+      "guard_id": "weak-copyleft-policy",
+      "rule": "Applicable weak-copyleft evidence is incompatible.",
+      "witness_ids": [
+        "branch:weak-copyleft-policy"
+      ]
+    },
+    {
+      "guard_id": "non-osi-policy",
+      "rule": "Applicable current non-OSI evidence is incompatible.",
+      "witness_ids": [
+        "branch:non-osi-policy"
+      ]
+    },
+    {
+      "guard_id": "missing-grant-precedence",
+      "rule": "Missing grant evidence precedes an otherwise supported gap.",
+      "witness_ids": [
+        "branch:missing-grant-precedence"
+      ]
+    },
+    {
+      "guard_id": "unknown-license",
+      "rule": "Unknown/custom terms remain unresolved.",
+      "witness_ids": [
+        "branch:unknown-license"
+      ]
+    },
+    {
+      "guard_id": "dependency-required",
+      "rule": "Every exact inventoried dependency needs bytes.",
+      "witness_ids": [
+        "branch:dependency-required"
+      ]
+    },
+    {
+      "guard_id": "edge-closure",
+      "rule": "Every direct/transitive edge must resolve.",
+      "witness_ids": [
+        "branch:edge-closure"
+      ]
+    },
+    {
+      "guard_id": "duplicate-json-fields",
+      "rule": "Duplicate JSON fields are rejected.",
+      "witness_ids": [
+        "branch:duplicate-json-fields"
+      ]
+    },
+    {
+      "guard_id": "exact-document-fields",
+      "rule": "Unknown JSON fields cannot assert completeness.",
+      "witness_ids": [
+        "branch:exact-document-fields"
+      ]
+    },
+    {
+      "guard_id": "safe-grant-paths",
+      "rule": "Grant paths must satisfy the bounded safe-path profile.",
+      "witness_ids": [
+        "branch:safe-grant-paths"
+      ]
+    },
+    {
+      "guard_id": "grant-resource-limit",
+      "rule": "Grant bytes must not exceed the inclusive limit.",
+      "witness_ids": [
+        "branch:grant-resource-limit"
       ]
     }
-  ]
+  ],
+  "witnesses": [
+    {
+      "witness_id": "replay:optional-reviews:missing-reviews",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-missing-reviews",
+      "weakened_rule": "optional-reviews",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:optional-reviews:missing-one-review",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-missing-one-review",
+      "weakened_rule": "optional-reviews",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:first-target-licenses:multi-tfm-second-gap",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-multi-tfm-second-gap",
+      "weakened_rule": "first-target-licenses",
+      "normal_branch": "incompatible-dependency-license",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:first-target-licenses:multi-tfm-second-unresolved",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-multi-tfm-second-unresolved",
+      "weakened_rule": "first-target-licenses",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:unclassified-allow:osi-unclassified",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-osi-unclassified",
+      "weakened_rule": "unclassified-allow",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:unclassified-gap:osi-unclassified",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-osi-unclassified",
+      "weakened_rule": "unclassified-gap",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "incompatible-dependency-license"
+    },
+    {
+      "witness_id": "replay:deprecated-id:deprecated-id",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-deprecated-id",
+      "weakened_rule": "deprecated-id",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "incompatible-dependency-license"
+    },
+    {
+      "witness_id": "replay:strip-compound:with-expression",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-with-expression",
+      "weakened_rule": "strip-compound",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:strip-compound:dual-expression",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-dual-expression",
+      "weakened_rule": "strip-compound",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:strip-compound:conjunctive-expression",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-conjunctive-expression",
+      "weakened_rule": "strip-compound",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:archive-declaration:archive-declaration-mismatch",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-archive-declaration-mismatch",
+      "weakened_rule": "archive-declaration",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:review-disposition:review-unresolved",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-review-unresolved",
+      "weakened_rule": "review-disposition",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:review-basis:review-nonaccepting-basis",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-review-nonaccepting-basis",
+      "weakened_rule": "review-basis",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:review-package:review-package-binding",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-review-package-binding",
+      "weakened_rule": "review-package",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:packaged-grant:packaged-grant-binding",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-packaged-grant-binding",
+      "weakened_rule": "packaged-grant",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:receipt-targets:receipt-target-mismatch",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-receipt-target-mismatch",
+      "weakened_rule": "receipt-targets",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:graph-root:wrong-graph-root",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-wrong-graph-root",
+      "weakened_rule": "graph-root",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:dependency-role:dependency-role-index",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-dependency-role-index",
+      "weakened_rule": "dependency-role",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:duplicate-reviews:duplicate-reviews",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-duplicate-reviews",
+      "weakened_rule": "duplicate-reviews",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:out-of-inventory-review:out-of-inventory-review",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-out-of-inventory-review",
+      "weakened_rule": "out-of-inventory-review",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:unexpected-role:unexpected-evidence-role",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-unexpected-evidence-role",
+      "weakened_rule": "unexpected-role",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:gap-before-owner:owner-before-gap",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-owner-before-gap",
+      "weakened_rule": "gap-before-owner",
+      "normal_branch": "owner-evidence-required",
+      "wrong_branch": "incompatible-dependency-license"
+    },
+    {
+      "witness_id": "replay:early-missing-license:later-binding-before-unresolved",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-later-binding-before-unresolved",
+      "weakened_rule": "early-missing-license",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "license-evidence-unresolved"
+    },
+    {
+      "witness_id": "replay:root-identity:wrong-root-id",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-wrong-root-id",
+      "weakened_rule": "root-identity",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:receipt-root:wrong-root-version",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-wrong-root-version",
+      "weakened_rule": "receipt-root",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:completeness-counts:incomplete-basis",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-incomplete-basis",
+      "weakened_rule": "completeness-counts",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "incompatible-dependency-license"
+    },
+    {
+      "witness_id": "replay:same-target-versions:same-tfm-version-conflict",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-same-tfm-version-conflict",
+      "weakened_rule": "same-target-versions",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "replay:policy-pin:changed-policy",
+      "kind": "weakened-existing-case",
+      "case_id": "lp03-changed-policy",
+      "weakened_rule": "policy-pin",
+      "normal_branch": "policy-unavailable",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:checked-grant-path",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "checked-grant-path",
+      "weakened_rule": "checked-grant-path",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:checked-grant-digest",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "checked-grant-digest",
+      "weakened_rule": "checked-grant-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:review-grant-digest",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "review-grant-digest",
+      "weakened_rule": "review-grant-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:packaged-entry-path",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "packaged-entry-path",
+      "weakened_rule": "packaged-entry-path",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:receipt-graph-digest",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "receipt-graph-digest",
+      "weakened_rule": "receipt-graph-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:graph-target-set",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "graph-target-set",
+      "weakened_rule": "graph-target-set",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:unreachable-node",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "unreachable-node",
+      "weakened_rule": "reachable-nodes",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-policy",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "missing-policy",
+      "weakened_rule": "policy-presence",
+      "normal_branch": "policy-unavailable",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-corpus",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "missing-corpus",
+      "weakened_rule": "policy-presence",
+      "normal_branch": "policy-unavailable",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-digest",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "dependency-digest",
+      "weakened_rule": "dependency-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-id",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "dependency-id",
+      "weakened_rule": "dependency-identity",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-version",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "dependency-version",
+      "weakened_rule": "dependency-identity",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:grant-role-index",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "grant-role-index",
+      "weakened_rule": "grant-role",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:inventory-missing",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "inventory-missing",
+      "weakened_rule": "inventory-equality",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:inventory-extra",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "inventory-extra",
+      "weakened_rule": "inventory-equality",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:inventory-duplicate",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "inventory-duplicate",
+      "weakened_rule": "inventory-equality",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:owner-license",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-owner-before-gap",
+      "recipe": "owner-license",
+      "weakened_rule": "owner-license",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "owner-evidence-required"
+    },
+    {
+      "witness_id": "memory:owner-basis",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-owner-before-gap",
+      "recipe": "owner-basis",
+      "weakened_rule": "owner-basis",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "owner-evidence-required"
+    },
+    {
+      "witness_id": "memory:owner-disposition",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-owner-before-gap",
+      "recipe": "owner-disposition",
+      "weakened_rule": "owner-disposition",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "owner-evidence-required"
+    },
+    {
+      "witness_id": "memory:alternate-packaged-entry",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "alternate-packaged-entry",
+      "weakened_rule": "license-txt-only",
+      "normal_branch": "dependencies-policy-satisfied",
+      "wrong_branch": "binding-conflict"
+    },
+    {
+      "witness_id": "memory:root-digest",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "root-digest",
+      "weakened_rule": "root-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:root-version",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "root-version",
+      "weakened_rule": "root-identity",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:changed-corpus-pin",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "changed-corpus-pin",
+      "weakened_rule": "policy-pin",
+      "normal_branch": "policy-unavailable",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-key",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "dependency-key",
+      "weakened_rule": "dependency-key",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:review-license",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "review-license",
+      "weakened_rule": "review-license",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:graph-diagnostics",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "graph-diagnostics",
+      "weakened_rule": "graph-diagnostics",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-node",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "duplicate-node",
+      "weakened_rule": "graph-uniqueness",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-direct-edge",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "duplicate-direct-edge",
+      "weakened_rule": "graph-uniqueness",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-adjacency-edge",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "duplicate-adjacency-edge",
+      "weakened_rule": "graph-uniqueness",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-assessment",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "missing-assessment",
+      "weakened_rule": "assessment-presence",
+      "normal_branch": "scope-missing",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:review-scope",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "review-scope",
+      "weakened_rule": "review-scope",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "branch:root-required",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-missing-package",
+      "normal_branch": "missing-package",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "branch:graph-required",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-missing-closure",
+      "normal_branch": "evidence-missing",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "branch:capture-required",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-missing-capture",
+      "normal_branch": "evidence-missing",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "branch:successful-acquisition",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-acquisition-failed",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "branch:empty-captured-closure",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-zero-dependencies",
+      "normal_branch": "dependencies-policy-satisfied",
+      "wrong_branch": "license-evidence-unresolved"
+    },
+    {
+      "witness_id": "branch:compatible-union",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-multi-tfm-versions",
+      "normal_branch": "dependencies-policy-satisfied",
+      "wrong_branch": "license-evidence-unresolved"
+    },
+    {
+      "witness_id": "branch:weak-copyleft-policy",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-transitive-weak-copyleft",
+      "normal_branch": "incompatible-dependency-license",
+      "wrong_branch": "license-evidence-unresolved"
+    },
+    {
+      "witness_id": "branch:non-osi-policy",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-non-osi",
+      "normal_branch": "incompatible-dependency-license",
+      "wrong_branch": "license-evidence-unresolved"
+    },
+    {
+      "witness_id": "branch:missing-grant-precedence",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-missing-evidence-before-gap",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "incompatible-dependency-license"
+    },
+    {
+      "witness_id": "branch:unknown-license",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-custom-expression",
+      "normal_branch": "license-evidence-unresolved",
+      "wrong_branch": "incompatible-dependency-license"
+    },
+    {
+      "witness_id": "branch:dependency-required",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-missing-dependency",
+      "normal_branch": "dependency-bytes-missing",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "branch:edge-closure",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-dangling-edge",
+      "normal_branch": "closure-unresolved",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "branch:duplicate-json-fields",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-duplicate-key",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "branch:exact-document-fields",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-unknown-field",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "branch:safe-grant-paths",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-unsafe-grant-path",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "binding-conflict"
+    },
+    {
+      "witness_id": "branch:grant-resource-limit",
+      "kind": "existing-branch-witness",
+      "case_id": "lp03-grant-over-limit",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "dependencies-policy-satisfied"
+    }
+  ],
+  "limits": {
+    "original_weakened_variants": 24,
+    "original_witness_runs": 28,
+    "fixed_in_memory_recipes": 31,
+    "weakened_variants_total": 47,
+    "critical_guards": 64,
+    "registered_witnesses": 75
+  }
 }

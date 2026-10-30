@@ -41,8 +41,11 @@ license applicability. Inventory or package license metadata alone is never a
 positive. No LP-03 acquisition implementation, production handler or registry
 entry is added; coverage remains nine implemented and 51 TBD. Check it with
 `python eng\blazor-package-resolver\tests\lp03_expectations.py` (also with `-O`).
-The corrected matrix has 50 named expectations total; 24 bounded rule-weakening
-variants reuse those existing inputs to check that central guards discriminate.
+The corrected matrix still has 50 named expectations. Its explicit inventory
+registers 64 guard IDs and 75 witnesses: 47 bounded weakened-rule variants run
+59 probes (the original 28 plus 31 fixed in-memory copies), alongside 16
+existing-case branch witnesses. All 128 missing-registration/empty-witness
+meta-checks must reject. No replay cases or retained inputs are added.
 
 LP-01 checks archive-wide entry identity using a pinned Unicode 15.0.0
 casefold table (generated from Python Unicode 15.0.0 `str.casefold()` for
