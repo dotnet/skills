@@ -303,7 +303,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              The target in Directory.Build.targets is meant to generate buildinfo.g.cs once, but its Exists check is evaluated separately in every project, and with -m the projects build in separate worker processes. Several of them see no file at the same moment and each run the generator, which is why Exec shows 9 calls for 24 projects and why one writer sometimes hits Text file busy. A flag property would not help because properties are per project instance. I removed the generation from the per-project target and build.sh now runs tools/make-buildinfo.sh once into a temporary file, before dotnet build. It publishes that file only when its content differs, keeping the compiled file's timestamp on an unchanged rerun and updating it when the daily stamp changes. The Compile item still includes it. Not validated: I could not run the build here.
+              The target in Directory.Build.targets is meant to generate buildinfo.g.cs once, but its Exists check is evaluated separately in every project, and with -m the projects build in separate worker processes. Several can enter before the file exists, then truncate or append to the same output while other projects start compilation. Interleaved writes can leave an extra date suffix, consistent with the compiler error in failure-log.txt; Exec shows 9 calls for 24 projects. A flag property would not help because properties are per project instance. I removed the generation from the per-project target and build.sh now runs tools/make-buildinfo.sh once into a temporary file, before dotnet build. It publishes that file only when its content differs, keeping the compiled file's timestamp on an unchanged rerun and updating it when the daily stamp changes. The Compile item still includes it. Not validated: I could not run the build here.
 
               | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
               |---|---|---|---|---|---|---|
@@ -448,13 +448,16 @@ stimuli:
                       ] for path in compile_observations), 'each project must retain buildinfo.g.cs in effective Compile items at the compile and build boundaries'
                       generation = lambda path: [line for line in path.read_text().splitlines()
                                                  if line.startswith('generator-')]
-                      assert generation(bin_dir / 'events') == ['generator-start', 'generator-done'], 'generate exactly once per wrapper invocation'
+                      generated_events = generation(bin_dir / 'events')
+                      assert generated_events == ['generator-start', 'generator-done'] or (
+                          not should_compile and not generated_events
+                      ), phase + ': generate once for changed inputs and at most once for current inputs'
                       assert generated.read_bytes() == expected.read_bytes(), 'preserve the original daily build-info output bytes'
                       final_ns = generated.stat().st_mtime_ns
                       expected_mtime = datetime.datetime.fromtimestamp(final_ns // 1_000_000_000).strftime('%Y-%m-%d %H:%M:%S')
                       expected_mtime += '.' + format(final_ns % 1_000_000_000 // 100, '07d')
                       for events, mtime in boundaries:
-                          assert events.is_file() and generation(events) == ['generator-start', 'generator-done'], 'complete one generation before every project consumer'
+                          assert events.is_file() and generation(events) == generated_events, 'complete any required generation before every project consumer'
                           assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before compilation and preserve it through Build'
                       (bin_dir / 'events').unlink()
                       return generated.stat().st_mtime_ns
@@ -476,8 +479,8 @@ stimuli:
     rubric:
       - Explained that the Exists check runs separately in every project and, with -m, in separate worker processes, so
         several projects can run the generator at the same time
-      - Moved the generation so it happens once before the parallel build, for example a step in build.sh before
-        dotnet build, and did not rely on a flag property or another check-then-write guard inside the per-project target
+      - Arranged any required generation once before the parallel build, for example a step in build.sh before
+        dotnet build, allowing a current cached output but not a flag property or another check-then-write guard inside the per-project target
       - Kept obj/buildinfo.g.cs compiled by every project
       - Preserved the generated-source timestamp on an identical second build, while still publishing changed generated content
       - Did not claim the failure was reproduced or the fix verified

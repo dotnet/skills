@@ -1,8 +1,11 @@
 Failing step "Build" in 2 of the last 30 CI runs; the re-run passed each time.
 The solution has 24 projects and the agent builds with -m.
 
-  tools/make-buildinfo.sh: 6: cannot create obj/buildinfo.g.cs: Text file busy
-src/Contoso.Core/Contoso.Core.csproj(0,0): error MSB3073: The command "sh tools/make-buildinfo.sh obj/buildinfo.g.cs" exited with code 2.
+obj/buildinfo.g.cs(2,9): error CS1010: Newline in constant [src/Contoso.Core/Contoso.Core.csproj]
+
+The captured generated source contained two date suffixes:
+  internal static class BuildInfo { public const string Stamp = "20261030"; }
+  20261030"; }
 
 Task Performance Summary from a passing run of the same step:
      62810 ms  Csc                                        24 calls     2617 ms avg

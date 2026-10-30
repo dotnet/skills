@@ -3,4 +3,5 @@ set -eu
 
 out="$1"
 mkdir -p "$(dirname "$out")"
-printf 'internal static class BuildInfo { public const string Stamp = "%s"; }\n' "$(date -u +%Y%m%d)" > "$out"
+printf 'internal static class BuildInfo { public const string Stamp = "' > "$out"
+printf '%s"; }\n' "$(date -u +%Y%m%d)" >> "$out"

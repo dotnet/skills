@@ -339,6 +339,71 @@ class GraderTests(unittest.TestCase):
                 ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
                 self.grade(work, script)
 
+    def test_shared_fixture_reproduces_reported_compiler_failure(self):
+        work, _ = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        mock_bin = base / "mock-bin"
+        mock_bin.mkdir()
+        date = mock_bin / "date"
+        # Hold both writers at the date lookup to reproduce interleaving.
+        date.write_text(
+            "#!/usr/bin/env sh\nset -eu\n"
+            'printf "ready\\n" >> "$RACE_READY"\n'
+            "attempt=0\n"
+            'while [ "$(wc -l < "$RACE_READY")" -lt 2 ]; do\n'
+            "    attempt=$((attempt + 1))\n"
+            '    [ "$attempt" -le 200 ] || exit 1\n'
+            "    sleep 0.01\n"
+            "done\n"
+            "printf '20261030\\n'\n",
+            encoding="utf-8", newline="\n",
+        )
+        date.chmod(0o755)
+        writers = subprocess.run(
+            [shutil.which("bash"), "-c",
+             'set -eu; export PATH="$(pwd)/mock-bin:$PATH"; export RACE_READY="$(pwd)/ready"; '
+             'sh tools/make-buildinfo.sh obj/buildinfo.g.cs & first=$!; '
+             'sh tools/make-buildinfo.sh obj/buildinfo.g.cs & second=$!; '
+             'wait "$first"; wait "$second"'],
+            cwd=base, capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(writers.returncode, 0, writers.stdout + writers.stderr)
+        project = ET.Element("Project", Sdk="Microsoft.NET.Sdk")
+        ET.SubElement(ET.SubElement(project, "PropertyGroup"), "TargetFramework").text = "net10.0"
+        ET.ElementTree(project).write(base / "Race.csproj", encoding="utf-8")
+        compiled = subprocess.run(
+            [shutil.which("dotnet"), "msbuild", "Race.csproj", "-restore", "-target:Build",
+             "-nologo", "-verbosity:quiet", "-nodeReuse:false"],
+            cwd=base, capture_output=True, text=True, timeout=60,
+        )
+        self.assertNotEqual(compiled.returncode, 0, "concurrent fixture writers did not corrupt the source")
+        self.assertIn("error CS1010", compiled.stdout + compiled.stderr)
+
+    def test_cached_shared_generation_refreshes_changed_inputs(self):
+        for refresh in (True, False):
+            with self.subTest(refresh_changed_inputs=refresh):
+                work, script = self.workspace("racy-run-once-guard")
+                base = work / "exists-sentinel-race"
+                wrapper = base / "build.sh"
+                lines = wrapper.read_text(encoding="utf-8").splitlines()
+                dispatch = lines.pop()
+                (base / "prepare.sh").write_text("\n".join(lines) + "\n", encoding="utf-8")
+                condition = "[ ! -f obj/buildinfo.g.cs ]"
+                if refresh:
+                    condition += ' || [ "$(cat obj/buildinfo.stamp)" != "$stamp" ]'
+                wrapper.write_text(
+                    "#!/usr/bin/env bash\nset -euo pipefail\n"
+                    'stamp="$(date -u +%Y%m%d)"\n'
+                    f"if {condition}; then\n"
+                    "    bash prepare.sh\n"
+                    "    printf '%s\\n' \"$stamp\" > obj/buildinfo.stamp\n"
+                    "fi\n" + dispatch + "\n",
+                    encoding="utf-8",
+                )
+                result = self.grade(work, script, accepted=refresh)
+                if not refresh:
+                    self.assertIn("preserve shared source bytes", result.stdout + result.stderr)
+
     def test_late_shared_generation_is_rejected(self):
         work, script = self.workspace("racy-run-once-guard")
         base = work / "exists-sentinel-race"
