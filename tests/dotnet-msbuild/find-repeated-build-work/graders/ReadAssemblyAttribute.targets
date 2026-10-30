@@ -1,0 +1,23 @@
+<Project>
+  <UsingTask TaskName="_GraderReadAssemblyAttribute" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <AssemblyPath ParameterType="System.String" Required="true" />
+      <AttributeType ParameterType="System.String" Required="true" />
+      <Value ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        Value = "";
+        foreach (var attribute in System.Reflection.Assembly.LoadFile(
+            System.IO.Path.GetFullPath(AssemblyPath)).GetCustomAttributesData())
+        {
+            if (attribute.AttributeType.FullName == AttributeType)
+            {
+                Value = (string)attribute.ConstructorArguments[0].Value;
+            }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+</Project>

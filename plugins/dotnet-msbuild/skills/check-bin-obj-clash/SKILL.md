@@ -1,6 +1,6 @@
 ---
 name: check-bin-obj-clash
-description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. USE FOR: builds failing with 'Cannot create a file when that file already exists', 'The process cannot access the file because it is being used by another process', intermittent build failures that succeed on retry, or missing/overwritten outputs in multi-project or multi-targeting builds where bin/obj (or project.assets.json) collide. Common causes: shared OutputPath, missing AppendTargetFrameworkToOutputPath, extra global properties (e.g. PublishReadyToRun), or SetTargetFramework on a ProjectReference to a single-targeting project. DO NOT USE FOR: file access errors unrelated to MSBuild (OS-level locking), single-project single-TFM builds, non-MSBuild build systems."
+description: "Find OutputPath/IntermediateOutputPath collisions between distinct projects or required property/TFM variants. USE FOR: missing/overwritten bin/obj or project.assets.json, parallel 'Cannot create a file when that file already exists' or 'file is being used by another process', shared paths, missing AppendTargetFrameworkToOutputPath, PublishReadyToRun, SetTargetFramework on single-target references. DO NOT USE FOR: duplicates or invariant-generation races (find-repeated-build-work), OS locking, single-instance builds, non-MSBuild systems."
 license: MIT
 ---
 

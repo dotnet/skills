@@ -1,0 +1,17 @@
+Performance summary from the CI run of ./build.sh
+(Contoso.slnx has 38 projects; the agent has 8 cores; Time Elapsed 00:06:12.40)
+
+Task Performance Summary:
+     77210 ms  Csc                                        38 calls     2032 ms avg
+     74880 ms  Exec                                       38 calls     1970 ms avg
+     31204 ms  ResolveAssemblyReferences                  38 calls      821 ms avg
+     12877 ms  Copy                                      163 calls       79 ms avg
+      5310 ms  WriteLinesToFile                           76 calls       70 ms avg
+      2144 ms  GenerateDepsFile                           38 calls       56 ms avg
+
+Project Performance Summary:
+    372400 ms  Contoso.slnx                                1 calls
+     21930 ms  src\Contoso.Core\Contoso.Core.csproj        1 calls
+     14418 ms  src\Contoso.Data\Contoso.Data.csproj        1 calls
+     11702 ms  src\Contoso.Web\Contoso.Web.csproj          1 calls
+      ... 35 more projects, 1 call each

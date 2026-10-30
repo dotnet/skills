@@ -1,0 +1,20 @@
+Invocation: dotnet msbuild Build.proj -m:8
+Task Performance Summary: Exec 36000 ms, 24 calls.
+Every project runs identitygen --new-id once, with identical command text.
+identitygen intentionally returns a fresh cryptographic random identifier on
+each call. These are per-project signing identities, not build identifiers.
+
+Directory.Build.targets excerpt:
+<Target Name="SigningIdentity" BeforeTargets="CoreCompile">
+  <Exec Command="identitygen --new-id" ConsoleToMSBuild="true">
+    <Output TaskParameter="ConsoleOutput" PropertyName="SigningIdentity" />
+  </Exec>
+  <WriteLinesToFile File="$(IntermediateOutputPath)signing-id.txt"
+                    Lines="$(SigningIdentity)" Overwrite="true" />
+</Target>
+
+Product contract: each of the 24 projects must have its own distinct identity
+for this build. Two projects sharing an identity is a release correctness failure.
+All identifiers are consumed before packaging; none can be omitted.
+There is no supported tool mode that creates multiple identifiers per invocation.
+No critical-path timeline or alternate tool is available.

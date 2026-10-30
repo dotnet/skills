@@ -1,0 +1,20 @@
+Invocation: dotnet msbuild Build.proj -m -p:TraceBucket=nightly
+Task/project events, all in this invocation:
+Build.proj invokes PrepareSlice three times with different Properties values.
+PrepareSlice runs Shared.csproj using the MSBuild task below.
+Shared.csproj Build executes three times, 6000 ms each.
+The only differing global property on Shared is TraceBucket=A, B or C.
+
+PrepareSlice.proj:
+<Project DefaultTargets="Build">
+  <Target Name="Build">
+    <Message Text="Processing $(TraceBucket)" Importance="high" />
+    <MSBuild Projects="Shared.csproj" Targets="Build" />
+  </Target>
+</Project>
+
+Shared.csproj does not read TraceBucket anywhere, including imports.
+PrepareSlice requires it for diagnostic attribution. There is no ProjectReference
+between PrepareSlice and Shared. Required global Configuration=Release and
+TargetFramework=net10.0 match for all three builds.
+Only aggregate project time was exported, not critical-path information.

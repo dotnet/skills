@@ -1,6 +1,6 @@
 ---
 name: eval-performance
-description: "Guide for diagnosing and improving MSBuild project evaluation performance. USE FOR: builds slow before any compilation starts, high evaluation time in binlog analysis, expensive glob patterns walking large directories (node_modules, .git, bin/obj), deep import chains (>20 levels), preprocessed output >10K lines indicating heavy evaluation, property functions with file I/O ($([System.IO.File]::ReadAllText(...))), multiple evaluations per project. Covers the 5 MSBuild evaluation phases, glob optimization via DefaultItemExcludes, import chain analysis with /pp preprocessing. DO NOT USE FOR: compilation-time slowness (use build-perf-diagnostics), incremental build issues (use incremental-build), non-MSBuild build systems."
+description: "Diagnose measured MSBuild evaluation cost before targets run. USE FOR: evaluation-only repeats under global-property variants, expensive node_modules/.git/bin/obj globs, import depth >20, /pp >10K lines, file-I/O property functions, five-phase evaluation. DO NOT USE FOR: duplicate executions (find-repeated-build-work), execution bottlenecks (build-perf-diagnostics), incremental rebuilds (incremental-build), non-MSBuild systems."
 license: MIT
 ---
 

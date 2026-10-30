@@ -1,6 +1,6 @@
 ---
 name: build-parallelism
-description: "Analyze an MSBuild solution, solution filter, or Build.proj that schedules multiple project files. USE FOR: measured idle worker nodes, `-m` that does not scale, a serial ProjectReference critical path, graph builds, or an MSBuild task that builds a Projects list. Requires at least two distinct project files whose scheduling or throughput must be analyzed. DO NOT USE for non-MSBuild build systems."
+description: "Analyze MSBuild scheduling across at least two distinct projects in a solution/filter/Build.proj. USE FOR: measured idle workers, -m not scaling, serial ProjectReference critical paths, graph builds, MSBuild Projects-list scheduling. DO NOT USE FOR: duplicate executions or invariant-generation races (find-repeated-build-work), non-MSBuild systems."
 license: MIT
 ---
 
