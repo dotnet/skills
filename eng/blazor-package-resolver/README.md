@@ -10,31 +10,50 @@ pinned by the original paths, Git blob IDs and SHA-256 digests in
 `data/provenance.json`. The loader checks both digests, crosswalk clauses,
 source version and all core scopes. Only the 60 `repository-wide` core rows
 enter the registry; the 52 component rows and the separate TA-08 extension
-are excluded. LP-05 through LP-10 have deterministic package-byte
-handlers: `lp05-license-expression/1.0.0`, `lp06-repository-url/1.0.0`,
+are excluded. LP-01 and LP-05 through LP-10 have deterministic package-byte
+handlers: `lp01-license-policy/1.0.0`, `lp05-license-expression/1.0.0`, `lp06-repository-url/1.0.0`,
 `lp07-repository-commit/1.0.0`, `lp08-authors/1.0.0`,
 `lp09-project-url/1.0.0`, `lp10-binary-attribution/1.0.0`, and
-`pi01-strong-name/1.0.0`. The other 53 package rows remain `tbd`.
+`pi01-strong-name/1.0.0`. The other 52 package rows remain `tbd`.
 `tbd` and `implemented` are
 **work states**, not evaluation results.
 
-LP-01 has a separate **Phase A expectation-only** package-license policy
-freeze at `tests/fixtures/lp01/README.md`. It pins SPDX license-list
+LP-01's independently reviewed Phase A package-license policy
+freeze is at `tests/fixtures/lp01/README.md`. It pins SPDX license-list
 3.27.0 and an explicit versioned, conservative non-copyleft policy,
 198 synthetic cases/197 archives, six separately frozen pre-dispatch input
 rejections, a prevalidated caller-accepted owner record with a separately
 checked grant per distinct normalized SPDX license ID, and two opt-in retained-package MIT
 classifications that **escalate** pending owner grant and release/source
-scope evidence. This is not a production handler or a repository-wide
-license verdict. LP-01 remains `tbd`; coverage remains seven implemented
-and 53 TBD. Run `python eng/blazor-package-resolver/tests/lp01_expectations.py`
-to check the frozen oracle and policy bytes without dispatching a resolver.
+scope evidence. The production resolver replays those exact expectations;
+an eligible package expression without an owner record is never a
+repository-wide license verdict. Coverage is eight implemented and 52 TBD.
+Run `python eng\blazor-package-resolver\tests\lp01_expectations.py`
+to check the frozen oracle and policy bytes independently of production.
+
+LP-01 checks archive-wide entry identity using a pinned Unicode 15.0.0
+casefold table (generated from Python Unicode 15.0.0 `str.casefold()` for
+all changed scalar values; `data\lp01-casefold-15.0.0.json`, SHA-256
+`1c1dd710665f23ad059dc9c5c986d48f9cad77c3f58de6cf0cad4590e066e7e7`)
+before reading any ZIP entry by name. Its bounded nuspec reader prohibits
+DTD/entities before expansion, accepts clean UTF-8 (with or without BOM) and
+BOM-marked UTF-16 LE/BE, and rejects unsupported declared encodings.
+Policy 1.0.0 and SPDX 3.27.0 are checked input bytes pinned independently
+by their SHA-256 identities, not downloaded or inferred from LP-05.
+Only an eligible package declaration with a canonical, checked owner record
+and complete, separately checked grants for every normalized license ID
+can reach the positive branch. Caller prevalidation accepts owner authority,
+grant sufficiency and release/source correspondence; the resolver does not
+cryptographically establish authority, inspect the repository or legally
+interpret grant text. The 198-case replay, six pre-dispatch loader rejections,
+Unicode/encoding boundaries and opt-in retained replays run in ResolverChecks.
 
 Run from the repository root with the normal SDK in `global.json`:
 
 ```text
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- coverage
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/cases.json
+dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp01/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp05/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp06/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp07/cases.json
@@ -181,7 +200,7 @@ or a specific `missing_fact`, `required_input`, and `next_category`. Branches of
 the same future row may take different paths. Deterministic branches need a
 finding and evidence; unknown applicability must escalate. A known applicable
 branch may also escalate when a named fact/input remains missing. The dispatcher
-escalates the other 53 unimplemented rows as `package-dispatcher`, not as a claimed row
+escalates the other 52 unimplemented rows as `package-dispatcher`, not as a claimed row
 resolver. Registry construction rejects missing/extra IDs, component or extension
 IDs, handlers without registrations, implementation declarations without matching
 handlers, and handlers on TBD rows.
@@ -196,7 +215,7 @@ contract, **not** permission to update expectation and implementation together.
 Review an expectation change independently and explain its source evidence.
 When separately supplied, real Syncfusion **and** Infragistics pinned acceptance
 inputs must replay for that row; commercial inputs are opt-in and never required
-for ordinary CI. LP-05 through LP-10 and PI-01 were replayed against both exact retained
+for ordinary CI. LP-01, LP-05 through LP-10 and PI-01 were replayed against both exact retained
 packages; local detailed receipts and proprietary package bytes are not
 shipped with the repository. Old protocols may inform later row work, but
 port no old file without an active consumer and a test. No prior PR or

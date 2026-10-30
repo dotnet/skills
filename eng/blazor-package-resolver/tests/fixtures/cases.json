@@ -18,9 +18,9 @@
       ],
       "expected": {
         "row_id": "LP-01",
-        "resolver_id": "package-dispatcher",
+        "resolver_id": "lp01-license-policy",
         "resolver_version": "1.0.0",
-        "branch_id": "unimplemented",
+        "branch_id": "missing-policy",
         "decision": "escalated",
         "applicability": "unknown",
         "inputs": [
@@ -38,11 +38,11 @@
         "evidence_references": [],
         "evidence_contract": null,
         "finding": null,
-        "missing_fact": "A deterministic branch for this row has not been implemented.",
-        "required_input": "row-resolver",
-        "next_category": "row-implementation"
+        "missing_fact": "Pinned LP-01 policy is missing.",
+        "required_input": "pinned-license-policy",
+        "next_category": "policy-owner"
       },
-      "rationale": "Unimplemented row must escalate without making a license assertion.",
+      "rationale": "LP-01 cannot classify a package without its checked pinned policy.",
       "evidence_pointers": ["fixture:package.txt", "fixture:repository.txt"]
     },
     {
