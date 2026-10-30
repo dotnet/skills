@@ -1,0 +1,1663 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp02-missing-package",
+      "row_id": "LP-02",
+      "inputs": [],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "missing-package",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [],
+        "evidence_references": [],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The exact checked package is missing.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: missing package must yield missing-package.",
+      "evidence_pointers": []
+    },
+    {
+      "case_id": "lp02-corrupt-package",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/corrupt-package.nupkg",
+          "sha256": "e948b2079b482fd6391d51c959f1ecfe54b266caf42ca42f70b726fc5e270043"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "package-unreadable",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/corrupt-package.nupkg",
+            "sha256": "e948b2079b482fd6391d51c959f1ecfe54b266caf42ca42f70b726fc5e270043"
+          }
+        ],
+        "evidence_references": [
+          "input:package:e948b2079b482fd6391d51c959f1ecfe54b266caf42ca42f70b726fc5e270043"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The package is outside the bounded ZIP/nuspec profile or its identity declarations are ambiguous.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: corrupt package must yield package-unreadable.",
+      "evidence_pointers": [
+        "input:package:e948b2079b482fd6391d51c959f1ecfe54b266caf42ca42f70b726fc5e270043"
+      ]
+    },
+    {
+      "case_id": "lp02-nested-nuspec",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/nested-nuspec.nupkg",
+          "sha256": "22f73ee13bfbeb334bcabb20277b3273e8f56d74e63bab45bb1fed1933ccd653"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "package-unreadable",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/nested-nuspec.nupkg",
+            "sha256": "22f73ee13bfbeb334bcabb20277b3273e8f56d74e63bab45bb1fed1933ccd653"
+          }
+        ],
+        "evidence_references": [
+          "input:package:22f73ee13bfbeb334bcabb20277b3273e8f56d74e63bab45bb1fed1933ccd653"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The package is outside the bounded ZIP/nuspec profile or its identity declarations are ambiguous.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: nested nuspec must yield package-unreadable.",
+      "evidence_pointers": [
+        "input:package:22f73ee13bfbeb334bcabb20277b3273e8f56d74e63bab45bb1fed1933ccd653"
+      ]
+    },
+    {
+      "case_id": "lp02-multiple-nuspec",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/multiple-nuspec.nupkg",
+          "sha256": "e31d9268b24a0538b73f68d36b19d5c0d7cbd12696a1d9b34ee3a3ce9f0eb5aa"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "package-unreadable",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/multiple-nuspec.nupkg",
+            "sha256": "e31d9268b24a0538b73f68d36b19d5c0d7cbd12696a1d9b34ee3a3ce9f0eb5aa"
+          }
+        ],
+        "evidence_references": [
+          "input:package:e31d9268b24a0538b73f68d36b19d5c0d7cbd12696a1d9b34ee3a3ce9f0eb5aa"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The package is outside the bounded ZIP/nuspec profile or its identity declarations are ambiguous.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: multiple nuspec must yield package-unreadable.",
+      "evidence_pointers": [
+        "input:package:e31d9268b24a0538b73f68d36b19d5c0d7cbd12696a1d9b34ee3a3ce9f0eb5aa"
+      ]
+    },
+    {
+      "case_id": "lp02-unsafe-package-path",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/unsafe-package-path.nupkg",
+          "sha256": "4c76d669df805d7377b53733056692bc9b74e0cac791c7b26ee6b8a62ea09f1b"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "package-unreadable",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/unsafe-package-path.nupkg",
+            "sha256": "4c76d669df805d7377b53733056692bc9b74e0cac791c7b26ee6b8a62ea09f1b"
+          }
+        ],
+        "evidence_references": [
+          "input:package:4c76d669df805d7377b53733056692bc9b74e0cac791c7b26ee6b8a62ea09f1b"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The package is outside the bounded ZIP/nuspec profile or its identity declarations are ambiguous.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: unsafe package path must yield package-unreadable.",
+      "evidence_pointers": [
+        "input:package:4c76d669df805d7377b53733056692bc9b74e0cac791c7b26ee6b8a62ea09f1b"
+      ]
+    },
+    {
+      "case_id": "lp02-unsupported-encoding",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/unsupported-encoding.nupkg",
+          "sha256": "dcacdd0720e7ea8dfedb6512a9531ba0217556fcd5fa99da668b6dbb8c8fbcd2"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "package-unreadable",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/unsupported-encoding.nupkg",
+            "sha256": "dcacdd0720e7ea8dfedb6512a9531ba0217556fcd5fa99da668b6dbb8c8fbcd2"
+          }
+        ],
+        "evidence_references": [
+          "input:package:dcacdd0720e7ea8dfedb6512a9531ba0217556fcd5fa99da668b6dbb8c8fbcd2"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The package is outside the bounded ZIP/nuspec profile or its identity declarations are ambiguous.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: unsupported encoding must yield package-unreadable.",
+      "evidence_pointers": [
+        "input:package:dcacdd0720e7ea8dfedb6512a9531ba0217556fcd5fa99da668b6dbb8c8fbcd2"
+      ]
+    },
+    {
+      "case_id": "lp02-utf16-le",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/utf16-le.nupkg",
+          "sha256": "1b5d6d5a109063d656b1cf6176d4c13915d37581e8ad3cb25107751bcc417cef"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-missing",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/utf16-le.nupkg",
+            "sha256": "1b5d6d5a109063d656b1cf6176d4c13915d37581e8ad3cb25107751bcc417cef"
+          }
+        ],
+        "evidence_references": [
+          "input:package:1b5d6d5a109063d656b1cf6176d4c13915d37581e8ad3cb25107751bcc417cef"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "Declared source is unverified: the checked anonymous acquisition observation or source archive is missing.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: utf16 le must yield observation-missing.",
+      "evidence_pointers": [
+        "input:package:1b5d6d5a109063d656b1cf6176d4c13915d37581e8ad3cb25107751bcc417cef"
+      ]
+    },
+    {
+      "case_id": "lp02-utf16-be",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/utf16-be.nupkg",
+          "sha256": "a09d40be53e1675695a7d284165f2db77802178da80f23dbc15f746e962bbdb7"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-missing",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/utf16-be.nupkg",
+            "sha256": "a09d40be53e1675695a7d284165f2db77802178da80f23dbc15f746e962bbdb7"
+          }
+        ],
+        "evidence_references": [
+          "input:package:a09d40be53e1675695a7d284165f2db77802178da80f23dbc15f746e962bbdb7"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "Declared source is unverified: the checked anonymous acquisition observation or source archive is missing.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: utf16 be must yield observation-missing.",
+      "evidence_pointers": [
+        "input:package:a09d40be53e1675695a7d284165f2db77802178da80f23dbc15f746e962bbdb7"
+      ]
+    },
+    {
+      "case_id": "lp02-dtd",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/dtd.nupkg",
+          "sha256": "352be94dd8eec456e0dd79421c12ef9644697de9c8024cda04e9643694d4f214"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "package-unreadable",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/dtd.nupkg",
+            "sha256": "352be94dd8eec456e0dd79421c12ef9644697de9c8024cda04e9643694d4f214"
+          }
+        ],
+        "evidence_references": [
+          "input:package:352be94dd8eec456e0dd79421c12ef9644697de9c8024cda04e9643694d4f214"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The package is outside the bounded ZIP/nuspec profile or its identity declarations are ambiguous.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: dtd must yield package-unreadable.",
+      "evidence_pointers": [
+        "input:package:352be94dd8eec456e0dd79421c12ef9644697de9c8024cda04e9643694d4f214"
+      ]
+    },
+    {
+      "case_id": "lp02-ambiguous-id",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/ambiguous-id.nupkg",
+          "sha256": "9dfee9bb762b77455e1f0b88461cd0d05e7c2e63992ff20faef1ffd769217ffe"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "package-unreadable",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/ambiguous-id.nupkg",
+            "sha256": "9dfee9bb762b77455e1f0b88461cd0d05e7c2e63992ff20faef1ffd769217ffe"
+          }
+        ],
+        "evidence_references": [
+          "input:package:9dfee9bb762b77455e1f0b88461cd0d05e7c2e63992ff20faef1ffd769217ffe"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The package is outside the bounded ZIP/nuspec profile or its identity declarations are ambiguous.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: ambiguous id must yield package-unreadable.",
+      "evidence_pointers": [
+        "input:package:9dfee9bb762b77455e1f0b88461cd0d05e7c2e63992ff20faef1ffd769217ffe"
+      ]
+    },
+    {
+      "case_id": "lp02-ambiguous-version",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/ambiguous-version.nupkg",
+          "sha256": "a6aff6fb20a4f8f437287da068fc7a360ded2da12da4b764db7b97de1d537fa4"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "package-unreadable",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/ambiguous-version.nupkg",
+            "sha256": "a6aff6fb20a4f8f437287da068fc7a360ded2da12da4b764db7b97de1d537fa4"
+          }
+        ],
+        "evidence_references": [
+          "input:package:a6aff6fb20a4f8f437287da068fc7a360ded2da12da4b764db7b97de1d537fa4"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The package is outside the bounded ZIP/nuspec profile or its identity declarations are ambiguous.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: ambiguous version must yield package-unreadable.",
+      "evidence_pointers": [
+        "input:package:a6aff6fb20a4f8f437287da068fc7a360ded2da12da4b764db7b97de1d537fa4"
+      ]
+    },
+    {
+      "case_id": "lp02-ambiguous-repository",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/ambiguous-repository.nupkg",
+          "sha256": "05e9e3c3dcc1c36eaae7ef675d7e5c6f073f314830cf9b8c45501182a7259b76"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "package-unreadable",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/ambiguous-repository.nupkg",
+            "sha256": "05e9e3c3dcc1c36eaae7ef675d7e5c6f073f314830cf9b8c45501182a7259b76"
+          }
+        ],
+        "evidence_references": [
+          "input:package:05e9e3c3dcc1c36eaae7ef675d7e5c6f073f314830cf9b8c45501182a7259b76"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The package is outside the bounded ZIP/nuspec profile or its identity declarations are ambiguous.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: ambiguous repository must yield package-unreadable.",
+      "evidence_pointers": [
+        "input:package:05e9e3c3dcc1c36eaae7ef675d7e5c6f073f314830cf9b8c45501182a7259b76"
+      ]
+    },
+    {
+      "case_id": "lp02-missing-declaration",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/missing-declaration.nupkg",
+          "sha256": "97ac193a78bfbdab502f9cc098546f3d6269142a1b762c2d10898bff21e1e898"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "source-declaration-missing",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/missing-declaration.nupkg",
+            "sha256": "97ac193a78bfbdab502f9cc098546f3d6269142a1b762c2d10898bff21e1e898"
+          }
+        ],
+        "evidence_references": [
+          "input:package:97ac193a78bfbdab502f9cc098546f3d6269142a1b762c2d10898bff21e1e898"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The exact package lacks one nonblank repository URL and exact commit declaration.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: missing declaration must yield source-declaration-missing.",
+      "evidence_pointers": [
+        "input:package:97ac193a78bfbdab502f9cc098546f3d6269142a1b762c2d10898bff21e1e898"
+      ]
+    },
+    {
+      "case_id": "lp02-unsupported-host",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/unsupported-host.nupkg",
+          "sha256": "04e7fedbe9963316641362098a46c7bab2e2ea47a5572e0c8f3d336fc4036ddf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "public-retrieval-unresolved",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/unsupported-host.nupkg",
+            "sha256": "04e7fedbe9963316641362098a46c7bab2e2ea47a5572e0c8f3d336fc4036ddf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:04e7fedbe9963316641362098a46c7bab2e2ea47a5572e0c8f3d336fc4036ddf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "Anonymous public retrieval is unresolved or unsupported; public source availability is not tested.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: unsupported host must yield public-retrieval-unresolved.",
+      "evidence_pointers": [
+        "input:package:04e7fedbe9963316641362098a46c7bab2e2ea47a5572e0c8f3d336fc4036ddf"
+      ]
+    },
+    {
+      "case_id": "lp02-missing-observation",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/missing-observation.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-missing",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/missing-observation.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "Declared source is unverified: the checked anonymous acquisition observation or source archive is missing.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: missing observation must yield observation-missing.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+      ]
+    },
+    {
+      "case_id": "lp02-public-source",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/public-source.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/public-source.json",
+          "sha256": "c4add3a1bb169c27668d14448c0484f91183be098d85fd7373e53d970e77d292"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/public-source.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "public-source-observed",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/public-source.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/public-source.json",
+            "sha256": "c4add3a1bb169c27668d14448c0484f91183be098d85fd7373e53d970e77d292"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/public-source.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:c4add3a1bb169c27668d14448c0484f91183be098d85fd7373e53d970e77d292",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": "The exact package declares repository https://github.com/example/library and commit 1234567890abcdef1234567890abcdef12345678. At time 2026-10-30T12:00:00Z, that revision was retrieved without application credentials, and retained files support a bounded mapping to the package's library source. This establishes public source availability at the package-declared revision. It does not establish that the published binaries were built from that revision.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Minimum v1 rule: public source must yield public-source-observed.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:c4add3a1bb169c27668d14448c0484f91183be098d85fd7373e53d970e77d292",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-git-suffix",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/git-suffix.nupkg",
+          "sha256": "b32513e8b3d6e01751efdf7b1a8160d041962b26318bc1d1fd3360df23a26c49"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/git-suffix.json",
+          "sha256": "a93b4a5863314ea54980661a6caa20d5a7b5fbcbf8883b463d1314eeb9c668c4"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/git-suffix.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "public-source-observed",
+        "decision": "deterministic",
+        "applicability": "applicable",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/git-suffix.nupkg",
+            "sha256": "b32513e8b3d6e01751efdf7b1a8160d041962b26318bc1d1fd3360df23a26c49"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/git-suffix.json",
+            "sha256": "a93b4a5863314ea54980661a6caa20d5a7b5fbcbf8883b463d1314eeb9c668c4"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/git-suffix.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:b32513e8b3d6e01751efdf7b1a8160d041962b26318bc1d1fd3360df23a26c49",
+          "input:source-observation:a93b4a5863314ea54980661a6caa20d5a7b5fbcbf8883b463d1314eeb9c668c4",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": "The exact package declares repository https://github.com/example/library and commit 1234567890abcdef1234567890abcdef12345678. At time 2026-10-30T12:00:00Z, that revision was retrieved without application credentials, and retained files support a bounded mapping to the package's library source. This establishes public source availability at the package-declared revision. It does not establish that the published binaries were built from that revision.",
+        "missing_fact": null,
+        "required_input": null,
+        "next_category": null
+      },
+      "rationale": "Minimum v1 rule: git suffix must yield public-source-observed.",
+      "evidence_pointers": [
+        "input:package:b32513e8b3d6e01751efdf7b1a8160d041962b26318bc1d1fd3360df23a26c49",
+        "input:source-observation:a93b4a5863314ea54980661a6caa20d5a7b5fbcbf8883b463d1314eeb9c668c4",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-malformed-observation",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/malformed-observation.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/malformed-observation.json",
+          "sha256": "86cc54391c010498d9a5999ac5f89ecc44677452ac75191f9aefd346230a5725"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/malformed-observation.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-invalid",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/malformed-observation.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/malformed-observation.json",
+            "sha256": "86cc54391c010498d9a5999ac5f89ecc44677452ac75191f9aefd346230a5725"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/malformed-observation.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:86cc54391c010498d9a5999ac5f89ecc44677452ac75191f9aefd346230a5725",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The acquisition observation or retained archive is outside the supported evidence profile.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: malformed observation must yield observation-invalid.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:86cc54391c010498d9a5999ac5f89ecc44677452ac75191f9aefd346230a5725",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-duplicate-key",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/duplicate-key.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/duplicate-key.json",
+          "sha256": "d9d81fc89ad2e5bcb21bdfe264e2b23c0b99961286d51aa4c47dd99763fea54b"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/duplicate-key.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-invalid",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/duplicate-key.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/duplicate-key.json",
+            "sha256": "d9d81fc89ad2e5bcb21bdfe264e2b23c0b99961286d51aa4c47dd99763fea54b"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/duplicate-key.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:d9d81fc89ad2e5bcb21bdfe264e2b23c0b99961286d51aa4c47dd99763fea54b",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The acquisition observation or retained archive is outside the supported evidence profile.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: duplicate key must yield observation-invalid.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:d9d81fc89ad2e5bcb21bdfe264e2b23c0b99961286d51aa4c47dd99763fea54b",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-caller-assertion",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/caller-assertion.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/caller-assertion.json",
+          "sha256": "e65a6e65b99ef04a1a50d7583c4f992f1dbdc8b5bab7c50a7aff2ae6724dc49e"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/caller-assertion.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-invalid",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/caller-assertion.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/caller-assertion.json",
+            "sha256": "e65a6e65b99ef04a1a50d7583c4f992f1dbdc8b5bab7c50a7aff2ae6724dc49e"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/caller-assertion.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:e65a6e65b99ef04a1a50d7583c4f992f1dbdc8b5bab7c50a7aff2ae6724dc49e",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The acquisition observation or retained archive is outside the supported evidence profile.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: caller assertion must yield observation-invalid.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:e65a6e65b99ef04a1a50d7583c4f992f1dbdc8b5bab7c50a7aff2ae6724dc49e",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-invalid-time",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/invalid-time.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/invalid-time.json",
+          "sha256": "72732bb803c6db9d91d58c6e7f2c57732e9ae8ebbeed41e56d50cda93fd3fbdc"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/invalid-time.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-invalid",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/invalid-time.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/invalid-time.json",
+            "sha256": "72732bb803c6db9d91d58c6e7f2c57732e9ae8ebbeed41e56d50cda93fd3fbdc"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/invalid-time.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:72732bb803c6db9d91d58c6e7f2c57732e9ae8ebbeed41e56d50cda93fd3fbdc",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The acquisition observation or retained archive is outside the supported evidence profile.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: invalid time must yield observation-invalid.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:72732bb803c6db9d91d58c6e7f2c57732e9ae8ebbeed41e56d50cda93fd3fbdc",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-wrong-package-id",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/wrong-package-id.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/wrong-package-id.json",
+          "sha256": "2de1c632072a8c10529e63dd26c41d5532aa7622d8c37b523a669ac4cdbda5c4"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/wrong-package-id.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-binding-conflict",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/wrong-package-id.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/wrong-package-id.json",
+            "sha256": "2de1c632072a8c10529e63dd26c41d5532aa7622d8c37b523a669ac4cdbda5c4"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/wrong-package-id.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:2de1c632072a8c10529e63dd26c41d5532aa7622d8c37b523a669ac4cdbda5c4",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The observation, package, revision or retained source digests do not bind exactly.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: wrong package id must yield observation-binding-conflict.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:2de1c632072a8c10529e63dd26c41d5532aa7622d8c37b523a669ac4cdbda5c4",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-wrong-package-version",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/wrong-package-version.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/wrong-package-version.json",
+          "sha256": "4ffc1d6b9c30a94cbfccca86bf37ed0ed24e8c4169130552edd8ecec406011d1"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/wrong-package-version.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-binding-conflict",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/wrong-package-version.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/wrong-package-version.json",
+            "sha256": "4ffc1d6b9c30a94cbfccca86bf37ed0ed24e8c4169130552edd8ecec406011d1"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/wrong-package-version.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:4ffc1d6b9c30a94cbfccca86bf37ed0ed24e8c4169130552edd8ecec406011d1",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The observation, package, revision or retained source digests do not bind exactly.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: wrong package version must yield observation-binding-conflict.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:4ffc1d6b9c30a94cbfccca86bf37ed0ed24e8c4169130552edd8ecec406011d1",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-wrong-package-digest",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/wrong-package-digest.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/wrong-package-digest.json",
+          "sha256": "fe20039ac2c1acf4a2fdb21c3f46d715848059ed4d80574abde92bdbb4e5404d"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/wrong-package-digest.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-binding-conflict",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/wrong-package-digest.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/wrong-package-digest.json",
+            "sha256": "fe20039ac2c1acf4a2fdb21c3f46d715848059ed4d80574abde92bdbb4e5404d"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/wrong-package-digest.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:fe20039ac2c1acf4a2fdb21c3f46d715848059ed4d80574abde92bdbb4e5404d",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The observation, package, revision or retained source digests do not bind exactly.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: wrong package digest must yield observation-binding-conflict.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:fe20039ac2c1acf4a2fdb21c3f46d715848059ed4d80574abde92bdbb4e5404d",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-wrong-repository",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/wrong-repository.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/wrong-repository.json",
+          "sha256": "2a948669b1bdb9502e9b6ab3aa3d7913f6b1630b6628afa203efd8fcc5203360"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/wrong-repository.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-binding-conflict",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/wrong-repository.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/wrong-repository.json",
+            "sha256": "2a948669b1bdb9502e9b6ab3aa3d7913f6b1630b6628afa203efd8fcc5203360"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/wrong-repository.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:2a948669b1bdb9502e9b6ab3aa3d7913f6b1630b6628afa203efd8fcc5203360",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The observation, package, revision or retained source digests do not bind exactly.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: wrong repository must yield observation-binding-conflict.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:2a948669b1bdb9502e9b6ab3aa3d7913f6b1630b6628afa203efd8fcc5203360",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-wrong-commit",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/wrong-commit.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/wrong-commit.json",
+          "sha256": "74d4155bd0882dddcbbddf4216315fd3dacfe7abc651aefabbfea7c67a40173e"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/wrong-commit.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-binding-conflict",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/wrong-commit.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/wrong-commit.json",
+            "sha256": "74d4155bd0882dddcbbddf4216315fd3dacfe7abc651aefabbfea7c67a40173e"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/wrong-commit.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:74d4155bd0882dddcbbddf4216315fd3dacfe7abc651aefabbfea7c67a40173e",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The observation, package, revision or retained source digests do not bind exactly.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: wrong commit must yield observation-binding-conflict.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:74d4155bd0882dddcbbddf4216315fd3dacfe7abc651aefabbfea7c67a40173e",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-missing-source",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/missing-source.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/missing-source.json",
+          "sha256": "c4add3a1bb169c27668d14448c0484f91183be098d85fd7373e53d970e77d292"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-missing",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/missing-source.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/missing-source.json",
+            "sha256": "c4add3a1bb169c27668d14448c0484f91183be098d85fd7373e53d970e77d292"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:c4add3a1bb169c27668d14448c0484f91183be098d85fd7373e53d970e77d292"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "Declared source is unverified: the checked anonymous acquisition observation or source archive is missing.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: missing source must yield observation-missing.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:c4add3a1bb169c27668d14448c0484f91183be098d85fd7373e53d970e77d292"
+      ]
+    },
+    {
+      "case_id": "lp02-wrong-source-digest",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/wrong-source-digest.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/wrong-source-digest.json",
+          "sha256": "1d89204164db3f7dd5d51b24f3cb969fc6d8a82f45919dfa002fa7dab4a40e91"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/wrong-source-digest.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-binding-conflict",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/wrong-source-digest.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/wrong-source-digest.json",
+            "sha256": "1d89204164db3f7dd5d51b24f3cb969fc6d8a82f45919dfa002fa7dab4a40e91"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/wrong-source-digest.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:1d89204164db3f7dd5d51b24f3cb969fc6d8a82f45919dfa002fa7dab4a40e91",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The observation, package, revision or retained source digests do not bind exactly.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: wrong source digest must yield observation-binding-conflict.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:1d89204164db3f7dd5d51b24f3cb969fc6d8a82f45919dfa002fa7dab4a40e91",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-unsafe-selected-path",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/unsafe-selected-path.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/unsafe-selected-path.json",
+          "sha256": "e65f5eac19be2b100743c518c294c017257ab7d19e677c95f6f1c7a06ea8b942"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/unsafe-selected-path.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-invalid",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/unsafe-selected-path.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/unsafe-selected-path.json",
+            "sha256": "e65f5eac19be2b100743c518c294c017257ab7d19e677c95f6f1c7a06ea8b942"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/unsafe-selected-path.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:e65f5eac19be2b100743c518c294c017257ab7d19e677c95f6f1c7a06ea8b942",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The acquisition observation or retained archive is outside the supported evidence profile.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: unsafe selected path must yield observation-invalid.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:e65f5eac19be2b100743c518c294c017257ab7d19e677c95f6f1c7a06ea8b942",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-wrong-selected-digest",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/wrong-selected-digest.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/wrong-selected-digest.json",
+          "sha256": "026ea8898959c726654b10d5ea0078723b8f0479d8de316663e468cb95027b82"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/wrong-selected-digest.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "observation-binding-conflict",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/wrong-selected-digest.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/wrong-selected-digest.json",
+            "sha256": "026ea8898959c726654b10d5ea0078723b8f0479d8de316663e468cb95027b82"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/wrong-selected-digest.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:026ea8898959c726654b10d5ea0078723b8f0479d8de316663e468cb95027b82",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "The observation, package, revision or retained source digests do not bind exactly.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: wrong selected digest must yield observation-binding-conflict.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:026ea8898959c726654b10d5ea0078723b8f0479d8de316663e468cb95027b82",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-missing-selected-file",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/missing-selected-file.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/missing-selected-file.json",
+          "sha256": "c6dab47efd6f4c9f1400a727929888320893637313d349ba8b92fb8ad74d1fcf"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/missing-selected-file.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "source-relevance-unestablished",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/missing-selected-file.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/missing-selected-file.json",
+            "sha256": "c6dab47efd6f4c9f1400a727929888320893637313d349ba8b92fb8ad74d1fcf"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/missing-selected-file.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:c6dab47efd6f4c9f1400a727929888320893637313d349ba8b92fb8ad74d1fcf",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "Selected project and implementation files do not establish the bounded library-source mapping.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: missing selected file must yield source-relevance-unestablished.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:c6dab47efd6f4c9f1400a727929888320893637313d349ba8b92fb8ad74d1fcf",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    },
+    {
+      "case_id": "lp02-wrong-project-identity",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/wrong-project-identity.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/wrong-project-identity.json",
+          "sha256": "9b4b2c64b3a04007f86f96f9883fe67bf576487930e702f262819bad2b4714ef"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/wrong-project-identity.zip",
+          "sha256": "04600c695777de827dc87a0313e0d0854bd548112479e6991987b764d5e759d5"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "source-relevance-unestablished",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/wrong-project-identity.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/wrong-project-identity.json",
+            "sha256": "9b4b2c64b3a04007f86f96f9883fe67bf576487930e702f262819bad2b4714ef"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/wrong-project-identity.zip",
+            "sha256": "04600c695777de827dc87a0313e0d0854bd548112479e6991987b764d5e759d5"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:9b4b2c64b3a04007f86f96f9883fe67bf576487930e702f262819bad2b4714ef",
+          "input:source-archive:04600c695777de827dc87a0313e0d0854bd548112479e6991987b764d5e759d5"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "Selected project and implementation files do not establish the bounded library-source mapping.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: wrong project identity must yield source-relevance-unestablished.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:9b4b2c64b3a04007f86f96f9883fe67bf576487930e702f262819bad2b4714ef",
+        "input:source-archive:04600c695777de827dc87a0313e0d0854bd548112479e6991987b764d5e759d5"
+      ]
+    },
+    {
+      "case_id": "lp02-missing-implementation",
+      "row_id": "LP-02",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "inputs/missing-implementation.nupkg",
+          "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+        },
+        {
+          "role": "source-observation",
+          "path": "inputs/missing-implementation.json",
+          "sha256": "a508666bcaa4bb90e839ec3ca876120f926943189013a521b4731874d3243ab1"
+        },
+        {
+          "role": "source-archive",
+          "path": "inputs/missing-implementation.zip",
+          "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-02",
+        "resolver_id": "lp02-public-source",
+        "resolver_version": "1.0.0",
+        "branch_id": "source-relevance-unestablished",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "inputs/missing-implementation.nupkg",
+            "sha256": "5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363"
+          },
+          {
+            "role": "source-observation",
+            "path": "inputs/missing-implementation.json",
+            "sha256": "a508666bcaa4bb90e839ec3ca876120f926943189013a521b4731874d3243ab1"
+          },
+          {
+            "role": "source-archive",
+            "path": "inputs/missing-implementation.zip",
+            "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+          }
+        ],
+        "evidence_references": [
+          "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+          "input:source-observation:a508666bcaa4bb90e839ec3ca876120f926943189013a521b4731874d3243ab1",
+          "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+        ],
+        "evidence_contract": "Checked bytes only. Capture receipts are retained acquisition observations, not signed attestations. Unresolved means not tested, not a closed-source finding or gap.",
+        "finding": null,
+        "missing_fact": "Selected project and implementation files do not establish the bounded library-source mapping.",
+        "required_input": "exact-package-and-anonymous-source-capture",
+        "next_category": "source-acquisition"
+      },
+      "rationale": "Minimum v1 rule: missing implementation must yield source-relevance-unestablished.",
+      "evidence_pointers": [
+        "input:package:5317cc6a994e5f9ebac9792d64db634fe9c3426bc9c63cc3cfe96d58a2caa363",
+        "input:source-observation:a508666bcaa4bb90e839ec3ca876120f926943189013a521b4731874d3243ab1",
+        "input:source-archive:78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+      ]
+    }
+  ]
+}
