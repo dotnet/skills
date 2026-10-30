@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "root": {
+    "id": "sample.root",
+    "version": "1.0.0",
+    "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+  },
+  "targets": [
+    {
+      "tfm": "net8.0",
+      "direct": [],
+      "nodes": [
+        {
+          "key": "sample.a/1.0.0",
+          "dependencies": [
+            "sample.b/1.0.0"
+          ]
+        },
+        {
+          "key": "sample.b/1.0.0",
+          "dependencies": []
+        }
+      ]
+    }
+  ],
+  "unresolved": []
+}

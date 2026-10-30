@@ -32,6 +32,16 @@ repository-wide license verdict. Coverage is nine implemented and 51 TBD.
 Run `python eng\blazor-package-resolver\tests\lp01_expectations.py`
 to check the frozen oracle and policy bytes independently of production.
 
+LP-03 has a **Phase A-only** dependency-license contract and independent
+oracle at [`tests/fixtures/lp03/README.md`](tests/fixtures/lp03/README.md).
+Its 40 synthetic cases, five loader rejections and two retained-root
+expectations freeze an explicit multi-target resolved-graph acquisition
+boundary, exact dependency/grant bindings and caller-prevalidated whole-version
+license applicability. Inventory or package license metadata alone is never a
+positive. No LP-03 acquisition implementation, production handler or registry
+entry is added; coverage remains nine implemented and 51 TBD. Check it with
+`python eng\blazor-package-resolver\tests\lp03_expectations.py` (also with `-O`).
+
 LP-01 checks archive-wide entry identity using a pinned Unicode 15.0.0
 casefold table (generated from Python Unicode 15.0.0 `str.casefold()` for
 all changed scalar values; `data\lp01-casefold-15.0.0.json`, SHA-256

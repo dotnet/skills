@@ -1,0 +1,321 @@
+{
+  "schema_version": 1,
+  "controls": [
+    {
+      "case_id": "lp03-reject-duplicate-role",
+      "stage": "shared-input-loader",
+      "expected_rejection": "duplicate-role",
+      "inputs": [
+        {
+          "role": "acquisition-receipt",
+          "path": "inputs/direct-transitive.capture.json",
+          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971"
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/direct-transitive.assessment.json",
+          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
+          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
+          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+        },
+        {
+          "role": "dependency-graph",
+          "path": "inputs/direct-transitive.graph.json",
+          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+        },
+        {
+          "role": "grant-000",
+          "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        },
+        {
+          "role": "grant-001",
+          "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "license-reviews",
+          "path": "inputs/direct-transitive.reviews.json",
+          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+        },
+        {
+          "role": "package",
+          "path": "packages/root.d1199980842e.nupkg",
+          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        },
+        {
+          "role": "acquisition-receipt",
+          "path": "inputs/direct-transitive.capture.json",
+          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971"
+        }
+      ]
+    },
+    {
+      "case_id": "lp03-reject-parent-path",
+      "stage": "shared-input-loader",
+      "expected_rejection": "invalid-relative-path",
+      "inputs": [
+        {
+          "role": "acquisition-receipt",
+          "path": "../outside.json",
+          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971"
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/direct-transitive.assessment.json",
+          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
+          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
+          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+        },
+        {
+          "role": "dependency-graph",
+          "path": "inputs/direct-transitive.graph.json",
+          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+        },
+        {
+          "role": "grant-000",
+          "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        },
+        {
+          "role": "grant-001",
+          "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "license-reviews",
+          "path": "inputs/direct-transitive.reviews.json",
+          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+        },
+        {
+          "role": "package",
+          "path": "packages/root.d1199980842e.nupkg",
+          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        }
+      ]
+    },
+    {
+      "case_id": "lp03-reject-missing-file",
+      "stage": "shared-input-loader",
+      "expected_rejection": "missing-file",
+      "inputs": [
+        {
+          "role": "acquisition-receipt",
+          "path": "inputs/not-retained.json",
+          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971"
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/direct-transitive.assessment.json",
+          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
+          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
+          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+        },
+        {
+          "role": "dependency-graph",
+          "path": "inputs/direct-transitive.graph.json",
+          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+        },
+        {
+          "role": "grant-000",
+          "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        },
+        {
+          "role": "grant-001",
+          "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "license-reviews",
+          "path": "inputs/direct-transitive.reviews.json",
+          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+        },
+        {
+          "role": "package",
+          "path": "packages/root.d1199980842e.nupkg",
+          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        }
+      ]
+    },
+    {
+      "case_id": "lp03-reject-changed-bytes",
+      "stage": "shared-input-loader",
+      "expected_rejection": "input-digest-mismatch",
+      "inputs": [
+        {
+          "role": "acquisition-receipt",
+          "path": "inputs/direct-transitive.capture.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/direct-transitive.assessment.json",
+          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
+          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
+          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+        },
+        {
+          "role": "dependency-graph",
+          "path": "inputs/direct-transitive.graph.json",
+          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+        },
+        {
+          "role": "grant-000",
+          "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        },
+        {
+          "role": "grant-001",
+          "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "license-reviews",
+          "path": "inputs/direct-transitive.reviews.json",
+          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+        },
+        {
+          "role": "package",
+          "path": "packages/root.d1199980842e.nupkg",
+          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        }
+      ]
+    },
+    {
+      "case_id": "lp03-reject-unknown-input-field",
+      "stage": "shared-input-loader",
+      "expected_rejection": "invalid-fields",
+      "inputs": [
+        {
+          "role": "acquisition-receipt",
+          "path": "inputs/direct-transitive.capture.json",
+          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971",
+          "complete": true
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/direct-transitive.assessment.json",
+          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+        },
+        {
+          "role": "corpus",
+          "path": "policy/spdx-licenses-3.27.0.json",
+          "sha256": "157789ba91984aecba5c67b84168dbbd41a235b910a7569aa64bf42a88b24290"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
+          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
+          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+        },
+        {
+          "role": "dependency-graph",
+          "path": "inputs/direct-transitive.graph.json",
+          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+        },
+        {
+          "role": "grant-000",
+          "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
+          "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
+        },
+        {
+          "role": "grant-001",
+          "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
+          "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
+        },
+        {
+          "role": "license-reviews",
+          "path": "inputs/direct-transitive.reviews.json",
+          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+        },
+        {
+          "role": "package",
+          "path": "packages/root.d1199980842e.nupkg",
+          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+        },
+        {
+          "role": "policy",
+          "path": "policy/lp01-policy-1.0.0.json",
+          "sha256": "b395256c51e7c0ae68bf3a213aab90bee0479f6115c3507e456269d0cdd41f47"
+        }
+      ]
+    }
+  ]
+}
