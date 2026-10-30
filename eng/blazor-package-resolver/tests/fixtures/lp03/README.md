@@ -340,10 +340,13 @@ license appears first. No negative finding is emitted on escalations.
 
 ## Independent oracle, fixtures and retained roots
 
-There are **47 named expectations total**: 40 synthetic replay cases, 5
+There are **50 named expectations total**: 43 synthetic replay cases, 5
 pre-dispatch loader rejections and 2 retained-root expectations. Each replay
 case's rationale states the normative rule; there is no cross-runtime ZIP,
 XML, package-manager or expression-parser differential matrix.
+The retained roots cover the `scope-missing` branch; the other 11 branches
+have synthetic replay witnesses. The unique-ID and total-count checks include
+all three groups, not just replay cases.
 
 `lp03_expectations.py` constructs known deterministic synthetic nupkgs with
 literal exact dependency groups, graph exports, receipts, retained grants and
@@ -357,9 +360,88 @@ and complete expected `CaseResult` objects; no production code is imported or
 invoked. Checks use explicit exceptions, not Python `assert`, so optimized
 execution retains the same safeguards.
 
+### Discriminating correction to the unaccepted matrix
+
+The initial Phase A matrix at
+`b91de23a90490f6f219e3183d5c19d160da498ea` was not accepted: several
+bad packets failed earlier redundant checks, and important omitted-evidence
+and second-target decisions were not distinguishable. This correction
+replaces **17** replay IDs with **20** new IDs, retains **23**, and changes
+no policy classifications, readiness interpretations or production behavior.
+The prospective resolver version stays 1.0.0; this is a correction before
+Phase A acceptance, not a released resolver upgrade.
+
+The following IDs are retired (all use the `lp03-` prefix):
+
+```text
+missing-scope, single-mit-at-grant-limit, direct-transitive,
+multi-tfm-shared, direct-gpl, metadata-only, owner-grant,
+wrong-root-digest, missing-tfm, unreachable-node, wrong-grant-binding,
+wrong-package-binding, wrong-graph-binding, wrong-review-binding,
+missing-policy, incomplete-before-gap, binding-before-gap
+```
+
+The replacement/addition IDs and the isolated obligations are:
+
+| Case ID suffix | Distinguishing rule |
+|---|---|
+| `missing-reviews`, `missing-one-review` | Entire review document, or exactly one review, absent with all grants/packages intact |
+| `multi-tfm-second-gap`, `multi-tfm-second-unresolved` | Only a dependency unique to target two supplies a gap or missing grant |
+| `osi-unclassified` | Current OSI-approved EUPL-1.2 remains outside every finite local classification |
+| `deprecated-id` | Deprecated BSD-2-Clause-FreeBSD is unresolved before its non-OSI catalog flag could imply a gap |
+| `with-expression` | Do not strip an exception to obtain MIT |
+| `archive-declaration-mismatch` | Receipt/review agree with each other, not the actual archive declaration |
+| `review-unresolved`, `review-nonaccepting-basis` | Each review acceptance field is independently necessary |
+| `review-package-binding` | Only the review's package digest is wrong |
+| `packaged-grant-binding` | Retained bytes and all outer digests agree, but not the packaged grant entry |
+| `receipt-target-mismatch` | Only the receipt target set differs from scope/graph/basis |
+| `wrong-graph-root` | The graph is rehashed correctly but targets different root bytes |
+| `dependency-role-index` | Both receipt and checked dependency role are consistently renamed to the wrong index |
+| `duplicate-reviews`, `out-of-inventory-review` | Neither identical duplicate nor extra unassessed review may be ignored |
+| `unexpected-evidence-role` | An extra valid checked grant role conflicts with the inventory |
+| `owner-before-gap` | A genuine owner-only requirement wins over another fully evidenced incompatible node |
+| `later-binding-before-unresolved` | First-node missing grant cannot hide a later-node review/package binding conflict |
+
+Retained cases are tightened rather than duplicated: `multi-tfm-versions`
+also covers shared transitive-version deduplication, direct/transitive evidence
+and the inclusive 16384-byte grant bound. `same-tfm-version-conflict` now has
+every package, review and count present, so missing inventory cannot mask
+version ambiguity. `incomplete-basis` has otherwise complete GPL evidence
+to protect closure-before-gap precedence. `dangling-edge` retains all
+existing nodes' reachability, and `unknown-field` uses a valid string value
+so an unrelated unsupported JSON scalar cannot mask the unknown-field check.
+Missing assessment scope is still exercised against both actual retained
+roots when their bindings are supplied. Changed-byte loader controls and
+actual retained bindings retain the root-byte pin checks.
+
+Every changed receipt, graph, review and retained input is rehashed. In
+particular, the packaged-grant mismatch updates the retained path, checked
+digest, receipt digest and review digest together while leaving the actual
+dependency archive intact; only the claimed packaged-entry binding fails.
+
+### Bounded rule-weakening discrimination
+
+`discrimination.json` freezes **24 fixed weakened-oracle variants** and
+**28 witness executions against existing replay cases**. These are not new
+inputs, hidden boundary cases, model evaluations or production mutations.
+The ordinary normal and optimized runs execute the same checks. There is no
+source rewriting, dynamic code evaluation, package execution or open-ended
+mutation search; the oracle accepts only the fixed internal rule names.
+
+For each witness the normal result must match the frozen case, while the
+specified weakening must yield the explicitly frozen **wrong branch**.
+Merely throwing another error, or hitting another `binding-conflict`, is not
+counted as discrimination. Most weakened binding guards must turn their
+isolated packet positive; the other expected wrong outcomes demonstrate
+unclassified allow/deny, deprecated-before-non-OSI, owner-before-gap,
+closure-before-gap and later-binding precedence. This proves these specific
+matrix probes cannot be passed by simply removing the targeted check.
+It is a bounded regression check, not an exhaustive proof of all possible
+incorrect implementations.
+
 `input-manifest.json` lists every synthetic input's exact byte count/digest.
 `acceptance-manifest.json` binds this contract's exact bytes, all manifests,
-counts and branch/status mapping.
+the discrimination specification, counts and branch/status mapping.
 `--write` materializes the **oracle**, never production output. It only removes
 obsolete generated inputs previously indexed with unchanged bytes; unindexed
 or manually changed inputs fail normal verification. `.gitattributes` preserves
@@ -388,6 +470,7 @@ From the repository root:
 python eng\blazor-package-resolver\tests\lp03_expectations.py
 python -O eng\blazor-package-resolver\tests\lp03_expectations.py
 python eng\blazor-package-resolver\tests\lp03_expectations.py --retained
+python -O eng\blazor-package-resolver\tests\lp03_expectations.py --retained
 python eng\blazor-package-resolver\tests\lp01_expectations.py
 python eng\blazor-package-resolver\tests\lp02_expectations.py
 dotnet run --project eng\blazor-package-resolver\tests\ResolverChecks.csproj -- lp02

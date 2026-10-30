@@ -34,13 +34,15 @@ to check the frozen oracle and policy bytes independently of production.
 
 LP-03 has a **Phase A-only** dependency-license contract and independent
 oracle at [`tests/fixtures/lp03/README.md`](tests/fixtures/lp03/README.md).
-Its 40 synthetic cases, five loader rejections and two retained-root
+Its 43 synthetic cases, five loader rejections and two retained-root
 expectations freeze an explicit multi-target resolved-graph acquisition
 boundary, exact dependency/grant bindings and caller-prevalidated whole-version
 license applicability. Inventory or package license metadata alone is never a
 positive. No LP-03 acquisition implementation, production handler or registry
 entry is added; coverage remains nine implemented and 51 TBD. Check it with
 `python eng\blazor-package-resolver\tests\lp03_expectations.py` (also with `-O`).
+The corrected matrix has 50 named expectations total; 24 bounded rule-weakening
+variants reuse those existing inputs to check that central guards discriminate.
 
 LP-01 checks archive-wide entry identity using a pinned Unicode 15.0.0
 casefold table (generated from Python Unicode 15.0.0 `str.casefold()` for
