@@ -1,7 +1,7 @@
+import datetime
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -506,6 +506,8 @@ class GraderTests(unittest.TestCase):
                     encoding="utf-8",
                 )
                 project = ET.Element("Project", DefaultTargets="BuildAll")
+                properties = ET.SubElement(project, "PropertyGroup")
+                ET.SubElement(properties, "DailyStamp").text = "$(BUILDINFO_STAMP)"
                 task = ET.SubElement(
                     project, "UsingTask", TaskName="WriteSharedBuildInfo", TaskFactory="RoslynCodeTaskFactory",
                     AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll",
@@ -516,7 +518,8 @@ class GraderTests(unittest.TestCase):
                 for namespace in ("System.IO", "System.Text"):
                     ET.SubElement(implementation, "Using", Namespace=namespace)
                 value = "Stamp" if clock == "shell" else (
-                    'System.DateTime.UtcNow.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture)'
+                    '(!System.String.IsNullOrEmpty(Stamp) ? Stamp : '
+                    'System.DateTime.UtcNow.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture))'
                 )
                 ET.SubElement(implementation, "Code", Type="Fragment", Language="cs").text = (
                     'var content = "internal static class BuildInfo { public const string Stamp = \\"" '
@@ -531,7 +534,10 @@ class GraderTests(unittest.TestCase):
                     command = 'bash -c "date -u +%Y%m%d"'
                     if os.name == "nt":
                         command = command.replace("%", "%%")
-                    lookup = ET.SubElement(target, "Exec", Command=command, ConsoleToMSBuild="true")
+                    lookup = ET.SubElement(
+                        target, "Exec", Command=command, ConsoleToMSBuild="true",
+                        Condition="'$(DailyStamp)' == ''",
+                    )
                     ET.SubElement(lookup, "Output", TaskParameter="ConsoleOutput", PropertyName="DailyStamp")
                 ET.SubElement(target, "WriteSharedBuildInfo", Stamp="$(DailyStamp)")
                 ET.SubElement(target, "Exec", Command="dotnet build Contoso.slnx -c Release -m")
@@ -539,57 +545,73 @@ class GraderTests(unittest.TestCase):
                 self.grade(work, script)
 
     def test_shared_generation_preserves_dependency_timestamps(self):
+        for tracks_stamp in (True, False):
+            with self.subTest(cache_tracks_stamp=tracks_stamp):
+                work, script = self.workspace("racy-run-once-guard")
+                base = work / "exists-sentinel-race"
+                os.utime(base / "tools" / "make-buildinfo.sh", None)
+                (base / "build.sh").write_text(
+                    "#!/usr/bin/env bash\nset -euo pipefail\n"
+                    "dotnet msbuild Build.proj -p:Configuration=Release -m\n",
+                    encoding="utf-8",
+                )
+                project = ET.Element("Project", DefaultTargets="BuildAll")
+                output = "obj/buildinfo.g.cs"
+                if tracks_stamp:
+                    properties = ET.SubElement(project, "PropertyGroup")
+                    ET.SubElement(properties, "EffectiveStamp").text = "$(BUILDINFO_STAMP)"
+                    ET.SubElement(properties, "EffectiveStamp", Condition="'$(EffectiveStamp)' == ''").text = (
+                        "$([System.DateTime]::UtcNow.ToString('yyyyMMdd'))"
+                    )
+                    output = "obj/buildinfo.$(EffectiveStamp).stamp"
+                generate = ET.SubElement(
+                    project, "Target", Name="Generate", BeforeTargets="BuildAll",
+                    Inputs="tools/make-buildinfo.sh", Outputs=output,
+                )
+                ET.SubElement(generate, "Exec", Command="sh tools/make-buildinfo.sh obj/buildinfo.g.cs")
+                if tracks_stamp:
+                    ET.SubElement(generate, "Touch", Files=output, AlwaysCreate="true")
+                target = ET.SubElement(project, "Target", Name="BuildAll")
+                ET.SubElement(target, "Exec", Command="dotnet build Contoso.slnx -c Release -m")
+                ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
+                result = self.grade(work, script, accepted=tracks_stamp)
+                if not tracks_stamp:
+                    self.assertIn("preserve shared source bytes", result.stdout + result.stderr)
+
+    def test_shared_generation_is_independent_of_utc_rollover(self):
         work, script = self.workspace("racy-run-once-guard")
-        base = work / "exists-sentinel-race"
-        os.utime(base / "tools" / "make-buildinfo.sh", None)
-        (base / "build.sh").write_text(
-            "#!/usr/bin/env bash\nset -euo pipefail\n"
-            "dotnet msbuild Build.proj -p:Configuration=Release -m\n",
-            encoding="utf-8",
-        )
-        project = ET.Element("Project", DefaultTargets="BuildAll")
-        generate = ET.SubElement(
-            project, "Target", Name="Generate", BeforeTargets="BuildAll",
-            Inputs="tools/make-buildinfo.sh", Outputs="obj/buildinfo.g.cs",
-        )
-        ET.SubElement(generate, "Exec", Command="sh tools/make-buildinfo.sh obj/buildinfo.g.cs")
-        target = ET.SubElement(project, "Target", Name="BuildAll")
-        ET.SubElement(target, "Exec", Command="dotnet build Contoso.slnx -c Release -m")
-        ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
+        script = (
+            "import datetime\n"
+            "class _NoWallClock(datetime.datetime):\n"
+            "    @classmethod\n"
+            "    def now(cls, tz=None):\n"
+            "        raise AssertionError('The controlled stamp must not depend on the wall clock')\n"
+            "datetime.datetime = _NoWallClock\n"
+        ) + script
         self.grade(work, script)
 
-    def test_shared_generation_handles_utc_rollover(self):
-        for boundary, offsets in (
-            ("during-build", (-1, -1)),
-            ("between-builds", (-1, -1, -1)),
-            ("unstable-clock", (0, -1, 0, -1)),
-        ):
-            with self.subTest(boundary=boundary):
-                work, script = self.workspace("racy-run-once-guard")
-                if boundary == "between-builds":
-                    generator = work / "exists-sentinel-race" / "tools" / "make-buildinfo.sh"
-                    marker = shlex.quote((work / "clock-used").as_posix())
-                    first_date = (
-                        "$(if [ -f " + marker + " ]; then date -u +%Y%m%d; "
-                        "else touch " + marker + "; date -u --date=yesterday +%Y%m%d; fi)"
-                    )
-                    generator.write_text(
-                        generator.read_text(encoding="utf-8").replace("$(date -u +%Y%m%d)", first_date),
-                        encoding="utf-8",
-                    )
-                script = (
-                    "import datetime\n"
-                    "_real_datetime = datetime.datetime\n"
-                    "_utc_day_offsets = iter(" + repr(offsets) + ")\n"
-                    "class _RolloverClock(_real_datetime):\n"
-                    "    @classmethod\n"
-                    "    def now(cls, tz=None):\n"
-                    "        return _real_datetime.now(tz) + datetime.timedelta(days=next(_utc_day_offsets, 0))\n"
-                    "datetime.datetime = _RolloverClock\n"
-                ) + script
-                result = self.grade(work, script, accepted=boundary != "unstable-clock")
-                if boundary == "unstable-clock":
-                    self.assertIn("UTC date changed during both build attempts", result.stderr)
+    def test_shared_generator_keeps_stamp_override_and_utc_default(self):
+        work, _ = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        output = base / "obj" / "fixture-buildinfo.g.cs"
+        for stamp in (None, "", "20400229"):
+            with self.subTest(stamp=stamp):
+                env = dict(os.environ)
+                env.pop("BUILDINFO_STAMP", None)
+                if stamp is not None:
+                    env["BUILDINFO_STAMP"] = stamp
+                before = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
+                result = subprocess.run(
+                    [shutil.which("bash"), "tools/make-buildinfo.sh", "obj/fixture-buildinfo.g.cs"],
+                    cwd=base, env=env, capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                after = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
+                values = {stamp} if stamp else {before, after}
+                self.assertIn(output.read_bytes(), {
+                    ('internal static class BuildInfo { public const string Stamp = "' +
+                     value + '"; }\n').encode("utf-8") for value in values
+                })
 
     def test_inlined_shared_generation_cannot_rewrite_each_project_input(self):
         work, script = self.workspace("racy-run-once-guard")
@@ -702,7 +724,7 @@ class GraderTests(unittest.TestCase):
                     condition += ' || [ ! -f obj/buildinfo.stamp ] || [ "$(cat obj/buildinfo.stamp)" != "$stamp" ]'
                 wrapper.write_text(
                     "#!/usr/bin/env bash\nset -euo pipefail\n"
-                    'stamp="$(date -u +%Y%m%d)"\n'
+                    'stamp="${BUILDINFO_STAMP:-$(date -u +%Y%m%d)}"\n'
                     f"if {condition}; then\n"
                     "    bash prepare.sh\n"
                     "    printf '%s\\n' \"$stamp\" > obj/buildinfo.stamp\n"
@@ -712,6 +734,20 @@ class GraderTests(unittest.TestCase):
                 result = self.grade(work, script, accepted=refresh)
                 if not refresh:
                     self.assertIn("preserve shared source bytes", result.stdout + result.stderr)
+
+    def test_shared_generation_rejects_day_blind_cache(self):
+        work, script = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        (base / "build.sh").write_text(
+            "#!/usr/bin/env bash\nset -euo pipefail\n"
+            "if [ ! -f obj/buildinfo.cached ]; then\n"
+            "    sh tools/make-buildinfo.sh obj/buildinfo.g.cs\n"
+            "    touch obj/buildinfo.cached\n"
+            "fi\n"
+            "dotnet build Contoso.slnx -c Release -m\n",
+            encoding="utf-8",
+        )
+        self.grade(work, script, accepted=False)
 
     def test_late_shared_generation_is_rejected(self):
         work, script = self.workspace("racy-run-once-guard")
@@ -785,7 +821,7 @@ class GraderTests(unittest.TestCase):
         dispatch = lines.pop()
         wrapper.write_text(
             "\n".join(lines) + "\n"
-            'stamp="$(date -u +%Y%m%d)"\n'
+            'stamp="${BUILDINFO_STAMP:-$(date -u +%Y%m%d)}"\n'
             'if [ -f obj/compiled-stamp ] && [ "$(cat obj/compiled-stamp)" = "$stamp" ]; then\n'
             f"    {dispatch} -p:ForceProbeCompile=true\n"
             "fi\n"

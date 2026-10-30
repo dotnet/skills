@@ -322,6 +322,7 @@ stimuli:
       exists-sentinel-race/failure-log.txt, and a re-run passes. Fix the cause so the failure cannot depend on timing.
       Everyone builds through exists-sentinel-race/build.sh, and every project must still compile obj/buildinfo.g.cs.
       An unchanged rerun must not force every project to compile again.
+      Preserve the generator's BUILDINFO_STAMP override and UTC default.
       You cannot run the build from here, so work from the repository files.
     tags:
       capability: racy-run-once-guard
@@ -445,26 +446,20 @@ stimuli:
                   env = dict(os.environ, MOCK_BIN=str(bin_dir), REAL_DATE=real_date,
                              REAL_DOTNET=pathlib.Path(real_dotnet).as_posix(),
                              MSBUILDDISABLENODEREUSE='1')
-                  def source_for_date(value):
-                      return ('internal static class BuildInfo { public const string Stamp = "' +
-                              value.strftime('%Y%m%d') + '"; }\n').encode('utf-8')
-                  class UtcDateRollover(RuntimeError):
-                      pass
-                  def require_same_day():
-                      if datetime.datetime.now(datetime.timezone.utc).date() != scenario_day:
-                          raise UtcDateRollover('UTC date changed during the build scenario')
+                  def set_stamp(value):
+                      env['BUILDINFO_STAMP'] = value.strftime('%Y%m%d')
+                      expected.write_bytes(
+                          ('internal static class BuildInfo { public const string Stamp = "' +
+                           env['BUILDINFO_STAMP'] + '"; }\n').encode('utf-8')
+                      )
                   def run_build(phase, should_compile):
-                      require_same_day()
-                      expected.write_bytes(source_for_date(scenario_day))
                       for path in ([path for _, path in observations] + compile_observations + compiler_observations +
                                    boundaries):
                           path.unlink(missing_ok=True)
-                      result = subprocess.run(
+                      subprocess.run(
                           [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
-                          cwd=work, env=env, timeout=60,
+                          cwd=work, env=env, check=True, timeout=60,
                       )
-                      require_same_day()
-                      result.check_returncode()
                       for name, path in observations:
                           assert path.is_file(), 'exercise both project Build paths and their submitted target hooks'
                           lines = path.read_text(encoding='utf-8-sig').splitlines()
@@ -483,34 +478,13 @@ stimuli:
                       for mtime in boundaries:
                           assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before compilation and preserve it through Build'
                       return generated.stat().st_mtime_ns
-                  def reset_work():
-                      completed = pathlib.Path(tmp) / ('completed-' + uuid.uuid4().hex)
-                      work.rename(completed)
-                      shutil.copytree(base, work)
-                      shutil.copytree(completed / 'probes', work / 'probes',
-                                      ignore=shutil.ignore_patterns('bin', 'obj'))
-                      shutil.copy2(completed / 'Contoso.slnx', work / 'Contoso.slnx')
-                  for attempt in range(2):
-                      scenario_day = datetime.datetime.now(datetime.timezone.utc).date()
-                      try:
-                          run_build('clean', True)
-                          unchanged_mtime = generated.stat().st_mtime_ns
-                          assert run_build('unchanged', False) == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
-                          reset_work()
-                          stale_day = scenario_day - datetime.timedelta(days=1)
-                          generated.parent.mkdir(parents=True, exist_ok=True)
-                          generated.write_bytes(source_for_date(stale_day))
-                          stale_time = datetime.datetime.combine(stale_day, datetime.time.min, datetime.timezone.utc).timestamp()
-                          os.utime(generated, (stale_time, stale_time))
-                          stale_mtime = generated.stat().st_mtime_ns
-                          assert run_build('stale-day', True) > stale_mtime, 'refresh a prior-day generated source before compilation'
-                      except UtcDateRollover as error:
-                          if attempt:
-                              raise RuntimeError('UTC date changed during both build attempts; rerun with a stable clock') from error
-                          # A new day changes the inputs, so restart rather than judging it as an unchanged build.
-                          reset_work()
-                          continue
-                      break
+                  stamp = datetime.date(2040, 1, 1) + datetime.timedelta(days=uuid.uuid4().int % 20000)
+                  set_stamp(stamp)
+                  run_build('clean', True)
+                  unchanged_mtime = generated.stat().st_mtime_ns
+                  assert run_build('unchanged', False) == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
+                  set_stamp(stamp + datetime.timedelta(days=1))
+                  assert run_build('changed', True) > unchanged_mtime, 'refresh the generated source when the stamp changes, preserving the existing warm cache'
           expected_exit_code: 0
       - type: output-matches
         config:
@@ -526,6 +500,7 @@ stimuli:
         dotnet build, allowing a current cached output but not a flag property or another check-then-write guard inside the per-project target
       - Kept obj/buildinfo.g.cs compiled by every project
       - Preserved the generated-source timestamp on an identical second build, while still publishing changed generated content
+      - Preserved the BUILDINFO_STAMP override and UTC default, including cache refresh when the effective stamp changes
       - Did not claim the failure was reproduced or the fix verified
 
   - name: Replace one generator process per file with one process for the list
