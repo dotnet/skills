@@ -12,14 +12,25 @@
   "protocol": "notice-coverage-v1",
   "accepted_parent": "d62478f05df2a520a6d81afca6c289342e6bad06",
   "production_implementation": "absent; LP-04 remains tbd",
+  "phase_a_correction_parent": "049d202089eae80cdfcccf2282a51e55063c2a84",
   "synthetic_cases": 43,
   "rejected_inputs": 5,
   "retained_expectations": 2,
   "total_named_expectations": 50,
-  "guard_count": 50,
-  "witness_count": 50,
-  "weakened_rule_variants": 30,
-  "guard_omission_checks": 100,
+  "guard_count": 125,
+  "witness_count": 162,
+  "weakened_rule_variants": 105,
+  "existing_case_weakening_runs": 32,
+  "fixed_in_memory_runs": 112,
+  "weakening_executions": 144,
+  "preserved_manifest_sha256": {
+    "cases.json": "b6622f9adb92a0ba0d71e52903a0977976630129fb140bba363c36f3ad6eea9f",
+    "input-manifest.json": "2e3278df56eb90964fff2906376abb75fa0ad7affe6b4d88f01656e28d361d9c",
+    "rejected-inputs.json": "216060b4ef561e170c70712889d0ab596830bf08102ca4a543ae737dfb8930ba",
+    "acceptance.json": "627096d0d39f11a1839903f4cac43216a36796ce8969ea59e9446074fc817421",
+    "retained-inputs.json": "f975e282d5216b9c20f849cdec393e5e80a05d8b50e9c73824f02a8e991cb87b"
+  },
+  "guard_omission_checks": 250,
   "input_count": 331,
   "input_bytes": 735351,
   "branch_status_mapping": {
@@ -43,8 +54,8 @@
     "rejected-inputs.json": "216060b4ef561e170c70712889d0ab596830bf08102ca4a543ae737dfb8930ba",
     "retained-inputs.json": "f975e282d5216b9c20f849cdec393e5e80a05d8b50e9c73824f02a8e991cb87b",
     "input-manifest.json": "2e3278df56eb90964fff2906376abb75fa0ad7affe6b4d88f01656e28d361d9c",
-    "discrimination.json": "f786bf48c2efbb7ba3d57e32540477ccd31b219b69196d7889f104eaae2bc79c"
+    "discrimination.json": "40b8da6747630bceb90708ad4ac1302a2f8c83321e1249e57a6468bd901e3447"
   },
-  "contract_sha256": "657c3a1e58ad2336ff2a36a3f60b374fee6de06d866d4132a56f1025b8c7f703",
-  "oracle_sha256": "4a1a4e5ce248cc87f2bb199a2f769d40a311edaf687b9ac4820f39ac554b432a"
+  "contract_sha256": "be4d5c6a8356cfc90d56ca46d6a069fcc938301642c845eafa0f2f0b3bea2082",
+  "oracle_sha256": "0953675f9d969bb98805998ead21fe9ae4e9a192fc4616150dfbe84b01ce7d3c"
 }

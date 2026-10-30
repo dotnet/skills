@@ -174,6 +174,10 @@ Disposition is `obligations`, `no-obligations`, `unresolved`, `unsupported`,
 or `owner-private`. `obligations` requires nonempty obligations;
 `no-obligations` requires an empty list and admitted retained terms affirmatively
 establishing no preservation requirement. Missing reviews never mean none.
+An **absent review document is `reviews-unresolved` even when both inventories
+contain zero subjects and admission claims `state=captured`**. Only a retained
+explicitly empty document, with its checked digest and captured admission,
+can establish an empty reviewed surface.
 An obligation is `{id, parts}`; a part is `{id, kind, evidence}`, where kind is
 `license-text`, `notice`, or `attribution` and evidence is the checked reference
 to the entire exact required bytes. Obligation IDs are unique per subject,
@@ -327,23 +331,216 @@ compression implementation is added. No production code/oracle is imported,
 and expected branches are explicit normative literals, not production output.
 All checks raise explicit errors, remaining active under `python -O`.
 
-`discrimination.json` registers **50 finite acceptance-critical guards and
-50 witnesses**, one for each existing named expectation. Replay witnesses
-include fixed weakened-rule variants on the **same checked bytes**, not added
-cases. Each mutation must reach its prescribed distinct wrong branch, not
-merely throw or fail another binding. Nonmutated witnesses are explicitly
-marked `existing-branch`, `loader`, or `optional-retained`; they are not counted
-as executed mutations. Optional actual retained witnesses are not claimed
-executed when local bindings are absent.
+### Focused correction on the blocked initial Phase A
 
-The independent `CRITICAL_GUARDS` tuple must match the registration inventory
-and every guard needs exactly one witness. **100 omission meta-checks** remove
-each registration and each witness in turn and require rejection. Removing
-or replacing replay cases cannot silently drop a guard. The complete finite
-guard-to-witness table and rule text are retained in `discrimination.json`;
-it is acceptance input, not a discovery scan that shrinks with the code.
-The acceptance manifest pins this document, oracle, all ledgers, all checked
-input digests/counts/bytes and status interpretation.
+The correction parent is `049d202089eae80cdfcccf2282a51e55063c2a84`.
+The original **43 replay + 5 loader + 2 retained = 50 named expectations**,
+all **331 checked inputs / 735351 bytes**, `cases.json`, `input-manifest.json`,
+loader and retained ledgers remain byte-identical. Their original SHA-256
+identities are independently pinned by the corrected generator.
+
+The only normal-classification semantic change distinguishes omitted review
+documents from explicitly retained empty reviews. Previously a zero-subject
+packet with no review document and a caller `captured` state could incorrectly
+reach `no-applicable-surface`. The `omitted-empty-reviews` fixed recipe removes
+only that document, rebinds null packet/admission document digests, retains the
+claimed captured state, and normally requires `reviews-unresolved`. Weakening
+only document presence must reproduce the incorrect `no-applicable-surface`.
+
+The bounded manual audit now registers **125 guards / 162 witnesses**:
+**112 fixed in-memory recipes**, **32 existing-case weakening executions**,
+and **105 distinct weakened variants / 144 total weakening executions**.
+The remaining 11 existing-branch, 5 loader and 2 optional-retained witnesses
+are explicitly not counted as weakened variants. Optional actual retained
+witnesses are not claimed executed when bindings are absent.
+
+Each recipe copies a named existing packet, changes only the documented
+counterexample, recomputes all unrelated root/document/leaf bindings and
+passes the resulting buffers through the checked-input loader. Newly written
+synthetic archive observations still come from the standard ZIP writer, never
+an archive reader or invented observations about a retained vendor package.
+These recipes, their normal/wrong branch literals and their guard registrations
+are explicit finite tuples, **not** mutation discovery, combinatorial input
+generation or new replay expectations. No probe bytes are persisted. The
+largest recipe is a fixed nine-archive packet exceeding 64 MiB while every
+individual archive remains below 8 MiB; other resource recipes isolate
+8 MiB archives, 1 MiB assets, 64 KiB JSON, 128 root entries and 128 graph edges.
+
+Every weakened run first checks the complete normal result against its
+prescribed expected branch, then requires the exact distinct wrong result.
+Throwing, retaining the normal branch, or failing an unrelated digest check
+does not pass. Unsupported disposition is isolated from unresolved disposition;
+missing/extra inventory, reviews, mappings and role/path/digest bindings have
+their own witnesses. Aggregate ranges, present-path false absence, strict
+proper/nonempty prefixes, complete multipart mappings and owner conditions
+are independently discriminating.
+
+The independent manual `CRITICAL_GUARDS` tuple must equal the registration
+inventory. Each guard lists its exact witness IDs, and every witness must be
+registered. **250 omission/empty-witness meta-checks** remove each registration
+or empty its witness list in turn and require the specific rejection. Deleting
+or replacing cases/registrations cannot silently shrink that obligation set.
+`discrimination.json` retains the rule text, source case, exact recipe,
+weakening, normal branch and wrong branch. The table below is checked against
+that ledger, not automatically rediscovered from current conditionals.
+
+### Manual audit boundaries
+
+The audit follows `classify` in order: checked profile/root observations;
+root/scope/packet/admission/document binding; capture and graph closure;
+complete all-entry/component inventory; dependency/asset identity and bytes;
+review presence, membership, disposition, basis and parts; exhaustive mapping,
+accepted aggregates, exact representation and retained bytes; unused roles;
+then missing/unresolved/owner/gap precedence.
+
+Assets have no independent TFM subset field: their scope is **all root entries
+unconditionally**, bound through the exact shared assessment digest. They
+cannot silently become the successful dependency target subset. The
+`tfm-scope`, `asset-scope` and admission-scope witnesses protect those distinct
+rules without changing the existing inventory schema or input bytes.
+
+Some physical checks are intentionally redundant, not missing mutations:
+the 64-version union cap also follows from the 64-package shape bound plus
+exact union equality; an unknown all-entry path contradicts exact inspected
+path-set equality; root unsafe paths cannot pass both safe normalized inventory
+paths and exact all-entry equality. Missing construction observations cannot
+produce a conclusive result without an archive identity/entry observation.
+Strict types/fields, UTF-8/ASCII, depth and token/path shapes remain shared
+bounded admission primitives, not new parser dialects. The existing named
+shape/path/resource witnesses and accepted LP-01/LP-02/LP-03 dependent checks
+continue to cover that foundation. Duplicate obligations and absent-mode
+conditions are grouped coherently where two physical checks enforce the same
+rule; the mutation removes that rule, not an unrelated binding.
+
+### Finite guard-to-witness inventory
+
+| Guard ID | Registered witness IDs |
+|---|---|
+| `root-required` | `case:missing-package` |
+| `scope-required` | `case:missing-scope` |
+| `packet-required` | `case:missing-packet` |
+| `exact-positive` | `case:all-sources-covered` |
+| `captured-empty` | `case:no-applicable-surface` |
+| `reviewed-none` | `case:reviewed-no-obligations` |
+| `aggregate-segments` | `case:aggregate-shared-entry` |
+| `direct-absence` | `case:direct-absent` |
+| `direct-prefix` | `case:direct-partial` |
+| `dependency-inventory-required` | `case:missing-dependency-inventory` |
+| `graph-counts` | `case:incomplete-dependency-inventory` |
+| `graph-diagnostics` | `case:unresolved-graph` |
+| `asset-inventory-required` | `case:missing-asset-inventory` |
+| `all-root-entries` | `case:incomplete-asset-inventory` |
+| `asset-classification` | `case:unreviewed-asset-entry` |
+| `dependency-bytes-required` | `case:missing-dependency-bytes` |
+| `asset-bytes-required` | `case:missing-asset-bytes` |
+| `reviews-required` | `case:missing-reviews` |
+| `review-disposition` | `case:unresolved-review`, `memory:unsupported-only`, `memory:unresolved-only` |
+| `mapping-required` | `case:missing-mapping` |
+| `mapping-equality` | `case:incomplete-mapping`, `memory:missing-subject-mapping`, `memory:missing-obligation-mapping`, `memory:missing-part-mapping` |
+| `root-identity` | `case:wrong-root-identity`, `memory:observed-root-id` |
+| `root-digest` | `case:wrong-root-digest` |
+| `scope-digest` | `case:wrong-scope-binding` |
+| `document-digests` | `case:wrong-inventory-binding`, `memory:packet-assets`, `memory:packet-reviews`, `memory:packet-mapping` |
+| `asset-source-binding` | `case:wrong-asset-binding` |
+| `review-subject-binding` | `case:wrong-review-binding` |
+| `entry-source-binding` | `case:wrong-entry-binding` |
+| `exact-fields` | `case:unknown-field` |
+| `unique-json-fields` | `case:duplicate-json-field` |
+| `safe-paths` | `case:unsafe-path` |
+| `retained-byte-limit` | `case:resource-limit` |
+| `admission-profiles` | `case:unaccepted-admission` |
+| `dependency-identity-binding` | `case:dependency-identity`, `memory:observed-dependency-id` |
+| `modified-text` | `case:modified-license` |
+| `successful-captures` | `case:acquisition-unavailable`, `memory:asset-capture-unavailable` |
+| `unique-package-paths` | `case:duplicate-package-path` |
+| `no-path-aliases` | `case:alias-package-path` |
+| `all-tfm-versions` | `case:multi-tfm-second-version-unresolved` |
+| `private-before-gap` | `case:owner-before-gap` |
+| `unresolved-before-gap` | `case:unresolved-before-gap` |
+| `bindings-before-missing` | `case:later-binding-before-unresolved` |
+| `aggregate-admission` | `case:unaccepted-aggregate` |
+| `loader-duplicate-role` | `loader:loader-duplicate-role` |
+| `loader-safe-path` | `loader:loader-safe-path` |
+| `loader-file-presence` | `loader:loader-file-presence` |
+| `loader-digest` | `loader:loader-digest` |
+| `loader-exact-fields` | `loader:loader-exact-fields` |
+| `retained-syncfusion` | `retained:syncfusion` |
+| `retained-infragistics` | `retained:infragistics` |
+| `reviews-document` | `memory:omitted-empty-reviews` |
+| `document-roots` | `memory:packet-root`, `memory:admission-root`, `memory:dependency-root`, `memory:asset-root` |
+| `admission-scope-binding` | `memory:admission-scope` |
+| `admission-packet-binding` | `memory:admission-digest` |
+| `admission-document-bindings` | `memory:admitted-dependencies`, `memory:admitted-assets`, `memory:admitted-reviews`, `memory:admitted-mapping` |
+| `tfm-scope` | `memory:target-set`, `memory:duplicate-target` |
+| `graph-unique-nodes` | `memory:duplicate-node` |
+| `graph-unique-direct` | `memory:duplicate-direct` |
+| `graph-unique-adjacency` | `memory:duplicate-adjacency` |
+| `graph-edge-limit` | `memory:edge-limit` |
+| `graph-edge-membership` | `memory:dangling-direct`, `memory:dangling-transitive` |
+| `graph-reachability` | `memory:orphan-node` |
+| `graph-version-uniqueness` | `memory:competing-versions` |
+| `inventory-equality` | `memory:missing-package-inventory`, `memory:extra-package-inventory` |
+| `inventory-unique` | `memory:duplicate-package-inventory` |
+| `entry-inventory-unique` | `memory:duplicate-entry-inventory` |
+| `entry-inventory-digests` | `memory:entry-inventory-digest` |
+| `asset-inventory-unique` | `memory:duplicate-asset-inventory` |
+| `entry-subject-unique` | `memory:duplicate-entry-subject` |
+| `entry-kind-subjects` | `memory:unlisted-third-party`, `memory:first-party-with-subject` |
+| `asset-entry-unique` | `memory:repeated-asset-location` |
+| `asset-inventory-equality` | `memory:missing-listed-asset` |
+| `dependency-key` | `memory:dependency-key` |
+| `dependency-role` | `memory:dependency-role` |
+| `dependency-safety` | `memory:dependency-duplicate`, `memory:dependency-alias`, `memory:dependency-unsafe` |
+| `dependency-digest` | `memory:dependency-digest` |
+| `asset-key` | `memory:asset-key` |
+| `asset-role` | `memory:asset-role` |
+| `asset-entry-binding` | `memory:asset-entry` |
+| `asset-checked-digest` | `memory:asset-checked-digest` |
+| `reviews-unique` | `memory:duplicate-review` |
+| `reviews-inventory` | `memory:extra-review`, `memory:out-of-version-review` |
+| `reviews-coverage` | `memory:missing-one-review` |
+| `reviews-state` | `memory:review-state` |
+| `review-basis` | `memory:no-obligations-missing-basis`, `memory:owner-basis-missing` |
+| `evidence-path` | `memory:entry-reference-path`, `memory:basis-reference-path`, `memory:part-reference-path` |
+| `evidence-digest` | `memory:basis-reference-digest`, `memory:part-reference-digest` |
+| `evidence-role` | `memory:entry-reference-role` |
+| `owner-fact` | `memory:owner-fact-missing` |
+| `owner-empty-obligations` | `memory:owner-with-obligations` |
+| `owner-fact-scope` | `memory:owner-fact-without-disposition` |
+| `owner-recognition` | `memory:owner-disposition` |
+| `review-obligation-form` | `memory:none-with-obligations`, `memory:required-without-obligations` |
+| `obligations-unique` | `memory:duplicate-obligation` |
+| `parts-unique` | `memory:duplicate-part` |
+| `part-bytes` | `memory:missing-part-bytes` |
+| `mapping-unique` | `memory:duplicate-mapping` |
+| `mapping-parts` | `memory:extra-mapping-part`, `memory:extra-mapping-obligation` |
+| `mapping-subjects` | `memory:out-of-inventory-mapping`, `memory:out-of-version-mapping` |
+| `mapping-document` | `memory:omitted-empty-mapping` |
+| `mapping-state` | `memory:mapping-state` |
+| `aggregate-unique` | `memory:duplicate-aggregate` |
+| `aggregate-bindings` | `memory:aggregate-digest`, `memory:aggregate-path` |
+| `absent-shape` | `memory:absent-present-path`, `memory:absent-entry-reference`, `memory:absent-offset`, `memory:absent-length` |
+| `entry-reference` | `memory:missing-entry-reference` |
+| `entry-presence` | `memory:missing-packaged-entry` |
+| `entry-bytes` | `memory:missing-entry-bytes` |
+| `entry-range` | `memory:entry-offset`, `memory:entry-length` |
+| `aggregate-segment` | `memory:aggregate-offset`, `memory:aggregate-length` |
+| `partial-proper-length` | `memory:partial-exact` |
+| `partial-content` | `memory:partial-unrelated` |
+| `partial-nonempty` | `memory:partial-empty` |
+| `extra-evidence` | `memory:extra-evidence` |
+| `review-before-gap` | `memory:reviews-before-gap` |
+| `schema-version` | `memory:schema-version` |
+| `packet-protocol` | `memory:packet-protocol` |
+| `capture-profiles` | `memory:capture-profile` |
+| `scope-nonempty` | `memory:empty-assessment` |
+| `scope-unique` | `memory:duplicate-assessment` |
+| `asset-scope` | `memory:partial-asset-scope` |
+| `json-byte-limit` | `memory:json-byte-limit` |
+| `archive-byte-limit` | `memory:archive-byte-limit` |
+| `asset-byte-limit` | `memory:asset-byte-limit` |
+| `aggregate-byte-limit` | `memory:aggregate-byte-limit` |
+| `root-entry-limit` | `memory:root-entry-limit` |
 
 ### Commands and retained roots
 

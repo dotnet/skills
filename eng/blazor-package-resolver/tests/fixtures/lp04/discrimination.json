@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
-  "guard_inventory": [
+  "method": "finite-manual-classification-guard-audit-and-fixed-recipes",
+  "critical_guard_ids": [
     "root-required",
     "scope-required",
     "packet-required",
@@ -50,437 +51,2404 @@
     "loader-digest",
     "loader-exact-fields",
     "retained-syncfusion",
-    "retained-infragistics"
+    "retained-infragistics",
+    "reviews-document",
+    "document-roots",
+    "admission-scope-binding",
+    "admission-packet-binding",
+    "admission-document-bindings",
+    "tfm-scope",
+    "graph-unique-nodes",
+    "graph-unique-direct",
+    "graph-unique-adjacency",
+    "graph-edge-limit",
+    "graph-edge-membership",
+    "graph-reachability",
+    "graph-version-uniqueness",
+    "inventory-equality",
+    "inventory-unique",
+    "entry-inventory-unique",
+    "entry-inventory-digests",
+    "asset-inventory-unique",
+    "entry-subject-unique",
+    "entry-kind-subjects",
+    "asset-entry-unique",
+    "asset-inventory-equality",
+    "dependency-key",
+    "dependency-role",
+    "dependency-safety",
+    "dependency-digest",
+    "asset-key",
+    "asset-role",
+    "asset-entry-binding",
+    "asset-checked-digest",
+    "reviews-unique",
+    "reviews-inventory",
+    "reviews-coverage",
+    "reviews-state",
+    "review-basis",
+    "evidence-path",
+    "evidence-digest",
+    "evidence-role",
+    "owner-fact",
+    "owner-empty-obligations",
+    "owner-fact-scope",
+    "owner-recognition",
+    "review-obligation-form",
+    "obligations-unique",
+    "parts-unique",
+    "part-bytes",
+    "mapping-unique",
+    "mapping-parts",
+    "mapping-subjects",
+    "mapping-document",
+    "mapping-state",
+    "aggregate-unique",
+    "aggregate-bindings",
+    "absent-shape",
+    "entry-reference",
+    "entry-presence",
+    "entry-bytes",
+    "entry-range",
+    "aggregate-segment",
+    "partial-proper-length",
+    "partial-content",
+    "partial-nonempty",
+    "extra-evidence",
+    "review-before-gap",
+    "schema-version",
+    "packet-protocol",
+    "capture-profiles",
+    "scope-nonempty",
+    "scope-unique",
+    "asset-scope",
+    "json-byte-limit",
+    "archive-byte-limit",
+    "asset-byte-limit",
+    "aggregate-byte-limit",
+    "root-entry-limit"
+  ],
+  "guard_inventory": [
+    {
+      "guard_id": "root-required",
+      "rule": "Root bytes precede all row checks.",
+      "witness_ids": [
+        "case:missing-package"
+      ]
+    },
+    {
+      "guard_id": "scope-required",
+      "rule": "Never infer scope from successful captures.",
+      "witness_ids": [
+        "case:missing-scope"
+      ]
+    },
+    {
+      "guard_id": "packet-required",
+      "rule": "LICENSE and detected sidecars alone do not prove coverage.",
+      "witness_ids": [
+        "case:missing-packet"
+      ]
+    },
+    {
+      "guard_id": "exact-positive",
+      "rule": "Two TFMs share exact direct/transitive versions; one entry covers multiple obligations; every part of a multipart obligation binds, including 16384-byte text.",
+      "witness_ids": [
+        "case:all-sources-covered"
+      ]
+    },
+    {
+      "guard_id": "captured-empty",
+      "rule": "Empty complete dependency and asset inventories establish scoped non-applicability.",
+      "witness_ids": [
+        "case:no-applicable-surface"
+      ]
+    },
+    {
+      "guard_id": "reviewed-none",
+      "rule": "Nonempty inventories need admitted retained whole-subject no-obligation reviews, not required=false.",
+      "witness_ids": [
+        "case:reviewed-no-obligations"
+      ]
+    },
+    {
+      "guard_id": "aggregate-segments",
+      "rule": "One explicitly admitted aggregate represents multiple subjects and parts at exact byte offsets.",
+      "witness_ids": [
+        "case:aggregate-shared-entry"
+      ]
+    },
+    {
+      "guard_id": "direct-absence",
+      "rule": "A complete reviewed intended location is absent in exact root inspection; other obligations are resolved.",
+      "witness_ids": [
+        "case:direct-absent"
+      ]
+    },
+    {
+      "guard_id": "direct-prefix",
+      "rule": "A mapped full entry is a strict nonempty prefix of the required retained bytes, not an arbitrary modified text.",
+      "witness_ids": [
+        "case:direct-partial"
+      ]
+    },
+    {
+      "guard_id": "dependency-inventory-required",
+      "rule": "An asset capture does not substitute for the resolved dependency inventory.",
+      "witness_ids": [
+        "case:missing-dependency-inventory"
+      ]
+    },
+    {
+      "guard_id": "graph-counts",
+      "rule": "Only the admitted graph node count differs; all bytes/reviews/mappings otherwise bind.",
+      "witness_ids": [
+        "case:incomplete-dependency-inventory"
+      ]
+    },
+    {
+      "guard_id": "graph-diagnostics",
+      "rule": "Capture diagnostics prevent a complete-closure conclusion.",
+      "witness_ids": [
+        "case:unresolved-graph"
+      ]
+    },
+    {
+      "guard_id": "asset-inventory-required",
+      "rule": "A dependency capture does not substitute for the bundled-asset inventory.",
+      "witness_ids": [
+        "case:missing-asset-inventory"
+      ]
+    },
+    {
+      "guard_id": "all-root-entries",
+      "rule": "A passive root LICENSE entry alone is omitted; third-party assets and their mappings remain present.",
+      "witness_ids": [
+        "case:incomplete-asset-inventory"
+      ]
+    },
+    {
+      "guard_id": "asset-classification",
+      "rule": "An unresolved all-entry classification cannot be silently assumed first-party.",
+      "witness_ids": [
+        "case:unreviewed-asset-entry"
+      ]
+    },
+    {
+      "guard_id": "dependency-bytes-required",
+      "rule": "Root notice presence does not supply an unavailable dependency archive.",
+      "witness_ids": [
+        "case:missing-dependency-bytes"
+      ]
+    },
+    {
+      "guard_id": "asset-bytes-required",
+      "rule": "An inventoried bundled asset requires separately checked exact bytes, even when present in the root.",
+      "witness_ids": [
+        "case:missing-asset-bytes"
+      ]
+    },
+    {
+      "guard_id": "reviews-required",
+      "rule": "Complete inventories and SPDX metadata alone are insufficient without applicability/obligation reviews.",
+      "witness_ids": [
+        "case:missing-reviews"
+      ]
+    },
+    {
+      "guard_id": "review-disposition",
+      "rule": "Unresolved dependency applicability and an unsupported generated-bundle review form use the same conservative review gate; all retained parts and mappings are intact.",
+      "witness_ids": [
+        "case:unresolved-review",
+        "memory:unsupported-only",
+        "memory:unresolved-only"
+      ]
+    },
+    {
+      "guard_id": "mapping-required",
+      "rule": "Obligation evidence cannot substitute for packaged notice coverage.",
+      "witness_ids": [
+        "case:missing-mapping"
+      ]
+    },
+    {
+      "guard_id": "mapping-equality",
+      "rule": "One required part lacks a mapping, not a proven missing representation.",
+      "witness_ids": [
+        "case:incomplete-mapping",
+        "memory:missing-subject-mapping",
+        "memory:missing-obligation-mapping",
+        "memory:missing-part-mapping"
+      ]
+    },
+    {
+      "guard_id": "root-identity",
+      "rule": "All documents agree on the wrong root version; only observed archive identity refutes them.",
+      "witness_ids": [
+        "case:wrong-root-identity",
+        "memory:observed-root-id"
+      ]
+    },
+    {
+      "guard_id": "root-digest",
+      "rule": "All document root digests agree with one another, not exact root bytes.",
+      "witness_ids": [
+        "case:wrong-root-digest"
+      ]
+    },
+    {
+      "guard_id": "scope-digest",
+      "rule": "Only the packet assessment digest is wrong.",
+      "witness_ids": [
+        "case:wrong-scope-binding"
+      ]
+    },
+    {
+      "guard_id": "document-digests",
+      "rule": "Only the packet dependency-document digest differs; admission and loader bindings remain correct.",
+      "witness_ids": [
+        "case:wrong-inventory-binding",
+        "memory:packet-assets",
+        "memory:packet-reviews",
+        "memory:packet-mapping"
+      ]
+    },
+    {
+      "guard_id": "asset-source-binding",
+      "rule": "Retained asset bytes and inventory subject digest agree with each other, not the actual root entry.",
+      "witness_ids": [
+        "case:wrong-asset-binding"
+      ]
+    },
+    {
+      "guard_id": "review-subject-binding",
+      "rule": "Only the review's exact subject digest is wrong.",
+      "witness_ids": [
+        "case:wrong-review-binding"
+      ]
+    },
+    {
+      "guard_id": "entry-source-binding",
+      "rule": "Mapping digest and retained entry agree with each other, not the packaged notice entry.",
+      "witness_ids": [
+        "case:wrong-entry-binding"
+      ]
+    },
+    {
+      "guard_id": "exact-fields",
+      "rule": "An extra complete=true assertion is never an admission protocol.",
+      "witness_ids": [
+        "case:unknown-field"
+      ]
+    },
+    {
+      "guard_id": "unique-json-fields",
+      "rule": "Duplicate identical protocol fields must not be last-wins.",
+      "witness_ids": [
+        "case:duplicate-json-field"
+      ]
+    },
+    {
+      "guard_id": "safe-paths",
+      "rule": "A parent traversal packaged mapping path is rejected before entry lookup.",
+      "witness_ids": [
+        "case:unsafe-path"
+      ]
+    },
+    {
+      "guard_id": "retained-byte-limit",
+      "rule": "16385-byte reference text is outside the inclusive 16384-byte profile.",
+      "witness_ids": [
+        "case:resource-limit"
+      ]
+    },
+    {
+      "guard_id": "admission-profiles",
+      "rule": "A caller-authored admission producer is unsupported even with matching hashes.",
+      "witness_ids": [
+        "case:unaccepted-admission"
+      ]
+    },
+    {
+      "guard_id": "dependency-identity-binding",
+      "rule": "All dependency facts name the wrong version but the archive identity does not.",
+      "witness_ids": [
+        "case:dependency-identity",
+        "memory:observed-dependency-id"
+      ]
+    },
+    {
+      "guard_id": "modified-text",
+      "rule": "Arbitrary modified text is not exact coverage and is not automatically a legally incomplete grant.",
+      "witness_ids": [
+        "case:modified-license"
+      ]
+    },
+    {
+      "guard_id": "successful-captures",
+      "rule": "Retained partial documents and matching hashes do not override the admitted acquisition-unavailable state.",
+      "witness_ids": [
+        "case:acquisition-unavailable",
+        "memory:asset-capture-unavailable"
+      ]
+    },
+    {
+      "guard_id": "unique-package-paths",
+      "rule": "Even byte-identical duplicate archive entries are ambiguous.",
+      "witness_ids": [
+        "case:duplicate-package-path"
+      ]
+    },
+    {
+      "guard_id": "no-path-aliases",
+      "rule": "Case-equivalent archive entries are not selected by runtime-dependent lookup.",
+      "witness_ids": [
+        "case:alias-package-path"
+      ]
+    },
+    {
+      "guard_id": "all-tfm-versions",
+      "rule": "Only the distinct version unique to TFM two has unresolved applicability.",
+      "witness_ids": [
+        "case:multi-tfm-second-version-unresolved"
+      ]
+    },
+    {
+      "guard_id": "private-before-gap",
+      "rule": "An admitted retained private-contract fact, not failed public acquisition, preempts another complete missing-notice counterexample.",
+      "witness_ids": [
+        "case:owner-before-gap"
+      ]
+    },
+    {
+      "guard_id": "unresolved-before-gap",
+      "rule": "One absent mapping preempts another fully observed missing representation.",
+      "witness_ids": [
+        "case:unresolved-before-gap"
+      ]
+    },
+    {
+      "guard_id": "bindings-before-missing",
+      "rule": "A first-node missing archive cannot hide a later-node review digest conflict.",
+      "witness_ids": [
+        "case:later-binding-before-unresolved"
+      ]
+    },
+    {
+      "guard_id": "aggregate-admission",
+      "rule": "Exact aggregate substrings without explicit aggregate acceptance are insufficient.",
+      "witness_ids": [
+        "case:unaccepted-aggregate"
+      ]
+    },
+    {
+      "guard_id": "loader-duplicate-role",
+      "rule": "Shared loader rejects duplicate-role",
+      "witness_ids": [
+        "loader:loader-duplicate-role"
+      ]
+    },
+    {
+      "guard_id": "loader-safe-path",
+      "rule": "Shared loader rejects invalid-relative-path",
+      "witness_ids": [
+        "loader:loader-safe-path"
+      ]
+    },
+    {
+      "guard_id": "loader-file-presence",
+      "rule": "Shared loader rejects missing-file",
+      "witness_ids": [
+        "loader:loader-file-presence"
+      ]
+    },
+    {
+      "guard_id": "loader-digest",
+      "rule": "Shared loader rejects input-digest-mismatch",
+      "witness_ids": [
+        "loader:loader-digest"
+      ]
+    },
+    {
+      "guard_id": "loader-exact-fields",
+      "rule": "Shared loader rejects invalid-fields",
+      "witness_ids": [
+        "loader:loader-exact-fields"
+      ]
+    },
+    {
+      "guard_id": "retained-syncfusion",
+      "rule": "Exact retained root alone is not notice coverage.",
+      "witness_ids": [
+        "retained:syncfusion"
+      ]
+    },
+    {
+      "guard_id": "retained-infragistics",
+      "rule": "Exact retained root alone is not notice coverage.",
+      "witness_ids": [
+        "retained:infragistics"
+      ]
+    },
+    {
+      "guard_id": "reviews-document",
+      "rule": "Even zero subjects require an explicitly retained review document.",
+      "witness_ids": [
+        "memory:omitted-empty-reviews"
+      ]
+    },
+    {
+      "guard_id": "document-roots",
+      "rule": "Every packet/admission/inventory root equals the independent scope root.",
+      "witness_ids": [
+        "memory:packet-root",
+        "memory:admission-root",
+        "memory:dependency-root",
+        "memory:asset-root"
+      ]
+    },
+    {
+      "guard_id": "admission-scope-binding",
+      "rule": "Admission binds the entire exact assessment, including all-entry asset scope.",
+      "witness_ids": [
+        "memory:admission-scope"
+      ]
+    },
+    {
+      "guard_id": "admission-packet-binding",
+      "rule": "The packet binds the checked admission bytes.",
+      "witness_ids": [
+        "memory:admission-digest"
+      ]
+    },
+    {
+      "guard_id": "admission-document-bindings",
+      "rule": "All four admitted document digests bind independently of packet digests.",
+      "witness_ids": [
+        "memory:admitted-dependencies",
+        "memory:admitted-assets",
+        "memory:admitted-reviews",
+        "memory:admitted-mapping"
+      ]
+    },
+    {
+      "guard_id": "tfm-scope",
+      "rule": "The complete target multiset equals assessed TFMs; assets cover every root entry without a TFM filter.",
+      "witness_ids": [
+        "memory:target-set",
+        "memory:duplicate-target"
+      ]
+    },
+    {
+      "guard_id": "graph-unique-nodes",
+      "rule": "Duplicate nodes cannot be silently deduplicated.",
+      "witness_ids": [
+        "memory:duplicate-node"
+      ]
+    },
+    {
+      "guard_id": "graph-unique-direct",
+      "rule": "Duplicate root edges cannot be silently deduplicated.",
+      "witness_ids": [
+        "memory:duplicate-direct"
+      ]
+    },
+    {
+      "guard_id": "graph-unique-adjacency",
+      "rule": "Duplicate adjacency edges cannot be silently deduplicated.",
+      "witness_ids": [
+        "memory:duplicate-adjacency"
+      ]
+    },
+    {
+      "guard_id": "graph-edge-limit",
+      "rule": "Both declared and observed total edge counts obey the same 128-edge limit.",
+      "witness_ids": [
+        "memory:edge-limit"
+      ]
+    },
+    {
+      "guard_id": "graph-edge-membership",
+      "rule": "Every root and transitive edge resolves to an inventoried exact node.",
+      "witness_ids": [
+        "memory:dangling-direct",
+        "memory:dangling-transitive"
+      ]
+    },
+    {
+      "guard_id": "graph-reachability",
+      "rule": "Every retained graph node is reachable from root direct edges.",
+      "witness_ids": [
+        "memory:orphan-node"
+      ]
+    },
+    {
+      "guard_id": "graph-version-uniqueness",
+      "rule": "One TFM cannot select competing versions of an ID.",
+      "witness_ids": [
+        "memory:competing-versions"
+      ]
+    },
+    {
+      "guard_id": "inventory-equality",
+      "rule": "Package inventory equals the complete distinct-version graph union.",
+      "witness_ids": [
+        "memory:missing-package-inventory",
+        "memory:extra-package-inventory"
+      ]
+    },
+    {
+      "guard_id": "inventory-unique",
+      "rule": "Duplicate package records cannot be silently deduplicated.",
+      "witness_ids": [
+        "memory:duplicate-package-inventory"
+      ]
+    },
+    {
+      "guard_id": "entry-inventory-unique",
+      "rule": "All-entry inventory paths are unique.",
+      "witness_ids": [
+        "memory:duplicate-entry-inventory"
+      ]
+    },
+    {
+      "guard_id": "entry-inventory-digests",
+      "rule": "Inventory entry digests match actual root entry bytes.",
+      "witness_ids": [
+        "memory:entry-inventory-digest"
+      ]
+    },
+    {
+      "guard_id": "asset-inventory-unique",
+      "rule": "Bundled-asset keys are unique.",
+      "witness_ids": [
+        "memory:duplicate-asset-inventory"
+      ]
+    },
+    {
+      "guard_id": "entry-subject-unique",
+      "rule": "A root entry cannot repeat the same component key.",
+      "witness_ids": [
+        "memory:duplicate-entry-subject"
+      ]
+    },
+    {
+      "guard_id": "entry-kind-subjects",
+      "rule": "Only third-party entries have subjects and every such entry has subjects.",
+      "witness_ids": [
+        "memory:unlisted-third-party",
+        "memory:first-party-with-subject"
+      ]
+    },
+    {
+      "guard_id": "asset-entry-unique",
+      "rule": "One component key cannot be attributed to two root entry locations.",
+      "witness_ids": [
+        "memory:repeated-asset-location"
+      ]
+    },
+    {
+      "guard_id": "asset-inventory-equality",
+      "rule": "Listed bundled assets equal all third-party entry subjects.",
+      "witness_ids": [
+        "memory:missing-listed-asset"
+      ]
+    },
+    {
+      "guard_id": "dependency-key",
+      "rule": "Dependency key matches its inspected identity independently of role/digest.",
+      "witness_ids": [
+        "memory:dependency-key"
+      ]
+    },
+    {
+      "guard_id": "dependency-role",
+      "rule": "Dependency roles follow sorted distinct-version indices.",
+      "witness_ids": [
+        "memory:dependency-role"
+      ]
+    },
+    {
+      "guard_id": "dependency-safety",
+      "rule": "Every dependency archive rejects duplicate, aliased or unsafe entry observations.",
+      "witness_ids": [
+        "memory:dependency-duplicate",
+        "memory:dependency-alias",
+        "memory:dependency-unsafe"
+      ]
+    },
+    {
+      "guard_id": "dependency-digest",
+      "rule": "Checked dependency bytes match the inventoried digest independently of identity.",
+      "witness_ids": [
+        "memory:dependency-digest"
+      ]
+    },
+    {
+      "guard_id": "asset-key",
+      "rule": "Bundled subject keys use the asset namespace.",
+      "witness_ids": [
+        "memory:asset-key"
+      ]
+    },
+    {
+      "guard_id": "asset-role",
+      "rule": "Asset roles follow sorted component indices.",
+      "witness_ids": [
+        "memory:asset-role"
+      ]
+    },
+    {
+      "guard_id": "asset-entry-binding",
+      "rule": "Asset locations match classified root entry subjects.",
+      "witness_ids": [
+        "memory:asset-entry"
+      ]
+    },
+    {
+      "guard_id": "asset-checked-digest",
+      "rule": "Separately checked asset bytes bind the actual inventoried subject digest.",
+      "witness_ids": [
+        "memory:asset-checked-digest"
+      ]
+    },
+    {
+      "guard_id": "reviews-unique",
+      "rule": "Duplicate whole-subject reviews conflict.",
+      "witness_ids": [
+        "memory:duplicate-review"
+      ]
+    },
+    {
+      "guard_id": "reviews-inventory",
+      "rule": "Extra/unassessed-version reviews are not ignored.",
+      "witness_ids": [
+        "memory:extra-review",
+        "memory:out-of-version-review"
+      ]
+    },
+    {
+      "guard_id": "reviews-coverage",
+      "rule": "Every inventoried subject needs a whole-subject review.",
+      "witness_ids": [
+        "memory:missing-one-review"
+      ]
+    },
+    {
+      "guard_id": "reviews-state",
+      "rule": "Review admission must be captured even for no-obligation conclusions.",
+      "witness_ids": [
+        "memory:review-state"
+      ]
+    },
+    {
+      "guard_id": "review-basis",
+      "rule": "Every review, including no-obligations and owner-private, needs retained basis bytes.",
+      "witness_ids": [
+        "memory:no-obligations-missing-basis",
+        "memory:owner-basis-missing"
+      ]
+    },
+    {
+      "guard_id": "evidence-path",
+      "rule": "Basis, required part and entry references bind checked evidence paths.",
+      "witness_ids": [
+        "memory:entry-reference-path",
+        "memory:basis-reference-path",
+        "memory:part-reference-path"
+      ]
+    },
+    {
+      "guard_id": "evidence-digest",
+      "rule": "Retained basis and required part references bind checked evidence digests.",
+      "witness_ids": [
+        "memory:basis-reference-digest",
+        "memory:part-reference-digest"
+      ]
+    },
+    {
+      "guard_id": "evidence-role",
+      "rule": "Digest/path agreement does not authorize role-agnostic evidence lookup.",
+      "witness_ids": [
+        "memory:entry-reference-role"
+      ]
+    },
+    {
+      "guard_id": "owner-fact",
+      "rule": "Owner-private disposition needs the specific genuinely private fact.",
+      "witness_ids": [
+        "memory:owner-fact-missing"
+      ]
+    },
+    {
+      "guard_id": "owner-empty-obligations",
+      "rule": "Owner-private reviews cannot simultaneously claim resolved obligations.",
+      "witness_ids": [
+        "memory:owner-with-obligations"
+      ]
+    },
+    {
+      "guard_id": "owner-fact-scope",
+      "rule": "Private facts cannot be attached to a non-owner disposition.",
+      "witness_ids": [
+        "memory:owner-fact-without-disposition"
+      ]
+    },
+    {
+      "guard_id": "owner-recognition",
+      "rule": "An admitted owner-private disposition cannot be ignored before a gap.",
+      "witness_ids": [
+        "memory:owner-disposition"
+      ]
+    },
+    {
+      "guard_id": "review-obligation-form",
+      "rule": "No-obligations is empty; obligations is nonempty.",
+      "witness_ids": [
+        "memory:none-with-obligations",
+        "memory:required-without-obligations"
+      ]
+    },
+    {
+      "guard_id": "obligations-unique",
+      "rule": "Duplicate obligation IDs cannot be silently deduplicated.",
+      "witness_ids": [
+        "memory:duplicate-obligation"
+      ]
+    },
+    {
+      "guard_id": "parts-unique",
+      "rule": "Part IDs are unique per obligation.",
+      "witness_ids": [
+        "memory:duplicate-part"
+      ]
+    },
+    {
+      "guard_id": "part-bytes",
+      "rule": "Every required part needs its separately checked complete bytes.",
+      "witness_ids": [
+        "memory:missing-part-bytes"
+      ]
+    },
+    {
+      "guard_id": "mapping-unique",
+      "rule": "Duplicate mappings conflict independently of tuple coverage.",
+      "witness_ids": [
+        "memory:duplicate-mapping"
+      ]
+    },
+    {
+      "guard_id": "mapping-parts",
+      "rule": "Unknown part/obligation mappings cannot be ignored.",
+      "witness_ids": [
+        "memory:extra-mapping-part",
+        "memory:extra-mapping-obligation"
+      ]
+    },
+    {
+      "guard_id": "mapping-subjects",
+      "rule": "Unknown or unassessed-version mapping subjects cannot be ignored.",
+      "witness_ids": [
+        "memory:out-of-inventory-mapping",
+        "memory:out-of-version-mapping"
+      ]
+    },
+    {
+      "guard_id": "mapping-document",
+      "rule": "An omitted mapping document is not a captured empty mapping.",
+      "witness_ids": [
+        "memory:omitted-empty-mapping"
+      ]
+    },
+    {
+      "guard_id": "mapping-state",
+      "rule": "Mapping admission must be captured even for an empty surface.",
+      "witness_ids": [
+        "memory:mapping-state"
+      ]
+    },
+    {
+      "guard_id": "aggregate-unique",
+      "rule": "Accepted aggregate records have unique paths.",
+      "witness_ids": [
+        "memory:duplicate-aggregate"
+      ]
+    },
+    {
+      "guard_id": "aggregate-bindings",
+      "rule": "All accepted aggregate paths/digests match inspected root entries.",
+      "witness_ids": [
+        "memory:aggregate-digest",
+        "memory:aggregate-path"
+      ]
+    },
+    {
+      "guard_id": "absent-shape",
+      "rule": "Absence requires null evidence, zero range and actual observed absence.",
+      "witness_ids": [
+        "memory:absent-present-path",
+        "memory:absent-entry-reference",
+        "memory:absent-offset",
+        "memory:absent-length"
+      ]
+    },
+    {
+      "guard_id": "entry-reference",
+      "rule": "Non-absent mappings need an explicit checked entry reference.",
+      "witness_ids": [
+        "memory:missing-entry-reference"
+      ]
+    },
+    {
+      "guard_id": "entry-presence",
+      "rule": "A claimed represented packaged entry must actually exist.",
+      "witness_ids": [
+        "memory:missing-packaged-entry"
+      ]
+    },
+    {
+      "guard_id": "entry-bytes",
+      "rule": "Selected entry bytes must be separately retained, not inferred from the root.",
+      "witness_ids": [
+        "memory:missing-entry-bytes"
+      ]
+    },
+    {
+      "guard_id": "entry-range",
+      "rule": "A full-entry mapping requires zero offset and full retained length.",
+      "witness_ids": [
+        "memory:entry-offset",
+        "memory:entry-length"
+      ]
+    },
+    {
+      "guard_id": "aggregate-segment",
+      "rule": "Aggregate offsets/lengths must select exactly the complete required bytes.",
+      "witness_ids": [
+        "memory:aggregate-offset",
+        "memory:aggregate-length"
+      ]
+    },
+    {
+      "guard_id": "partial-proper-length",
+      "rule": "A partial representation is strictly shorter, not an exact/full representation.",
+      "witness_ids": [
+        "memory:partial-exact"
+      ]
+    },
+    {
+      "guard_id": "partial-content",
+      "rule": "Short unrelated text is not a retained prefix and cannot manufacture a gap.",
+      "witness_ids": [
+        "memory:partial-unrelated"
+      ]
+    },
+    {
+      "guard_id": "partial-nonempty",
+      "rule": "Entry minimum length and the strict-prefix predicate both exclude empty partial text.",
+      "witness_ids": [
+        "memory:partial-empty"
+      ]
+    },
+    {
+      "guard_id": "extra-evidence",
+      "rule": "Unused checked evidence roles conflict.",
+      "witness_ids": [
+        "memory:extra-evidence"
+      ]
+    },
+    {
+      "guard_id": "review-before-gap",
+      "rule": "Unresolved review evidence precedes an otherwise supported gap.",
+      "witness_ids": [
+        "memory:reviews-before-gap"
+      ]
+    },
+    {
+      "guard_id": "schema-version",
+      "rule": "Normalized documents use schema version one.",
+      "witness_ids": [
+        "memory:schema-version"
+      ]
+    },
+    {
+      "guard_id": "packet-protocol",
+      "rule": "Only the canonical notice-coverage-v1 protocol is accepted.",
+      "witness_ids": [
+        "memory:packet-protocol"
+      ]
+    },
+    {
+      "guard_id": "capture-profiles",
+      "rule": "Each admission component uses its accepted observation/review profile.",
+      "witness_ids": [
+        "memory:capture-profile"
+      ]
+    },
+    {
+      "guard_id": "scope-nonempty",
+      "rule": "Assessment cannot select zero TFMs.",
+      "witness_ids": [
+        "memory:empty-assessment"
+      ]
+    },
+    {
+      "guard_id": "scope-unique",
+      "rule": "Assessment TFMs are unique, even when graphs agree with duplicates.",
+      "witness_ids": [
+        "memory:duplicate-assessment"
+      ]
+    },
+    {
+      "guard_id": "asset-scope",
+      "rule": "Bundled inventory always covers all root entries, not a caller-selected subset.",
+      "witness_ids": [
+        "memory:partial-asset-scope"
+      ]
+    },
+    {
+      "guard_id": "json-byte-limit",
+      "rule": "Each normalized document fits the 65536-byte limit.",
+      "witness_ids": [
+        "memory:json-byte-limit"
+      ]
+    },
+    {
+      "guard_id": "archive-byte-limit",
+      "rule": "Root/dependency archive bytes fit the 8 MiB limit.",
+      "witness_ids": [
+        "memory:archive-byte-limit"
+      ]
+    },
+    {
+      "guard_id": "asset-byte-limit",
+      "rule": "Separately retained asset bytes fit the 1 MiB limit.",
+      "witness_ids": [
+        "memory:asset-byte-limit"
+      ]
+    },
+    {
+      "guard_id": "aggregate-byte-limit",
+      "rule": "All checked bytes together fit the 64 MiB limit.",
+      "witness_ids": [
+        "memory:aggregate-byte-limit"
+      ]
+    },
+    {
+      "guard_id": "root-entry-limit",
+      "rule": "The full all-entry inventory fits the 128-entry profile.",
+      "witness_ids": [
+        "memory:root-entry-limit"
+      ]
+    }
   ],
   "witnesses": [
     {
-      "guard_id": "root-required",
+      "witness_id": "case:missing-package",
       "case_id": "lp04-missing-package",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "missing-package",
-      "wrong_branch": null,
-      "rule": "Root bytes precede all row checks."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "scope-required",
+      "witness_id": "case:missing-scope",
       "case_id": "lp04-missing-scope",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "scope-missing",
-      "wrong_branch": null,
-      "rule": "Never infer scope from successful captures."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "packet-required",
+      "witness_id": "case:missing-packet",
       "case_id": "lp04-missing-packet",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "evidence-missing",
-      "wrong_branch": null,
-      "rule": "LICENSE and detected sidecars alone do not prove coverage."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "exact-positive",
+      "witness_id": "case:all-sources-covered",
       "case_id": "lp04-all-sources-covered",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "notice-coverage-satisfied",
-      "wrong_branch": null,
-      "rule": "Two TFMs share exact direct/transitive versions; one entry covers multiple obligations; every part of a multipart obligation binds, including 16384-byte text."
+      "wrong_branch": "mapping-unresolved"
     },
     {
-      "guard_id": "captured-empty",
+      "witness_id": "case:no-applicable-surface",
       "case_id": "lp04-no-applicable-surface",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "no-applicable-surface",
-      "wrong_branch": null,
-      "rule": "Empty complete dependency and asset inventories establish scoped non-applicability."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "reviewed-none",
+      "witness_id": "case:reviewed-no-obligations",
       "case_id": "lp04-reviewed-no-obligations",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "no-applicable-surface",
-      "wrong_branch": null,
-      "rule": "Nonempty inventories need admitted retained whole-subject no-obligation reviews, not required=false."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "aggregate-segments",
+      "witness_id": "case:aggregate-shared-entry",
       "case_id": "lp04-aggregate-shared-entry",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "notice-coverage-satisfied",
-      "wrong_branch": null,
-      "rule": "One explicitly admitted aggregate represents multiple subjects and parts at exact byte offsets."
+      "wrong_branch": "mapping-unresolved"
     },
     {
-      "guard_id": "direct-absence",
+      "witness_id": "case:direct-absent",
       "case_id": "lp04-direct-absent",
       "kind": "weakened-rule",
       "weakened_rule": "absence-is-unresolved",
       "normal_branch": "required-representation-missing",
-      "wrong_branch": "mapping-unresolved",
-      "rule": "A complete reviewed intended location is absent in exact root inspection; other obligations are resolved."
+      "wrong_branch": "mapping-unresolved"
     },
     {
-      "guard_id": "direct-prefix",
+      "witness_id": "case:direct-partial",
       "case_id": "lp04-direct-partial",
       "kind": "weakened-rule",
       "weakened_rule": "partial-is-unresolved",
       "normal_branch": "required-representation-missing",
-      "wrong_branch": "mapping-unresolved",
-      "rule": "A mapped full entry is a strict nonempty prefix of the required retained bytes, not an arbitrary modified text."
+      "wrong_branch": "mapping-unresolved"
     },
     {
-      "guard_id": "dependency-inventory-required",
+      "witness_id": "case:missing-dependency-inventory",
       "case_id": "lp04-missing-dependency-inventory",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "evidence-missing",
-      "wrong_branch": null,
-      "rule": "An asset capture does not substitute for the resolved dependency inventory."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "graph-counts",
+      "witness_id": "case:incomplete-dependency-inventory",
       "case_id": "lp04-incomplete-dependency-inventory",
       "kind": "weakened-rule",
       "weakened_rule": "graph-counts",
       "normal_branch": "inventories-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Only the admitted graph node count differs; all bytes/reviews/mappings otherwise bind."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "graph-diagnostics",
+      "witness_id": "case:unresolved-graph",
       "case_id": "lp04-unresolved-graph",
       "kind": "weakened-rule",
       "weakened_rule": "graph-diagnostics",
       "normal_branch": "inventories-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Capture diagnostics prevent a complete-closure conclusion."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "asset-inventory-required",
+      "witness_id": "case:missing-asset-inventory",
       "case_id": "lp04-missing-asset-inventory",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "evidence-missing",
-      "wrong_branch": null,
-      "rule": "A dependency capture does not substitute for the bundled-asset inventory."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "all-root-entries",
+      "witness_id": "case:incomplete-asset-inventory",
       "case_id": "lp04-incomplete-asset-inventory",
       "kind": "weakened-rule",
       "weakened_rule": "all-root-entries",
       "normal_branch": "inventories-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "A passive root LICENSE entry alone is omitted; third-party assets and their mappings remain present."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "asset-classification",
+      "witness_id": "case:unreviewed-asset-entry",
       "case_id": "lp04-unreviewed-asset-entry",
       "kind": "weakened-rule",
       "weakened_rule": "asset-classification",
       "normal_branch": "inventories-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "An unresolved all-entry classification cannot be silently assumed first-party."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "dependency-bytes-required",
+      "witness_id": "case:missing-dependency-bytes",
       "case_id": "lp04-missing-dependency-bytes",
-      "kind": "existing-branch",
-      "weakened_rule": null,
+      "kind": "weakened-rule",
+      "weakened_rule": "subject-bytes-required",
       "normal_branch": "subject-bytes-missing",
-      "wrong_branch": null,
-      "rule": "Root notice presence does not supply an unavailable dependency archive."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "asset-bytes-required",
+      "witness_id": "case:missing-asset-bytes",
       "case_id": "lp04-missing-asset-bytes",
-      "kind": "existing-branch",
-      "weakened_rule": null,
+      "kind": "weakened-rule",
+      "weakened_rule": "subject-bytes-required",
       "normal_branch": "subject-bytes-missing",
-      "wrong_branch": null,
-      "rule": "An inventoried bundled asset requires separately checked exact bytes, even when present in the root."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "reviews-required",
+      "witness_id": "case:missing-reviews",
       "case_id": "lp04-missing-reviews",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "reviews-unresolved",
-      "wrong_branch": null,
-      "rule": "Complete inventories and SPDX metadata alone are insufficient without applicability/obligation reviews."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "review-disposition",
+      "witness_id": "case:unresolved-review",
       "case_id": "lp04-unresolved-review",
       "kind": "weakened-rule",
       "weakened_rule": "review-disposition",
       "normal_branch": "reviews-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Unresolved dependency applicability and an unsupported generated-bundle review form use the same conservative review gate; all retained parts and mappings are intact."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "mapping-required",
+      "witness_id": "case:missing-mapping",
       "case_id": "lp04-missing-mapping",
       "kind": "existing-branch",
       "weakened_rule": null,
       "normal_branch": "mapping-unresolved",
-      "wrong_branch": null,
-      "rule": "Obligation evidence cannot substitute for packaged notice coverage."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "mapping-equality",
+      "witness_id": "case:incomplete-mapping",
       "case_id": "lp04-incomplete-mapping",
       "kind": "weakened-rule",
       "weakened_rule": "mapping-equality",
       "normal_branch": "mapping-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "One required part lacks a mapping, not a proven missing representation."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "root-identity",
+      "witness_id": "case:wrong-root-identity",
       "case_id": "lp04-wrong-root-identity",
       "kind": "weakened-rule",
       "weakened_rule": "root-identity",
       "normal_branch": "binding-conflict",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "All documents agree on the wrong root version; only observed archive identity refutes them."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "root-digest",
+      "witness_id": "case:wrong-root-digest",
       "case_id": "lp04-wrong-root-digest",
       "kind": "weakened-rule",
       "weakened_rule": "root-digest",
       "normal_branch": "binding-conflict",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "All document root digests agree with one another, not exact root bytes."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "scope-digest",
+      "witness_id": "case:wrong-scope-binding",
       "case_id": "lp04-wrong-scope-binding",
       "kind": "weakened-rule",
       "weakened_rule": "scope-digest",
       "normal_branch": "binding-conflict",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Only the packet assessment digest is wrong."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "document-digests",
+      "witness_id": "case:wrong-inventory-binding",
       "case_id": "lp04-wrong-inventory-binding",
       "kind": "weakened-rule",
       "weakened_rule": "document-digests",
       "normal_branch": "binding-conflict",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Only the packet dependency-document digest differs; admission and loader bindings remain correct."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "asset-source-binding",
+      "witness_id": "case:wrong-asset-binding",
       "case_id": "lp04-wrong-asset-binding",
       "kind": "weakened-rule",
       "weakened_rule": "asset-source-binding",
       "normal_branch": "binding-conflict",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Retained asset bytes and inventory subject digest agree with each other, not the actual root entry."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "review-subject-binding",
+      "witness_id": "case:wrong-review-binding",
       "case_id": "lp04-wrong-review-binding",
       "kind": "weakened-rule",
       "weakened_rule": "review-subject-binding",
       "normal_branch": "binding-conflict",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Only the review's exact subject digest is wrong."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "entry-source-binding",
+      "witness_id": "case:wrong-entry-binding",
       "case_id": "lp04-wrong-entry-binding",
       "kind": "weakened-rule",
       "weakened_rule": "entry-source-binding",
       "normal_branch": "binding-conflict",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Mapping digest and retained entry agree with each other, not the packaged notice entry."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "exact-fields",
+      "witness_id": "case:unknown-field",
       "case_id": "lp04-unknown-field",
       "kind": "weakened-rule",
       "weakened_rule": "exact-fields",
       "normal_branch": "input-invalid",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "An extra complete=true assertion is never an admission protocol."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "unique-json-fields",
+      "witness_id": "case:duplicate-json-field",
       "case_id": "lp04-duplicate-json-field",
       "kind": "weakened-rule",
       "weakened_rule": "unique-json-fields",
       "normal_branch": "input-invalid",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Duplicate identical protocol fields must not be last-wins."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "safe-paths",
+      "witness_id": "case:unsafe-path",
       "case_id": "lp04-unsafe-path",
       "kind": "weakened-rule",
       "weakened_rule": "safe-paths",
       "normal_branch": "input-invalid",
-      "wrong_branch": "binding-conflict",
-      "rule": "A parent traversal packaged mapping path is rejected before entry lookup."
+      "wrong_branch": "binding-conflict"
     },
     {
-      "guard_id": "retained-byte-limit",
+      "witness_id": "case:resource-limit",
       "case_id": "lp04-resource-limit",
       "kind": "weakened-rule",
       "weakened_rule": "retained-byte-limit",
       "normal_branch": "input-invalid",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "16385-byte reference text is outside the inclusive 16384-byte profile."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "admission-profiles",
+      "witness_id": "case:unaccepted-admission",
       "case_id": "lp04-unaccepted-admission",
       "kind": "weakened-rule",
       "weakened_rule": "admission-profiles",
       "normal_branch": "input-invalid",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "A caller-authored admission producer is unsupported even with matching hashes."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "dependency-identity-binding",
+      "witness_id": "case:dependency-identity",
       "case_id": "lp04-dependency-identity",
       "kind": "weakened-rule",
       "weakened_rule": "dependency-identity-binding",
       "normal_branch": "binding-conflict",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "All dependency facts name the wrong version but the archive identity does not."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "modified-text",
+      "witness_id": "case:modified-license",
       "case_id": "lp04-modified-license",
       "kind": "weakened-rule",
       "weakened_rule": "modified-text",
       "normal_branch": "mapping-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Arbitrary modified text is not exact coverage and is not automatically a legally incomplete grant."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "successful-captures",
+      "witness_id": "case:acquisition-unavailable",
       "case_id": "lp04-acquisition-unavailable",
       "kind": "weakened-rule",
       "weakened_rule": "capture-success",
       "normal_branch": "inventories-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Retained partial documents and matching hashes do not override the admitted acquisition-unavailable state."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "unique-package-paths",
+      "witness_id": "case:duplicate-package-path",
       "case_id": "lp04-duplicate-package-path",
       "kind": "weakened-rule",
       "weakened_rule": "unique-package-paths",
       "normal_branch": "input-invalid",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Even byte-identical duplicate archive entries are ambiguous."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "no-path-aliases",
+      "witness_id": "case:alias-package-path",
       "case_id": "lp04-alias-package-path",
       "kind": "weakened-rule",
       "weakened_rule": "no-path-aliases",
       "normal_branch": "input-invalid",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Case-equivalent archive entries are not selected by runtime-dependent lookup."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "all-tfm-versions",
+      "witness_id": "case:multi-tfm-second-version-unresolved",
       "case_id": "lp04-multi-tfm-second-version-unresolved",
       "kind": "weakened-rule",
       "weakened_rule": "all-tfm-versions",
       "normal_branch": "reviews-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Only the distinct version unique to TFM two has unresolved applicability."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "private-before-gap",
+      "witness_id": "case:owner-before-gap",
       "case_id": "lp04-owner-before-gap",
       "kind": "weakened-rule",
       "weakened_rule": "gap-before-owner",
       "normal_branch": "owner-evidence-required",
-      "wrong_branch": "required-representation-missing",
-      "rule": "An admitted retained private-contract fact, not failed public acquisition, preempts another complete missing-notice counterexample."
+      "wrong_branch": "required-representation-missing"
     },
     {
-      "guard_id": "unresolved-before-gap",
+      "witness_id": "case:unresolved-before-gap",
       "case_id": "lp04-unresolved-before-gap",
       "kind": "weakened-rule",
       "weakened_rule": "gap-before-unresolved",
       "normal_branch": "mapping-unresolved",
-      "wrong_branch": "required-representation-missing",
-      "rule": "One absent mapping preempts another fully observed missing representation."
+      "wrong_branch": "required-representation-missing"
     },
     {
-      "guard_id": "bindings-before-missing",
+      "witness_id": "case:later-binding-before-unresolved",
       "case_id": "lp04-later-binding-before-unresolved",
       "kind": "weakened-rule",
       "weakened_rule": "early-missing",
       "normal_branch": "binding-conflict",
-      "wrong_branch": "subject-bytes-missing",
-      "rule": "A first-node missing archive cannot hide a later-node review digest conflict."
+      "wrong_branch": "subject-bytes-missing"
     },
     {
-      "guard_id": "aggregate-admission",
+      "witness_id": "case:unaccepted-aggregate",
       "case_id": "lp04-unaccepted-aggregate",
       "kind": "weakened-rule",
       "weakened_rule": "aggregate-admission",
       "normal_branch": "mapping-unresolved",
-      "wrong_branch": "notice-coverage-satisfied",
-      "rule": "Exact aggregate substrings without explicit aggregate acceptance are insufficient."
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "loader-duplicate-role",
+      "witness_id": "loader:loader-duplicate-role",
       "case_id": "lp04-reject-duplicate-role",
       "kind": "loader",
-      "expected_rejection": "duplicate-role"
+      "expected_rejection": "duplicate-role",
+      "wrong_branch": "accepted"
     },
     {
-      "guard_id": "loader-safe-path",
+      "witness_id": "loader:loader-safe-path",
       "case_id": "lp04-reject-parent-path",
       "kind": "loader",
-      "expected_rejection": "invalid-relative-path"
+      "expected_rejection": "invalid-relative-path",
+      "wrong_branch": "accepted"
     },
     {
-      "guard_id": "loader-file-presence",
+      "witness_id": "loader:loader-file-presence",
       "case_id": "lp04-reject-missing-file",
       "kind": "loader",
-      "expected_rejection": "missing-file"
+      "expected_rejection": "missing-file",
+      "wrong_branch": "accepted"
     },
     {
-      "guard_id": "loader-digest",
+      "witness_id": "loader:loader-digest",
       "case_id": "lp04-reject-changed-bytes",
       "kind": "loader",
-      "expected_rejection": "input-digest-mismatch"
+      "expected_rejection": "input-digest-mismatch",
+      "wrong_branch": "accepted"
     },
     {
-      "guard_id": "loader-exact-fields",
+      "witness_id": "loader:loader-exact-fields",
       "case_id": "lp04-reject-unknown-input-field",
       "kind": "loader",
-      "expected_rejection": "invalid-fields"
+      "expected_rejection": "invalid-fields",
+      "wrong_branch": "accepted"
     },
     {
-      "guard_id": "retained-syncfusion",
+      "witness_id": "retained:syncfusion",
       "case_id": "lp04-retained-syncfusion",
       "kind": "optional-retained",
-      "normal_branch": "scope-missing"
+      "normal_branch": "scope-missing",
+      "wrong_branch": "notice-coverage-satisfied"
     },
     {
-      "guard_id": "retained-infragistics",
+      "witness_id": "retained:infragistics",
       "case_id": "lp04-retained-infragistics",
       "kind": "optional-retained",
-      "normal_branch": "scope-missing"
+      "normal_branch": "scope-missing",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:omitted-empty-reviews",
+      "case_id": "lp04-no-applicable-surface",
+      "kind": "fixed-in-memory",
+      "recipe": "omitted-empty-reviews",
+      "weakened_rule": "reviews-document",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "no-applicable-surface"
+    },
+    {
+      "witness_id": "memory:packet-root",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "packet-root",
+      "weakened_rule": "document-roots",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:admission-root",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "admission-root",
+      "weakened_rule": "document-roots",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-root",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "dependency-root",
+      "weakened_rule": "document-roots",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:asset-root",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "asset-root",
+      "weakened_rule": "document-roots",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:observed-root-id",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "observed-root-id",
+      "weakened_rule": "root-identity",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:admission-scope",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "admission-scope",
+      "weakened_rule": "admission-scope-binding",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:admission-digest",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "admission-digest",
+      "weakened_rule": "admission-packet-binding",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:admitted-dependencies",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "admitted-dependencies",
+      "weakened_rule": "admission-document-bindings",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:admitted-assets",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "admitted-assets",
+      "weakened_rule": "admission-document-bindings",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:admitted-reviews",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "admitted-reviews",
+      "weakened_rule": "admission-document-bindings",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:admitted-mapping",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "admitted-mapping",
+      "weakened_rule": "admission-document-bindings",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:packet-assets",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "packet-assets",
+      "weakened_rule": "document-digests",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:packet-reviews",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "packet-reviews",
+      "weakened_rule": "document-digests",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:packet-mapping",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "packet-mapping",
+      "weakened_rule": "document-digests",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:asset-capture-unavailable",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "asset-capture-unavailable",
+      "weakened_rule": "capture-success",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:target-set",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "target-set",
+      "weakened_rule": "tfm-scope",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-target",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-target",
+      "weakened_rule": "tfm-scope",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-node",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-node",
+      "weakened_rule": "graph-unique-nodes",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-direct",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-direct",
+      "weakened_rule": "graph-unique-direct",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-adjacency",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-adjacency",
+      "weakened_rule": "graph-unique-adjacency",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:edge-limit",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "edge-limit",
+      "weakened_rule": "graph-edge-limit",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:dangling-direct",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "dangling-direct",
+      "weakened_rule": "graph-edge-membership",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:dangling-transitive",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "dangling-transitive",
+      "weakened_rule": "graph-edge-membership",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:orphan-node",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "orphan-node",
+      "weakened_rule": "graph-reachability",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:competing-versions",
+      "case_id": "lp04-multi-tfm-second-version-unresolved",
+      "kind": "fixed-in-memory",
+      "recipe": "competing-versions",
+      "weakened_rule": "graph-version-uniqueness",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-package-inventory",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-package-inventory",
+      "weakened_rule": "inventory-equality",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:extra-package-inventory",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "extra-package-inventory",
+      "weakened_rule": "inventory-equality",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-package-inventory",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-package-inventory",
+      "weakened_rule": "inventory-unique",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-entry-inventory",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-entry-inventory",
+      "weakened_rule": "entry-inventory-unique",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:entry-inventory-digest",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "entry-inventory-digest",
+      "weakened_rule": "entry-inventory-digests",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-asset-inventory",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-asset-inventory",
+      "weakened_rule": "asset-inventory-unique",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-entry-subject",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-entry-subject",
+      "weakened_rule": "entry-subject-unique",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:unlisted-third-party",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "unlisted-third-party",
+      "weakened_rule": "entry-kind-subjects",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:first-party-with-subject",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "first-party-with-subject",
+      "weakened_rule": "entry-kind-subjects",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:repeated-asset-location",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "repeated-asset-location",
+      "weakened_rule": "asset-entry-unique",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-listed-asset",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-listed-asset",
+      "weakened_rule": "asset-inventory-equality",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-key",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "dependency-key",
+      "weakened_rule": "dependency-key",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-role",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "dependency-role",
+      "weakened_rule": "dependency-role",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-duplicate",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "dependency-duplicate",
+      "weakened_rule": "dependency-safety",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-alias",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "dependency-alias",
+      "weakened_rule": "dependency-safety",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-unsafe",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "dependency-unsafe",
+      "weakened_rule": "dependency-safety",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:dependency-digest",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "dependency-digest",
+      "weakened_rule": "dependency-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:observed-dependency-id",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "observed-dependency-id",
+      "weakened_rule": "dependency-identity-binding",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:asset-key",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "asset-key",
+      "weakened_rule": "asset-key",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:asset-role",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "asset-role",
+      "weakened_rule": "asset-role",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:asset-entry",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "asset-entry",
+      "weakened_rule": "asset-entry-binding",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:asset-checked-digest",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "asset-checked-digest",
+      "weakened_rule": "asset-checked-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-review",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-review",
+      "weakened_rule": "reviews-unique",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:extra-review",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "extra-review",
+      "weakened_rule": "reviews-inventory",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:out-of-version-review",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "out-of-version-review",
+      "weakened_rule": "reviews-inventory",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-one-review",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-one-review",
+      "weakened_rule": "reviews-coverage",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:review-state",
+      "case_id": "lp04-reviewed-no-obligations",
+      "kind": "fixed-in-memory",
+      "recipe": "review-state",
+      "weakened_rule": "reviews-state",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "no-applicable-surface"
+    },
+    {
+      "witness_id": "memory:no-obligations-missing-basis",
+      "case_id": "lp04-reviewed-no-obligations",
+      "kind": "fixed-in-memory",
+      "recipe": "no-obligations-missing-basis",
+      "weakened_rule": "review-basis",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "no-applicable-surface"
+    },
+    {
+      "witness_id": "memory:entry-reference-path",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "entry-reference-path",
+      "weakened_rule": "evidence-path",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:basis-reference-path",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "basis-reference-path",
+      "weakened_rule": "evidence-path",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:part-reference-path",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "part-reference-path",
+      "weakened_rule": "evidence-path",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:basis-reference-digest",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "basis-reference-digest",
+      "weakened_rule": "evidence-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:part-reference-digest",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "part-reference-digest",
+      "weakened_rule": "evidence-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:entry-reference-role",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "entry-reference-role",
+      "weakened_rule": "evidence-role",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:unsupported-only",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "unsupported-only",
+      "weakened_rule": "review-disposition",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:unresolved-only",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "unresolved-only",
+      "weakened_rule": "review-disposition",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:owner-fact-missing",
+      "case_id": "lp04-owner-before-gap",
+      "kind": "fixed-in-memory",
+      "recipe": "owner-fact-missing",
+      "weakened_rule": "owner-fact",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "owner-evidence-required"
+    },
+    {
+      "witness_id": "memory:owner-basis-missing",
+      "case_id": "lp04-owner-before-gap",
+      "kind": "fixed-in-memory",
+      "recipe": "owner-basis-missing",
+      "weakened_rule": "review-basis",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "owner-evidence-required"
+    },
+    {
+      "witness_id": "memory:owner-with-obligations",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "owner-with-obligations",
+      "weakened_rule": "owner-empty-obligations",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "owner-evidence-required"
+    },
+    {
+      "witness_id": "memory:owner-fact-without-disposition",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "owner-fact-without-disposition",
+      "weakened_rule": "owner-fact-scope",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:owner-disposition",
+      "case_id": "lp04-owner-before-gap",
+      "kind": "fixed-in-memory",
+      "recipe": "owner-disposition",
+      "weakened_rule": "owner-recognition",
+      "normal_branch": "owner-evidence-required",
+      "wrong_branch": "required-representation-missing"
+    },
+    {
+      "witness_id": "memory:none-with-obligations",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "none-with-obligations",
+      "weakened_rule": "review-obligation-form",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:required-without-obligations",
+      "case_id": "lp04-reviewed-no-obligations",
+      "kind": "fixed-in-memory",
+      "recipe": "required-without-obligations",
+      "weakened_rule": "review-obligation-form",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "no-applicable-surface"
+    },
+    {
+      "witness_id": "memory:duplicate-obligation",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-obligation",
+      "weakened_rule": "obligations-unique",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-part",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-part",
+      "weakened_rule": "parts-unique",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-part-bytes",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-part-bytes",
+      "weakened_rule": "part-bytes",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-mapping",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-mapping",
+      "weakened_rule": "mapping-unique",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:extra-mapping-part",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "extra-mapping-part",
+      "weakened_rule": "mapping-parts",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:extra-mapping-obligation",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "extra-mapping-obligation",
+      "weakened_rule": "mapping-parts",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:out-of-inventory-mapping",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "out-of-inventory-mapping",
+      "weakened_rule": "mapping-subjects",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:out-of-version-mapping",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "out-of-version-mapping",
+      "weakened_rule": "mapping-subjects",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:omitted-empty-mapping",
+      "case_id": "lp04-no-applicable-surface",
+      "kind": "fixed-in-memory",
+      "recipe": "omitted-empty-mapping",
+      "weakened_rule": "mapping-document",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "no-applicable-surface"
+    },
+    {
+      "witness_id": "memory:mapping-state",
+      "case_id": "lp04-no-applicable-surface",
+      "kind": "fixed-in-memory",
+      "recipe": "mapping-state",
+      "weakened_rule": "mapping-state",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "no-applicable-surface"
+    },
+    {
+      "witness_id": "memory:missing-subject-mapping",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-subject-mapping",
+      "weakened_rule": "mapping-equality",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-obligation-mapping",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-obligation-mapping",
+      "weakened_rule": "mapping-equality",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-part-mapping",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-part-mapping",
+      "weakened_rule": "mapping-equality",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:duplicate-aggregate",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-aggregate",
+      "weakened_rule": "aggregate-unique",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:aggregate-digest",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "aggregate-digest",
+      "weakened_rule": "aggregate-bindings",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:aggregate-path",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "aggregate-path",
+      "weakened_rule": "aggregate-bindings",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:absent-present-path",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "absent-present-path",
+      "weakened_rule": "absent-shape",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "required-representation-missing"
+    },
+    {
+      "witness_id": "memory:absent-entry-reference",
+      "case_id": "lp04-direct-absent",
+      "kind": "fixed-in-memory",
+      "recipe": "absent-entry-reference",
+      "weakened_rule": "absent-shape",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "required-representation-missing"
+    },
+    {
+      "witness_id": "memory:absent-offset",
+      "case_id": "lp04-direct-absent",
+      "kind": "fixed-in-memory",
+      "recipe": "absent-offset",
+      "weakened_rule": "absent-shape",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "required-representation-missing"
+    },
+    {
+      "witness_id": "memory:absent-length",
+      "case_id": "lp04-direct-absent",
+      "kind": "fixed-in-memory",
+      "recipe": "absent-length",
+      "weakened_rule": "absent-shape",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "required-representation-missing"
+    },
+    {
+      "witness_id": "memory:missing-entry-reference",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-entry-reference",
+      "weakened_rule": "entry-reference",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-packaged-entry",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-packaged-entry",
+      "weakened_rule": "entry-presence",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:missing-entry-bytes",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "missing-entry-bytes",
+      "weakened_rule": "entry-bytes",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:entry-offset",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "entry-offset",
+      "weakened_rule": "entry-range",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:entry-length",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "entry-length",
+      "weakened_rule": "entry-range",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:aggregate-offset",
+      "case_id": "lp04-aggregate-shared-entry",
+      "kind": "fixed-in-memory",
+      "recipe": "aggregate-offset",
+      "weakened_rule": "aggregate-segment",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:aggregate-length",
+      "case_id": "lp04-aggregate-shared-entry",
+      "kind": "fixed-in-memory",
+      "recipe": "aggregate-length",
+      "weakened_rule": "aggregate-segment",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:partial-exact",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "partial-exact",
+      "weakened_rule": "partial-proper-length",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "required-representation-missing"
+    },
+    {
+      "witness_id": "memory:partial-unrelated",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "partial-unrelated",
+      "weakened_rule": "partial-content",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "required-representation-missing"
+    },
+    {
+      "witness_id": "memory:partial-empty",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "partial-empty",
+      "weakened_rule": "partial-nonempty",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "required-representation-missing"
+    },
+    {
+      "witness_id": "memory:extra-evidence",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "extra-evidence",
+      "weakened_rule": "extra-evidence",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:reviews-before-gap",
+      "case_id": "lp04-direct-absent",
+      "kind": "fixed-in-memory",
+      "recipe": "reviews-before-gap",
+      "weakened_rule": "gap-before-review",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "required-representation-missing"
+    },
+    {
+      "witness_id": "memory:schema-version",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "schema-version",
+      "weakened_rule": "schema-version",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:packet-protocol",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "packet-protocol",
+      "weakened_rule": "packet-protocol",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:capture-profile",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "capture-profile",
+      "weakened_rule": "capture-profiles",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:empty-assessment",
+      "case_id": "lp04-no-applicable-surface",
+      "kind": "fixed-in-memory",
+      "recipe": "empty-assessment",
+      "weakened_rule": "scope-nonempty",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "no-applicable-surface"
+    },
+    {
+      "witness_id": "memory:duplicate-assessment",
+      "case_id": "lp04-no-applicable-surface",
+      "kind": "fixed-in-memory",
+      "recipe": "duplicate-assessment",
+      "weakened_rule": "scope-unique",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "no-applicable-surface"
+    },
+    {
+      "witness_id": "memory:partial-asset-scope",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "partial-asset-scope",
+      "weakened_rule": "asset-scope",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:json-byte-limit",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "json-byte-limit",
+      "weakened_rule": "json-byte-limit",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:archive-byte-limit",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "archive-byte-limit",
+      "weakened_rule": "archive-byte-limit",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:asset-byte-limit",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "asset-byte-limit",
+      "weakened_rule": "retained-byte-limit",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:aggregate-byte-limit",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "aggregate-byte-limit",
+      "weakened_rule": "aggregate-byte-limit",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:root-entry-limit",
+      "case_id": "lp04-no-applicable-surface",
+      "kind": "fixed-in-memory",
+      "recipe": "root-entry-limit",
+      "weakened_rule": "root-entry-limit",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "no-applicable-surface"
     }
-  ]
+  ],
+  "limits": {
+    "guards": 125,
+    "fixed_recipes": 112,
+    "weakening_variants": 105,
+    "witnesses": 162
+  }
 }
