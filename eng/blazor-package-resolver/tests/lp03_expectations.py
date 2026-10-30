@@ -148,6 +148,8 @@ FIXED_PROBES = (
     ("duplicate-adjacency-edge", "multi-tfm-versions", "graph-uniqueness", "closure-unresolved", "dependencies-policy-satisfied"),
     ("missing-assessment", "multi-tfm-versions", "assessment-presence", "scope-missing", "dependencies-policy-satisfied"),
     ("review-scope", "multi-tfm-versions", "review-scope", "input-invalid", "dependencies-policy-satisfied"),
+    ("empty-target-scope", "zero-dependencies", "empty-target-scope", "input-invalid", "dependencies-policy-satisfied"),
+    ("capture-producer", "multi-tfm-versions", "capture-producer", "input-invalid", "dependencies-policy-satisfied"),
 )
 
 # Already-protected branch witnesses, not additional weakened-oracle implementations.
@@ -190,6 +192,7 @@ CRITICAL_GUARD_IDS = (
     "empty-captured-closure", "compatible-union", "weak-copyleft-policy", "non-osi-policy",
     "missing-grant-precedence", "unknown-license", "dependency-required", "edge-closure",
     "duplicate-json-fields", "exact-document-fields", "safe-grant-paths", "grant-resource-limit",
+    "empty-target-scope", "capture-producer",
 )
 
 # Each weakening registration names its exact witnesses, not just a broadly related case.
@@ -242,6 +245,8 @@ WEAKENING_GUARDS = (
     ("graph-uniqueness", "Graph nodes, direct edges and adjacency edges are unique.", ("memory:duplicate-node", "memory:duplicate-direct-edge", "memory:duplicate-adjacency-edge")),
     ("assessment-required", "Assessment scope is supplied independently, never inferred from acquisition.", ("memory:missing-assessment",)),
     ("review-whole-version-scope", "Applicability reviews cover the entire exact dependency version.", ("memory:review-scope",)),
+    ("empty-target-scope", "An assessment must select at least one exact target.", ("memory:empty-target-scope",)),
+    ("capture-producer", "The receipt producer must match the accepted acquisition profile.", ("memory:capture-producer",)),
 )
 
 WEAKENED_RULE_IDS = {name for name, _ in MUTATIONS} | {item[2] for item in FIXED_PROBES}
@@ -362,14 +367,14 @@ def shape(scope, capture, graph, reviews, checked, weakened_rule=None):
     require(type(scope["schema_version"]) is int and scope["schema_version"] == 1, "schema-version")
     identity(scope["root"])
     array(scope["target_frameworks"], 4)
-    require(scope["target_frameworks"], "empty-target-scope")
+    require(weakened_rule == "empty-target-scope" or scope["target_frameworks"], "empty-target-scope")
     for tfm in scope["target_frameworks"]:
         target(tfm)
     require(len(set(scope["target_frameworks"])) == len(scope["target_frameworks"]), "duplicate-target")
     if capture is not None:
         fields(capture, "schema_version producer root graph_sha256 target_frameworks result completeness_basis packages capture_reference")
         require(type(capture["schema_version"]) is int and capture["schema_version"] == 1
-                and capture["producer"] == PRODUCER, "capture-profile")
+                and (weakened_rule == "capture-producer" or capture["producer"] == PRODUCER), "capture-profile")
         identity(capture["root"])
         array(capture["target_frameworks"], 4)
         for tfm in capture["target_frameworks"]:
@@ -711,9 +716,10 @@ def fixed_probe(recipe, source, artifacts):
     graph = document(checked["dependency-graph"][1])
     capture = document(checked["acquisition-receipt"][1])
     reviews = document(checked["license-reviews"][1])
-    subject = capture["packages"][0 if recipe.startswith("owner-") else -1]
-    review = next(item for item in reviews["reviews"] if item["key"] == subject["key"])
-    grant = subject["grant"]
+    if recipe != "empty-target-scope":
+        subject = capture["packages"][0 if recipe.startswith("owner-") else -1]
+        review = next(item for item in reviews["reviews"] if item["key"] == subject["key"])
+        grant = subject["grant"]
 
     def replace(role, data):
         item = next(item for item in inputs if item["role"] == role)
@@ -816,6 +822,12 @@ def fixed_probe(recipe, source, artifacts):
         drop("assessment")
     elif recipe == "review-scope":
         review["scope"] = "declaration-only"
+    elif recipe == "empty-target-scope":
+        scope["target_frameworks"] = []
+        graph["targets"] = []
+        capture["target_frameworks"] = []
+    elif recipe == "capture-producer":
+        capture["producer"] = "unaccepted-producer/1.0.0"
     else:
         raise ValueError("unimplemented-fixed-recipe")
     capture["completeness_basis"]["targets"] = []
@@ -865,20 +877,20 @@ def discrimination_spec(cases):
         "schema_version": 1, "method": "finite-manual-guard-inventory-and-fixed-witnesses",
         "critical_guard_ids": list(CRITICAL_GUARD_IDS), "guard_inventory": inventory, "witnesses": witnesses,
         "limits": {"original_weakened_variants": 24, "original_witness_runs": 28,
-                   "fixed_in_memory_recipes": 31, "weakened_variants_total": 47,
-                   "critical_guards": 64, "registered_witnesses": 75},
+                   "fixed_in_memory_recipes": 33, "weakened_variants_total": 49,
+                   "critical_guards": 66, "registered_witnesses": 77},
     }
 
 
 def validate_guard_inventory(spec):
     inventory = spec["guard_inventory"]
-    require(len(CRITICAL_GUARD_IDS) == len(set(CRITICAL_GUARD_IDS)) == 64
+    require(len(CRITICAL_GUARD_IDS) == len(set(CRITICAL_GUARD_IDS)) == 66
             and spec["critical_guard_ids"] == list(CRITICAL_GUARD_IDS), "critical-guard-list")
     require(len(inventory) == len({item["guard_id"] for item in inventory})
             and {item["guard_id"] for item in inventory} == set(CRITICAL_GUARD_IDS),
             "guard-inventory-missing-or-extra")
     witnesses = {item["witness_id"]: item for item in spec["witnesses"]}
-    require(len(witnesses) == len(spec["witnesses"]) == 75, "witness-inventory")
+    require(len(witnesses) == len(spec["witnesses"]) == 77, "witness-inventory")
     used = set()
     for item in inventory:
         require(item["witness_ids"], "guard-without-witness")
@@ -1167,14 +1179,14 @@ def build():
         "obligation": "All direct and transitive dependencies use OSI-approved, non-copyleft licenses.",
         "resolver_id": "lp03-dependency-licenses", "resolver_version": "1.0.0",
         "production_implementation": "absent; LP-03 remains tbd",
-        "phase_a_correction_parent": "489e75508834c740aaf191c85dea39541b685f2b",
+        "phase_a_correction_parent": "8626b46ee47780096750e21476bc4269d86f36b8",
         "synthetic_cases": 43, "rejected_inputs": 5, "retained_expectations": 2, "total_named_cases": 50,
         "weakened_rule_variants": len(WEAKENED_RULE_IDS),
         "original_weakened_rule_variants": len(MUTATIONS),
         "existing_case_witness_runs": sum(len(items) for _, items in MUTATIONS),
         "fixed_in_memory_witness_runs": len(FIXED_PROBES),
         "acceptance_critical_guard_count": len(CRITICAL_GUARD_IDS),
-        "registered_guard_witness_count": 75, "guard_inventory_omission_checks": 128,
+        "registered_guard_witness_count": 77, "guard_inventory_omission_checks": 132,
         "narrowed_rule": "No fixed LICENSE.txt filename; bind the actual safe selected packaged grant path and digest.",
         "input_count": len(input_index), "input_bytes": sum(item["size_bytes"] for item in input_index),
         "branch_status_mapping": {branch: details[0] for branch, details in BRANCHES.items()},
@@ -1206,8 +1218,8 @@ def check(artifacts):
     require({case["expected"]["branch_id"] for case in suite["cases"] + retained} == set(BRANCHES), "branch-coverage")
     require(len(ids) == 50, "named-expectation-limit")
     require(len(MUTATIONS) == 24 and len({rule for rule, _ in MUTATIONS}) == 24, "bounded-mutation-limit")
-    require(len(FIXED_PROBES) == len({item[0] for item in FIXED_PROBES}) == 31
-            and len(WEAKENED_RULE_IDS) == 47, "bounded-fixed-probe-limit")
+    require(len(FIXED_PROBES) == len({item[0] for item in FIXED_PROBES}) == 33
+            and len(WEAKENED_RULE_IDS) == 49, "bounded-fixed-probe-limit")
     by_id = {case["case_id"]: case for case in suite["cases"]}
     spec = json.loads(artifacts["discrimination.json"])
     validate_guard_inventory(spec)
@@ -1329,8 +1341,8 @@ def main():
     print(f"LP-03 Phase A: 43 oracle cases, 5 loader rejections, 2 retained expectations, 12 branch expectations; "
           f"{manifest['input_count']} inputs / {manifest['input_bytes']} bytes.")
     print(f"Discrimination: original 24 variants / 28 witnesses preserved; {len(WEAKENED_RULE_IDS)} total variants "
-          f"/ 59 weakening runs, including {len(FIXED_PROBES)} fixed in-memory recipes; "
-          "64 guard IDs / 75 registered witnesses; 128 missing-registration/empty-witness meta-checks passed. "
+          f"/ 61 weakening runs, including {len(FIXED_PROBES)} fixed in-memory recipes; "
+          "66 guard IDs / 77 registered witnesses; 132 missing-registration/empty-witness meta-checks passed. "
           "No added replay cases or retained inputs.")
     print(f"Retained: {check_retained(artifacts, args.retained)}.")
     print(f"Input manifest SHA-256: {digest(artifacts['input-manifest.json'])}")

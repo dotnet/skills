@@ -65,7 +65,9 @@
     "duplicate-json-fields",
     "exact-document-fields",
     "safe-grant-paths",
-    "grant-resource-limit"
+    "grant-resource-limit",
+    "empty-target-scope",
+    "capture-producer"
   ],
   "guard_inventory": [
     {
@@ -413,6 +415,20 @@
       "rule": "Applicability reviews cover the entire exact dependency version.",
       "witness_ids": [
         "memory:review-scope"
+      ]
+    },
+    {
+      "guard_id": "empty-target-scope",
+      "rule": "An assessment must select at least one exact target.",
+      "witness_ids": [
+        "memory:empty-target-scope"
+      ]
+    },
+    {
+      "guard_id": "capture-producer",
+      "rule": "The receipt producer must match the accepted acquisition profile.",
+      "witness_ids": [
+        "memory:capture-producer"
       ]
     },
     {
@@ -1033,6 +1049,24 @@
       "wrong_branch": "dependencies-policy-satisfied"
     },
     {
+      "witness_id": "memory:empty-target-scope",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-zero-dependencies",
+      "recipe": "empty-target-scope",
+      "weakened_rule": "empty-target-scope",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
+      "witness_id": "memory:capture-producer",
+      "kind": "fixed-in-memory",
+      "case_id": "lp03-multi-tfm-versions",
+      "recipe": "capture-producer",
+      "weakened_rule": "capture-producer",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "dependencies-policy-satisfied"
+    },
+    {
       "witness_id": "branch:root-required",
       "kind": "existing-branch-witness",
       "case_id": "lp03-missing-package",
@@ -1148,9 +1182,9 @@
   "limits": {
     "original_weakened_variants": 24,
     "original_witness_runs": 28,
-    "fixed_in_memory_recipes": 31,
-    "weakened_variants_total": 47,
-    "critical_guards": 64,
-    "registered_witnesses": 75
+    "fixed_in_memory_recipes": 33,
+    "weakened_variants_total": 49,
+    "critical_guards": 66,
+    "registered_witnesses": 77
   }
 }
