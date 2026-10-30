@@ -682,6 +682,7 @@ var source = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..",
 var allowed = new HashSet<string>(StringComparer.Ordinal)
     { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs",
       "Lp01LicensePolicyResolver.cs", "Lp01SpdxExpression.cs", "Lp01CaseFold.cs",
+      "Lp01ArchiveIntegrity.cs",
       "Lp05LicenseExpressionResolver.cs",
       "Lp06RepositoryUrlResolver.cs", "Lp07RepositoryCommitResolver.cs",
       "Lp08AuthorsResolver.cs", "Lp09ProjectUrlResolver.cs",

@@ -38,6 +38,12 @@ all changed scalar values; `data\lp01-casefold-15.0.0.json`, SHA-256
 before reading any ZIP entry by name. Its bounded nuspec reader prohibits
 DTD/entities before expansion, accepts clean UTF-8 (with or without BOM) and
 BOM-marked UTF-16 LE/BE, and rejects unsupported declared encodings.
+LP-01 additionally checks raw central/local ZIP names and flags using strict
+flagged UTF-8 or unflagged CP437, rejects NUL/control names and casefold
+aliases, and streams every entry to verify its declared length and CRC before
+inspecting license evidence. License version accepts only two to four ASCII
+digit components no greater than 1.0.0.0; grant completeness uses the
+frozen Python whitespace semantics, including U+001C--U+001F.
 Policy 1.0.0 and SPDX 3.27.0 are checked input bytes pinned independently
 by their SHA-256 identities, not downloaded or inferred from LP-05.
 Only an eligible package declaration with a canonical, checked owner record
