@@ -53,19 +53,22 @@ stimuli:
               assert bash, 'Bash is required to exercise the submitted build.sh'
               dotnet = shutil.which('dotnet')
               assert dotnet, 'the .NET SDK is required to check the commit before its first consumer'
+              real_git = shutil.which('git')
+              assert real_git, 'Git is required to evaluate revision lookups'
+              git_env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
               with tempfile.TemporaryDirectory() as tmp:
                   bin_dir = pathlib.Path(tmp) / 'bin'
                   bin_dir.mkdir()
                   log = bin_dir / 'git-calls'
                   git = bin_dir / 'git'
                   git.write_text(
-                      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$MOCK_BIN/git-calls"\nprintf "%s\\n" "$EXPECTED_COMMIT"\n',
+                      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$MOCK_BIN/git-calls"\nexec "$REAL_GIT" "$@"\n',
                       encoding='utf-8', newline='\n',
                   )
                   git.chmod(0o755)
                   if os.name == 'nt':
                       (bin_dir / 'git.cmd').write_text(
-                          '@echo off\necho %*>>"' + str(log) + '"\necho %EXPECTED_COMMIT%\n',
+                          '@echo off\necho %*>>"' + str(log) + '"\n"%REAL_GIT%" %*\n',
                           encoding='utf-8', newline='\r\n',
                       )
                   capacity = bin_dir / 'capacity.proj'
@@ -118,9 +121,20 @@ stimuli:
                           assert int(observed['nodes']) >= minimum_nodes, 'preserve parallel execution, not a missing switch or single worker'
                           assert observed['parallel'].strip().lower() not in ['false', 'off', 'no', '0'], 'do not disable parallel execution through global properties'
                   for iteration in range(2):
-                      commit = uuid.uuid4().hex[:7]
                       work = pathlib.Path(tmp) / ('ci-' + str(iteration))
-                      shutil.copytree('git-stamp', work, ignore=shutil.ignore_patterns('bin', 'obj'))
+                      shutil.copytree('git-stamp', work, ignore=shutil.ignore_patterns('bin', 'obj', '.git'))
+                      for args in [
+                          ['init', '--quiet', '--template=', '--initial-branch=grading', str(work)],
+                          ['-C', str(work), 'config', 'core.abbrev', '7'],
+                          ['-C', str(work), 'add', '.'],
+                          ['-C', str(work), '-c', 'user.name=Grader', '-c', 'user.email=grader@example.invalid',
+                           '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=' + str(bin_dir),
+                           'commit', '--quiet', '-m', uuid.uuid4().hex],
+                          ['-C', str(work), 'rev-parse', '--short', 'HEAD'],
+                      ]:
+                          result = subprocess.run([real_git, *args], env=git_env, capture_output=True, text=True, timeout=10)
+                          assert result.returncode == 0, result.stdout + result.stderr
+                      commit = result.stdout.strip()
                       solution = ET.Element('Solution')
                       records = []
                       for name in ['Api', 'Worker']:
@@ -128,7 +142,7 @@ stimuli:
                           ET.SubElement(solution, 'Project', Path=project.relative_to(work).as_posix())
                           records.append(record)
                       ET.ElementTree(solution).write(work / 'Contoso.slnx', encoding='utf-8')
-                      env = dict(os.environ, MOCK_BIN=str(bin_dir), EXPECTED_COMMIT=commit,
+                      env = dict(git_env, MOCK_BIN=str(bin_dir), REAL_GIT=pathlib.Path(real_git).as_posix(),
                                  PATH=str(bin_dir) + os.pathsep + os.environ['PATH'], MSBUILDDISABLENODEREUSE='1')
                       log.unlink(missing_ok=True)
                       result = subprocess.run(
@@ -139,9 +153,10 @@ stimuli:
                       for record in records:
                           check_build(record, commit, ci=True)
                       calls = log.read_text().splitlines() if log.exists() else []
-                      assert calls == ['rev-parse --short HEAD'], 'the fallback must run once only when no revision is supplied; compute the revision once for the solution build'
+                      assert len(calls) == 1, 'the fallback must run once only when no revision is supplied; compute the revision once for the solution build'
                       single = pathlib.Path(tmp) / ('single-' + str(iteration))
-                      shutil.copytree('git-stamp', single, ignore=shutil.ignore_patterns('bin', 'obj'))
+                      shutil.copytree('git-stamp', single, ignore=shutil.ignore_patterns('bin', 'obj', '.git'))
+                      shutil.copytree(work / '.git', single / '.git')
                       project, record = create_probe(single, 'Standalone', str(iteration) + '-Standalone')
                       log.unlink(missing_ok=True)
                       result = subprocess.run(
@@ -151,7 +166,7 @@ stimuli:
                       assert result.returncode == 0, result.stdout + result.stderr
                       check_build(record, commit, ci=False)
                       calls = log.read_text().splitlines() if log.exists() else []
-                      assert calls == ['rev-parse --short HEAD'], 'the fallback must run once only when no revision is supplied'
+                      assert len(calls) == 1, 'the fallback must run once only when no revision is supplied'
           expected_exit_code: 0
       - type: output-matches
         config:

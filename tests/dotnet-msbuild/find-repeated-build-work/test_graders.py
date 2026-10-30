@@ -98,9 +98,20 @@ class GraderTests(unittest.TestCase):
                 work, script = self.workspace("invariant-per-project-exec")
                 path = work / "git-stamp" / "Directory.Build.targets"
                 tree = ET.parse(path)
+                properties = ET.SubElement(tree.getroot(), "PropertyGroup")
+                ET.SubElement(properties, "IncludeSourceRevisionInInformationalVersion").text = "false"
                 tree.getroot().find("Target").set("BeforeTargets", hook)
                 tree.write(path, encoding="utf-8")
                 self.grade(work, script)
+
+    def test_early_git_stamp_preserves_the_final_sdk_version(self):
+        work, script = self.workspace("invariant-per-project-exec")
+        path = work / "git-stamp" / "Directory.Build.targets"
+        tree = ET.parse(path)
+        tree.getroot().find("Target").set("BeforeTargets", "BeforeBuild")
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("the commit and version must be ready", result.stderr)
 
     def test_equivalent_git_stamp_rewrites_are_accepted(self):
         for variant in ("renamed-property", "property-function"):
@@ -122,6 +133,36 @@ class GraderTests(unittest.TestCase):
                     )
                     tree.write(path, encoding="utf-8")
                 self.grade(work, script)
+
+    def test_equivalent_git_lookup_commands_are_accepted(self):
+        for command in ("git rev-parse --verify --short HEAD", "git log -1 --format=%h"):
+            with self.subTest(command=command):
+                work, script = self.workspace("invariant-per-project-exec")
+                base = work / "git-stamp"
+                for filename in ("build.sh", "Directory.Build.targets"):
+                    path = base / filename
+                    replacement = command
+                    if os.name == "nt" and filename.endswith(".targets"):
+                        replacement = command.replace("%", "%%")
+                    path.write_text(
+                        path.read_text(encoding="utf-8").replace("git rev-parse --short HEAD", replacement),
+                        encoding="utf-8",
+                    )
+                self.grade(work, script)
+
+    def test_git_queries_must_return_the_current_revision(self):
+        work, script = self.workspace("invariant-per-project-exec")
+        base = work / "git-stamp"
+        for filename in ("build.sh", "Directory.Build.targets"):
+            path = base / filename
+            path.write_text(
+                path.read_text(encoding="utf-8").replace(
+                    "git rev-parse --short HEAD", "git rev-parse --abbrev-ref HEAD",
+                ),
+                encoding="utf-8",
+            )
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("the commit and version must be ready", result.stderr)
 
     def test_git_stamp_orchestrator_is_evaluated_by_msbuild(self):
         for forwards_revision in (True, False):
