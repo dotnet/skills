@@ -44,6 +44,12 @@ aliases, and streams every entry to verify its declared length and CRC before
 inspecting license evidence. License version accepts only two to four ASCII
 digit components no greater than 1.0.0.0; grant completeness uses the
 frozen Python whitespace semantics, including U+001C--U+001F.
+The ZIP validator requires disjoint, contiguous local-header/data/descriptor
+ranges from byte zero to the central directory, with the directory ending
+exactly at a comment-free EOCD. It rejects Zip64 records and markers,
+unsupported flags or compression methods, backslash entry names, malformed
+extra-field framing, and Unicode name-remapping extra fields instead of
+allowing archive readers to select different package contents.
 Policy 1.0.0 and SPDX 3.27.0 are checked input bytes pinned independently
 by their SHA-256 identities, not downloaded or inferred from LP-05.
 Only an eligible package declaration with a canonical, checked owner record
