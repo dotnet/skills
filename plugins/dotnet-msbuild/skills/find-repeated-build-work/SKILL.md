@@ -61,7 +61,7 @@ Wall-clock saving depends on actual overlap and the critical path. Batched per-i
 ### Step 4: Fix without changing behavior
 
 1. Keep the value available before its first consumer.
-2. A fallback `Condition="'$(X)' == ''"` is valid only when the value arrives as a global property (command line or an orchestrator), because those are inherited by every project. It keeps single-project and IDE builds working.
+2. Keep a fallback `Condition="'$(X)' == ''"` for builds without the shared value. Imported or environment properties can satisfy it too; the value need not be global. Child builds inherit existing global properties unless removed, but not ordinary properties computed in their parent. Forward a parent-computed result through the `MSBuild` task's `Properties`, or load the shared value in each child before the fallback; otherwise each child can execute its own fallback.
 3. Define the computation in one place.
 4. Preserve generated-file timestamps when content is unchanged. Use a write-if-different generator, or generate to a temporary file and replace only on content change; deduplication must not force dependent recompilation on an unchanged rerun.
 
@@ -108,6 +108,6 @@ When no change is worthwhile: `Verdict: no repeated work worth changing`.
 |---|---|
 | Treating `Csc` or copy-local counts as waste | Compare with projects times target frameworks first |
 | Guarding with `Exists(file)` or a flag property | Move the work out of the per-project path |
-| Fallback condition on a property that is not a global property | Pass it as a global property, or the fallback never applies |
+| Assuming parent-local properties are inherited by child builds | Forward the shared value explicitly or load it in each child before the fallback; otherwise the fallback repeats in those children. Existing global properties are already inherited unless removed. |
 | Claiming a saving from total task time | Check actual overlap and the critical path; do not divide sequential work by unrelated busy nodes |
 | Merging per-item `Exec` and losing incrementality | Keep `Inputs` and `Outputs` on the target |
