@@ -123,6 +123,37 @@ class GraderTests(unittest.TestCase):
                     tree.write(path, encoding="utf-8")
                 self.grade(work, script)
 
+    def test_git_stamp_orchestrator_is_evaluated_by_msbuild(self):
+        for forwards_revision in (True, False):
+            with self.subTest(forwards_revision=forwards_revision):
+                work, script = self.workspace("invariant-per-project-exec")
+                base = work / "git-stamp"
+                (base / "build.sh").write_text(
+                    "#!/usr/bin/env bash\nset -euo pipefail\n"
+                    "dotnet msbuild Build.proj -p:Configuration=Release -m\n",
+                    encoding="utf-8",
+                )
+                project = ET.Element("Project", DefaultTargets="BuildAll")
+                target = ET.SubElement(project, "Target", Name="BuildAll")
+                lookup = ET.SubElement(
+                    target, "Exec", Command="git rev-parse --short HEAD", ConsoleToMSBuild="true",
+                )
+                ET.SubElement(lookup, "Output", TaskParameter="ConsoleOutput", PropertyName="Revision")
+                ET.SubElement(
+                    target, "Exec", Command="dotnet restore Contoso.slnx -p:Configuration=Release",
+                )
+                properties = "Configuration=Release"
+                if forwards_revision:
+                    properties += ";GitCommit=$(Revision)"
+                ET.SubElement(
+                    target, "MSBuild", Projects="Contoso.slnx", Targets="Build",
+                    BuildInParallel="true", Properties=properties,
+                )
+                ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
+                result = self.grade(work, script, accepted=forwards_revision)
+                if not forwards_revision:
+                    self.assertIn("the fallback must run once", result.stderr)
+
     def test_missing_informational_version_attribute_is_rejected(self):
         work, script = self.workspace("invariant-per-project-exec")
         path = work / "git-stamp" / "Directory.Build.props"
@@ -133,6 +164,17 @@ class GraderTests(unittest.TestCase):
         tree.write(path, encoding="utf-8")
         result = self.grade(work, script, accepted=False)
         self.assertIn("compiled informational-version attribute", result.stderr)
+
+    def test_git_stamp_cannot_disable_parallel_builds(self):
+        work, script = self.workspace("invariant-per-project-exec")
+        path = work / "git-stamp" / "build.sh"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "dotnet build Contoso.slnx", "dotnet build Contoso.slnx -p:BuildInParallel=false",
+            ), encoding="utf-8",
+        )
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("parallel execution", result.stderr)
 
     def test_git_fallback_requires_the_property_to_be_absent(self):
         for condition in ("'true' == 'true'", "'false' == 'true'"):
@@ -160,7 +202,7 @@ class GraderTests(unittest.TestCase):
         result = self.grade(work, script, accepted=False)
         self.assertIn("the commit and version must be ready", result.stderr)
 
-    def test_git_stamp_replays_recorded_build_arguments(self):
+    def test_git_stamp_preserves_effective_build_arguments(self):
         variants = (
             (False, "", "'$(Configuration)' == 'Debug'"),
             (False, "", "'$(Configuration)' == 'Release'"),
@@ -422,6 +464,31 @@ class GraderTests(unittest.TestCase):
         tree.write(path, encoding="utf-8")
         result = self.grade(work, script, accepted=False)
         self.assertIn("clean: schema generation must execute exactly once", result.stderr)
+
+    def test_equivalent_schema_item_name_is_accepted(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("SchemaFile", "SchemaInput"),
+            encoding="utf-8",
+        )
+        self.grade(work, script)
+
+    def test_nonincremental_schema_targets_are_rejected(self):
+        for variant in ("no-tracking", "missing-output"):
+            with self.subTest(variant=variant):
+                work, script = self.workspace("per-item-exec")
+                path = work / "per-file-exec" / "Schemas.targets"
+                tree = ET.parse(path)
+                target = tree.getroot().find("Target")
+                if variant == "no-tracking":
+                    target.attrib.pop("Inputs")
+                    target.attrib.pop("Outputs")
+                else:
+                    target.set("Outputs", "$(IntermediateOutputPath)always-missing.output")
+                tree.write(path, encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn("unchanged: schema generation", result.stderr)
 
     def test_schema_compile_hooks_are_evaluated_by_msbuild(self):
         for hook in ("property-before", "early-sdk", "property-dependency"):

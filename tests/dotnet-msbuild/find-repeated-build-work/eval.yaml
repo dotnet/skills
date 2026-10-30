@@ -47,107 +47,111 @@ stimuli:
           args:
             - -c
             - |
-              import json, os, pathlib, re, shutil, subprocess, tempfile, uuid
+              import os, pathlib, shutil, subprocess, tempfile, uuid
               import xml.etree.ElementTree as ET
               bash = shutil.which('bash')
-              assert bash, 'Bash is required to check build.sh with mocked git and dotnet'
+              assert bash, 'Bash is required to exercise the submitted build.sh'
               dotnet = shutil.which('dotnet')
               assert dotnet, 'the .NET SDK is required to check the commit before its first consumer'
               with tempfile.TemporaryDirectory() as tmp:
-                  bin_dir = pathlib.Path(tmp)
-                  mocks = {
-                      'git': '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$MOCK_BIN/git-calls"\nprintf "%s\\n" "$EXPECTED_COMMIT"\n',
-                      'dotnet': '#!/usr/bin/env bash\nrecord="$(mktemp "$MOCK_BIN/dotnet-call.XXXXXX")"\nprintf "%s\\0" "$@" > "$record"\n',
-                  }
-                  for name, text in mocks.items():
-                      path = bin_dir / name
-                      path.write_text(text, encoding='utf-8', newline='\n')
-                      path.chmod(0o755)
+                  bin_dir = pathlib.Path(tmp) / 'bin'
+                  bin_dir.mkdir()
+                  log = bin_dir / 'git-calls'
+                  git = bin_dir / 'git'
+                  git.write_text(
+                      '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$MOCK_BIN/git-calls"\nprintf "%s\\n" "$EXPECTED_COMMIT"\n',
+                      encoding='utf-8', newline='\n',
+                  )
+                  git.chmod(0o755)
                   if os.name == 'nt':
                       (bin_dir / 'git.cmd').write_text(
-                          '@echo off\necho %*>>"%MOCK_BIN%\\git-calls"\necho %EXPECTED_COMMIT%\n',
+                          '@echo off\necho %*>>"' + str(log) + '"\necho %EXPECTED_COMMIT%\n',
                           encoding='utf-8', newline='\r\n',
                       )
-                  probe = ET.Element('Project')
-                  defaults = ET.SubElement(probe, 'PropertyGroup')
-                  for name, filename in [
-                      ('DirectoryBuildPropsPath', 'Directory.Build.props'),
-                      ('DirectoryBuildTargetsPath', 'Directory.Build.targets'),
-                  ]:
-                      ET.SubElement(defaults, name).text = str(pathlib.Path('git-stamp', filename).resolve())
-                  for name in ['Sdk.props', 'Sdk.targets']:
-                      ET.SubElement(probe, 'Import', Project=name, Sdk='Microsoft.NET.Sdk')
-                  ET.SubElement(probe, 'Import', Project=str(pathlib.Path('.grader/ReadAssemblyAttribute.targets').resolve()))
-                  observer = ET.SubElement(
-                      probe, 'Target', Name='_GraderObserveStamp_' + uuid.uuid4().hex,
-                      BeforeTargets='GetAssemblyAttributes',
+                  capacity = bin_dir / 'capacity.proj'
+                  ET.ElementTree(ET.Element('Project')).write(capacity, encoding='utf-8')
+                  result = subprocess.run(
+                      [dotnet, 'msbuild', str(capacity), '-nologo', '-verbosity:quiet',
+                       '-maxCpuCount', '-getProperty:MSBuildNodeCount'],
+                      capture_output=True, text=True, timeout=30,
                   )
-                  ET.SubElement(ET.SubElement(observer, 'PropertyGroup'), 'ObservedInformationalVersion').text = '$(InformationalVersion)'
-                  ET.SubElement(observer.find('PropertyGroup'), 'ObservedBaseVersion').text = '$(Version)'
-                  metadata = ET.SubElement(probe, 'Target', Name='_GraderReadStamp_' + uuid.uuid4().hex,
-                                           AfterTargets='Build')
-                  read = ET.SubElement(metadata, '_GraderReadAssemblyAttribute', AssemblyPath='$(TargetPath)',
-                                       AttributeType='System.Reflection.AssemblyInformationalVersionAttribute')
-                  ET.SubElement(read, 'Output', TaskParameter='Value', PropertyName='ObservedAssemblyInformationalVersion')
-                  probe_path = bin_dir / 'stamp.csproj'
-                  ET.ElementTree(probe).write(probe_path, encoding='utf-8')
-                  for _ in range(2):
+                  assert result.returncode == 0, result.stdout + result.stderr
+                  # -m can resolve to one node on a single-processor runner.
+                  minimum_nodes = min(2, int(result.stdout.strip()))
+                  def create_probe(work, name, label):
+                      directory = work / 'probes' / name
+                      directory.mkdir(parents=True)
+                      probe = ET.Element('Project')
+                      for sdk in ['Sdk.props', 'Sdk.targets']:
+                          ET.SubElement(probe, 'Import', Project=sdk, Sdk='Microsoft.NET.Sdk')
+                      ET.SubElement(probe, 'Import', Project=str(pathlib.Path('.grader/ReadAssemblyAttribute.targets').resolve()))
+                      observer = ET.SubElement(probe, 'Target', Name='_GraderObserveStamp_' + uuid.uuid4().hex,
+                                               BeforeTargets='GetAssemblyAttributes')
+                      properties = ET.SubElement(observer, 'PropertyGroup')
+                      ET.SubElement(properties, 'ObservedInformationalVersion').text = '$(InformationalVersion)'
+                      ET.SubElement(properties, 'ObservedBaseVersion').text = '$(Version)'
+                      metadata = ET.SubElement(probe, 'Target', Name='_GraderReadStamp_' + uuid.uuid4().hex,
+                                               AfterTargets='Build')
+                      read = ET.SubElement(metadata, '_GraderReadAssemblyAttribute', AssemblyPath='$(TargetPath)',
+                                           AttributeType='System.Reflection.AssemblyInformationalVersionAttribute')
+                      ET.SubElement(read, 'Output', TaskParameter='Value', PropertyName='ObservedAssemblyInformationalVersion')
+                      record = bin_dir / (label + '.txt')
+                      ET.SubElement(
+                          metadata, 'WriteLinesToFile', File=str(record.resolve()), Encoding='UTF-8',
+                          Lines='info:$(ObservedInformationalVersion);version:$(ObservedBaseVersion);'
+                                'attribute:$(ObservedAssemblyInformationalVersion);configuration:$(Configuration);'
+                                'nodes:$(MSBuildNodeCount);parallel:$(BuildInParallel)',
+                      )
+                      path = directory / (name + '.csproj')
+                      ET.ElementTree(probe).write(path, encoding='utf-8')
+                      return path, record
+                  def check_build(record, commit, ci):
+                      assert record.is_file(), 'exercise every project Build path'
+                      lines = record.read_text(encoding='utf-8-sig').splitlines()
+                      assert len(lines) == 6, 'build each project exactly once'
+                      observed = dict(line.split(':', 1) for line in lines)
+                      assert observed['info'] == '3.2.0+' + commit, 'the commit and version must be ready before GetAssemblyAttributes consumes them'
+                      assert observed['version'] == '3.2.0', 'preserve the effective stamped base version'
+                      assert observed['attribute'] == '3.2.0+' + commit, 'preserve the compiled informational-version attribute'
+                      if ci:
+                          assert observed['configuration'] == 'Release', 'preserve the effective Release configuration'
+                          assert int(observed['nodes']) >= minimum_nodes, 'preserve parallel execution, not a missing switch or single worker'
+                          assert observed['parallel'].strip().lower() not in ['false', 'off', 'no', '0'], 'do not disable parallel execution through global properties'
+                  for iteration in range(2):
                       commit = uuid.uuid4().hex[:7]
-                      for path in [bin_dir / 'git-calls', *bin_dir.glob('dotnet-call.*')]:
-                          path.unlink(missing_ok=True)
-                      env = dict(os.environ, MOCK_BIN=tmp, EXPECTED_COMMIT=commit)
-                      subprocess.run(
+                      work = pathlib.Path(tmp) / ('ci-' + str(iteration))
+                      shutil.copytree('git-stamp', work, ignore=shutil.ignore_patterns('bin', 'obj'))
+                      solution = ET.Element('Solution')
+                      records = []
+                      for name in ['Api', 'Worker']:
+                          project, record = create_probe(work, name, str(iteration) + '-' + name)
+                          ET.SubElement(solution, 'Project', Path=project.relative_to(work).as_posix())
+                          records.append(record)
+                      ET.ElementTree(solution).write(work / 'Contoso.slnx', encoding='utf-8')
+                      env = dict(os.environ, MOCK_BIN=str(bin_dir), EXPECTED_COMMIT=commit,
+                                 PATH=str(bin_dir) + os.pathsep + os.environ['PATH'], MSBUILDDISABLENODEREUSE='1')
+                      log.unlink(missing_ok=True)
+                      result = subprocess.run(
                           [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
-                          cwd='git-stamp', env=env, check=True, timeout=20,
+                          cwd=work, env=env, capture_output=True, text=True, timeout=60,
                       )
-                      assert (bin_dir / 'git-calls').read_text().splitlines() == ['rev-parse --short HEAD'], 'compute the current short commit exactly once'
-                      calls = [[arg.decode() for arg in path.read_bytes().split(b'\0')[:-1]]
-                               for path in bin_dir.glob('dotnet-call.*')]
-                      builds = [call for call in calls if call and call[0] in ['build', 'msbuild']]
-                      assert len(builds) == 1 and builds[0][1:2] == ['Contoso.slnx'], 'require exactly one solution build'
-                      args = builds[0]
-                      values = []
-                      for index, arg in enumerate(args):
-                          match = re.fullmatch(r'(?:--property|[-/]p(?:roperty)?)(?::|=)(.+)', arg, re.I)
-                          if match:
-                              values.append(match[1])
-                          elif arg.lower() in ['--property', '-p', '/p', '-property', '/property']:
-                              assert index + 1 < len(args), 'property switches require a value'
-                              values.append(args[index + 1])
-                      assignments = [p for value in values for p in value.split(';')]
-                      parallel = [match[1] for arg in args
-                                  if (match := re.fullmatch(r'(?:--?|/)(?:m|maxcpucount)(?::(\d+))?', arg, re.I))]
-                      assert parallel and (parallel[-1] is None or int(parallel[-1]) > 1), 'preserve parallel execution, not a missing switch or single worker'
-                      build_in_parallel = [p.partition('=')[2] for p in assignments if p.partition('=')[0].lower() == 'buildinparallel']
-                      assert not build_in_parallel or build_in_parallel[-1].strip().lower() not in ['false', 'off', 'no', '0'], 'do not disable parallel execution through global properties'
-                      configuration = subprocess.run(
-                          [dotnet, args[0], str(probe_path), *args[2:], '-nologo', '-verbosity:quiet',
-                           '-getProperty:Configuration'],
-                          cwd=bin_dir, env=env, capture_output=True, text=True, timeout=30,
+                      assert result.returncode == 0, result.stdout + result.stderr
+                      for record in records:
+                          check_build(record, commit, ci=True)
+                      calls = log.read_text().splitlines() if log.exists() else []
+                      assert calls == ['rev-parse --short HEAD'], 'the fallback must run once only when no revision is supplied; compute the revision once for the solution build'
+                      single = pathlib.Path(tmp) / ('single-' + str(iteration))
+                      shutil.copytree('git-stamp', single, ignore=shutil.ignore_patterns('bin', 'obj'))
+                      project, record = create_probe(single, 'Standalone', str(iteration) + '-Standalone')
+                      log.unlink(missing_ok=True)
+                      result = subprocess.run(
+                          [dotnet, 'build', str(project), '-nologo', '-verbosity:quiet', '-nodeReuse:false'],
+                          cwd=project.parent, env=env, capture_output=True, text=True, timeout=30,
                       )
-                      assert configuration.returncode == 0, configuration.stdout + configuration.stderr
-                      assert configuration.stdout.strip() == 'Release', 'preserve the effective Release configuration'
-                      for supplied in [False, True]:
-                          (bin_dir / 'git-calls').unlink(missing_ok=True)
-                          if supplied:
-                              command = [dotnet, args[0], str(probe_path), *args[2:]]
-                          else:
-                              command = [dotnet, 'build', str(probe_path)]
-                          command.extend(['-nologo', '-verbosity:quiet', '-nodeReuse:false',
-                                          '-restore', '-target:Build',
-                                          '-getProperty:ObservedInformationalVersion,ObservedBaseVersion,ObservedAssemblyInformationalVersion'])
-                          result = subprocess.run(
-                              command, cwd=bin_dir, env=dict(env, PATH=tmp + os.pathsep + os.environ['PATH']),
-                              capture_output=True, text=True, timeout=30,
-                          )
-                          assert result.returncode == 0, result.stdout + result.stderr
-                          observed = json.loads(result.stdout)['Properties']
-                          assert observed['ObservedInformationalVersion'] == '3.2.0+' + commit, 'the commit and version must be ready before GetAssemblyAttributes consumes them'
-                          assert observed['ObservedBaseVersion'] == '3.2.0', 'preserve the effective stamped base version'
-                          assert observed['ObservedAssemblyInformationalVersion'] == '3.2.0+' + commit, 'preserve the compiled informational-version attribute'
-                          log = bin_dir / 'git-calls'
-                          calls = log.read_text().splitlines() if log.exists() else []
-                          assert calls == ([] if supplied else ['rev-parse --short HEAD']), 'the fallback must run once only when no revision is supplied'
+                      assert result.returncode == 0, result.stdout + result.stderr
+                      check_build(record, commit, ci=False)
+                      calls = log.read_text().splitlines() if log.exists() else []
+                      assert calls == ['rev-parse --short HEAD'], 'the fallback must run once only when no revision is supplied'
           expected_exit_code: 0
       - type: output-matches
         config:
@@ -549,14 +553,10 @@ stimuli:
               args = shlex.split(command)
               assert '--input-list' in args and '--output-dir' in args, 'the generator needs both its input list and output directory'
               input_list = args[args.index('--input-list') + 1]
-              output_dir = args[args.index('--output-dir') + 1]
-              assert target.get('Inputs') == '@(SchemaFile)', 'keep the stale SchemaFile inputs'
-              assert expand(target.get('Outputs', '')) == "@(SchemaFile->'" + output_dir + "/%(Filename).g.cs')", 'outputs must match the generator output directory'
               preceding = list(target)[:list(target).index(task)]
               writers = [w for w in preceding if w.tag == 'WriteLinesToFile' and expand(w.get('File', '')) == input_list]
               assert len(writers) == 1, 'write the consumed input list before running the generator'
               writer = writers[0]
-              assert writer.get('Lines') in ["@(SchemaFile->'%(FullPath)')", "@(SchemaFile->'%(Identity)')", '@(SchemaFile)'], 'the list must contain all stale schema paths'
               assert writer.get('Overwrite', '').lower() == 'true', 'overwrite the list so it cannot retain previously stale schemas'
               dotnet = shutil.which('dotnet')
               assert dotnet, 'the .NET SDK is required to query evaluated Compile items'
