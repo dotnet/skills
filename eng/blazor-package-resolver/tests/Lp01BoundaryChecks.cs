@@ -172,6 +172,15 @@ internal static class Lp01BoundaryChecks
             return result;
         }
 
+        static byte[] ReplaceRange(byte[] source, int offset, int removed, byte[] replacement)
+        {
+            var result = new byte[source.Length - removed + replacement.Length];
+            source.AsSpan(0, offset).CopyTo(result);
+            replacement.CopyTo(result, offset);
+            source.AsSpan(offset + removed).CopyTo(result.AsSpan(offset + replacement.Length));
+            return result;
+        }
+
         static ushort Word(byte[] bytes, int offset) =>
             BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(offset));
 
@@ -237,9 +246,27 @@ internal static class Lp01BoundaryChecks
             return field;
         }
 
-        byte[] WithDescriptor(byte[] xml, bool signed)
+        byte[] WithDescriptor(byte[] xml, bool signed, byte[]? content = null, bool stored = false)
         {
-            var original = Package(xml, null, ("README.txt", "archive content"u8.ToArray()));
+            var original = Package(xml, null, ("README.txt", content ?? "archive content"u8.ToArray()));
+            if (stored)
+            {
+                if (content is null) throw new InvalidDataException("Stored probe needs known content.");
+                var previousCentral = Header(original, 0x02014b50, "README.txt", false);
+                var previousLocal = Header(original, 0x04034b50, "README.txt", true);
+                var dataStart = previousLocal + 30 + Word(original, previousLocal + 26) +
+                    Word(original, previousLocal + 28);
+                var previousLength = (int)Dword(original, previousCentral + 20);
+                var delta = content.Length - previousLength;
+                var storedPackage = ReplaceRange(original, dataStart, previousLength, content);
+                SetDword(storedPackage, storedPackage.Length - 22 + 16,
+                    (uint)((int)Dword(original, original.Length - 22 + 16) + delta));
+                SetWord(storedPackage, previousLocal + 8, 0);
+                SetDword(storedPackage, previousLocal + 18, (uint)content.Length);
+                SetWord(storedPackage, previousCentral + delta + 10, 0);
+                SetDword(storedPackage, previousCentral + delta + 20, (uint)content.Length);
+                original = storedPackage;
+            }
             var central = Header(original, 0x02014b50, "README.txt", false);
             var local = Header(original, 0x04034b50, "README.txt", true);
             var dataEnd = local + 30 + Word(original, local + 26) +
@@ -417,6 +444,60 @@ internal static class Lp01BoundaryChecks
             bytes[start - 12] ^= 1;
             return bytes;
         });
+        var locator = new byte[20];
+        SetDword(locator, 0, 0x07064b50);
+        UnsafeBoth("Zip64 locator hidden in central comment", xml =>
+        {
+            var bytes = Package(xml, null, ("README.txt", "content"u8.ToArray()));
+            var last = Header(bytes, 0x02014b50, "README.txt", false);
+            SetWord(bytes, last + 32, (ushort)locator.Length);
+            var changed = Insert(bytes, bytes.Length - 22, locator);
+            SetDword(changed, changed.Length - 22 + 12,
+                Dword(bytes, bytes.Length - 22 + 12) + (uint)locator.Length);
+            return changed;
+        });
+        UnsafeBoth("Zip64 locator hidden in unknown central extra", xml =>
+        {
+            var field = new byte[24];
+            SetWord(field, 0, 0xcafe);
+            SetWord(field, 2, (ushort)locator.Length);
+            locator.CopyTo(field, 4);
+            return CentralExtra(Package(xml, null, ("README.txt", "content"u8.ToArray())),
+                "README.txt", field);
+        });
+        UnsafeBoth("Zip64 locator hidden in covered stored data", xml =>
+        {
+            var original = WithDescriptor(xml, signed: false, content: locator, stored: true);
+            var local = Header(original, 0x04034b50, "README.txt", true);
+            var dataEnd = local + 30 + Word(original, local + 26) +
+                Word(original, local + 28) + (int)Dword(original,
+                    Header(original, 0x02014b50, "README.txt", false) + 20);
+            // A final EOCD directly after stored data leaves no room for the original directory.
+            var changed = new byte[dataEnd + 22];
+            original.AsSpan(0, dataEnd).CopyTo(changed);
+            original.AsSpan(original.Length - 22).CopyTo(changed.AsSpan(dataEnd));
+            if (!changed.AsSpan(changed.Length - 42, locator.Length).SequenceEqual(locator))
+                throw new InvalidDataException("Locator probe must occupy stored entry data.");
+            return changed;
+        });
+        var collision = new byte[] { 0xac, 0x0a, 0x7a, 0xd5 };
+        foreach (var stored in new[] { true, false })
+        foreach (var signed in new[] { false, true })
+        {
+            var packageWithCollision = WithDescriptor(source, signed, collision, stored);
+            var ownerWithCollision = WithDescriptor(ownerNuspec, signed, collision, stored);
+            foreach (var bytes in new[] { packageWithCollision, ownerWithCollision })
+            {
+                var central = Header(bytes, 0x02014b50, "README.txt", false);
+                if (Dword(bytes, central + 16) != 0x08074b50 ||
+                    Word(bytes, central + 10) != (stored ? 0 : 8))
+                    throw new InvalidDataException("Descriptor collision probe has wrong CRC or method.");
+            }
+            var label = $"{(stored ? "stored" : "deflated")} {(signed ? "signed" : "unsigned")} CRC/signature collision";
+            Expect(label + " package-only", "approved-non-copyleft", packageWithCollision);
+            Expect(label + " owner-bound", "owner-evidence-accepted", ownerWithCollision,
+                OwnerFor(ownerWithCollision), grant);
+        }
 
         foreach (var version in new[] { "1.0.0.0", "0.999", "00001.0",
             "+1.0", "-1.0", " 1.0", "1.0 ", "1. 0", "1..0", "1.0.0.0.0" })
