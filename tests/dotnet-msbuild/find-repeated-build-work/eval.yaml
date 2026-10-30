@@ -521,7 +521,7 @@ stimuli:
           args:
             - -c
             - |
-              import hashlib, json, os, pathlib, re, shlex, shutil, subprocess, sys, tempfile, time, uuid
+              import hashlib, json, os, pathlib, shlex, shutil, subprocess, sys, tempfile, time, uuid
               import xml.etree.ElementTree as ET
               base = pathlib.Path('per-file-exec')
               expected = {
@@ -535,29 +535,7 @@ stimuli:
                         for p in base.rglob('*') if p.is_file()
                         and p.relative_to(base).as_posix() not in ['Schemas.targets', 'Contoso.Schemas.csproj']
                         and p.relative_to(base).parts[0] not in ['bin', 'obj']}
-              assert actual == expected, 'preserve all schema contents and files outside the project/target edits'
-              project = ET.parse('per-file-exec/Contoso.Schemas.csproj').getroot()
-              root = ET.parse('per-file-exec/Schemas.targets').getroot()
-              properties = {p.tag: p.text or '' for group in project.findall('PropertyGroup') for p in group}
-              def expand(value):
-                  for _ in range(len(properties) + 1):
-                      value = re.sub(r'\$\(([^)]+)\)', lambda m: properties.get(m[1], m[0]), value)
-                  return value.replace('\\', '/').rstrip('/')
-              properties.update({p.tag: p.text or '' for group in root.findall('PropertyGroup') for p in group})
-              generators = [(target, task) for target in root.findall('Target') for task in target.findall('Exec')
-                            if 'schemagen' in task.get('Command', '')]
-              assert len(generators) == 1, 'use one generator invocation'
-              target, task = generators[0]
-              command = expand(task.get('Command'))
-              assert '%(' not in command, 'the generator still starts once per schema'
-              args = shlex.split(command)
-              assert '--input-list' in args and '--output-dir' in args, 'the generator needs both its input list and output directory'
-              input_list = args[args.index('--input-list') + 1]
-              preceding = list(target)[:list(target).index(task)]
-              writers = [w for w in preceding if w.tag == 'WriteLinesToFile' and expand(w.get('File', '')) == input_list]
-              assert len(writers) == 1, 'write the consumed input list before running the generator'
-              writer = writers[0]
-              assert writer.get('Overwrite', '').lower() == 'true', 'overwrite the list so it cannot retain previously stale schemas'
+              assert expected.items() <= actual.items(), 'preserve all original schema contents and evidence files'
               dotnet = shutil.which('dotnet')
               assert dotnet, 'the .NET SDK is required to query evaluated Compile items'
               with tempfile.TemporaryDirectory() as tmp:
@@ -596,7 +574,7 @@ stimuli:
                       '    relative = source.relative_to(work).as_posix()\n'
                       '    output.write_bytes(("// generated schema: " + relative + "\\n// sha256: " + digest + "\\n").encode("utf-8"))\n'
                       'with open(os.environ["SCHEMA_LOG"], "a", encoding="utf-8") as stream:\n'
-                      '    stream.write(json.dumps({"inputs": [str(p) for p in inputs], "outputs": [str(p) for p in outputs]}) + "\\n")\n',
+                      '    stream.write(json.dumps({"inputs": [str(p) for p in inputs], "outputs": [str(p) for p in outputs], "output_dir": str(output_dir)}) + "\\n")\n',
                       encoding='utf-8', newline='\n',
                   )
                   if os.name == 'nt':
@@ -632,8 +610,7 @@ stimuli:
                       compile_items.unlink(missing_ok=True)
                       result = subprocess.run(
                           [dotnet, 'msbuild', 'Contoso.Schemas.csproj', '-nologo', '-verbosity:quiet',
-                           '-nodeReuse:false', '-restore', '-target:Build', '-getItem:Compile',
-                           '-getProperty:IntermediateOutputPath'],
+                           '-nodeReuse:false', '-restore', '-target:Build', '-getItem:Compile'],
                           cwd=work, env=env, capture_output=True, text=True, timeout=60,
                       )
                       assert result.returncode == 0, phase + ': ' + result.stdout + result.stderr
@@ -646,11 +623,9 @@ stimuli:
                       ), phase + ': generation must not modify, add or delete schema inputs'
                       evaluated = json.loads(result.stdout)
                       compiled = {pathlib.Path(item['FullPath']).resolve() for item in evaluated['Items']['Compile']}
-                      properties.update(evaluated['Properties'])
-                      evaluated_args = shlex.split(expand(task.get('Command')))
-                      evaluated_output_dir = evaluated_args[evaluated_args.index('--output-dir') + 1]
+                      output_dir = pathlib.Path(calls[0]['output_dir'])
                       expected_outputs = {
-                          (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve(): expected_content[source]
+                          output_dir / (source.stem + '.g.cs'): expected_content[source]
                           for source in sources
                       }
                       assert compile_items.is_file(), phase + ': exercise the actual compilation boundary'
@@ -663,7 +638,7 @@ stimuli:
                               pathlib.Path(p) for p in new_calls[0]['inputs']
                           } == stale, phase + ': generate only the stale schemas, exactly once each'
                           assert {pathlib.Path(p) for p in new_calls[0]['outputs']} == {
-                              (work / evaluated_output_dir / (source.stem + '.g.cs')).resolve() for source in stale
+                              output_dir / (source.stem + '.g.cs') for source in stale
                           }, phase + ': preserve the per-schema output mapping'
                       assert expected_outputs.keys() <= compiled, phase + ': every generated output must remain a Compile input'
                       assert expected_outputs.keys() <= consumed, phase + ': every generated output must be a Compile input at compilation'

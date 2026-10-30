@@ -474,6 +474,50 @@ class GraderTests(unittest.TestCase):
         )
         self.grade(work, script)
 
+    def test_imported_schema_implementation_preserves_original_files(self):
+        for variant in ("preserved", "modified-evidence", "deleted-evidence"):
+            with self.subTest(variant=variant):
+                work, script = self.workspace("per-item-exec")
+                path = work / "per-file-exec" / "Schemas.targets"
+                path.with_name("BatchSchemas.targets").write_bytes(path.read_bytes())
+                path.write_text('<Project><Import Project="BatchSchemas.targets" /></Project>', encoding="utf-8")
+                if variant == "modified-evidence":
+                    evidence = path.parent / "perf-summary.txt"
+                    evidence.write_bytes(evidence.read_bytes() + b"\nChanged evidence\n")
+                elif variant == "deleted-evidence":
+                    (path.parent / "tools" / "schemagen.md").unlink()
+                result = self.grade(work, script, accepted=variant == "preserved")
+                if variant != "preserved":
+                    self.assertIn("preserve all original schema contents and evidence files", result.stderr)
+
+    def test_property_backed_schema_generator_is_accepted(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        root = tree.getroot()
+        properties = ET.Element("PropertyGroup")
+        ET.SubElement(properties, "GeneratorExe").text = "schemagen"
+        root.insert(0, properties)
+        task = root.find("Target/Exec")
+        task.set("Command", task.get("Command").replace("schemagen", "$(GeneratorExe)"))
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
+    def test_anchored_schema_output_directory_is_accepted(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        task = tree.getroot().find("Target/Exec")
+        task.set(
+            "Command",
+            task.get("Command").replace(
+                '--output-dir "$(IntermediateOutputPath)gen"',
+                '--output-dir "$(MSBuildProjectDirectory)/$(IntermediateOutputPath)gen"',
+            ),
+        )
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
     def test_nonincremental_schema_targets_are_rejected(self):
         for variant in ("no-tracking", "missing-output"):
             with self.subTest(variant=variant):
