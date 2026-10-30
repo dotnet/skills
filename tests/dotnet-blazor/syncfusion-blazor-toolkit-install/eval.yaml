@@ -129,7 +129,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)SfThemeRoot|CSS isolation|AddSyncfusionBlazorToolkit|Syncfusion\.Blazor\.Toolkit
+          pattern: (?i)SfThemeRoot
+      - type: output-matches
+        config:
+          pattern: (?i)CSS isolation
       - type: output-not-matches
         config:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary|instead of|rather than)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:link|add)\b[^\n]{0,80}fluent\.min\.css'
@@ -191,7 +194,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(SfThemeRoot|CSS isolation|AddSyncfusionBlazorToolkit|registration|2\.0)
+          pattern: (?i)SfThemeRoot
+      - type: output-matches
+        config:
+          pattern: (?i)CSS isolation
       - type: output-not-matches
         config:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:link|add)\b[^\n]{0,60}numerictextbox\.min\.css'
