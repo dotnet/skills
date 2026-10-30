@@ -47,7 +47,7 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
         IReadOnlyDictionary<string, (bool Osi, bool Deprecated)> Licenses,
         HashSet<string> Allowed, HashSet<string> Strong, HashSet<string> Weak);
     private sealed record PackageState(string Branch, XElement? Metadata = null,
-        Lp01SpdxExpression? Expression = null, bool MatchedLicenseFile = false);
+        Lp01SpdxExpression? Expression = null, string? LicenseFilePath = null);
 
     public string RowId => "LP-01";
     public string ResolverId => "lp01-license-policy";
@@ -61,12 +61,17 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
             return Result(input, "missing-policy");
         if (!input.CheckedInputs.TryGetValue("corpus", out var catalogBytes))
             return Result(input, "missing-corpus");
+        if (input.Inputs.Any(i => !IsSafePath(i.Path) ||
+            i.Role is not ("package" or "policy" or "corpus" or
+                           "owner-record" or "owner-record-conflict") &&
+            !GrantRole.IsMatch(i.Role)))
+            return Result(input, "owner-record-invalid");
         var policy = ReadPolicy(policyBytes.Content.Span, catalogBytes.Content.Span);
         if (policy is null) return Result(input, "invalid-policy");
         var state = InspectPackage(package.Content, policy);
         if (state.Branch != "approved-non-copyleft")
-            return Result(input, state.Branch, state.MatchedLicenseFile);
-        return Result(input, InspectOwner(input, package, policyBytes, state), state.MatchedLicenseFile);
+            return Result(input, state.Branch, state.LicenseFilePath);
+        return Result(input, InspectOwner(input, package, policyBytes, state), state.LicenseFilePath);
     }
 
     private static Policy? ReadPolicy(ReadOnlySpan<byte> policyBytes, ReadOnlySpan<byte> catalogBytes)
@@ -133,10 +138,10 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
         try
         {
             using var stream = new MemoryStream(content.ToArray(), writable: false);
-            using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
-            if (archive.Entries.Count != count || archive.Entries.Any(e => e.FullName.Length > 512) ||
-                archive.Entries.Select(e => Lp01CaseFold.Fold(e.FullName))
-                    .Distinct(StringComparer.Ordinal).Count() != count)
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read,
+                leaveOpen: false, entryNameEncoding: Lp01ArchiveIntegrity.Cp437);
+            if (archive.Entries.Count != count ||
+                !Lp01ArchiveIntegrity.Validate(content.Span, archive.Entries))
                 return new("unsafe-package");
             var nuspecs = archive.Entries.Where(e => e.FullName.EndsWith(".nuspec",
                 StringComparison.OrdinalIgnoreCase) && !e.FullName.Contains('/') &&
@@ -168,14 +173,12 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
                 attrs.Count(a => a.Name.LocalName == "type") != 1)
                 return new("unsafe-metadata");
             var version = (string?)node.Attribute("version");
-            if (version is not null &&
-                (!System.Version.TryParse(version, out var parsed) ||
-                 parsed.CompareTo(new System.Version(1, 0, 0)) > 0))
+            if (version is not null && !SupportedVersion(version))
                 return new("unsafe-metadata");
             var type = (string?)node.Attribute("type");
             if (string.Equals(type, "file", StringComparison.OrdinalIgnoreCase))
             {
-                var name = node.Value.Trim();
+                var name = PythonTrim(node.Value);
                 if (!IsSafePath(name)) return new("file-unverified", metadata);
                 var file = archive.Entries.SingleOrDefault(e => e.FullName == name);
                 if (file is null) return new("file-unverified", metadata);
@@ -183,8 +186,8 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
                     return new("unsafe-package");
                 var declarations = ReadDeclarations(Utf8.GetString(bytes), out var remaining, out var ambiguous);
                 return new(declarations.SequenceEqual(["MIT"]) && !ambiguous &&
-                    string.IsNullOrWhiteSpace(remaining) ? "file-declared" : "file-unverified",
-                    metadata);
+                    PythonBlank(remaining) ? "file-declared" : "file-unverified",
+                    metadata, LicenseFilePath: name);
             }
             if (!string.Equals(type, "expression", StringComparison.OrdinalIgnoreCase))
                 return new("unsafe-metadata");
@@ -201,10 +204,11 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
                     return new("unsafe-package");
                 var ids = ReadDeclarations(Utf8.GetString(bytes), out _, out var ambiguous);
                 if (ambiguous || ids.Any(id => !expression.LicenseIds.Contains(id)))
-                    return new("conflicting-declarations", metadata);
+                    return new("conflicting-declarations", metadata, LicenseFilePath: "LICENSE.txt");
                 matchedDeclaration = ids.Count > 0;
             }
-            return new(branch, metadata, expression, matchedDeclaration);
+            return new(branch, metadata, expression,
+                matchedDeclaration ? "LICENSE.txt" : null);
         }
         catch (InvalidDataException) { return new("unsafe-package"); }
         catch (IOException) { return new("unsafe-package"); }
@@ -250,8 +254,12 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
                 text = new UnicodeEncoding(true, false, true).GetString(content[2..]);
             }
             else
-                text = Utf8.GetString(content.StartsWith(new byte[] { 0xef, 0xbb, 0xbf })
-                    ? content[3..] : content);
+            {
+                var utf8 = content.StartsWith(new byte[] { 0xef, 0xbb, 0xbf })
+                    ? content[3..] : content;
+                if (utf8.Contains((byte)0)) return false;
+                text = Utf8.GetString(utf8);
+            }
         }
         catch (DecoderFallbackException) { return false; }
         var declaration = XmlEncoding.Match(text);
@@ -302,6 +310,31 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
         }
         remaining = rest.ToString();
         return ids;
+    }
+
+    private static bool SupportedVersion(string version)
+    {
+        var parts = version.Split('.');
+        if (parts.Length is < 2 or > 4 ||
+            parts.Any(part => part.Length == 0 || part.Any(c => c is < '0' or > '9')))
+            return false;
+        if (parts[0].All(c => c == '0')) return true;
+        return parts[0].TrimStart('0') == "1" &&
+            parts.Skip(1).All(part => part.All(c => c == '0'));
+    }
+
+    private static bool PythonWhitespace(char value) =>
+        char.IsWhiteSpace(value) || value is >= '\u001c' and <= '\u001f';
+
+    private static bool PythonBlank(string value) => value.All(PythonWhitespace);
+
+    private static string PythonTrim(string value)
+    {
+        var start = 0;
+        var end = value.Length;
+        while (start < end && PythonWhitespace(value[start])) start++;
+        while (end > start && PythonWhitespace(value[end - 1])) end--;
+        return value[start..end];
     }
 
     private static bool IsSafePath(string? value) =>
@@ -413,23 +446,21 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
     private static bool Fields(JsonElement element, string[] fields, bool ordered)
     {
         if (element.ValueKind != JsonValueKind.Object) return false;
-        var names = element.EnumerateObject().Select(p => p.Name).ToArray();
-        return names.Length == fields.Length &&
-            (ordered ? names.SequenceEqual(fields, StringComparer.Ordinal) :
-                names.ToHashSet(StringComparer.Ordinal).SetEquals(fields));
+        try
+        {
+            var names = element.EnumerateObject().Select(p => p.Name).ToArray();
+            return names.Length == fields.Length &&
+                (ordered ? names.SequenceEqual(fields, StringComparer.Ordinal) :
+                    names.ToHashSet(StringComparer.Ordinal).SetEquals(fields));
+        }
+        catch (InvalidOperationException) { return false; }
     }
 
     private static string InspectOwner(ResolverCase input, CheckedInput package,
         CheckedInput policy, PackageState state)
     {
-        if (input.Inputs.Select(i => i.Role).Distinct(StringComparer.Ordinal).Count() != input.Inputs.Count ||
-            input.Inputs.Any(i => !IsSafePath(i.Path) ||
-                i.Role is not ("package" or "policy" or "corpus" or
-                               "owner-record" or "owner-record-conflict") &&
-                !GrantRole.IsMatch(i.Role)))
-            return "owner-record-invalid";
         if (!input.CheckedInputs.TryGetValue("owner-record", out var owner))
-            return input.Inputs.Count == 3 ? "approved-non-copyleft" : "owner-record-invalid";
+            return "approved-non-copyleft";
         if (input.CheckedInputs.ContainsKey("owner-record-conflict"))
             return "owner-record-conflict";
         var bytes = owner.Content.Span;
@@ -478,7 +509,10 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
             var metadata = state.Metadata!;
             var ns = metadata.Name.Namespace;
             var repositories = metadata.Elements(ns + "repository").ToArray();
-            if (repositories.Length != 1) return "owner-binding-conflict";
+            if (repositories.Length != 1 || repositories[0].HasElements ||
+                metadata.Element(ns + "id") is not { HasElements: false } ||
+                metadata.Element(ns + "version") is not { HasElements: false })
+                return "owner-binding-conflict";
             Lp01SpdxExpression ownerExpression;
             try { ownerExpression = Lp01SpdxExpression.Parse(Text(record, "spdx_grant_expression")!); }
             catch (SpdxLimitException) { return "owner-binding-conflict"; }
@@ -527,7 +561,7 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
                 var declarations = ReadDeclarations(text, out var remaining, out var ambiguous);
                 if (ambiguous) return "grant-incomplete";
                 if (declarations.Any(id => id != licenseId)) return "grant-contradiction";
-                if (string.IsNullOrWhiteSpace(remaining) ||
+                if (PythonBlank(remaining) ||
                     binding.GetProperty("caller_accepts_complete_grant").ValueKind != JsonValueKind.True)
                     return "grant-incomplete";
             }
@@ -535,7 +569,7 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
         }
     }
 
-    private static CaseResult Result(ResolverCase input, string branch, bool matchedFile = false)
+    private static CaseResult Result(ResolverCase input, string branch, string? licenseFilePath = null)
     {
         var unavailable = branch is "unsafe-package" or "missing-package" or "missing-policy" or
             "missing-corpus" or "invalid-policy";
@@ -548,7 +582,7 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
                 "package:nuspec/license");
             if (isOwner) references.Add("package:nuspec/repository");
             if (branch is "file-declared" or "conflicting-declarations")
-                references.Add("package:LICENSE.txt");
+                references.Add("package:" + licenseFilePath);
             references.Add("policy:lp01-policy-1.0.0");
             references.Add("corpus:spdx-licenses-3.27.0");
             if (isOwner)
@@ -558,8 +592,8 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
                 references.AddRange(input.Inputs.Where(i => i.Role.StartsWith("grant-", StringComparison.Ordinal))
                     .Select(i => i.Role + ":document"));
             }
-            else if (matchedFile && branch == "approved-non-copyleft")
-                references.Add("package:LICENSE.txt");
+            else if (licenseFilePath is not null && branch == "approved-non-copyleft")
+                references.Add("package:" + licenseFilePath);
         }
         var deterministic = branch is "owner-evidence-accepted" or "copyleft" or
             "weak-copyleft" or "non-osi";
@@ -581,8 +615,6 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
             "file-declared" => (
                 "The packaged SPDX-License-Identifier classifies MIT but is not license grant text; owner authorization and repository/release scope are also missing.",
                 "complete-owner-license-grant-and-release-scope", "package-owner"),
-            "owner-record-missing" => ("No prevalidated owner/repository evidence record was supplied.",
-                "prevalidated-owner-record", "package-owner"),
             "owner-acceptance-missing" => ("Caller did not explicitly accept the owner-authority prevalidation trust boundary.",
                 "explicit-caller-authority-acceptance", "input-owner"),
             "owner-record-invalid" => ("The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.",
@@ -638,7 +670,7 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
         {
             "approved-non-copyleft" => PackageContract,
             "file-declared" =>
-                "Checked LICENSE.txt contains only SPDX-License-Identifier: MIT; MIT is OSI-approved and allowlisted non-copyleft, but the file supplies no actual license grant text.",
+                $"Checked {licenseFilePath} contains only SPDX-License-Identifier: MIT; MIT is OSI-approved and allowlisted non-copyleft, but the file supplies no actual license grant text.",
             "owner-evidence-accepted" => AcceptedContract,
             _ when isOwner => OwnerContract,
             _ => null
