@@ -446,27 +446,36 @@ stimuli:
                   env = dict(os.environ, MOCK_BIN=str(bin_dir), REAL_DATE=real_date,
                              REAL_DOTNET=pathlib.Path(real_dotnet).as_posix(),
                              MSBUILDDISABLENODEREUSE='1')
+                  def source_for_date(value):
+                      return ('internal static class BuildInfo { public const string Stamp = "' +
+                              value.strftime('%Y%m%d') + '"; }\n').encode('utf-8')
                   def set_stamp(value):
                       env['BUILDINFO_STAMP'] = value.strftime('%Y%m%d')
-                      expected.write_bytes(
-                          ('internal static class BuildInfo { public const string Stamp = "' +
-                           env['BUILDINFO_STAMP'] + '"; }\n').encode('utf-8')
-                      )
-                  def run_build(phase, should_compile):
+                      expected.write_bytes(source_for_date(value))
+                  class UtcDateRollover(RuntimeError):
+                      pass
+                  def require_day(day):
+                      if day is not None and datetime.datetime.now(datetime.timezone.utc).date() != day:
+                          raise UtcDateRollover('UTC date changed during the default build probe')
+                  def run_build(phase, should_compile, day=None):
+                      require_day(day)
                       for path in ([path for _, path in observations] + compile_observations + compiler_observations +
                                    boundaries):
                           path.unlink(missing_ok=True)
-                      subprocess.run(
+                      result = subprocess.run(
                           [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
-                          cwd=work, env=env, check=True, timeout=60,
+                          cwd=work, env=env, timeout=60,
                       )
+                      require_day(day)
+                      result.check_returncode()
                       for name, path in observations:
                           assert path.is_file(), 'exercise both project Build paths and their submitted target hooks'
                           lines = path.read_text(encoding='utf-8-sig').splitlines()
                           assert lines[0] == name, 'exercise both project Build paths and their submitted target hooks'
                           output = pathlib.Path(lines[1]).resolve()
                           assert output.is_relative_to(work.resolve()) and output.is_file(), 'each project must produce its compiled assembly'
-                      assert all(path.is_file() and bool(path.read_text(encoding='utf-8-sig').strip()) == should_compile
+                      assert all(path.is_file() and (should_compile is None or
+                                 bool(path.read_text(encoding='utf-8-sig').strip()) == should_compile)
                                  for path in compiler_observations), phase + ': compile changed inputs but never force compilation on an unchanged build'
                       assert all(path.is_file() and generated.resolve() in [
                           pathlib.Path(line).resolve() for line in path.read_text(encoding='utf-8-sig').splitlines()
@@ -485,6 +494,26 @@ stimuli:
                   assert run_build('unchanged', False) == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
                   set_stamp(stamp + datetime.timedelta(days=1))
                   assert run_build('changed', True) > unchanged_mtime, 'refresh the generated source when the stamp changes, preserving the existing warm cache'
+                  for phase, value in [('unset', None), ('empty', '')]:
+                      for attempt in range(2):
+                          day = datetime.datetime.now(datetime.timezone.utc).date()
+                          set_stamp(day - datetime.timedelta(days=1))
+                          # A retry may reuse a completed seed, so its compiler state is not predetermined.
+                          seed_mtime = run_build('seed-' + phase, None)
+                          if value is None:
+                              env.pop('BUILDINFO_STAMP', None)
+                          else:
+                              env['BUILDINFO_STAMP'] = value
+                          expected.write_bytes(source_for_date(day))
+                          try:
+                              refreshed = run_build(phase, True, day)
+                              assert refreshed > seed_mtime, 'the UTC default must replace the prior-day cached source'
+                              assert run_build(phase + '-unchanged', False, day) == refreshed, 'an unchanged UTC-default build must preserve the generated-source timestamp'
+                          except UtcDateRollover as error:
+                              if attempt:
+                                  raise RuntimeError('UTC date changed during both attempts to check the ' + phase + ' default') from error
+                              continue
+                          break
           expected_exit_code: 0
       - type: output-matches
         config:

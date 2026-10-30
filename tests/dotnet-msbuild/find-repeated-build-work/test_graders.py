@@ -570,6 +570,9 @@ class GraderTests(unittest.TestCase):
                 )
                 ET.SubElement(generate, "Exec", Command="sh tools/make-buildinfo.sh obj/buildinfo.g.cs")
                 if tracks_stamp:
+                    items = ET.SubElement(generate, "ItemGroup")
+                    ET.SubElement(items, "PreviousStamp", Include="obj/buildinfo.*.stamp")
+                    ET.SubElement(generate, "Delete", Files="@(PreviousStamp)")
                     ET.SubElement(generate, "Touch", Files=output, AlwaysCreate="true")
                 target = ET.SubElement(project, "Target", Name="BuildAll")
                 ET.SubElement(target, "Exec", Command="dotnet build Contoso.slnx -c Release -m")
@@ -578,17 +581,27 @@ class GraderTests(unittest.TestCase):
                 if not tracks_stamp:
                     self.assertIn("preserve shared source bytes", result.stdout + result.stderr)
 
-    def test_shared_generation_is_independent_of_utc_rollover(self):
-        work, script = self.workspace("racy-run-once-guard")
-        script = (
-            "import datetime\n"
-            "class _NoWallClock(datetime.datetime):\n"
-            "    @classmethod\n"
-            "    def now(cls, tz=None):\n"
-            "        raise AssertionError('The controlled stamp must not depend on the wall clock')\n"
-            "datetime.datetime = _NoWallClock\n"
-        ) + script
-        self.grade(work, script)
+    def test_shared_generation_retries_utc_default_rollover(self):
+        for boundary, offsets in (
+            ("during-build", (-1, -1)),
+            ("between-builds", (0, 0, 0, 1)),
+            ("unstable-clock", (0, 1, 0, 1)),
+        ):
+            with self.subTest(boundary=boundary):
+                work, script = self.workspace("racy-run-once-guard")
+                script = (
+                    "import datetime\n"
+                    "_real_datetime = datetime.datetime\n"
+                    "_utc_day_offsets = iter(" + repr(offsets) + ")\n"
+                    "class _RolloverClock(_real_datetime):\n"
+                    "    @classmethod\n"
+                    "    def now(cls, tz=None):\n"
+                    "        return _real_datetime.now(tz) + datetime.timedelta(days=next(_utc_day_offsets, 0))\n"
+                    "datetime.datetime = _RolloverClock\n"
+                ) + script
+                result = self.grade(work, script, accepted=boundary != "unstable-clock")
+                if boundary == "unstable-clock":
+                    self.assertIn("UTC date changed during both attempts", result.stderr)
 
     def test_shared_generator_keeps_stamp_override_and_utc_default(self):
         work, _ = self.workspace("racy-run-once-guard")
@@ -612,6 +625,22 @@ class GraderTests(unittest.TestCase):
                     ('internal static class BuildInfo { public const string Stamp = "' +
                      value + '"; }\n').encode("utf-8") for value in values
                 })
+
+    def test_shared_generation_requires_utc_defaults(self):
+        for fallback in (
+            "${BUILDINFO_STAMP:-}",
+            "${BUILDINFO_STAMP:-19990101}",
+            "${BUILDINFO_STAMP-$stamp}",
+        ):
+            with self.subTest(fallback=fallback):
+                work, script = self.workspace("racy-run-once-guard")
+                generator = work / "exists-sentinel-race" / "tools" / "make-buildinfo.sh"
+                generator.write_text(
+                    generator.read_text(encoding="utf-8").replace("${BUILDINFO_STAMP:-$stamp}", fallback),
+                    encoding="utf-8",
+                )
+                result = self.grade(work, script, accepted=False)
+                self.assertIn("preserve shared source bytes", result.stdout + result.stderr)
 
     def test_inlined_shared_generation_cannot_rewrite_each_project_input(self):
         work, script = self.workspace("racy-run-once-guard")
