@@ -198,6 +198,20 @@ class GraderTests(unittest.TestCase):
         result = self.grade(work, script, accepted=False)
         self.assertIn("the fallback must run once", result.stderr)
 
+    def test_sdk_git_metadata_needs_no_external_revision_process(self):
+        work, script = self.workspace("invariant-per-project-exec")
+        base = work / "git-stamp"
+        shutil.copy2(SUITE / "git-stamp" / "build.sh", base / "build.sh")
+        path = base / "Directory.Build.targets"
+        tree = ET.parse(path)
+        target = tree.getroot().find("Target")
+        target.remove(target.find("Exec"))
+        revision = ET.Element("GitCommit", Condition="'$(GitCommit)' == ''")
+        revision.text = "$([System.String]::Copy('$(SourceRevisionId)').Substring(0, 7))"
+        target.find("PropertyGroup").insert(0, revision)
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
     def test_git_stamp_orchestrator_is_evaluated_by_msbuild(self):
         for forwards_revision in (True, False):
             with self.subTest(forwards_revision=forwards_revision):
@@ -480,39 +494,65 @@ class GraderTests(unittest.TestCase):
                 self.grade(work, script)
 
     def test_inlined_shared_generation_orchestrator_is_accepted(self):
+        for clock in ("shell", "managed"):
+            with self.subTest(clock=clock):
+                work, script = self.workspace("racy-run-once-guard")
+                base = work / "exists-sentinel-race"
+                (base / "tools" / "make-buildinfo.sh").unlink()
+                (base / "build.sh").write_text(
+                    "#!/usr/bin/env bash\nset -euo pipefail\n"
+                    "dotnet msbuild Build.proj -p:Configuration=Release -m\n",
+                    encoding="utf-8",
+                )
+                project = ET.Element("Project", DefaultTargets="BuildAll")
+                task = ET.SubElement(
+                    project, "UsingTask", TaskName="WriteSharedBuildInfo", TaskFactory="RoslynCodeTaskFactory",
+                    AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll",
+                )
+                parameters = ET.SubElement(task, "ParameterGroup")
+                ET.SubElement(parameters, "Stamp", ParameterType="System.String")
+                implementation = ET.SubElement(task, "Task")
+                for namespace in ("System.IO", "System.Text"):
+                    ET.SubElement(implementation, "Using", Namespace=namespace)
+                value = "Stamp" if clock == "shell" else (
+                    'System.DateTime.UtcNow.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture)'
+                )
+                ET.SubElement(implementation, "Code", Type="Fragment", Language="cs").text = (
+                    'var content = "internal static class BuildInfo { public const string Stamp = \\"" '
+                    '+ ' + value + ' + "\\"; }\\n";\n'
+                    'Directory.CreateDirectory("obj");\n'
+                    'var output = "obj/buildinfo.g.cs";\n'
+                    'if (!File.Exists(output) || File.ReadAllText(output) != content)\n'
+                    '    File.WriteAllText(output, content, new UTF8Encoding(false));\n'
+                )
+                target = ET.SubElement(project, "Target", Name="BuildAll")
+                if clock == "shell":
+                    command = 'bash -c "date -u +%Y%m%d"'
+                    if os.name == "nt":
+                        command = command.replace("%", "%%")
+                    lookup = ET.SubElement(target, "Exec", Command=command, ConsoleToMSBuild="true")
+                    ET.SubElement(lookup, "Output", TaskParameter="ConsoleOutput", PropertyName="DailyStamp")
+                ET.SubElement(target, "WriteSharedBuildInfo", Stamp="$(DailyStamp)")
+                ET.SubElement(target, "Exec", Command="dotnet build Contoso.slnx -c Release -m")
+                ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
+                self.grade(work, script)
+
+    def test_shared_generation_preserves_dependency_timestamps(self):
         work, script = self.workspace("racy-run-once-guard")
         base = work / "exists-sentinel-race"
-        (base / "tools" / "make-buildinfo.sh").unlink()
+        os.utime(base / "tools" / "make-buildinfo.sh", None)
         (base / "build.sh").write_text(
             "#!/usr/bin/env bash\nset -euo pipefail\n"
             "dotnet msbuild Build.proj -p:Configuration=Release -m\n",
             encoding="utf-8",
         )
         project = ET.Element("Project", DefaultTargets="BuildAll")
-        task = ET.SubElement(
-            project, "UsingTask", TaskName="WriteSharedBuildInfo", TaskFactory="RoslynCodeTaskFactory",
-            AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll",
+        generate = ET.SubElement(
+            project, "Target", Name="Generate", BeforeTargets="BuildAll",
+            Inputs="tools/make-buildinfo.sh", Outputs="obj/buildinfo.g.cs",
         )
-        parameters = ET.SubElement(task, "ParameterGroup")
-        ET.SubElement(parameters, "Stamp", ParameterType="System.String", Required="true")
-        implementation = ET.SubElement(task, "Task")
-        for namespace in ("System.IO", "System.Text"):
-            ET.SubElement(implementation, "Using", Namespace=namespace)
-        ET.SubElement(implementation, "Code", Type="Fragment", Language="cs").text = (
-            'var content = "internal static class BuildInfo { public const string Stamp = \\"" '
-            '+ Stamp + "\\"; }\\n";\n'
-            'Directory.CreateDirectory("obj");\n'
-            'var output = "obj/buildinfo.g.cs";\n'
-            'if (!File.Exists(output) || File.ReadAllText(output) != content)\n'
-            '    File.WriteAllText(output, content, new UTF8Encoding(false));\n'
-        )
+        ET.SubElement(generate, "Exec", Command="sh tools/make-buildinfo.sh obj/buildinfo.g.cs")
         target = ET.SubElement(project, "Target", Name="BuildAll")
-        command = 'bash -c "date -u +%Y%m%d"'
-        if os.name == "nt":
-            command = command.replace("%", "%%")
-        lookup = ET.SubElement(target, "Exec", Command=command, ConsoleToMSBuild="true")
-        ET.SubElement(lookup, "Output", TaskParameter="ConsoleOutput", PropertyName="DailyStamp")
-        ET.SubElement(target, "WriteSharedBuildInfo", Stamp="$(DailyStamp)")
         ET.SubElement(target, "Exec", Command="dotnet build Contoso.slnx -c Release -m")
         ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
         self.grade(work, script)
@@ -625,7 +665,7 @@ class GraderTests(unittest.TestCase):
                 (base / "prepare.sh").write_text("\n".join(lines) + "\n", encoding="utf-8")
                 condition = "[ ! -f obj/buildinfo.g.cs ]"
                 if refresh:
-                    condition += ' || [ "$(cat obj/buildinfo.stamp)" != "$stamp" ]'
+                    condition += ' || [ ! -f obj/buildinfo.stamp ] || [ "$(cat obj/buildinfo.stamp)" != "$stamp" ]'
                 wrapper.write_text(
                     "#!/usr/bin/env bash\nset -euo pipefail\n"
                     'stamp="$(date -u +%Y%m%d)"\n'

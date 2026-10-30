@@ -178,7 +178,7 @@ stimuli:
                       assert result.returncode == 0, result.stdout + result.stderr
                       for record in records:
                           check_build(record, commit, ci=True)
-                      assert revision_calls(full_commit) == 1, 'the fallback must run once only when no revision is supplied; compute the revision once for the solution build'
+                      assert revision_calls(full_commit) <= 1, 'the fallback must run once at most when no revision is supplied; compute the revision at most once for the solution build'
                       single = pathlib.Path(tmp) / ('single-' + str(iteration))
                       shutil.copytree('git-stamp', single, ignore=shutil.ignore_patterns('bin', 'obj', '.git'))
                       shutil.copytree(work / '.git', single / '.git')
@@ -190,7 +190,7 @@ stimuli:
                       )
                       assert result.returncode == 0, result.stdout + result.stderr
                       check_build(record, commit, ci=False)
-                      assert revision_calls(full_commit) == 1, 'the fallback must run once only when no revision is supplied'
+                      assert revision_calls(full_commit) <= 1, 'the fallback must run once at most when no revision is supplied'
           expected_exit_code: 0
       - type: output-matches
         config:
@@ -425,13 +425,13 @@ stimuli:
                   ET.ElementTree(solution).write(work / 'Contoso.slnx', encoding='utf-8')
                   real_date = subprocess.run([bash, '-c', 'command -v date'], check=True,
                                              capture_output=True, text=True).stdout.strip()
-                  assert real_date, 'GNU date is required to vary the submitted generator input'
+                  assert real_date, 'GNU date is required to exercise the original generator'
                   date = bin_dir / 'date'
                   # Widen partial writes without depending on the generator's implementation or location.
                   date.write_text(
                       '#!/usr/bin/env sh\nset -eu\n'
                       'sleep 1\n'
-                      '"$REAL_DATE" --date="$EXPECTED_DATE" "$@"\n',
+                      '"$REAL_DATE" "$@"\n',
                       encoding='utf-8', newline='\n',
                   )
                   date.chmod(0o755)
@@ -445,15 +445,11 @@ stimuli:
                   env = dict(os.environ, MOCK_BIN=str(bin_dir), REAL_DATE=real_date,
                              REAL_DOTNET=pathlib.Path(real_dotnet).as_posix(),
                              MSBUILDDISABLENODEREUSE='1')
-                  stamp = datetime.date(2040, 1, 1) + datetime.timedelta(days=uuid.uuid4().int % 20000)
-                  def set_stamp(value):
-                      env['EXPECTED_DATE'] = value.isoformat() + ' 00:00:00 UTC'
-                      expected.write_bytes(
-                          ('internal static class BuildInfo { public const string Stamp = "' +
-                           value.strftime('%Y%m%d') + '"; }\n').encode('utf-8')
-                      )
-                  set_stamp(stamp)
+                  def source_for_date(value):
+                      return ('internal static class BuildInfo { public const string Stamp = "' +
+                              value.strftime('%Y%m%d') + '"; }\n').encode('utf-8')
                   def run_build(phase, should_compile):
+                      expected.write_bytes(source_for_date(datetime.datetime.now(datetime.timezone.utc).date()))
                       for path in ([path for _, path in observations] + compile_observations + compiler_observations +
                                    boundaries):
                           path.unlink(missing_ok=True)
@@ -480,12 +476,21 @@ stimuli:
                           assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before compilation and preserve it through Build'
                       return generated.stat().st_mtime_ns
                   run_build('clean', True)
-                  previous = generated.stat()
-                  os.utime(generated, ns=(previous.st_atime_ns, previous.st_mtime_ns - 20_000_000_000))
                   unchanged_mtime = generated.stat().st_mtime_ns
                   assert run_build('unchanged', False) == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
-                  set_stamp(stamp + datetime.timedelta(days=1))
-                  assert run_build('changed', True) > previous.st_mtime_ns, 'changed generated content must advance the source timestamp'
+                  completed = pathlib.Path(tmp) / 'completed'
+                  work.rename(completed)
+                  shutil.copytree(base, work)
+                  shutil.copytree(completed / 'probes', work / 'probes',
+                                  ignore=shutil.ignore_patterns('bin', 'obj'))
+                  shutil.copy2(completed / 'Contoso.slnx', work / 'Contoso.slnx')
+                  stale_day = datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=1)
+                  generated.parent.mkdir(parents=True, exist_ok=True)
+                  generated.write_bytes(source_for_date(stale_day))
+                  stale_time = datetime.datetime.combine(stale_day, datetime.time.min, datetime.timezone.utc).timestamp()
+                  os.utime(generated, (stale_time, stale_time))
+                  stale_mtime = generated.stat().st_mtime_ns
+                  assert run_build('stale-day', True) > stale_mtime, 'refresh a prior-day generated source before compilation'
           expected_exit_code: 0
       - type: output-matches
         config:

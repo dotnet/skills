@@ -1,6 +1,6 @@
 ---
 name: find-repeated-build-work
-description: "Audit target/task executions in ONE MSBuild invocation. NEVER INVOKE for evaluation-only repeats (eval-performance), restores across commands (eliminate-redundant-restores), or second unchanged builds (incremental-build), even if those skills are unavailable. USE FOR: invariant per-project Exec, redundant project builds, per-item Exec, run-once races, execution-count audits. DO NOT USE FOR: unranked slowness (build-perf-baseline), required-variant bin/obj collisions (check-bin-obj-clash), idle workers/serial chains (build-parallelism)."
+description: "NEVER INVOKE for second unchanged builds: use incremental-build or answer without a skill if unavailable. Audit excess calls WITHIN ONE MSBuild command. USE FOR: invariant per-project Exec, redundant project builds, per-item Exec, run-once races. DO NOT USE FOR: evaluation-only repeats (eval-performance), restores across commands (eliminate-redundant-restores), unranked slowness (build-perf-baseline), required-variant bin/obj collisions (check-bin-obj-clash), idle workers/serial chains (build-parallelism)."
 license: MIT
 ---
 
