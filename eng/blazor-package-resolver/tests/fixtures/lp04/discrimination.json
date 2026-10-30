@@ -126,7 +126,10 @@
     "archive-byte-limit",
     "asset-byte-limit",
     "aggregate-byte-limit",
-    "root-entry-limit"
+    "root-entry-limit",
+    "nonempty-obligation-parts",
+    "review-disposition-enum",
+    "entry-kind-enum"
   ],
   "guard_inventory": [
     {
@@ -203,7 +206,8 @@
       "guard_id": "graph-counts",
       "rule": "Only the admitted graph node count differs; all bytes/reviews/mappings otherwise bind.",
       "witness_ids": [
-        "case:incomplete-dependency-inventory"
+        "case:incomplete-dependency-inventory",
+        "memory:edge-count-discrepancy"
       ]
     },
     {
@@ -1040,6 +1044,27 @@
       "witness_ids": [
         "memory:root-entry-limit"
       ]
+    },
+    {
+      "guard_id": "nonempty-obligation-parts",
+      "rule": "Every retained obligation has at least one required representation part.",
+      "witness_ids": [
+        "memory:empty-obligation-parts"
+      ]
+    },
+    {
+      "guard_id": "review-disposition-enum",
+      "rule": "An unknown disposition cannot silently mean no preservation obligations.",
+      "witness_ids": [
+        "memory:unknown-review-disposition"
+      ]
+    },
+    {
+      "guard_id": "entry-kind-enum",
+      "rule": "An unknown entry kind cannot silently remove a bundled third-party subject.",
+      "witness_ids": [
+        "memory:unknown-entry-kind"
+      ]
     }
   ],
   "witnesses": [
@@ -1626,6 +1651,15 @@
       "wrong_branch": "notice-coverage-satisfied"
     },
     {
+      "witness_id": "memory:edge-count-discrepancy",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "edge-count-discrepancy",
+      "weakened_rule": "graph-counts",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
       "witness_id": "memory:edge-limit",
       "case_id": "lp04-all-sources-covered",
       "kind": "fixed-in-memory",
@@ -1749,6 +1783,15 @@
       "recipe": "first-party-with-subject",
       "weakened_rule": "entry-kind-subjects",
       "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:unknown-entry-kind",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "unknown-entry-kind",
+      "weakened_rule": "entry-kind-enum",
+      "normal_branch": "input-invalid",
       "wrong_branch": "notice-coverage-satisfied"
     },
     {
@@ -1995,6 +2038,15 @@
       "wrong_branch": "notice-coverage-satisfied"
     },
     {
+      "witness_id": "memory:unknown-review-disposition",
+      "case_id": "lp04-reviewed-no-obligations",
+      "kind": "fixed-in-memory",
+      "recipe": "unknown-review-disposition",
+      "weakened_rule": "review-disposition-enum",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "no-applicable-surface"
+    },
+    {
       "witness_id": "memory:owner-fact-missing",
       "case_id": "lp04-owner-before-gap",
       "kind": "fixed-in-memory",
@@ -2064,6 +2116,15 @@
       "recipe": "duplicate-obligation",
       "weakened_rule": "obligations-unique",
       "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied"
+    },
+    {
+      "witness_id": "memory:empty-obligation-parts",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "fixed-in-memory",
+      "recipe": "empty-obligation-parts",
+      "weakened_rule": "nonempty-obligation-parts",
+      "normal_branch": "input-invalid",
       "wrong_branch": "notice-coverage-satisfied"
     },
     {
@@ -2446,9 +2507,9 @@
     }
   ],
   "limits": {
-    "guards": 125,
-    "fixed_recipes": 112,
-    "weakening_variants": 105,
-    "witnesses": 162
+    "guards": 128,
+    "fixed_recipes": 116,
+    "weakening_variants": 108,
+    "witnesses": 166
   }
 }
