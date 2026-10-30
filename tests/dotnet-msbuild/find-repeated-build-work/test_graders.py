@@ -474,6 +474,14 @@ class GraderTests(unittest.TestCase):
         )
         self.grade(work, script)
 
+    def test_added_schema_input_is_rejected(self):
+        work, script = self.workspace("per-item-exec")
+        (work / "per-file-exec" / "schemas" / "Unexpected.json").write_text(
+            '{"title": "Unexpected"}\n', encoding="utf-8",
+        )
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("preserve exactly the original fixture schema inputs", result.stderr)
+
     def test_imported_schema_implementation_preserves_original_files(self):
         for variant in ("preserved", "modified-evidence", "deleted-evidence"):
             with self.subTest(variant=variant):

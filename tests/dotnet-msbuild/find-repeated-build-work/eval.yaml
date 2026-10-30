@@ -593,7 +593,7 @@ stimuli:
                              SCHEMA_WORK=str(work), SCHEMA_LOG=str(log))
                   sources = set(work.joinpath('schemas').rglob('*.json'))
                   required = {work / 'schemas' / (name + '.json') for name in ['Customer', 'Invoice', 'Order']}
-                  assert required <= sources, 'preserve all fixture schema inputs'
+                  assert required == sources, 'preserve exactly the original fixture schema inputs'
                   source_bytes = {source: source.read_bytes() for source in sources}
                   # Separate past input/output mtimes without sleeps or future-dated outputs.
                   clock = time.time_ns() - 120_000_000_000
