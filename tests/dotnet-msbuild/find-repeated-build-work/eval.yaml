@@ -371,7 +371,7 @@ stimuli:
                       compiler_output = bin_dir / (name + '.csc-args')
                       compiler_observations.append(compiler_output)
                       ET.SubElement(observer, 'WriteLinesToFile', File=str(compiler_output.resolve()),
-                                    Lines='@(CscCommandLineArgs)', Overwrite='true')
+                                    Lines='@(CscCommandLineArgs)', Overwrite='false')
                       compiler = ET.SubElement(probe, 'Target', Name='ObserveCompile_' + uuid.uuid4().hex,
                                                BeforeTargets='CoreCompile')
                       for phase, target in [('compile', compiler), ('built', observer)]:
@@ -403,13 +403,14 @@ stimuli:
                       ET.SubElement(solution, 'Project', Path=project_path.relative_to(work).as_posix())
                   ET.ElementTree(solution).write(work / 'Contoso.slnx', encoding='utf-8')
                   generator = work / 'tools/make-buildinfo.sh'
-                  generator.rename(generator.with_name('make-buildinfo.submitted.sh'))
+                  submitted = generator.read_text(encoding='utf-8')
+                  shebang = submitted.splitlines(keepends=True)[0] if submitted.startswith('#!') else '#!/usr/bin/env sh\n'
                   generator.write_text(
-                      '#!/usr/bin/env sh\nset -eu\n'
+                      shebang + 'set -eu\n'
                       'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"\n'
                       'printf "generator-start\\n" >> "$MOCK_BIN/events"\n'
                       'sleep 1\n'
-                      'sh "$(dirname "$0")/make-buildinfo.submitted.sh" "$@"\n'
+                      '(\n' + submitted + '\n)\n'
                       'printf "generator-done\\n" >> "$MOCK_BIN/events"\n',
                       encoding='utf-8', newline='\n',
                   )

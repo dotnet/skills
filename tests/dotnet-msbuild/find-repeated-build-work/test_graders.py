@@ -380,6 +380,24 @@ class GraderTests(unittest.TestCase):
                 ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
                 self.grade(work, script)
 
+    def test_executable_shared_generator_keeps_its_entry_point(self):
+        work, script = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        generator = base / "tools" / "make-buildinfo.sh"
+        generator.write_text(
+            generator.read_text(encoding="utf-8").replace(
+                "set -eu\n", 'set -eu\n[ "${0##*/}" = "make-buildinfo.sh" ]\n',
+            ), encoding="utf-8",
+        )
+        generator.chmod(0o755)
+        wrapper = base / "build.sh"
+        wrapper.write_text(
+            wrapper.read_text(encoding="utf-8").replace(
+                "sh tools/make-buildinfo.sh", "./tools/make-buildinfo.sh",
+            ), encoding="utf-8",
+        )
+        self.grade(work, script)
+
     def test_shared_fixture_reproduces_reported_compiler_failure(self):
         work, _ = self.workspace("racy-run-once-guard")
         base = work / "exists-sentinel-race"
@@ -503,6 +521,33 @@ class GraderTests(unittest.TestCase):
         tree = ET.parse(path)
         target = ET.SubElement(
             tree.getroot(), "Target", Name="ForceRecompile", BeforeTargets="CoreCompile",
+        )
+        ET.SubElement(target, "Delete", Files="@(IntermediateAssembly)")
+        tree.write(path, encoding="utf-8")
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("unchanged", result.stderr)
+
+    def test_later_build_cannot_hide_unchanged_recompilation(self):
+        work, script = self.workspace("racy-run-once-guard")
+        base = work / "exists-sentinel-race"
+        wrapper = base / "build.sh"
+        lines = wrapper.read_text(encoding="utf-8").splitlines()
+        dispatch = lines.pop()
+        wrapper.write_text(
+            "\n".join(lines) + "\n"
+            'stamp="$(date -u +%Y%m%d)"\n'
+            'if [ -f obj/compiled-stamp ] && [ "$(cat obj/compiled-stamp)" = "$stamp" ]; then\n'
+            f"    {dispatch} -p:ForceProbeCompile=true\n"
+            "fi\n"
+            f"{dispatch}\n"
+            'printf "%s\\n" "$stamp" > obj/compiled-stamp\n',
+            encoding="utf-8",
+        )
+        path = base / "Directory.Build.targets"
+        tree = ET.parse(path)
+        target = ET.SubElement(
+            tree.getroot(), "Target", Name="ForceRecompile", BeforeTargets="CoreCompile",
+            Condition="'$(ForceProbeCompile)' == 'true'",
         )
         ET.SubElement(target, "Delete", Files="@(IntermediateAssembly)")
         tree.write(path, encoding="utf-8")
