@@ -22,7 +22,8 @@ internal static class Lp01ArchiveIntegrity
         if (!TryEnd(bytes, out var start, out var size, out var count) || entries.Count != count)
             return false;
         var names = new HashSet<string>(StringComparer.Ordinal);
-        var ranges = new List<(long Start, long End)>(count);
+        var ranges = new List<(long Start, long DataEnd, ushort Flags,
+            uint Crc, uint Compressed, uint Uncompressed)>(count);
         var cursor = (long)start;
         for (var index = 0; index < count; index++)
         {
@@ -73,20 +74,7 @@ internal static class Lp01ArchiveIntegrity
                      localUncompressed is not 0 && localUncompressed != uncompressed)) ||
                 !rawName.SequenceEqual(bytes.Slice((int)local + 30, localNameLength)))
                 return false;
-            var end = dataEnd;
-            if ((flags & 8) != 0)
-            {
-                var signed = Signature(bytes, end, 0x08074b50);
-                var descriptorSize = signed ? 16 : 12;
-                if (end + descriptorSize > start) return false;
-                var descriptor = bytes.Slice((int)end + (signed ? 4 : 0), 12);
-                if (BinaryPrimitives.ReadUInt32LittleEndian(descriptor) != crc ||
-                    BinaryPrimitives.ReadUInt32LittleEndian(descriptor[4..]) != compressed ||
-                    BinaryPrimitives.ReadUInt32LittleEndian(descriptor[8..]) != uncompressed)
-                    return false;
-                end += descriptorSize;
-            }
-            ranges.Add((local, end));
+            ranges.Add((local, dataEnd, flags, crc, compressed, uncompressed));
             string name;
             try { name = ((flags & 0x800) != 0 ? StrictUtf8 : Cp437).GetString(rawName); }
             catch (DecoderFallbackException) { return false; }
@@ -98,11 +86,26 @@ internal static class Lp01ArchiveIntegrity
             cursor = next;
         }
         if (cursor != (long)start + size) return false;
+        var ordered = ranges.OrderBy(range => range.Start).ToArray();
         var covered = 0L;
-        foreach (var range in ranges.OrderBy(range => range.Start))
+        for (var index = 0; index < ordered.Length; index++)
         {
+            var range = ordered[index];
             if (range.Start != covered) return false;
-            covered = range.End;
+            var boundary = index + 1 == ordered.Length ? start : ordered[index + 1].Start;
+            if ((range.Flags & 8) == 0)
+            {
+                if (range.DataEnd != boundary) return false;
+            }
+            else
+            {
+                var unsigned = DescriptorMatches(bytes, range.DataEnd, boundary,
+                    signed: false, range.Crc, range.Compressed, range.Uncompressed);
+                var signed = DescriptorMatches(bytes, range.DataEnd, boundary,
+                    signed: true, range.Crc, range.Compressed, range.Uncompressed);
+                if (unsigned == signed) return false;
+            }
+            covered = boundary;
         }
         if (covered != start) return false;
 
@@ -127,6 +130,19 @@ internal static class Lp01ArchiveIntegrity
             inspected += length;
         }
         return true;
+    }
+
+    private static bool DescriptorMatches(ReadOnlySpan<byte> bytes, long dataEnd, long boundary,
+        bool signed, uint crc, uint compressed, uint uncompressed)
+    {
+        var length = signed ? 16 : 12;
+        if (dataEnd + length != boundary || boundary > bytes.Length ||
+            signed && !Signature(bytes, dataEnd, 0x08074b50))
+            return false;
+        var fields = bytes.Slice((int)dataEnd + (signed ? 4 : 0), 12);
+        return BinaryPrimitives.ReadUInt32LittleEndian(fields) == crc &&
+            BinaryPrimitives.ReadUInt32LittleEndian(fields[4..]) == compressed &&
+            BinaryPrimitives.ReadUInt32LittleEndian(fields[8..]) == uncompressed;
     }
 
     private static bool ValidExtra(ReadOnlySpan<byte> fields)
@@ -163,6 +179,7 @@ internal static class Lp01ArchiveIntegrity
         count = 0;
         var end = bytes.Length - 22;
         if (!Signature(bytes, end, 0x06054b50) ||
+            Signature(bytes, end - 20, 0x07064b50) ||
             BinaryPrimitives.ReadUInt16LittleEndian(bytes[(end + 4)..]) != 0 ||
             BinaryPrimitives.ReadUInt16LittleEndian(bytes[(end + 6)..]) != 0 ||
             BinaryPrimitives.ReadUInt16LittleEndian(bytes[(end + 20)..]) != 0)

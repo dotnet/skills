@@ -50,6 +50,11 @@ exactly at a comment-free EOCD. It rejects Zip64 records and markers,
 unsupported flags or compression methods, backslash entry names, malformed
 extra-field framing, and Unicode name-remapping extra fields instead of
 allowing archive readers to select different package contents.
+The 20 bytes preceding the EOCD cannot start with a Zip64 locator signature,
+even when those bytes are framed as another field or entry data. Signed and
+unsigned data descriptors are checked against the declared CRC and lengths
+and the next physical boundary; a CRC equal to the descriptor signature does
+not choose the signed form by itself.
 Policy 1.0.0 and SPDX 3.27.0 are checked input bytes pinned independently
 by their SHA-256 identities, not downloaded or inferred from LP-05.
 Only an eligible package declaration with a canonical, checked owner record
