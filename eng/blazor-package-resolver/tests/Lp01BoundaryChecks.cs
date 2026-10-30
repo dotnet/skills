@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -162,6 +163,110 @@ internal static class Lp01BoundaryChecks
             throw new InvalidDataException("Test ZIP header not found: " + name);
         }
 
+        static byte[] Insert(byte[] source, int offset, byte[] inserted)
+        {
+            var result = new byte[source.Length + inserted.Length];
+            source.AsSpan(0, offset).CopyTo(result);
+            inserted.CopyTo(result, offset);
+            source.AsSpan(offset).CopyTo(result.AsSpan(offset + inserted.Length));
+            return result;
+        }
+
+        static ushort Word(byte[] bytes, int offset) =>
+            BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(offset));
+
+        static uint Dword(byte[] bytes, int offset) =>
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(offset));
+
+        static void SetWord(byte[] bytes, int offset, ushort value) =>
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(offset), value);
+
+        static void SetDword(byte[] bytes, int offset, uint value) =>
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(offset), value);
+
+        static byte[] CentralExtra(byte[] original, string name, byte[] extra)
+        {
+            var header = Header(original, 0x02014b50, name, false);
+            var oldLength = Word(original, header + 30);
+            var insertAt = header + 46 + Word(original, header + 28) + oldLength;
+            var changed = Insert(original, insertAt, extra);
+            SetWord(changed, header + 30, checked((ushort)(oldLength + extra.Length)));
+            var end = changed.Length - 22;
+            SetDword(changed, end + 12, Dword(changed, end + 12) + (uint)extra.Length);
+            return changed;
+        }
+
+        static byte[] LocalExtra(byte[] original, string name, byte[] extra)
+        {
+            var header = Header(original, 0x04034b50, name, true);
+            var oldLength = Word(original, header + 28);
+            var insertAt = header + 30 + Word(original, header + 26) + oldLength;
+            var directory = (int)Dword(original, original.Length - 22 + 16);
+            var changed = Insert(original, insertAt, extra);
+            SetWord(changed, header + 28, checked((ushort)(oldLength + extra.Length)));
+            var end = changed.Length - 22;
+            SetDword(changed, end + 16, (uint)(directory + extra.Length));
+            var cursor = directory + extra.Length;
+            var last = cursor + (int)Dword(changed, end + 12);
+            while (cursor < last)
+            {
+                var local = Dword(changed, cursor + 42);
+                if (local >= insertAt) SetDword(changed, cursor + 42, local + (uint)extra.Length);
+                cursor += 46 + Word(changed, cursor + 28) + Word(changed, cursor + 30) +
+                    Word(changed, cursor + 32);
+            }
+            return changed;
+        }
+
+        static byte[] UnicodePath(string name, string replacement)
+        {
+            uint crc = uint.MaxValue;
+            foreach (var value in Encoding.ASCII.GetBytes(name))
+            {
+                crc ^= value;
+                for (var bit = 0; bit < 8; bit++)
+                    crc = (crc >> 1) ^ ((crc & 1) != 0 ? 0xedb88320u : 0u);
+            }
+            var payload = Encoding.UTF8.GetBytes(replacement);
+            var field = new byte[9 + payload.Length];
+            SetWord(field, 0, 0x7075);
+            SetWord(field, 2, checked((ushort)(5 + payload.Length)));
+            field[4] = 1;
+            SetDword(field, 5, ~crc);
+            payload.CopyTo(field, 9);
+            return field;
+        }
+
+        byte[] WithDescriptor(byte[] xml, bool signed)
+        {
+            var original = Package(xml, null, ("README.txt", "archive content"u8.ToArray()));
+            var central = Header(original, 0x02014b50, "README.txt", false);
+            var local = Header(original, 0x04034b50, "README.txt", true);
+            var dataEnd = local + 30 + Word(original, local + 26) +
+                Word(original, local + 28) + (int)Dword(original, central + 20);
+            var descriptor = new byte[signed ? 16 : 12];
+            var offset = signed ? 4 : 0;
+            if (signed) SetDword(descriptor, 0, 0x08074b50);
+            SetDword(descriptor, offset, Dword(original, central + 16));
+            SetDword(descriptor, offset + 4, Dword(original, central + 20));
+            SetDword(descriptor, offset + 8, Dword(original, central + 24));
+            var changed = Insert(original, dataEnd, descriptor);
+            SetDword(changed, changed.Length - 22 + 16,
+                Dword(original, original.Length - 22 + 16) + (uint)descriptor.Length);
+            SetWord(changed, local + 6, (ushort)(Word(changed, local + 6) | 8));
+            SetWord(changed, central + descriptor.Length + 8,
+                (ushort)(Word(changed, central + descriptor.Length + 8) | 8));
+            return changed;
+        }
+
+        void UnsafeBoth(string label, Func<byte[], byte[]> makePackage)
+        {
+            var plain = makePackage(source);
+            Expect(label + " package-only", "unsafe-package", plain);
+            var bound = makePackage(ownerNuspec);
+            Expect(label + " owner-bound", "unsafe-package", bound, OwnerFor(bound), grant);
+        }
+
         var cp437 = Encoding.GetEncoding(437);
         Expect("valid CP437 entry", "approved-non-copyleft",
             Package(source, cp437, ("Stra\u00dfe.txt", "a"u8.ToArray())));
@@ -189,6 +294,129 @@ internal static class Lp01BoundaryChecks
         var localCrcMismatch = Package(source, null, ("LICENSE.txt", "a"u8.ToArray()));
         localCrcMismatch[Header(localCrcMismatch, 0x04034b50, "LICENSE.txt", true) + 14] ^= 0x01;
         Expect("local and central CRC mismatch", "unsafe-package", localCrcMismatch);
+
+        UnsafeBoth("overlapping physical entry ranges", xml =>
+        {
+            var bytes = Package(xml, null, ("README.txt", "second"u8.ToArray()));
+            var central = Header(bytes, 0x02014b50, "Sample.LP01.nuspec", false);
+            var local = Header(bytes, 0x04034b50, "Sample.LP01.nuspec", true);
+            var nextLocal = Header(bytes, 0x04034b50, "README.txt", true);
+            var dataStart = local + 30 + Word(bytes, local + 26) + Word(bytes, local + 28);
+            var overlappingLength = (uint)(nextLocal - dataStart + 1);
+            SetDword(bytes, central + 20, overlappingLength);
+            SetDword(bytes, local + 18, overlappingLength);
+            return bytes;
+        });
+        foreach (var flag in new ushort[] { 0x0020, 0x0040, 0x0010, 0x2000 })
+            UnsafeBoth($"unsupported matching ZIP flag 0x{flag:x4}", xml =>
+            {
+                var bytes = Package(xml);
+                var local = Header(bytes, 0x04034b50, "Sample.LP01.nuspec", true);
+                var central = Header(bytes, 0x02014b50, "Sample.LP01.nuspec", false);
+                SetWord(bytes, local + 6, (ushort)(Word(bytes, local + 6) | flag));
+                SetWord(bytes, central + 8, (ushort)(Word(bytes, central + 8) | flag));
+                return bytes;
+            });
+        UnsafeBoth("gap before central directory", xml =>
+        {
+            var bytes = Package(xml);
+            var start = (int)Dword(bytes, bytes.Length - 22 + 16);
+            var gap = "unreferenced"u8.ToArray();
+            var changed = Insert(bytes, start, gap);
+            SetDword(changed, changed.Length - 22 + 16, (uint)(start + gap.Length));
+            return changed;
+        });
+        UnsafeBoth("gap after central directory", xml =>
+        {
+            var bytes = Package(xml);
+            return Insert(bytes, bytes.Length - 22, "gap"u8.ToArray());
+        });
+        UnsafeBoth("comment containing alternate EOCD", xml =>
+        {
+            var bytes = Package(xml);
+            SetWord(bytes, bytes.Length - 2, 22);
+            return Insert(bytes, bytes.Length, [0x50, 0x4b, 0x05, 0x06, .. new byte[18]]);
+        });
+        UnsafeBoth("Zip64 locator", xml =>
+        {
+            var bytes = Package(xml);
+            return Insert(bytes, bytes.Length - 22,
+                [0x50, 0x4b, 0x06, 0x07, .. new byte[16]]);
+        });
+        UnsafeBoth("saturated Zip64 entry count", xml =>
+        {
+            var bytes = Package(xml);
+            SetWord(bytes, bytes.Length - 22 + 8, ushort.MaxValue);
+            SetWord(bytes, bytes.Length - 22 + 10, ushort.MaxValue);
+            return bytes;
+        });
+        UnsafeBoth("saturated Zip64 central offset", xml =>
+        {
+            var bytes = Package(xml);
+            SetDword(bytes, bytes.Length - 22 + 16, uint.MaxValue);
+            return bytes;
+        });
+        UnsafeBoth("Zip64 required version", xml =>
+        {
+            var bytes = Package(xml);
+            SetWord(bytes, Header(bytes, 0x04034b50, "Sample.LP01.nuspec", true) + 4, 45);
+            SetWord(bytes, Header(bytes, 0x02014b50, "Sample.LP01.nuspec", false) + 6, 45);
+            return bytes;
+        });
+        UnsafeBoth("Unicode Path README to LICENSE", xml =>
+            CentralExtra(Package(xml, null, ("README.txt", "content"u8.ToArray())),
+                "README.txt", UnicodePath("README.txt", "LICENSE.txt")));
+        UnsafeBoth("Unicode Path nuspec remap", xml =>
+            CentralExtra(Package(xml), "Sample.LP01.nuspec",
+                UnicodePath("Sample.LP01.nuspec", "Other.LP01.nuspec")));
+        UnsafeBoth("Unicode Path invalid UTF-8 payload", xml =>
+        {
+            var field = UnicodePath("README.txt", "LICENSE.txt");
+            field[^1] = 0xff;
+            return CentralExtra(Package(xml, null, ("README.txt", "content"u8.ToArray())),
+                "README.txt", field);
+        });
+        UnsafeBoth("Unicode Path local extra", xml =>
+            LocalExtra(Package(xml, null, ("README.txt", "content"u8.ToArray())),
+                "README.txt", UnicodePath("README.txt", "LICENSE.txt")));
+        var supportedExtra = CentralExtra(Package(source), "Sample.LP01.nuspec",
+            [0xfe, 0xca, 0x01, 0x00, 0x2a]);
+        Expect("well-framed non-remapping extra", "approved-non-copyleft", supportedExtra);
+        UnsafeBoth("truncated central extra field", xml =>
+            CentralExtra(Package(xml), "Sample.LP01.nuspec", [0x75, 0x70, 0xff, 0x7f]));
+        UnsafeBoth("truncated local extra field", xml =>
+            LocalExtra(Package(xml), "Sample.LP01.nuspec", [0x75, 0x70, 0x01]));
+        UnsafeBoth("Zip64 local extra field", xml =>
+            LocalExtra(Package(xml), "Sample.LP01.nuspec", [0x01, 0x00, 0x00, 0x00]));
+        UnsafeBoth("alternate filename encoding extra field", xml =>
+            CentralExtra(Package(xml), "Sample.LP01.nuspec", [0x08, 0x00, 0x00, 0x00]));
+        UnsafeBoth("backslash ZIP entry alias", xml =>
+            Package(xml, null, ("x\\y", "first"u8.ToArray()),
+                ("x/y", "second"u8.ToArray())));
+        UnsafeBoth("backslash root nuspec", xml =>
+        {
+            var bytes = Package(xml);
+            bytes[Header(bytes, 0x04034b50, "Sample.LP01.nuspec", true) + 30 + 6] = (byte)'\\';
+            bytes[Header(bytes, 0x02014b50, "Sample.LP01.nuspec", false) + 46 + 6] = (byte)'\\';
+            return bytes;
+        });
+        foreach (var signed in new[] { false, true })
+        {
+            var packageWithDescriptor = WithDescriptor(source, signed);
+            Expect($"valid {(signed ? "signed" : "unsigned")} descriptor", "approved-non-copyleft",
+                packageWithDescriptor);
+            var ownerWithDescriptor = WithDescriptor(ownerNuspec, signed);
+            Expect($"owner-bound valid {(signed ? "signed" : "unsigned")} descriptor",
+                "owner-evidence-accepted", ownerWithDescriptor,
+                OwnerFor(ownerWithDescriptor), grant);
+        }
+        UnsafeBoth("inconsistent signed data descriptor", xml =>
+        {
+            var bytes = WithDescriptor(xml, signed: true);
+            var start = (int)Dword(bytes, bytes.Length - 22 + 16);
+            bytes[start - 12] ^= 1;
+            return bytes;
+        });
 
         foreach (var version in new[] { "1.0.0.0", "0.999", "00001.0",
             "+1.0", "-1.0", " 1.0", "1.0 ", "1. 0", "1..0", "1.0.0.0.0" })
