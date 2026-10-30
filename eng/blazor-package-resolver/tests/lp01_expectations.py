@@ -403,7 +403,7 @@ OWNER_SPECS = (
     ("conflicting-term", "grant-contradiction"),
     ("non-equivalent-operator", "owner-binding-conflict"),
     ("non-equivalent-group", "owner-binding-conflict"),
-    ("no-record", "owner-record-missing"),
+    ("no-record", "approved-non-copyleft"),
     ("acceptance-false", "owner-acceptance-missing"),
     ("acceptance-absent", "owner-record-invalid"),
     ("wrong-package", "owner-binding-conflict"),
@@ -948,7 +948,7 @@ def owner_state(inputs, content, record_bytes, second, grants, policy_bytes, pol
     if package_branch != "approved-non-copyleft":
         return package_branch
     if "owner-record" not in checked:
-        return "owner-record-missing"
+        return package_branch
     if "owner-record-conflict" in checked:
         return "owner-record-conflict"
     if len(record_bytes) > 8192 or record_bytes.startswith(b"\xef\xbb\xbf"):
@@ -1087,7 +1087,6 @@ def disposition(branch):
             f"alternative ({branch}); this is a package-scoped negative, not a repository-wide verdict."
         ), None, None, None
     explanations = {
-        "owner-record-missing": ("No prevalidated owner/repository evidence record was supplied.", "prevalidated-owner-record", "package-owner"),
         "owner-acceptance-missing": ("Caller did not explicitly accept the owner-authority prevalidation trust boundary.", "explicit-caller-authority-acceptance", "input-owner"),
         "owner-record-invalid": ("The owner record is malformed, noncanonical, over 8192 bytes or has unknown/missing schema fields.", "canonical-versioned-owner-record", "input-owner"),
         "owner-record-conflict": ("Multiple owner records assert conflicting identities for the checked package.", "single-unambiguous-owner-record", "input-owner"),
@@ -1233,8 +1232,7 @@ def retained_data(policy_bytes, catalog_bytes, policy, licenses):
             dict(role="corpus", path="policy/" + CATALOG.name, sha256=sha(catalog_bytes)),
         ]
         cases.append(dict(case_id="lp01-retained-" + vendor, row_id="LP-01", inputs=inputs,
-                          expected=result("approved-non-copyleft", inputs, "package:nuspec/license",
-                                          "SPDX expression MIT; SPDX license-list 3.27.0 OSI=true; LP-01 policy 1.0.0 non_copyleft_allowlist contains MIT."),
+                          expected=result("approved-non-copyleft", inputs, "package:nuspec/license"),
                           rationale="Exact retained package declares MIT; independently classified using pinned policy, without inferring repository-wide or owner licensing from package metadata.",
                           evidence_pointers=["package:nuspec/license", "package:archive",
                                              "policy:lp01-policy-1.0.0", "corpus:spdx-licenses-3.27.0"]))
@@ -1425,6 +1423,13 @@ def main():
                     f"Owner package ZIP changed: {name}")
             verify_special_archive(package, "owner-" + name)
     by_id = {case["case_id"]: case for case in synthetic["cases"]}
+    no_record = by_id["lp01-owner-no-record"]["expected"]
+    require(no_record["branch_id"] == "approved-non-copyleft" and
+            no_record["decision"] == "escalated" and
+            no_record["evidence_contract"] == by_id["lp01-mit"]["expected"]["evidence_contract"] ==
+            acceptance["cases"][0]["expected"]["evidence_contract"] ==
+            acceptance["cases"][1]["expected"]["evidence_contract"],
+            "Owner-record-absent positives must share a path-independent branch and contract.")
     _, _, at_record, _, at_grants = owner_inputs("grant-at-limit", policy_bytes, catalog_bytes)
     at_grant = at_grants["grant-mit"]
     over_grant = owner_inputs("oversize-grant", policy_bytes, catalog_bytes)[-1]["grant-mit"]
