@@ -201,8 +201,8 @@ stimuli:
       - type: prompt
     rubric:
       - Identified from the Exec call count (38 calls for 38 projects) that the same git lookup runs in every project
-      - Computed the commit id once, for example in build.sh passed as a global property, and made the per-project Exec
-        run only when the property is empty so single-project builds keep a stamp
+      - Eliminated redundant external revision lookups, for example by computing the commit once and passing it as a
+        global property or using SDK revision metadata, while preserving the correct stamp in solution and single-project builds
       - Did not rely on a flag property or Exists check to dedupe the work across projects
       - Kept the informational version in the same format
       - Did not claim the build was run or the saving measured
@@ -448,15 +448,23 @@ stimuli:
                   def source_for_date(value):
                       return ('internal static class BuildInfo { public const string Stamp = "' +
                               value.strftime('%Y%m%d') + '"; }\n').encode('utf-8')
+                  class UtcDateRollover(RuntimeError):
+                      pass
+                  def require_same_day():
+                      if datetime.datetime.now(datetime.timezone.utc).date() != scenario_day:
+                          raise UtcDateRollover('UTC date changed during the build scenario')
                   def run_build(phase, should_compile):
-                      expected.write_bytes(source_for_date(datetime.datetime.now(datetime.timezone.utc).date()))
+                      require_same_day()
+                      expected.write_bytes(source_for_date(scenario_day))
                       for path in ([path for _, path in observations] + compile_observations + compiler_observations +
                                    boundaries):
                           path.unlink(missing_ok=True)
-                      subprocess.run(
+                      result = subprocess.run(
                           [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
-                          cwd=work, env=env, check=True, timeout=60,
+                          cwd=work, env=env, timeout=60,
                       )
+                      require_same_day()
+                      result.check_returncode()
                       for name, path in observations:
                           assert path.is_file(), 'exercise both project Build paths and their submitted target hooks'
                           lines = path.read_text(encoding='utf-8-sig').splitlines()
@@ -475,22 +483,34 @@ stimuli:
                       for mtime in boundaries:
                           assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before compilation and preserve it through Build'
                       return generated.stat().st_mtime_ns
-                  run_build('clean', True)
-                  unchanged_mtime = generated.stat().st_mtime_ns
-                  assert run_build('unchanged', False) == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
-                  completed = pathlib.Path(tmp) / 'completed'
-                  work.rename(completed)
-                  shutil.copytree(base, work)
-                  shutil.copytree(completed / 'probes', work / 'probes',
-                                  ignore=shutil.ignore_patterns('bin', 'obj'))
-                  shutil.copy2(completed / 'Contoso.slnx', work / 'Contoso.slnx')
-                  stale_day = datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=1)
-                  generated.parent.mkdir(parents=True, exist_ok=True)
-                  generated.write_bytes(source_for_date(stale_day))
-                  stale_time = datetime.datetime.combine(stale_day, datetime.time.min, datetime.timezone.utc).timestamp()
-                  os.utime(generated, (stale_time, stale_time))
-                  stale_mtime = generated.stat().st_mtime_ns
-                  assert run_build('stale-day', True) > stale_mtime, 'refresh a prior-day generated source before compilation'
+                  def reset_work():
+                      completed = pathlib.Path(tmp) / ('completed-' + uuid.uuid4().hex)
+                      work.rename(completed)
+                      shutil.copytree(base, work)
+                      shutil.copytree(completed / 'probes', work / 'probes',
+                                      ignore=shutil.ignore_patterns('bin', 'obj'))
+                      shutil.copy2(completed / 'Contoso.slnx', work / 'Contoso.slnx')
+                  for attempt in range(2):
+                      scenario_day = datetime.datetime.now(datetime.timezone.utc).date()
+                      try:
+                          run_build('clean', True)
+                          unchanged_mtime = generated.stat().st_mtime_ns
+                          assert run_build('unchanged', False) == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
+                          reset_work()
+                          stale_day = scenario_day - datetime.timedelta(days=1)
+                          generated.parent.mkdir(parents=True, exist_ok=True)
+                          generated.write_bytes(source_for_date(stale_day))
+                          stale_time = datetime.datetime.combine(stale_day, datetime.time.min, datetime.timezone.utc).timestamp()
+                          os.utime(generated, (stale_time, stale_time))
+                          stale_mtime = generated.stat().st_mtime_ns
+                          assert run_build('stale-day', True) > stale_mtime, 'refresh a prior-day generated source before compilation'
+                      except UtcDateRollover as error:
+                          if attempt:
+                              raise RuntimeError('UTC date changed during both build attempts; rerun with a stable clock') from error
+                          # A new day changes the inputs, so restart rather than judging it as an unchanged build.
+                          reset_work()
+                          continue
+                      break
           expected_exit_code: 0
       - type: output-matches
         config:

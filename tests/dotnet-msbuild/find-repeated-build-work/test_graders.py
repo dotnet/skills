@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -556,6 +557,39 @@ class GraderTests(unittest.TestCase):
         ET.SubElement(target, "Exec", Command="dotnet build Contoso.slnx -c Release -m")
         ET.ElementTree(project).write(base / "Build.proj", encoding="utf-8")
         self.grade(work, script)
+
+    def test_shared_generation_handles_utc_rollover(self):
+        for boundary, offsets in (
+            ("during-build", (-1, -1)),
+            ("between-builds", (-1, -1, -1)),
+            ("unstable-clock", (0, -1, 0, -1)),
+        ):
+            with self.subTest(boundary=boundary):
+                work, script = self.workspace("racy-run-once-guard")
+                if boundary == "between-builds":
+                    generator = work / "exists-sentinel-race" / "tools" / "make-buildinfo.sh"
+                    marker = shlex.quote((work / "clock-used").as_posix())
+                    first_date = (
+                        "$(if [ -f " + marker + " ]; then date -u +%Y%m%d; "
+                        "else touch " + marker + "; date -u --date=yesterday +%Y%m%d; fi)"
+                    )
+                    generator.write_text(
+                        generator.read_text(encoding="utf-8").replace("$(date -u +%Y%m%d)", first_date),
+                        encoding="utf-8",
+                    )
+                script = (
+                    "import datetime\n"
+                    "_real_datetime = datetime.datetime\n"
+                    "_utc_day_offsets = iter(" + repr(offsets) + ")\n"
+                    "class _RolloverClock(_real_datetime):\n"
+                    "    @classmethod\n"
+                    "    def now(cls, tz=None):\n"
+                    "        return _real_datetime.now(tz) + datetime.timedelta(days=next(_utc_day_offsets, 0))\n"
+                    "datetime.datetime = _RolloverClock\n"
+                ) + script
+                result = self.grade(work, script, accepted=boundary != "unstable-clock")
+                if boundary == "unstable-clock":
+                    self.assertIn("UTC date changed during both build attempts", result.stderr)
 
     def test_inlined_shared_generation_cannot_rewrite_each_project_input(self):
         work, script = self.workspace("racy-run-once-guard")
