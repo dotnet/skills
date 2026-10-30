@@ -17,9 +17,10 @@ internal static class Lp01ArchiveIntegrity
         return crc;
     }).ToArray();
 
-    internal static bool Validate(ReadOnlySpan<byte> bytes, IReadOnlyList<ZipArchiveEntry> entries)
+    internal static bool Validate(ReadOnlySpan<byte> bytes, IReadOnlyList<ZipArchiveEntry> entries,
+        ReadOnlySpan<byte> expectedComment = default)
     {
-        if (!TryEnd(bytes, out var start, out var size, out var count) || entries.Count != count)
+        if (!TryEnd(bytes, expectedComment, out var start, out var size, out var count) || entries.Count != count)
             return false;
         var names = new HashSet<string>(StringComparer.Ordinal);
         var ranges = new List<(long Start, long DataEnd, ushort Flags,
@@ -173,16 +174,18 @@ internal static class Lp01ArchiveIntegrity
         offset >= 0 && offset <= bytes.Length - 4 &&
         BinaryPrimitives.ReadUInt32LittleEndian(bytes.Slice((int)offset, 4)) == signature;
 
-    private static bool TryEnd(ReadOnlySpan<byte> bytes, out uint start, out uint size, out int count)
+    private static bool TryEnd(ReadOnlySpan<byte> bytes, ReadOnlySpan<byte> expectedComment,
+        out uint start, out uint size, out int count)
     {
         start = size = 0;
         count = 0;
-        var end = bytes.Length - 22;
+        var end = bytes.Length - 22 - expectedComment.Length;
         if (!Signature(bytes, end, 0x06054b50) ||
             Signature(bytes, end - 20, 0x07064b50) ||
             BinaryPrimitives.ReadUInt16LittleEndian(bytes[(end + 4)..]) != 0 ||
             BinaryPrimitives.ReadUInt16LittleEndian(bytes[(end + 6)..]) != 0 ||
-            BinaryPrimitives.ReadUInt16LittleEndian(bytes[(end + 20)..]) != 0)
+            BinaryPrimitives.ReadUInt16LittleEndian(bytes[(end + 20)..]) != expectedComment.Length ||
+            !bytes[(end + 22)..].SequenceEqual(expectedComment))
             return false;
         count = BinaryPrimitives.ReadUInt16LittleEndian(bytes[(end + 10)..]);
         size = BinaryPrimitives.ReadUInt32LittleEndian(bytes[(end + 12)..]);

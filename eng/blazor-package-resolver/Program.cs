@@ -9,6 +9,8 @@ try
     {
         [] or ["coverage"] => registry.Coverage(catalog),
         ["replay", var manifest] => Replay.Run(manifest, registry),
+        ["acquire-lp02", var package, var destination, var project, var implementation, var rationale] =>
+            await Lp02SourceAcquisition.CaptureAsync(package, destination, project, implementation, rationale),
         _ => throw new CliUsageException()
     };
     using var stdout = Console.OpenStandardOutput();
@@ -36,7 +38,7 @@ catch (UnauthorizedAccessException)
 }
 catch (CliUsageException)
 {
-    Console.Error.WriteLine("Usage: blazor-package-resolver [coverage | replay <cases.json>]");
+    Console.Error.WriteLine("Usage: blazor-package-resolver [coverage | replay <cases.json> | acquire-lp02 <nupkg> <new-directory> <archive-project-path> <archive-implementation-path> <rationale>]");
     Environment.ExitCode = 2;
 }
 

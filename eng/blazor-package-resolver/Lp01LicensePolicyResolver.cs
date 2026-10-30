@@ -233,7 +233,7 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
         return true;
     }
 
-    private static bool SupportedXmlEncoding(byte[] bytes)
+    internal static bool SupportedXmlEncoding(byte[] bytes)
     {
         var content = bytes.AsSpan();
         string text;

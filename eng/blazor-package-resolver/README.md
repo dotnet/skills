@@ -10,11 +10,12 @@ pinned by the original paths, Git blob IDs and SHA-256 digests in
 `data/provenance.json`. The loader checks both digests, crosswalk clauses,
 source version and all core scopes. Only the 60 `repository-wide` core rows
 enter the registry; the 52 component rows and the separate TA-08 extension
-are excluded. LP-01 and LP-05 through LP-10 have deterministic package-byte
-handlers: `lp01-license-policy/1.0.0`, `lp05-license-expression/1.0.0`, `lp06-repository-url/1.0.0`,
+are excluded. LP-01, LP-02 and LP-05 through LP-10 have deterministic checked-byte
+handlers: `lp01-license-policy/1.0.0`, `lp02-public-source/1.0.0`,
+`lp05-license-expression/1.0.0`, `lp06-repository-url/1.0.0`,
 `lp07-repository-commit/1.0.0`, `lp08-authors/1.0.0`,
 `lp09-project-url/1.0.0`, `lp10-binary-attribution/1.0.0`, and
-`pi01-strong-name/1.0.0`. The other 52 package rows remain `tbd`.
+`pi01-strong-name/1.0.0`. The other 51 package rows remain `tbd`.
 `tbd` and `implemented` are
 **work states**, not evaluation results.
 
@@ -27,7 +28,7 @@ checked grant per distinct normalized SPDX license ID, and two opt-in retained-p
 classifications that **escalate** pending owner grant and release/source
 scope evidence. The production resolver replays those exact expectations;
 an eligible package expression without an owner record is never a
-repository-wide license verdict. Coverage is eight implemented and 52 TBD.
+repository-wide license verdict. Coverage is nine implemented and 51 TBD.
 Run `python eng\blazor-package-resolver\tests\lp01_expectations.py`
 to check the frozen oracle and policy bytes independently of production.
 
@@ -71,6 +72,7 @@ Run from the repository root with the normal SDK in `global.json`:
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- coverage
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp01/cases.json
+dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp02/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp05/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp06/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp07/cases.json
@@ -93,6 +95,24 @@ Each handler receives role-keyed `CheckedInput` entries with the same read-only
 bytes used for SHA-256 verification; handlers consume those bytes rather than
 reopening a path. Results retain only relative paths, roles, and digests, so
 replays do not depend on the checkout location.
+
+LP-02 establishes only qualified public source availability at the exact
+package-declared revision. Its offline handler binds the package identity,
+GitHub HTTPS repository and exact commit to a machine-generated anonymous
+codeload receipt, retained archive, and digests of a library project marker
+and implementation file. It does **not** establish that the published
+binaries were built from that revision, repository ownership, complete build
+closure, reproducibility or readiness. Missing/blocked/not-found/auth-required
+and unsupported observations remain unresolved (`not tested`), never
+closed-source or a gap. The narrowly scoped, separate `acquire-lp02`
+command disables application credentials, cookies, proxies, redirects and
+decompression; replay never retrieves anything. The full contract,
+acquisition procedure, schema, numerical limits, 33 frozen oracle cases,
+12 focused runtime cases and two opt-in retained escalations are in
+[`tests/fixtures/lp02/README.md`](tests/fixtures/lp02/README.md).
+The accepted base has no readiness skill acquisition infrastructure; this
+implementation reuses the existing checked-input/digest/replay and bounded
+archive/nuspec surfaces instead of importing a second evidence framework.
 
 LP-05 through LP-09 inspect only the checked package bytes through their shared
 nuspec reader. It bounds package and ZIP directory size, entry count,
@@ -207,7 +227,9 @@ row's `tests/fixtures/lp05/acceptance-results.json` and
 `tests/fixtures/lp10/acceptance.json` outcomes but no committed
 acceptance receipt. The real-package
 acceptance replays are opt-in, separate from ordinary CI and from any
-readiness decision.
+readiness decision. LP-02 separately retains both declared-source-unverified
+expectations until an actual anonymous capture and bounded source mapping
+are supplied.
 
 Each case's `expected` is a structured `CaseResult`: `row_id`, `resolver_id`,
 `resolver_version`, stable `branch_id`, `decision` (`deterministic` or `escalated`),
@@ -217,7 +239,7 @@ or a specific `missing_fact`, `required_input`, and `next_category`. Branches of
 the same future row may take different paths. Deterministic branches need a
 finding and evidence; unknown applicability must escalate. A known applicable
 branch may also escalate when a named fact/input remains missing. The dispatcher
-escalates the other 52 unimplemented rows as `package-dispatcher`, not as a claimed row
+escalates the other 51 unimplemented rows as `package-dispatcher`, not as a claimed row
 resolver. Registry construction rejects missing/extra IDs, component or extension
 IDs, handlers without registrations, implementation declarations without matching
 handlers, and handlers on TBD rows.

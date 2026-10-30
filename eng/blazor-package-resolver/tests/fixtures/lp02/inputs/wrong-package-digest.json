@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "producer": "lp02-anonymous-github/1.0.0",
+  "package_id": "Sample.Library",
+  "package_version": "1.0.0",
+  "package_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "repository_url": "https://github.com/example/library",
+  "commit": "1234567890abcdef1234567890abcdef12345678",
+  "retrieval_attempt": {
+    "url": "https://codeload.github.com/example/library/zip/1234567890abcdef1234567890abcdef12345678",
+    "observed_at_utc": "2026-10-30T12:00:00Z",
+    "transport": "direct-https-no-credentials/1",
+    "result": "retrieved",
+    "http_status": 200
+  },
+  "capture_receipt": {
+    "role": "source-archive",
+    "sha256": "78734bbbc4678500ecb300a3b9c48b94cd64c8b2edcb929094d7a604e27205bf"
+  },
+  "source_inventory": [
+    {
+      "kind": "project",
+      "path": "library-1234567890abcdef1234567890abcdef12345678/src/Sample/Sample.csproj",
+      "sha256": "065bbf7c1bd603442e50fa014190619b075be3df8c67e6e6bfffbc157df02f5a"
+    },
+    {
+      "kind": "implementation",
+      "path": "library-1234567890abcdef1234567890abcdef12345678/src/Sample/Widget.cs",
+      "sha256": "c545049526b6f6e13efad044e60b60d757f5fcf0d032aa03bbba9c5e75e150ed"
+    }
+  ],
+  "mapping_rationale": "The project declares the exact package ID and contains the selected library implementation."
+}

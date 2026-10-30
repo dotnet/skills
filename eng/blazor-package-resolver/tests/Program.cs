@@ -8,6 +8,11 @@ var data = Path.Combine(AppContext.BaseDirectory, "data");
 var fixture = Path.Combine(AppContext.BaseDirectory, "fixtures", "cases.json");
 var catalog = Catalog.Load(data);
 var registry = Registry.Bootstrap(catalog);
+if (args is ["lp02"])
+{
+    Lp02Checks.Run(registry, Path.Combine(AppContext.BaseDirectory, "fixtures", "lp02"));
+    return;
+}
 var expectedIds = ("LP-01 LP-02 LP-03 LP-04 LP-05 LP-06 LP-07 LP-08 LP-09 LP-10 " +
     "PI-01 PI-02 PI-03 PI-04 PI-05 PI-06 PI-07 PI-08 PI-09 PI-10 PI-11 PI-12 " +
     "SEC-01 SEC-02 SEC-03 SEC-04 SEC-05 SEC-06 SEC-07 SEC-08 SEC-09 " +
@@ -32,6 +37,9 @@ using (var doc = JsonDocument.Parse(coverage))
                 "LP-01" => row.GetProperty("work_state").GetString() == "implemented" &&
                            row.GetProperty("resolver_id").GetString() == "lp01-license-policy" &&
                            row.GetProperty("resolver_version").GetString() == "1.0.0",
+                "LP-02" => row.GetProperty("work_state").GetString() == "implemented" &&
+                           row.GetProperty("resolver_id").GetString() == "lp02-public-source" &&
+                           row.GetProperty("resolver_version").GetString() == "1.0.0",
                 "LP-05" => row.GetProperty("work_state").GetString() == "implemented" &&
                            row.GetProperty("resolver_id").GetString() == "lp05-license-expression" &&
                            row.GetProperty("resolver_version").GetString() == "1.0.0",
@@ -55,7 +63,7 @@ using (var doc = JsonDocument.Parse(coverage))
                            row.GetProperty("resolver_version").GetString() == "1.0.0",
                 _ => row.GetProperty("work_state").GetString() == "tbd" &&
                      !row.TryGetProperty("resolver_id", out _)
-            })), "Only LP-01, LP-05 through LP-10 and PI-01 are implemented; 52 rows remain TBD");
+            })), "Only LP-01, LP-02, LP-05 through LP-10 and PI-01 are implemented; 51 rows remain TBD");
     NoClaims(doc.RootElement);
 }
 
@@ -151,6 +159,7 @@ using (var doc = JsonDocument.Parse(lp01Output))
     NoClaims(doc.RootElement);
 }
 Lp01BoundaryChecks.Run(registry, lp01Directory);
+Lp02Checks.Run(registry, Path.Combine(AppContext.BaseDirectory, "fixtures", "lp02"));
 var lp01Syncfusion = Environment.GetEnvironmentVariable("LP01_SYNCFUSION_NUPKG");
 var lp01Infragistics = Environment.GetEnvironmentVariable("LP01_INFRAGISTICS_NUPKG");
 Check((lp01Syncfusion is null) == (lp01Infragistics is null),
@@ -671,7 +680,7 @@ try
     CliReject("Invalid resolver catalog or replay contract.", "replay", path);
     File.WriteAllText(path, suite.Replace("\"path\": \"owner.txt\"", "\"path\": \"\\u0000\""));
     CliReject("Invalid resolver catalog or replay contract.", "replay", path);
-    CliReject("Usage: blazor-package-resolver [coverage | replay <cases.json>]", "replay");
+    CliReject("Usage: blazor-package-resolver [coverage | replay <cases.json> | acquire-lp02 <nupkg> <new-directory> <archive-project-path> <archive-implementation-path> <rationale>]", "replay");
 }
 finally
 {
@@ -682,7 +691,8 @@ var source = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..",
 var allowed = new HashSet<string>(StringComparer.Ordinal)
     { "Catalog.cs", "Registry.cs", "Cases.cs", "Program.cs",
       "Lp01LicensePolicyResolver.cs", "Lp01SpdxExpression.cs", "Lp01CaseFold.cs",
-      "Lp01ArchiveIntegrity.cs",
+      "Lp01ArchiveIntegrity.cs", "AssemblyInfo.cs",
+      "Lp02PublicSourceResolver.cs", "Lp02SourceAcquisition.cs",
       "Lp05LicenseExpressionResolver.cs",
       "Lp06RepositoryUrlResolver.cs", "Lp07RepositoryCommitResolver.cs",
       "Lp08AuthorsResolver.cs", "Lp09ProjectUrlResolver.cs",
@@ -706,7 +716,7 @@ foreach (var file in allowed)
         System.Text.RegularExpressions.RegexOptions.IgnoreCase),
         "No assessment, rendering, reader, library, comparison, component or AI namespace");
 }
-Console.WriteLine("Resolver foundation, LP-01, LP-05 through LP-10 and PI-01 checks passed.");
+Console.WriteLine("Resolver foundation, LP-01, LP-02, LP-05 through LP-10 and PI-01 checks passed.");
 
 Registry Implemented(IDeterministicResolver handler) => new(catalog,
     [new RegistryEntry("LP-01", "implemented", "synthetic", "1.0.0"), .. registrations.Skip(1)],
