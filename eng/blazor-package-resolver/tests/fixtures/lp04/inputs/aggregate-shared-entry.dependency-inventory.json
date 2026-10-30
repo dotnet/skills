@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "profile": "resolved-target-graph/1",
+  "root": {
+    "id": "sample.root",
+    "version": "1.0.0",
+    "sha256": "56db4ed6312820e42be7c5f989ddc13cd64928c7da60a23c4be801ea52bc253d"
+  },
+  "targets": [
+    {
+      "tfm": "net8.0",
+      "direct": [
+        "sample.a/1.0.0"
+      ],
+      "nodes": [
+        {
+          "key": "sample.a/1.0.0",
+          "dependencies": [
+            "sample.b/1.0.0"
+          ]
+        },
+        {
+          "key": "sample.b/1.0.0",
+          "dependencies": []
+        }
+      ],
+      "node_count": 2,
+      "edge_count": 2
+    },
+    {
+      "tfm": "net9.0",
+      "direct": [
+        "sample.a/1.0.0"
+      ],
+      "nodes": [
+        {
+          "key": "sample.a/1.0.0",
+          "dependencies": [
+            "sample.b/1.0.0"
+          ]
+        },
+        {
+          "key": "sample.b/1.0.0",
+          "dependencies": []
+        }
+      ],
+      "node_count": 2,
+      "edge_count": 2
+    }
+  ],
+  "packages": [
+    {
+      "key": "sample.a/1.0.0",
+      "identity": {
+        "id": "sample.a",
+        "version": "1.0.0",
+        "sha256": "12ebf4072063b4c6dbc6c215d70ca5af88ef2752d62741b87b94454b09b6c2cd"
+      },
+      "role": "dependency-000"
+    },
+    {
+      "key": "sample.b/1.0.0",
+      "identity": {
+        "id": "sample.b",
+        "version": "1.0.0",
+        "sha256": "96050834c9baf25eb9f538cf99932bdd7c0cb717649ed75a8d9ac793572549ad"
+      },
+      "role": "dependency-001"
+    }
+  ],
+  "unresolved": []
+}

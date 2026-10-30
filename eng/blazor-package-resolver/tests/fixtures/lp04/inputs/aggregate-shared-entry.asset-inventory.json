@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "root": {
+    "id": "sample.root",
+    "version": "1.0.0",
+    "sha256": "56db4ed6312820e42be7c5f989ddc13cd64928c7da60a23c4be801ea52bc253d"
+  },
+  "entries": [
+    {
+      "path": "LICENSE.txt",
+      "sha256": "4a3933c1b271ef72455877d17283356007f4af4df0caed2abe8c65b59d65f316",
+      "kind": "packaging",
+      "subjects": []
+    },
+    {
+      "path": "NOTICE.txt",
+      "sha256": "b83770ca2a67eeea4cb665901ed92ec6ed8b992a39ee54abfc7f213783c471ba",
+      "kind": "packaging",
+      "subjects": []
+    },
+    {
+      "path": "sample.root.nuspec",
+      "sha256": "68e8a80545250081aa1eac03e44b22761824c4063570a84ea4d6e764a917198a",
+      "kind": "packaging",
+      "subjects": []
+    },
+    {
+      "path": "wwwroot/widget.min.js",
+      "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095",
+      "kind": "third-party",
+      "subjects": [
+        "asset:widget"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "key": "asset:widget",
+      "role": "asset-000",
+      "package_entry": "wwwroot/widget.min.js",
+      "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095"
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp04-retained-syncfusion",
+      "row_id": "LP-04",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+          "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-04",
+        "resolver_id": "lp04-notice-coverage",
+        "resolver_version": "1.0.0",
+        "branch_id": "scope-missing",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+            "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+          }
+        ],
+        "evidence_references": [
+          "input:package:87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+        ],
+        "evidence_contract": "Qualified exact-byte notice coverage for the checked root and explicit TFM/all-root-entry scope. Admitted complete dependency and asset captures, prevalidated whole-subject obligation reviews, and exhaustive reviewed mappings are trust boundaries, not authenticated by hashes or references. No legal advice, LP-03 acceptability, build/source correspondence, ownership, vulnerability/support conclusion, or proof that the supplied obligation review is legally correct.",
+        "finding": null,
+        "missing_fact": "An explicit exact-root and assessment scope is missing.",
+        "required_input": "assessment",
+        "next_category": "assessment-scope"
+      },
+      "rationale": "Exact root bytes without checked notice-coverage evidence cannot establish notice compliance.",
+      "evidence_pointers": [
+        "input:package:87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+      ]
+    },
+    {
+      "case_id": "lp04-retained-infragistics",
+      "row_id": "LP-04",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+          "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-04",
+        "resolver_id": "lp04-notice-coverage",
+        "resolver_version": "1.0.0",
+        "branch_id": "scope-missing",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+            "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+          }
+        ],
+        "evidence_references": [
+          "input:package:e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+        ],
+        "evidence_contract": "Qualified exact-byte notice coverage for the checked root and explicit TFM/all-root-entry scope. Admitted complete dependency and asset captures, prevalidated whole-subject obligation reviews, and exhaustive reviewed mappings are trust boundaries, not authenticated by hashes or references. No legal advice, LP-03 acceptability, build/source correspondence, ownership, vulnerability/support conclusion, or proof that the supplied obligation review is legally correct.",
+        "finding": null,
+        "missing_fact": "An explicit exact-root and assessment scope is missing.",
+        "required_input": "assessment",
+        "next_category": "assessment-scope"
+      },
+      "rationale": "Exact root bytes without checked notice-coverage evidence cannot establish notice compliance.",
+      "evidence_pointers": [
+        "input:package:e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+      ]
+    }
+  ]
+}

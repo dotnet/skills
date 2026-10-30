@@ -1,0 +1,551 @@
+{
+  "schema_version": 1,
+  "controls": [
+    {
+      "case_id": "lp04-reject-duplicate-role",
+      "stage": "shared-input-loader",
+      "guard_id": "loader-duplicate-role",
+      "expected_rejection": "duplicate-role",
+      "inputs": [
+        {
+          "role": "admission",
+          "path": "inputs/all-sources-covered.admission.json",
+          "sha256": "9e7a10bb67f460cfca09a0c14a52f15bfa2ee19443043228d408bbb7ddf35b03"
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/all-sources-covered.assessment.json",
+          "sha256": "7fce98a4a454b24730217b3b93971fb1805db18ec30f8edf5509795aa1776dda"
+        },
+        {
+          "role": "asset-000",
+          "path": "assets/94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095.bin",
+          "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095"
+        },
+        {
+          "role": "asset-inventory",
+          "path": "inputs/all-sources-covered.asset-inventory.json",
+          "sha256": "7fc79007552f2cbf032cf46cd9874baa96e00ccb5e20d3fc545ca0a16179cbeb"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5.nupkg",
+          "sha256": "6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25.nupkg",
+          "sha256": "0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25"
+        },
+        {
+          "role": "dependency-inventory",
+          "path": "inputs/all-sources-covered.dependency-inventory.json",
+          "sha256": "1d93796a3a7a4a8447ddeffdd7ec421622e3008250e14537ac4f0bda98ae52a6"
+        },
+        {
+          "role": "entry-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "entry-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "entry-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "notice-coverage",
+          "path": "inputs/all-sources-covered.notice-coverage.json",
+          "sha256": "f72a137ff20e08f0f98b1188ad4beeb06f3bebeafac56445a87a6909353a33a0"
+        },
+        {
+          "role": "notice-mapping",
+          "path": "inputs/all-sources-covered.notice-mapping.json",
+          "sha256": "3887a4103934f9fcae87b59d8aa4ea10a1a2bf14c5ae509c401d90a6cda261f6"
+        },
+        {
+          "role": "obligation-reviews",
+          "path": "inputs/all-sources-covered.obligation-reviews.json",
+          "sha256": "cb33f3c6181673fb1d5a79682e49ddb1ba3038044fd4313b9670f6bbefc299c1"
+        },
+        {
+          "role": "package",
+          "path": "packages/d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377.nupkg",
+          "sha256": "d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377"
+        },
+        {
+          "role": "reference-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "reference-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "reference-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "reference-003",
+          "path": "references/57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de.txt",
+          "sha256": "57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de"
+        },
+        {
+          "role": "reference-004",
+          "path": "references/33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb.txt",
+          "sha256": "33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb"
+        },
+        {
+          "role": "reference-005",
+          "path": "references/cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935.txt",
+          "sha256": "cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935"
+        },
+        {
+          "role": "admission",
+          "path": "inputs/all-sources-covered.admission.json",
+          "sha256": "9e7a10bb67f460cfca09a0c14a52f15bfa2ee19443043228d408bbb7ddf35b03"
+        }
+      ]
+    },
+    {
+      "case_id": "lp04-reject-parent-path",
+      "stage": "shared-input-loader",
+      "guard_id": "loader-safe-path",
+      "expected_rejection": "invalid-relative-path",
+      "inputs": [
+        {
+          "role": "admission",
+          "path": "../outside.json",
+          "sha256": "9e7a10bb67f460cfca09a0c14a52f15bfa2ee19443043228d408bbb7ddf35b03"
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/all-sources-covered.assessment.json",
+          "sha256": "7fce98a4a454b24730217b3b93971fb1805db18ec30f8edf5509795aa1776dda"
+        },
+        {
+          "role": "asset-000",
+          "path": "assets/94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095.bin",
+          "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095"
+        },
+        {
+          "role": "asset-inventory",
+          "path": "inputs/all-sources-covered.asset-inventory.json",
+          "sha256": "7fc79007552f2cbf032cf46cd9874baa96e00ccb5e20d3fc545ca0a16179cbeb"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5.nupkg",
+          "sha256": "6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25.nupkg",
+          "sha256": "0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25"
+        },
+        {
+          "role": "dependency-inventory",
+          "path": "inputs/all-sources-covered.dependency-inventory.json",
+          "sha256": "1d93796a3a7a4a8447ddeffdd7ec421622e3008250e14537ac4f0bda98ae52a6"
+        },
+        {
+          "role": "entry-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "entry-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "entry-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "notice-coverage",
+          "path": "inputs/all-sources-covered.notice-coverage.json",
+          "sha256": "f72a137ff20e08f0f98b1188ad4beeb06f3bebeafac56445a87a6909353a33a0"
+        },
+        {
+          "role": "notice-mapping",
+          "path": "inputs/all-sources-covered.notice-mapping.json",
+          "sha256": "3887a4103934f9fcae87b59d8aa4ea10a1a2bf14c5ae509c401d90a6cda261f6"
+        },
+        {
+          "role": "obligation-reviews",
+          "path": "inputs/all-sources-covered.obligation-reviews.json",
+          "sha256": "cb33f3c6181673fb1d5a79682e49ddb1ba3038044fd4313b9670f6bbefc299c1"
+        },
+        {
+          "role": "package",
+          "path": "packages/d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377.nupkg",
+          "sha256": "d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377"
+        },
+        {
+          "role": "reference-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "reference-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "reference-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "reference-003",
+          "path": "references/57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de.txt",
+          "sha256": "57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de"
+        },
+        {
+          "role": "reference-004",
+          "path": "references/33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb.txt",
+          "sha256": "33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb"
+        },
+        {
+          "role": "reference-005",
+          "path": "references/cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935.txt",
+          "sha256": "cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935"
+        }
+      ]
+    },
+    {
+      "case_id": "lp04-reject-missing-file",
+      "stage": "shared-input-loader",
+      "guard_id": "loader-file-presence",
+      "expected_rejection": "missing-file",
+      "inputs": [
+        {
+          "role": "admission",
+          "path": "inputs/not-retained.json",
+          "sha256": "9e7a10bb67f460cfca09a0c14a52f15bfa2ee19443043228d408bbb7ddf35b03"
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/all-sources-covered.assessment.json",
+          "sha256": "7fce98a4a454b24730217b3b93971fb1805db18ec30f8edf5509795aa1776dda"
+        },
+        {
+          "role": "asset-000",
+          "path": "assets/94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095.bin",
+          "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095"
+        },
+        {
+          "role": "asset-inventory",
+          "path": "inputs/all-sources-covered.asset-inventory.json",
+          "sha256": "7fc79007552f2cbf032cf46cd9874baa96e00ccb5e20d3fc545ca0a16179cbeb"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5.nupkg",
+          "sha256": "6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25.nupkg",
+          "sha256": "0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25"
+        },
+        {
+          "role": "dependency-inventory",
+          "path": "inputs/all-sources-covered.dependency-inventory.json",
+          "sha256": "1d93796a3a7a4a8447ddeffdd7ec421622e3008250e14537ac4f0bda98ae52a6"
+        },
+        {
+          "role": "entry-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "entry-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "entry-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "notice-coverage",
+          "path": "inputs/all-sources-covered.notice-coverage.json",
+          "sha256": "f72a137ff20e08f0f98b1188ad4beeb06f3bebeafac56445a87a6909353a33a0"
+        },
+        {
+          "role": "notice-mapping",
+          "path": "inputs/all-sources-covered.notice-mapping.json",
+          "sha256": "3887a4103934f9fcae87b59d8aa4ea10a1a2bf14c5ae509c401d90a6cda261f6"
+        },
+        {
+          "role": "obligation-reviews",
+          "path": "inputs/all-sources-covered.obligation-reviews.json",
+          "sha256": "cb33f3c6181673fb1d5a79682e49ddb1ba3038044fd4313b9670f6bbefc299c1"
+        },
+        {
+          "role": "package",
+          "path": "packages/d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377.nupkg",
+          "sha256": "d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377"
+        },
+        {
+          "role": "reference-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "reference-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "reference-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "reference-003",
+          "path": "references/57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de.txt",
+          "sha256": "57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de"
+        },
+        {
+          "role": "reference-004",
+          "path": "references/33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb.txt",
+          "sha256": "33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb"
+        },
+        {
+          "role": "reference-005",
+          "path": "references/cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935.txt",
+          "sha256": "cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935"
+        }
+      ]
+    },
+    {
+      "case_id": "lp04-reject-changed-bytes",
+      "stage": "shared-input-loader",
+      "guard_id": "loader-digest",
+      "expected_rejection": "input-digest-mismatch",
+      "inputs": [
+        {
+          "role": "admission",
+          "path": "inputs/all-sources-covered.admission.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/all-sources-covered.assessment.json",
+          "sha256": "7fce98a4a454b24730217b3b93971fb1805db18ec30f8edf5509795aa1776dda"
+        },
+        {
+          "role": "asset-000",
+          "path": "assets/94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095.bin",
+          "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095"
+        },
+        {
+          "role": "asset-inventory",
+          "path": "inputs/all-sources-covered.asset-inventory.json",
+          "sha256": "7fc79007552f2cbf032cf46cd9874baa96e00ccb5e20d3fc545ca0a16179cbeb"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5.nupkg",
+          "sha256": "6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25.nupkg",
+          "sha256": "0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25"
+        },
+        {
+          "role": "dependency-inventory",
+          "path": "inputs/all-sources-covered.dependency-inventory.json",
+          "sha256": "1d93796a3a7a4a8447ddeffdd7ec421622e3008250e14537ac4f0bda98ae52a6"
+        },
+        {
+          "role": "entry-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "entry-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "entry-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "notice-coverage",
+          "path": "inputs/all-sources-covered.notice-coverage.json",
+          "sha256": "f72a137ff20e08f0f98b1188ad4beeb06f3bebeafac56445a87a6909353a33a0"
+        },
+        {
+          "role": "notice-mapping",
+          "path": "inputs/all-sources-covered.notice-mapping.json",
+          "sha256": "3887a4103934f9fcae87b59d8aa4ea10a1a2bf14c5ae509c401d90a6cda261f6"
+        },
+        {
+          "role": "obligation-reviews",
+          "path": "inputs/all-sources-covered.obligation-reviews.json",
+          "sha256": "cb33f3c6181673fb1d5a79682e49ddb1ba3038044fd4313b9670f6bbefc299c1"
+        },
+        {
+          "role": "package",
+          "path": "packages/d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377.nupkg",
+          "sha256": "d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377"
+        },
+        {
+          "role": "reference-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "reference-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "reference-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "reference-003",
+          "path": "references/57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de.txt",
+          "sha256": "57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de"
+        },
+        {
+          "role": "reference-004",
+          "path": "references/33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb.txt",
+          "sha256": "33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb"
+        },
+        {
+          "role": "reference-005",
+          "path": "references/cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935.txt",
+          "sha256": "cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935"
+        }
+      ]
+    },
+    {
+      "case_id": "lp04-reject-unknown-input-field",
+      "stage": "shared-input-loader",
+      "guard_id": "loader-exact-fields",
+      "expected_rejection": "invalid-fields",
+      "inputs": [
+        {
+          "role": "admission",
+          "path": "inputs/all-sources-covered.admission.json",
+          "sha256": "9e7a10bb67f460cfca09a0c14a52f15bfa2ee19443043228d408bbb7ddf35b03",
+          "complete": true
+        },
+        {
+          "role": "assessment",
+          "path": "inputs/all-sources-covered.assessment.json",
+          "sha256": "7fce98a4a454b24730217b3b93971fb1805db18ec30f8edf5509795aa1776dda"
+        },
+        {
+          "role": "asset-000",
+          "path": "assets/94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095.bin",
+          "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095"
+        },
+        {
+          "role": "asset-inventory",
+          "path": "inputs/all-sources-covered.asset-inventory.json",
+          "sha256": "7fc79007552f2cbf032cf46cd9874baa96e00ccb5e20d3fc545ca0a16179cbeb"
+        },
+        {
+          "role": "dependency-000",
+          "path": "packages/6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5.nupkg",
+          "sha256": "6eaa5a7d7da1c2b4309fc738e0c6172c1af26d3618800a68424edd7367ed03e5"
+        },
+        {
+          "role": "dependency-001",
+          "path": "packages/0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25.nupkg",
+          "sha256": "0c0cab8a983c1cd6ab0e3a61629b7f22e2c63ca52a84c7a2d2b56beb745dfa25"
+        },
+        {
+          "role": "dependency-inventory",
+          "path": "inputs/all-sources-covered.dependency-inventory.json",
+          "sha256": "1d93796a3a7a4a8447ddeffdd7ec421622e3008250e14537ac4f0bda98ae52a6"
+        },
+        {
+          "role": "entry-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "entry-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "entry-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "notice-coverage",
+          "path": "inputs/all-sources-covered.notice-coverage.json",
+          "sha256": "f72a137ff20e08f0f98b1188ad4beeb06f3bebeafac56445a87a6909353a33a0"
+        },
+        {
+          "role": "notice-mapping",
+          "path": "inputs/all-sources-covered.notice-mapping.json",
+          "sha256": "3887a4103934f9fcae87b59d8aa4ea10a1a2bf14c5ae509c401d90a6cda261f6"
+        },
+        {
+          "role": "obligation-reviews",
+          "path": "inputs/all-sources-covered.obligation-reviews.json",
+          "sha256": "cb33f3c6181673fb1d5a79682e49ddb1ba3038044fd4313b9670f6bbefc299c1"
+        },
+        {
+          "role": "package",
+          "path": "packages/d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377.nupkg",
+          "sha256": "d9da2b3a12876f009ddc8ca76fa897605d34c9c170e8e471e34896e731b98377"
+        },
+        {
+          "role": "reference-000",
+          "path": "references/b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c.txt",
+          "sha256": "b19e08d291290c9c572b69dc369b1815f0abefdf7d98f46de5bc97ad72ee604c"
+        },
+        {
+          "role": "reference-001",
+          "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+          "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+        },
+        {
+          "role": "reference-002",
+          "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+          "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+        },
+        {
+          "role": "reference-003",
+          "path": "references/57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de.txt",
+          "sha256": "57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de"
+        },
+        {
+          "role": "reference-004",
+          "path": "references/33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb.txt",
+          "sha256": "33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb"
+        },
+        {
+          "role": "reference-005",
+          "path": "references/cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935.txt",
+          "sha256": "cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935"
+        }
+      ]
+    }
+  ]
+}

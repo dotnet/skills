@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "root": {
+    "id": "sample.root",
+    "version": "1.0.0",
+    "sha256": "845e96cf577700ca81473640c6a13b79bda9b7f18d5fa479a4eb9021be3ce768"
+  },
+  "entries": [
+    {
+      "path": "LICENSE.txt",
+      "sha256": "4a3933c1b271ef72455877d17283356007f4af4df0caed2abe8c65b59d65f316",
+      "kind": "packaging",
+      "subjects": []
+    },
+    {
+      "path": "notices/a.txt",
+      "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0",
+      "kind": "packaging",
+      "subjects": []
+    },
+    {
+      "path": "notices/license.txt",
+      "sha256": "9bd476f7ffc9786720838965cf31d03065babeefca35330449400ba612b74630",
+      "kind": "packaging",
+      "subjects": []
+    },
+    {
+      "path": "notices/widget.txt",
+      "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd",
+      "kind": "packaging",
+      "subjects": []
+    },
+    {
+      "path": "sample.root.nuspec",
+      "sha256": "68e8a80545250081aa1eac03e44b22761824c4063570a84ea4d6e764a917198a",
+      "kind": "packaging",
+      "subjects": []
+    },
+    {
+      "path": "wwwroot/widget.min.js",
+      "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095",
+      "kind": "third-party",
+      "subjects": [
+        "asset:widget"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "key": "asset:widget",
+      "role": "asset-000",
+      "package_entry": "wwwroot/widget.min.js",
+      "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095"
+    }
+  ]
+}
