@@ -10,13 +10,14 @@ pinned by the original paths, Git blob IDs and SHA-256 digests in
 `data/provenance.json`. The loader checks both digests, crosswalk clauses,
 source version and all core scopes. Only the 60 `repository-wide` core rows
 enter the registry; the 52 component rows and the separate TA-08 extension
-are excluded. LP-01 through LP-03 and LP-05 through LP-10 have deterministic checked-byte
+are excluded. LP-01 through LP-10 have deterministic checked-byte
 handlers: `lp01-license-policy/1.0.0`, `lp02-public-source/1.0.0`,
 `lp03-dependency-licenses/1.0.0`,
+`lp04-notice-coverage/1.0.0`,
 `lp05-license-expression/1.0.0`, `lp06-repository-url/1.0.0`,
 `lp07-repository-commit/1.0.0`, `lp08-authors/1.0.0`,
 `lp09-project-url/1.0.0`, `lp10-binary-attribution/1.0.0`, and
-`pi01-strong-name/1.0.0`. The other 50 package rows remain `tbd`.
+`pi01-strong-name/1.0.0`. The other 49 package rows remain `tbd`.
 `tbd` and `implemented` are
 **work states**, not evaluation results.
 
@@ -29,7 +30,7 @@ checked grant per distinct normalized SPDX license ID, and two opt-in retained-p
 classifications that **escalate** pending owner grant and release/source
 scope evidence. The production resolver replays those exact expectations;
 an eligible package expression without an owner record is never a
-repository-wide license verdict. Coverage is ten implemented and 50 TBD.
+repository-wide license verdict. Coverage is eleven implemented and 49 TBD.
 Run `python eng\blazor-package-resolver\tests\lp01_expectations.py`
 to check the frozen oracle and policy bytes independently of production.
 
@@ -99,21 +100,67 @@ Absent/partial/misspelled/missing-file/wrong-size/wrong-digest bindings are
 separately rejected. Supply the corresponding `LP01_*` and `LP02_*` pairs to
 include their retained regressions in the full suite.
 
-LP-04 has a **Phase A contract and independent oracle only** at
-[`tests/fixtures/lp04/README.md`](tests/fixtures/lp04/README.md); its registry
-state remains `tbd`. The proposed `notice-coverage-v1` packet requires admitted,
-digest-bound complete dependency and bundled-asset inventories, whole-subject
-preservation-obligation reviews, and exhaustive mappings to exact packaged
-entries or explicitly accepted aggregate segments. Files and detected
-sidecars alone never establish coverage. Missing/incomplete evidence stays
-unresolved; direct gaps require complete admitted evidence and exact missing
-or measured incomplete representations. The 43 replay expectations, five loader
-rejections and two optional retained roots remain a 50-expectation surface,
-with a finite guard inventory and weakened-rule discrimination. Run
-`python eng\blazor-package-resolver\tests\lp04_expectations.py` (also `-O`).
-Optional `LP04_SYNCFUSION_NUPKG` / `LP04_INFRAGISTICS_NUPKG` bindings check the
-exact retained roots only as `scope-missing` / `not tested`. No production
-handler, acquisition adapter, legal interpretation or vendor positive is added.
+LP-04's **offline production handler** implements the accepted
+[`notice-coverage-v1` Phase A contract](tests/fixtures/lp04/README.md), frozen at
+`68893eb6d5bf8ebab919a8787069c9870a110039`. All accepted Phase A files remain
+byte-identical, including historical pre-production status statements.
+Production reads only checked buffers, never fixture names, ledgers, case IDs,
+expected outcomes or the Python oracle. The 43 replay expectations, five loader
+rejections, two optional retained roots and 331 checked inputs / 735351 bytes
+remain the same 50 named expectations.
+
+The handler requires the exact root and explicit TFM/all-root-entry scope,
+admitted complete dependency and bundled-asset inventories, retained
+whole-subject preservation-obligation reviews, and exhaustive mappings to
+exact packaged entries or explicitly accepted aggregate byte segments.
+Dependency license acceptability is not notice applicability. Files, metadata,
+SPDX expressions and detected sidecars alone never establish coverage.
+An omitted review document remains unresolved even for empty inventories;
+only an explicitly retained captured empty review document can establish an
+empty reviewed surface. All supplied bindings are checked before missing
+subject bytes or unresolved evidence. Unresolved reviews precede unresolved
+mapping, genuinely owner-private evidence, and a supported gap, in that order.
+Direct missing/incomplete representation gaps require complete admitted
+inventories/reviews/mappings plus observed absence or a strict nonempty proper
+prefix. Arbitrary modified text or unsupported forms remain unresolved.
+
+The result contract is unchanged:
+
+> Qualified exact-byte notice coverage for the checked root and explicit TFM/all-root-entry scope.
+> Admitted complete dependency and asset captures, prevalidated whole-subject obligation reviews,
+> and exhaustive reviewed mappings are trust boundaries, not authenticated by hashes or references.
+> No legal advice, LP-03 acceptability, build/source correspondence, ownership, vulnerability/support
+> conclusion, or proof that the supplied obligation review is legally correct.
+
+Bounded helpers reuse the checked-input/registry/result/canonicalization
+foundation, strict XML/nuspec reader, and LP-01 raw ZIP name/range/CRC/encoding
+validation. Normal inspection streams hashes of all root entries without
+materializing their bodies; separately retained checked evidence supplies the
+selected notice bytes. Archive limits remain 8 MiB each, 64 MiB total checked
+bytes, 4096 entries, 1 MiB nuspec and 64 MiB expanded per archive. Normalized
+JSON remains 64 KiB / depth 8, four TFMs, 64 dependency versions/assets,
+128 root entries/reviews/mappings/total edges per target, and 1-16384 strict
+UTF-8 reference/entry bytes. The narrower limits and complete schemas remain
+in the frozen contract. Unsupported paths, aliases, duplicate fields and
+outside-profile observations fail closed; no solver, scanner, acquisition,
+network, execution or legal-authority mechanism is added.
+
+`ResolverChecks -- lp04` executes all 128 critical guard families / 166
+witnesses, 108 explicit weakened variants / 148 executions (32 existing-case
+and 116 native fixed-memory recipes), 256 registration/empty-witness
+meta-checks, five loader rejections, six retained binding negatives and 218
+strict parser/resource/checked-buffer/culture runtime boundaries. It compares
+complete canonical results, not just branch counts. Counterfactual controls are
+internal friend-assembly test entry points admitting only the 108 frozen labels;
+unknown labels are rejected and normal dispatch has no weakening option.
+The shared ZIP validator's alias bypass is
+used only by those explicit counterfactual checks; all existing/default callers
+retain strict name validation and every counterfactual retains raw range/CRC
+validation. The tests never invoke Python. Run the unchanged independent
+`python eng\blazor-package-resolver\tests\lp04_expectations.py` (also `-O`)
+separately. Optional paired `LP04_SYNCFUSION_NUPKG` /
+`LP04_INFRAGISTICS_NUPKG` bindings verify exact retained bytes/identities and
+still return `scope-missing` / `not tested`, never a vendor positive or gap.
 
 LP-01 checks archive-wide entry identity using a pinned Unicode 15.0.0
 casefold table (generated from Python Unicode 15.0.0 `str.casefold()` for
@@ -157,6 +204,7 @@ dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj --
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp01/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp02/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp03/cases.json
+dotnet run --project eng\blazor-package-resolver\BlazorPackageResolver.csproj -- replay eng\blazor-package-resolver\tests\fixtures\lp04\cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp05/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp06/cases.json
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/lp07/cases.json
@@ -166,6 +214,8 @@ dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj --
 dotnet run --project eng/blazor-package-resolver/BlazorPackageResolver.csproj -- replay eng/blazor-package-resolver/tests/fixtures/pi01/cases.json
 dotnet run --project eng/blazor-package-resolver/tests/ResolverChecks.csproj
 dotnet run --project eng/blazor-package-resolver/tests/ResolverChecks.csproj -- lp03
+dotnet run --project eng\blazor-package-resolver\tests\ResolverChecks.csproj -- lp04
+dotnet run --configuration Release --project eng\blazor-package-resolver\tests\ResolverChecks.csproj -- lp04
 ```
 
 `coverage` emits ordered, canonical UTF-8 JSON with the two source digests and

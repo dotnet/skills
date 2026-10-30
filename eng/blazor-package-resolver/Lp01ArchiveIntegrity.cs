@@ -18,7 +18,7 @@ internal static class Lp01ArchiveIntegrity
     }).ToArray();
 
     internal static bool Validate(ReadOnlySpan<byte> bytes, IReadOnlyList<ZipArchiveEntry> entries,
-        ReadOnlySpan<byte> expectedComment = default)
+        ReadOnlySpan<byte> expectedComment = default, bool allowNameAliases = false)
     {
         if (!TryEnd(bytes, expectedComment, out var start, out var size, out var count) || entries.Count != count)
             return false;
@@ -80,7 +80,7 @@ internal static class Lp01ArchiveIntegrity
             try { name = ((flags & 0x800) != 0 ? StrictUtf8 : Cp437).GetString(rawName); }
             catch (DecoderFallbackException) { return false; }
             if (name.Length > 512 || name.Any(ch => ch < 32 || ch == 127 || ch == '\\') ||
-                !names.Add(Lp01CaseFold.Fold(name)) ||
+                !allowNameAliases && !names.Add(Lp01CaseFold.Fold(name)) ||
                 entries[index].FullName != name || entries[index].Length != uncompressed ||
                 entries[index].CompressedLength != compressed || entries[index].Crc32 != crc)
                 return false;
