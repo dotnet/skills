@@ -153,7 +153,13 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(remove|SfThemeRoot|no longer|not required|CSS isolation)
+          pattern: (?i)(remove|no longer|not required|unnecessary)
+      - type: output-matches
+        config:
+          pattern: (?i)SfThemeRoot
+      - type: output-matches
+        config:
+          pattern: (?i)CSS isolation
       - type: output-not-matches
         config:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:link|add|keep|use)\b[^\n]{0,80}(?:fluent\.min\.css|bootstrap5\.css|highcontrast\.min\.css)'
@@ -174,7 +180,13 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(remove|SfThemeRoot|no longer|not required|CSS isolation)
+          pattern: (?i)(remove|no longer|not required|unnecessary)
+      - type: output-matches
+        config:
+          pattern: (?i)SfThemeRoot
+      - type: output-matches
+        config:
+          pattern: (?i)CSS isolation
       - type: output-not-matches
         config:
           pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|remove|without|no longer|unnecessary)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:use|link|add|change|fix)\b[^\n]{0,60}styles/fluent\.min\.css'
