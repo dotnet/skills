@@ -99,6 +99,22 @@ Absent/partial/misspelled/missing-file/wrong-size/wrong-digest bindings are
 separately rejected. Supply the corresponding `LP01_*` and `LP02_*` pairs to
 include their retained regressions in the full suite.
 
+LP-04 has a **Phase A contract and independent oracle only** at
+[`tests/fixtures/lp04/README.md`](tests/fixtures/lp04/README.md); its registry
+state remains `tbd`. The proposed `notice-coverage-v1` packet requires admitted,
+digest-bound complete dependency and bundled-asset inventories, whole-subject
+preservation-obligation reviews, and exhaustive mappings to exact packaged
+entries or explicitly accepted aggregate segments. Files and detected
+sidecars alone never establish coverage. Missing/incomplete evidence stays
+unresolved; direct gaps require complete admitted evidence and exact missing
+or measured incomplete representations. The 43 replay expectations, five loader
+rejections and two optional retained roots remain a 50-expectation surface,
+with a finite guard inventory and weakened-rule discrimination. Run
+`python eng\blazor-package-resolver\tests\lp04_expectations.py` (also `-O`).
+Optional `LP04_SYNCFUSION_NUPKG` / `LP04_INFRAGISTICS_NUPKG` bindings check the
+exact retained roots only as `scope-missing` / `not tested`. No production
+handler, acquisition adapter, legal interpretation or vendor positive is added.
+
 LP-01 checks archive-wide entry identity using a pinned Unicode 15.0.0
 casefold table (generated from Python Unicode 15.0.0 `str.casefold()` for
 all changed scalar values; `data\lp01-casefold-15.0.0.json`, SHA-256

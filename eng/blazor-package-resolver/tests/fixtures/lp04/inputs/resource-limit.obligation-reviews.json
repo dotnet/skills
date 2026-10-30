@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "reviews": [
+    {
+      "subject": "dependency:sample.a/1.0.0",
+      "sha256": "e23e1269c16f668d38cb33553cbde7f9f685aa9d4837d371884519abbe6a15c4",
+      "disposition": "obligations",
+      "basis": {
+        "role": "reference-003",
+        "path": "references/57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de.txt",
+        "sha256": "57dacf9a996d450cfdf2ee45f4b9b5e44de5996098fa2e38e66fcec4a0be31de"
+      },
+      "obligations": [
+        {
+          "id": "preservation",
+          "parts": [
+            {
+              "id": "license",
+              "kind": "license-text",
+              "evidence": {
+                "role": "reference-000",
+                "path": "references/1bf420b034f9b3bff698c3502445a251fc6cbdc7281b6670e8c985e005c2da91.txt",
+                "sha256": "1bf420b034f9b3bff698c3502445a251fc6cbdc7281b6670e8c985e005c2da91"
+              }
+            },
+            {
+              "id": "notice",
+              "kind": "notice",
+              "evidence": {
+                "role": "reference-001",
+                "path": "references/2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0.txt",
+                "sha256": "2ad49cf03ee05a5441de8f73ca096800102af361fe48e356c4798d729b8bc5f0"
+              }
+            }
+          ]
+        }
+      ],
+      "owner_fact": null
+    },
+    {
+      "subject": "dependency:sample.b/1.0.0",
+      "sha256": "8d07ad1205ee92c05a3bfd13baf28da029b16aa9ccc0b959f27d14505aa00bb0",
+      "disposition": "obligations",
+      "basis": {
+        "role": "reference-004",
+        "path": "references/33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb.txt",
+        "sha256": "33ff633696d740d6a807e96cfe885429a3f3a250e7541927f594648230dfcedb"
+      },
+      "obligations": [
+        {
+          "id": "preservation",
+          "parts": [
+            {
+              "id": "license",
+              "kind": "license-text",
+              "evidence": {
+                "role": "reference-000",
+                "path": "references/1bf420b034f9b3bff698c3502445a251fc6cbdc7281b6670e8c985e005c2da91.txt",
+                "sha256": "1bf420b034f9b3bff698c3502445a251fc6cbdc7281b6670e8c985e005c2da91"
+              }
+            }
+          ]
+        }
+      ],
+      "owner_fact": null
+    },
+    {
+      "subject": "asset:widget",
+      "sha256": "94cabffb44a70e38b7ddf0d4d41113ec5d0e167b189a87802eb0d49cdc3db095",
+      "disposition": "obligations",
+      "basis": {
+        "role": "reference-005",
+        "path": "references/cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935.txt",
+        "sha256": "cd8670d21ee3bec698ea392e2633a29c6f17af9ed6d4297922123e68c645e935"
+      },
+      "obligations": [
+        {
+          "id": "preservation",
+          "parts": [
+            {
+              "id": "license",
+              "kind": "license-text",
+              "evidence": {
+                "role": "reference-000",
+                "path": "references/1bf420b034f9b3bff698c3502445a251fc6cbdc7281b6670e8c985e005c2da91.txt",
+                "sha256": "1bf420b034f9b3bff698c3502445a251fc6cbdc7281b6670e8c985e005c2da91"
+              }
+            },
+            {
+              "id": "attribution",
+              "kind": "attribution",
+              "evidence": {
+                "role": "reference-002",
+                "path": "references/92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd.txt",
+                "sha256": "92c791ac4b2f6b3b375169f0d38182ecf782104983b23f3be55610aae01174fd"
+              }
+            }
+          ]
+        }
+      ],
+      "owner_fact": null
+    }
+  ]
+}

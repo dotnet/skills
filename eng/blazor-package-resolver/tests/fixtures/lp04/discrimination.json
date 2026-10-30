@@ -1,0 +1,486 @@
+{
+  "schema_version": 1,
+  "guard_inventory": [
+    "root-required",
+    "scope-required",
+    "packet-required",
+    "exact-positive",
+    "captured-empty",
+    "reviewed-none",
+    "aggregate-segments",
+    "direct-absence",
+    "direct-prefix",
+    "dependency-inventory-required",
+    "graph-counts",
+    "graph-diagnostics",
+    "asset-inventory-required",
+    "all-root-entries",
+    "asset-classification",
+    "dependency-bytes-required",
+    "asset-bytes-required",
+    "reviews-required",
+    "review-disposition",
+    "mapping-required",
+    "mapping-equality",
+    "root-identity",
+    "root-digest",
+    "scope-digest",
+    "document-digests",
+    "asset-source-binding",
+    "review-subject-binding",
+    "entry-source-binding",
+    "exact-fields",
+    "unique-json-fields",
+    "safe-paths",
+    "retained-byte-limit",
+    "admission-profiles",
+    "dependency-identity-binding",
+    "modified-text",
+    "successful-captures",
+    "unique-package-paths",
+    "no-path-aliases",
+    "all-tfm-versions",
+    "private-before-gap",
+    "unresolved-before-gap",
+    "bindings-before-missing",
+    "aggregate-admission",
+    "loader-duplicate-role",
+    "loader-safe-path",
+    "loader-file-presence",
+    "loader-digest",
+    "loader-exact-fields",
+    "retained-syncfusion",
+    "retained-infragistics"
+  ],
+  "witnesses": [
+    {
+      "guard_id": "root-required",
+      "case_id": "lp04-missing-package",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "missing-package",
+      "wrong_branch": null,
+      "rule": "Root bytes precede all row checks."
+    },
+    {
+      "guard_id": "scope-required",
+      "case_id": "lp04-missing-scope",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "scope-missing",
+      "wrong_branch": null,
+      "rule": "Never infer scope from successful captures."
+    },
+    {
+      "guard_id": "packet-required",
+      "case_id": "lp04-missing-packet",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "evidence-missing",
+      "wrong_branch": null,
+      "rule": "LICENSE and detected sidecars alone do not prove coverage."
+    },
+    {
+      "guard_id": "exact-positive",
+      "case_id": "lp04-all-sources-covered",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "notice-coverage-satisfied",
+      "wrong_branch": null,
+      "rule": "Two TFMs share exact direct/transitive versions; one entry covers multiple obligations; every part of a multipart obligation binds, including 16384-byte text."
+    },
+    {
+      "guard_id": "captured-empty",
+      "case_id": "lp04-no-applicable-surface",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "no-applicable-surface",
+      "wrong_branch": null,
+      "rule": "Empty complete dependency and asset inventories establish scoped non-applicability."
+    },
+    {
+      "guard_id": "reviewed-none",
+      "case_id": "lp04-reviewed-no-obligations",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "no-applicable-surface",
+      "wrong_branch": null,
+      "rule": "Nonempty inventories need admitted retained whole-subject no-obligation reviews, not required=false."
+    },
+    {
+      "guard_id": "aggregate-segments",
+      "case_id": "lp04-aggregate-shared-entry",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "notice-coverage-satisfied",
+      "wrong_branch": null,
+      "rule": "One explicitly admitted aggregate represents multiple subjects and parts at exact byte offsets."
+    },
+    {
+      "guard_id": "direct-absence",
+      "case_id": "lp04-direct-absent",
+      "kind": "weakened-rule",
+      "weakened_rule": "absence-is-unresolved",
+      "normal_branch": "required-representation-missing",
+      "wrong_branch": "mapping-unresolved",
+      "rule": "A complete reviewed intended location is absent in exact root inspection; other obligations are resolved."
+    },
+    {
+      "guard_id": "direct-prefix",
+      "case_id": "lp04-direct-partial",
+      "kind": "weakened-rule",
+      "weakened_rule": "partial-is-unresolved",
+      "normal_branch": "required-representation-missing",
+      "wrong_branch": "mapping-unresolved",
+      "rule": "A mapped full entry is a strict nonempty prefix of the required retained bytes, not an arbitrary modified text."
+    },
+    {
+      "guard_id": "dependency-inventory-required",
+      "case_id": "lp04-missing-dependency-inventory",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "evidence-missing",
+      "wrong_branch": null,
+      "rule": "An asset capture does not substitute for the resolved dependency inventory."
+    },
+    {
+      "guard_id": "graph-counts",
+      "case_id": "lp04-incomplete-dependency-inventory",
+      "kind": "weakened-rule",
+      "weakened_rule": "graph-counts",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Only the admitted graph node count differs; all bytes/reviews/mappings otherwise bind."
+    },
+    {
+      "guard_id": "graph-diagnostics",
+      "case_id": "lp04-unresolved-graph",
+      "kind": "weakened-rule",
+      "weakened_rule": "graph-diagnostics",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Capture diagnostics prevent a complete-closure conclusion."
+    },
+    {
+      "guard_id": "asset-inventory-required",
+      "case_id": "lp04-missing-asset-inventory",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "evidence-missing",
+      "wrong_branch": null,
+      "rule": "A dependency capture does not substitute for the bundled-asset inventory."
+    },
+    {
+      "guard_id": "all-root-entries",
+      "case_id": "lp04-incomplete-asset-inventory",
+      "kind": "weakened-rule",
+      "weakened_rule": "all-root-entries",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "A passive root LICENSE entry alone is omitted; third-party assets and their mappings remain present."
+    },
+    {
+      "guard_id": "asset-classification",
+      "case_id": "lp04-unreviewed-asset-entry",
+      "kind": "weakened-rule",
+      "weakened_rule": "asset-classification",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "An unresolved all-entry classification cannot be silently assumed first-party."
+    },
+    {
+      "guard_id": "dependency-bytes-required",
+      "case_id": "lp04-missing-dependency-bytes",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "subject-bytes-missing",
+      "wrong_branch": null,
+      "rule": "Root notice presence does not supply an unavailable dependency archive."
+    },
+    {
+      "guard_id": "asset-bytes-required",
+      "case_id": "lp04-missing-asset-bytes",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "subject-bytes-missing",
+      "wrong_branch": null,
+      "rule": "An inventoried bundled asset requires separately checked exact bytes, even when present in the root."
+    },
+    {
+      "guard_id": "reviews-required",
+      "case_id": "lp04-missing-reviews",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": null,
+      "rule": "Complete inventories and SPDX metadata alone are insufficient without applicability/obligation reviews."
+    },
+    {
+      "guard_id": "review-disposition",
+      "case_id": "lp04-unresolved-review",
+      "kind": "weakened-rule",
+      "weakened_rule": "review-disposition",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Unresolved dependency applicability and an unsupported generated-bundle review form use the same conservative review gate; all retained parts and mappings are intact."
+    },
+    {
+      "guard_id": "mapping-required",
+      "case_id": "lp04-missing-mapping",
+      "kind": "existing-branch",
+      "weakened_rule": null,
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": null,
+      "rule": "Obligation evidence cannot substitute for packaged notice coverage."
+    },
+    {
+      "guard_id": "mapping-equality",
+      "case_id": "lp04-incomplete-mapping",
+      "kind": "weakened-rule",
+      "weakened_rule": "mapping-equality",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "One required part lacks a mapping, not a proven missing representation."
+    },
+    {
+      "guard_id": "root-identity",
+      "case_id": "lp04-wrong-root-identity",
+      "kind": "weakened-rule",
+      "weakened_rule": "root-identity",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "All documents agree on the wrong root version; only observed archive identity refutes them."
+    },
+    {
+      "guard_id": "root-digest",
+      "case_id": "lp04-wrong-root-digest",
+      "kind": "weakened-rule",
+      "weakened_rule": "root-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "All document root digests agree with one another, not exact root bytes."
+    },
+    {
+      "guard_id": "scope-digest",
+      "case_id": "lp04-wrong-scope-binding",
+      "kind": "weakened-rule",
+      "weakened_rule": "scope-digest",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Only the packet assessment digest is wrong."
+    },
+    {
+      "guard_id": "document-digests",
+      "case_id": "lp04-wrong-inventory-binding",
+      "kind": "weakened-rule",
+      "weakened_rule": "document-digests",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Only the packet dependency-document digest differs; admission and loader bindings remain correct."
+    },
+    {
+      "guard_id": "asset-source-binding",
+      "case_id": "lp04-wrong-asset-binding",
+      "kind": "weakened-rule",
+      "weakened_rule": "asset-source-binding",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Retained asset bytes and inventory subject digest agree with each other, not the actual root entry."
+    },
+    {
+      "guard_id": "review-subject-binding",
+      "case_id": "lp04-wrong-review-binding",
+      "kind": "weakened-rule",
+      "weakened_rule": "review-subject-binding",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Only the review's exact subject digest is wrong."
+    },
+    {
+      "guard_id": "entry-source-binding",
+      "case_id": "lp04-wrong-entry-binding",
+      "kind": "weakened-rule",
+      "weakened_rule": "entry-source-binding",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Mapping digest and retained entry agree with each other, not the packaged notice entry."
+    },
+    {
+      "guard_id": "exact-fields",
+      "case_id": "lp04-unknown-field",
+      "kind": "weakened-rule",
+      "weakened_rule": "exact-fields",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "An extra complete=true assertion is never an admission protocol."
+    },
+    {
+      "guard_id": "unique-json-fields",
+      "case_id": "lp04-duplicate-json-field",
+      "kind": "weakened-rule",
+      "weakened_rule": "unique-json-fields",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Duplicate identical protocol fields must not be last-wins."
+    },
+    {
+      "guard_id": "safe-paths",
+      "case_id": "lp04-unsafe-path",
+      "kind": "weakened-rule",
+      "weakened_rule": "safe-paths",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "binding-conflict",
+      "rule": "A parent traversal packaged mapping path is rejected before entry lookup."
+    },
+    {
+      "guard_id": "retained-byte-limit",
+      "case_id": "lp04-resource-limit",
+      "kind": "weakened-rule",
+      "weakened_rule": "retained-byte-limit",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "16385-byte reference text is outside the inclusive 16384-byte profile."
+    },
+    {
+      "guard_id": "admission-profiles",
+      "case_id": "lp04-unaccepted-admission",
+      "kind": "weakened-rule",
+      "weakened_rule": "admission-profiles",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "A caller-authored admission producer is unsupported even with matching hashes."
+    },
+    {
+      "guard_id": "dependency-identity-binding",
+      "case_id": "lp04-dependency-identity",
+      "kind": "weakened-rule",
+      "weakened_rule": "dependency-identity-binding",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "All dependency facts name the wrong version but the archive identity does not."
+    },
+    {
+      "guard_id": "modified-text",
+      "case_id": "lp04-modified-license",
+      "kind": "weakened-rule",
+      "weakened_rule": "modified-text",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Arbitrary modified text is not exact coverage and is not automatically a legally incomplete grant."
+    },
+    {
+      "guard_id": "successful-captures",
+      "case_id": "lp04-acquisition-unavailable",
+      "kind": "weakened-rule",
+      "weakened_rule": "capture-success",
+      "normal_branch": "inventories-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Retained partial documents and matching hashes do not override the admitted acquisition-unavailable state."
+    },
+    {
+      "guard_id": "unique-package-paths",
+      "case_id": "lp04-duplicate-package-path",
+      "kind": "weakened-rule",
+      "weakened_rule": "unique-package-paths",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Even byte-identical duplicate archive entries are ambiguous."
+    },
+    {
+      "guard_id": "no-path-aliases",
+      "case_id": "lp04-alias-package-path",
+      "kind": "weakened-rule",
+      "weakened_rule": "no-path-aliases",
+      "normal_branch": "input-invalid",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Case-equivalent archive entries are not selected by runtime-dependent lookup."
+    },
+    {
+      "guard_id": "all-tfm-versions",
+      "case_id": "lp04-multi-tfm-second-version-unresolved",
+      "kind": "weakened-rule",
+      "weakened_rule": "all-tfm-versions",
+      "normal_branch": "reviews-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Only the distinct version unique to TFM two has unresolved applicability."
+    },
+    {
+      "guard_id": "private-before-gap",
+      "case_id": "lp04-owner-before-gap",
+      "kind": "weakened-rule",
+      "weakened_rule": "gap-before-owner",
+      "normal_branch": "owner-evidence-required",
+      "wrong_branch": "required-representation-missing",
+      "rule": "An admitted retained private-contract fact, not failed public acquisition, preempts another complete missing-notice counterexample."
+    },
+    {
+      "guard_id": "unresolved-before-gap",
+      "case_id": "lp04-unresolved-before-gap",
+      "kind": "weakened-rule",
+      "weakened_rule": "gap-before-unresolved",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "required-representation-missing",
+      "rule": "One absent mapping preempts another fully observed missing representation."
+    },
+    {
+      "guard_id": "bindings-before-missing",
+      "case_id": "lp04-later-binding-before-unresolved",
+      "kind": "weakened-rule",
+      "weakened_rule": "early-missing",
+      "normal_branch": "binding-conflict",
+      "wrong_branch": "subject-bytes-missing",
+      "rule": "A first-node missing archive cannot hide a later-node review digest conflict."
+    },
+    {
+      "guard_id": "aggregate-admission",
+      "case_id": "lp04-unaccepted-aggregate",
+      "kind": "weakened-rule",
+      "weakened_rule": "aggregate-admission",
+      "normal_branch": "mapping-unresolved",
+      "wrong_branch": "notice-coverage-satisfied",
+      "rule": "Exact aggregate substrings without explicit aggregate acceptance are insufficient."
+    },
+    {
+      "guard_id": "loader-duplicate-role",
+      "case_id": "lp04-reject-duplicate-role",
+      "kind": "loader",
+      "expected_rejection": "duplicate-role"
+    },
+    {
+      "guard_id": "loader-safe-path",
+      "case_id": "lp04-reject-parent-path",
+      "kind": "loader",
+      "expected_rejection": "invalid-relative-path"
+    },
+    {
+      "guard_id": "loader-file-presence",
+      "case_id": "lp04-reject-missing-file",
+      "kind": "loader",
+      "expected_rejection": "missing-file"
+    },
+    {
+      "guard_id": "loader-digest",
+      "case_id": "lp04-reject-changed-bytes",
+      "kind": "loader",
+      "expected_rejection": "input-digest-mismatch"
+    },
+    {
+      "guard_id": "loader-exact-fields",
+      "case_id": "lp04-reject-unknown-input-field",
+      "kind": "loader",
+      "expected_rejection": "invalid-fields"
+    },
+    {
+      "guard_id": "retained-syncfusion",
+      "case_id": "lp04-retained-syncfusion",
+      "kind": "optional-retained",
+      "normal_branch": "scope-missing"
+    },
+    {
+      "guard_id": "retained-infragistics",
+      "case_id": "lp04-retained-infragistics",
+      "kind": "optional-retained",
+      "normal_branch": "scope-missing"
+    }
+  ]
+}
