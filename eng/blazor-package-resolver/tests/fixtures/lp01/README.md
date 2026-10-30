@@ -76,6 +76,12 @@ obligation.** Every allowlisted expression without an accepted owner record,
 including both retained MIT packages, escalates with applicable scope,
 explicit missing owner-authorized license grant and release/source
 correspondence, and package policy classification in the evidence contract.
+The absence of an owner record always uses the same
+`approved-non-copyleft` branch and evidence contract for eligible declarations,
+including the owner-path `no-record` control and both retained packages.
+Case IDs, input paths, package identities and unrelated repository metadata
+must not select a different no-record result. The eligible package declaration
+is a classification, never a repository-wide positive conclusion.
 Neither a populated expression nor a matching URL removes that missing fact.
 Decisive negatives report only that an authoritative *package declaration*
 offers no acceptable alternative; they are not repository-wide conclusions.

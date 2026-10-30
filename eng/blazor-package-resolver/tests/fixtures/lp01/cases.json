@@ -8066,7 +8066,7 @@
         "row_id": "LP-01",
         "resolver_id": "lp01-license-policy",
         "resolver_version": "1.0.0",
-        "branch_id": "owner-record-missing",
+        "branch_id": "approved-non-copyleft",
         "decision": "escalated",
         "applicability": "applicable",
         "inputs": [
@@ -8088,20 +8088,18 @@
         ],
         "evidence_references": [
           "package:nuspec/license",
-          "package:nuspec/repository",
           "policy:lp01-policy-1.0.0",
           "corpus:spdx-licenses-3.27.0"
         ],
-        "evidence_contract": "Available checked package, policy, owner-record and grant inputs were inspected; missing or conflicting evidence cannot establish owner authority or license scope.",
+        "evidence_contract": "Checked package SPDX expression: all alternatives OSI-approved by SPDX 3.27.0 and non-copyleft under pinned policy 1.0.0; owner grant and release/source scope not established.",
         "finding": null,
-        "missing_fact": "No prevalidated owner/repository evidence record was supplied.",
-        "required_input": "prevalidated-owner-record",
+        "missing_fact": "An OSI-approved, non-copyleft package declaration does not establish an owner-authorized repository license grant or correspondence to the checked release/source scope.",
+        "required_input": "owner-license-grant-and-release-scope",
         "next_category": "package-owner"
       },
       "rationale": "Shared package classification precedes owner evidence; only an eligible declaration can use caller-accepted owner and grant bindings.",
       "evidence_pointers": [
         "package:nuspec/license",
-        "package:nuspec/repository",
         "policy:lp01-policy-1.0.0",
         "corpus:spdx-licenses-3.27.0",
         "package:archive"
