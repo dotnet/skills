@@ -41,45 +41,76 @@ BRANCHES = {
 # Deliberate normative expectations, not branches obtained from production output.
 CASES = (
     ("missing-package", "missing-package", "Root bytes precede every other assessment input."),
-    ("missing-scope", "scope-missing", "A capture cannot choose the caller's assessment TFMs."),
     ("missing-closure", "evidence-missing", "A receipt alone is not a resolved closure."),
     ("missing-capture", "evidence-missing", "An unobserved graph is not an acquisition completeness basis."),
     ("acquisition-failed", "closure-unresolved", "Failed acquisition cannot manufacture a complete inventory."),
-    ("single-mit-at-grant-limit", "dependencies-policy-satisfied", "A complete prevalidated grant at 16384 bytes qualifies."),
-    ("direct-transitive", "dependencies-policy-satisfied", "Both direct MIT and transitive BSD evidence are necessary."),
     ("zero-dependencies", "dependencies-policy-satisfied", "A checked empty graph in every requested target permits a scoped vacuous finding."),
-    ("multi-tfm-shared", "dependencies-policy-satisfied", "Shared exact versions deduplicate evidence but retain each target's edges."),
-    ("multi-tfm-versions", "dependencies-policy-satisfied", "Different versions in different targets both remain in the assessed union."),
-    ("direct-gpl", "incompatible-dependency-license", "A fully evidenced direct strong-copyleft license violates the pinned policy."),
+    ("multi-tfm-versions", "dependencies-policy-satisfied", "Keep both per-target versions and a shared transitive version, with a complete grant at the inclusive 16384-byte limit."),
+    ("multi-tfm-second-gap", "incompatible-dependency-license", "Complete GPL evidence for a dependency unique to the second target must refute the union."),
+    ("multi-tfm-second-unresolved", "license-evidence-unresolved", "Only the second target's unique dependency lacks a grant; the first target alone cannot establish a positive."),
     ("transitive-weak-copyleft", "incompatible-dependency-license", "A fully evidenced transitive weak-copyleft license also violates policy."),
     ("non-osi", "incompatible-dependency-license", "A current catalog ID explicitly not OSI-approved is incompatible."),
-    ("metadata-only", "license-evidence-unresolved", "Neither an inventory nor PackageLicenseExpression establishes applicable grants."),
-    ("owner-grant", "owner-evidence-required", "Only a reviewed genuinely unpublished owner grant routes to an owner."),
+    ("missing-reviews", "license-evidence-unresolved", "All grants, packages and closure are present; absence of the entire applicability-review document alone prevents a positive."),
+    ("missing-one-review", "license-evidence-unresolved", "All grants and packages are present; one missing review in a multi-dependency closure prevents a positive."),
+    ("missing-evidence-before-gap", "license-evidence-unresolved", "Only a transitive grant is absent; its absence preempts another node's complete GPL evidence."),
+    ("owner-before-gap", "owner-evidence-required", "A reviewed unpublished owner grant requirement precedes another dependency's complete incompatible evidence."),
+    ("osi-unclassified", "license-evidence-unresolved", "Current OSI-approved EUPL-1.2 is outside every finite local classification; neither allow nor deny is inferred."),
+    ("deprecated-id", "license-evidence-unresolved", "Deprecated BSD-2-Clause-FreeBSD is unresolved before its catalog non-OSI flag could create a gap."),
+    ("with-expression", "license-evidence-unresolved", "An MIT WITH exception cannot be stripped to infer an allowed single license."),
     ("dual-expression", "license-evidence-unresolved", "No license election is invented for OR, even when both terms might qualify."),
     ("conjunctive-expression", "license-evidence-unresolved", "AND is outside this single-license profile, not implicitly interpreted."),
     ("custom-expression", "license-evidence-unresolved", "Unknown custom terms do not create a non-OSI gap."),
     ("missing-dependency", "dependency-bytes-missing", "An unavailable exact dependency version is unresolved."),
     ("wrong-root-id", "binding-conflict", "Root ID binds independently of root version and digest."),
     ("wrong-root-version", "binding-conflict", "Root version binds independently of root ID and digest."),
-    ("wrong-root-digest", "binding-conflict", "A receipt for different root bytes is unusable."),
-    ("missing-tfm", "closure-unresolved", "Every requested target must be captured, not just the first."),
+    ("wrong-graph-root", "binding-conflict", "A rehashed graph for different root bytes conflicts even though the receipt binds its new graph digest."),
+    ("receipt-target-mismatch", "closure-unresolved", "Only the receipt target set differs; the scope, graph and completeness target sets still agree."),
     ("dangling-edge", "closure-unresolved", "Every direct and transitive edge must resolve to an exact node."),
-    ("unreachable-node", "closure-unresolved", "Unreachable inventory cannot silently be counted as closure membership."),
-    ("incomplete-basis", "closure-unresolved", "Acquisition target counts must agree with the retained full graph."),
-    ("same-tfm-version-conflict", "closure-unresolved", "One ID with competing versions in a single target is not a solver decision."),
+    ("incomplete-basis", "closure-unresolved", "Only acquisition node counts are wrong; incomplete closure evidence preempts complete GPL evidence."),
+    ("same-tfm-version-conflict", "closure-unresolved", "Every node, package, grant, edge and count is present, but competing versions of one ID within one target are unresolved."),
     ("duplicate-key", "input-invalid", "Duplicate JSON fields are rejected, not last-wins."),
     ("unknown-field", "input-invalid", "A caller-authored complete=true is an unsupported field, not evidence."),
     ("unsafe-grant-path", "input-invalid", "Retained and in-package grant paths must be safe canonical relative paths."),
     ("grant-over-limit", "input-invalid", "16385 grant bytes exceed the inclusive 16384-byte profile."),
-    ("wrong-grant-binding", "binding-conflict", "Retained grant bytes must match capture and review digests."),
-    ("wrong-package-binding", "binding-conflict", "Dependency archive identities and roles bind exactly."),
-    ("wrong-graph-binding", "binding-conflict", "The acquisition receipt must bind the entire retained graph digest."),
-    ("wrong-review-binding", "binding-conflict", "A review for different grant bytes cannot establish applicability."),
-    ("missing-policy", "policy-unavailable", "No positive or gap can substitute an unpinned policy."),
-    ("incomplete-before-gap", "closure-unresolved", "Incomplete graph takes precedence over a recorded GPL dependency."),
-    ("missing-evidence-before-gap", "license-evidence-unresolved", "This conservative profile defers gap when another grant is unavailable."),
-    ("binding-before-gap", "binding-conflict", "An invalid evidence binding preempts a would-be policy gap."),
+    ("archive-declaration-mismatch", "binding-conflict", "Receipt and review consistently claim BSD but the exact dependency archive declares MIT; every digest still agrees."),
+    ("review-unresolved", "license-evidence-unresolved", "Only the review disposition is unresolved; all applicable-looking declarations and byte bindings agree."),
+    ("review-nonaccepting-basis", "license-evidence-unresolved", "A single-license review with a non-accepting unpublished-grant basis cannot establish a positive."),
+    ("review-package-binding", "binding-conflict", "Only the applicability review targets a different package digest; package and grant bindings otherwise agree."),
+    ("packaged-grant-binding", "binding-conflict", "Retained grant bytes, path, capture digest and review digest agree with each other, but not with the actual packaged entry."),
+    ("dependency-role-index", "binding-conflict", "A consistently renamed checked dependency role still violates the sorted-union role index."),
+    ("duplicate-reviews", "binding-conflict", "Two identical applicable reviews for one node cannot be silently deduplicated."),
+    ("out-of-inventory-review", "binding-conflict", "An extra otherwise well-shaped review for an unassessed version must not be ignored."),
+    ("unexpected-evidence-role", "binding-conflict", "An extra safe, checked grant role outside the inventory is not harmless evidence."),
+    ("later-binding-before-unresolved", "binding-conflict", "The first node lacks only its retained grant; a later node's review-package conflict must still win."),
     ("changed-policy", "policy-unavailable", "Even internally plausible replacement policy bytes cannot override the pin."),
+)
+
+# Fixed weakened-oracle variants reuse these exact cases, never add input variants.
+MUTATIONS = (
+    ("optional-reviews", (("missing-reviews", "dependencies-policy-satisfied"), ("missing-one-review", "dependencies-policy-satisfied"))),
+    ("first-target-licenses", (("multi-tfm-second-gap", "dependencies-policy-satisfied"), ("multi-tfm-second-unresolved", "dependencies-policy-satisfied"))),
+    ("unclassified-allow", (("osi-unclassified", "dependencies-policy-satisfied"),)),
+    ("unclassified-gap", (("osi-unclassified", "incompatible-dependency-license"),)),
+    ("deprecated-id", (("deprecated-id", "incompatible-dependency-license"),)),
+    ("strip-compound", (("with-expression", "dependencies-policy-satisfied"), ("dual-expression", "dependencies-policy-satisfied"), ("conjunctive-expression", "dependencies-policy-satisfied"))),
+    ("archive-declaration", (("archive-declaration-mismatch", "dependencies-policy-satisfied"),)),
+    ("review-disposition", (("review-unresolved", "dependencies-policy-satisfied"),)),
+    ("review-basis", (("review-nonaccepting-basis", "dependencies-policy-satisfied"),)),
+    ("review-package", (("review-package-binding", "dependencies-policy-satisfied"),)),
+    ("packaged-grant", (("packaged-grant-binding", "dependencies-policy-satisfied"),)),
+    ("receipt-targets", (("receipt-target-mismatch", "dependencies-policy-satisfied"),)),
+    ("graph-root", (("wrong-graph-root", "dependencies-policy-satisfied"),)),
+    ("dependency-role", (("dependency-role-index", "dependencies-policy-satisfied"),)),
+    ("duplicate-reviews", (("duplicate-reviews", "dependencies-policy-satisfied"),)),
+    ("out-of-inventory-review", (("out-of-inventory-review", "dependencies-policy-satisfied"),)),
+    ("unexpected-role", (("unexpected-evidence-role", "dependencies-policy-satisfied"),)),
+    ("gap-before-owner", (("owner-before-gap", "incompatible-dependency-license"),)),
+    ("early-missing-license", (("later-binding-before-unresolved", "license-evidence-unresolved"),)),
+    ("root-identity", (("wrong-root-id", "dependencies-policy-satisfied"),)),
+    ("receipt-root", (("wrong-root-version", "dependencies-policy-satisfied"),)),
+    ("completeness-counts", (("incomplete-basis", "incompatible-dependency-license"),)),
+    ("same-target-versions", (("same-tfm-version-conflict", "dependencies-policy-satisfied"),)),
+    ("policy-pin", (("changed-policy", "dependencies-policy-satisfied"),)),
 )
 
 
@@ -286,8 +317,9 @@ def shape(scope, capture, graph, reviews, checked):
     require(sum(len(data) for _, data in checked.values()) <= 64 * 1024 * 1024, "aggregate-limit")
 
 
-def classify(checked):
+def classify(checked, weakened_rule=None):
     """Classify normalized observations only; never parse packages, solve or interpret grant text."""
+    require(weakened_rule is None or weakened_rule in {name for name, _ in MUTATIONS}, "unknown-weakened-rule")
     if "package" not in checked:
         return "missing-package"
     if "assessment" not in checked:
@@ -302,27 +334,29 @@ def classify(checked):
         return "input-invalid"
     if not all(role in checked for role in ("policy", "corpus")):
         return "policy-unavailable"
-    if digest(checked["policy"][1]) != POLICY_SHA or digest(checked["corpus"][1]) != CORPUS_SHA:
+    if weakened_rule != "policy-pin" and (
+            digest(checked["policy"][1]) != POLICY_SHA or digest(checked["corpus"][1]) != CORPUS_SHA):
         return "policy-unavailable"
     if scope["root"]["sha256"] != checked["package"][0]["sha256"]:
         return "binding-conflict"
     root_fact = PACKAGE_FACTS.get(checked["package"][0]["sha256"])
     if root_fact is None:
         return "input-invalid"
-    if scope["root"] != root_fact["identity"]:
+    if weakened_rule != "root-identity" and scope["root"] != root_fact["identity"]:
         return "binding-conflict"
     if capture is None:
         return "evidence-missing"
-    if capture["root"] != scope["root"]:
+    if weakened_rule != "receipt-root" and capture["root"] != scope["root"]:
         return "binding-conflict"
     if capture["result"] != "captured":
         return "closure-unresolved"
     if graph is None:
         return "evidence-missing"
-    if graph["root"] != scope["root"] or capture["graph_sha256"] != checked["dependency-graph"][0]["sha256"]:
+    if (weakened_rule != "graph-root" and graph["root"] != scope["root"]
+            or capture["graph_sha256"] != checked["dependency-graph"][0]["sha256"]):
         return "binding-conflict"
     requested = sorted(scope["target_frameworks"])
-    if (sorted(capture["target_frameworks"]) != requested
+    if (weakened_rule != "receipt-targets" and sorted(capture["target_frameworks"]) != requested
             or sorted(item["tfm"] for item in graph["targets"]) != requested
             or graph["unresolved"]):
         return "closure-unresolved"
@@ -333,8 +367,10 @@ def classify(checked):
         all_edges = item["direct"] + [edge for deps in nodes.values() for edge in deps]
         if (len(nodes) != len(item["nodes"]) or len(set(item["direct"])) != len(item["direct"])
                 or any(len(set(edges)) != len(edges) for edges in nodes.values())
-                or len(all_edges) > 128 or any(edge not in nodes for edge in all_edges)
-                or len({name.split("/")[0] for name in nodes}) != len(nodes)):
+                or len(all_edges) > 128 or any(edge not in nodes for edge in all_edges)):
+            return "closure-unresolved"
+        if (weakened_rule != "same-target-versions"
+                and len({name.split("/")[0] for name in nodes}) != len(nodes)):
             return "closure-unresolved"
         reached = set()
         pending = list(item["direct"])
@@ -347,14 +383,17 @@ def classify(checked):
             return "closure-unresolved"
         union.update(nodes)
         counts.append({"tfm": item["tfm"], "node_count": len(nodes), "edge_count": len(all_edges)})
-    if len(union) > 64 or sorted(counts, key=lambda item: item["tfm"]) != sorted(
-            capture["completeness_basis"]["targets"], key=lambda item: item["tfm"]):
+    if len(union) > 64 or weakened_rule != "completeness-counts" and sorted(
+            counts, key=lambda item: item["tfm"]) != sorted(
+                capture["completeness_basis"]["targets"], key=lambda item: item["tfm"]):
         return "closure-unresolved"
     inventory = {item["key"]: item for item in capture["packages"]}
     if len(inventory) != len(capture["packages"]) or set(inventory) != union:
         return "closure-unresolved"
     review_map = {item["key"]: item for item in reviews["reviews"]} if reviews else {}
-    if reviews and (len(review_map) != len(reviews["reviews"]) or not set(review_map) <= union):
+    if reviews and (
+            weakened_rule != "duplicate-reviews" and len(review_map) != len(reviews["reviews"])
+            or weakened_rule != "out-of-inventory-review" and not set(review_map) <= union):
         return "binding-conflict"
     used = {"package", "assessment", "dependency-graph", "acquisition-receipt", "policy", "corpus"}
     if reviews is not None:
@@ -369,7 +408,7 @@ def classify(checked):
         item = inventory[name]
         package_identity = item["identity"]
         if (name != f"{package_identity['id']}/{package_identity['version']}"
-                or item["role"] != f"dependency-{index:03d}"):
+                or weakened_rule != "dependency-role" and item["role"] != f"dependency-{index:03d}"):
             return "binding-conflict"
         role = item["role"]
         used.add(role)
@@ -379,7 +418,8 @@ def classify(checked):
             return "binding-conflict"
         elif PACKAGE_FACTS.get(package_identity["sha256"], {}).get("identity") != package_identity:
             return "binding-conflict"
-        elif PACKAGE_FACTS[package_identity["sha256"]]["expression"] != item["declared_expression"]:
+        elif (weakened_rule != "archive-declaration"
+              and PACKAGE_FACTS[package_identity["sha256"]]["expression"] != item["declared_expression"]):
             return "binding-conflict"
         grant = item["grant"]
         review = review_map.get(name)
@@ -391,14 +431,21 @@ def classify(checked):
                 grant_input = checked[grant["role"]][0]
                 if (grant_input["path"] != grant["path"] or grant_input["sha256"] != grant["sha256"]):
                     return "binding-conflict"
-            if role in checked and (
+            if weakened_rule != "packaged-grant" and role in checked and (
                     grant["package_entry"] != "LICENSE.txt"
                     or PACKAGE_FACTS[package_identity["sha256"]]["grant_sha256"] != grant["sha256"]):
                 return "binding-conflict"
-        if review and (review["package_sha256"] != package_identity["sha256"]
+        if review and (weakened_rule != "review-package" and review["package_sha256"] != package_identity["sha256"]
                        or grant is not None and review["grant_sha256"] != grant["sha256"]):
             return "binding-conflict"
+        if weakened_rule == "first-target-licenses" and name not in {
+                node["key"] for node in graph["targets"][0]["nodes"]}:
+            continue
         if grant is None or grant["role"] not in checked or review is None:
+            if weakened_rule == "optional-reviews" and review is None and grant and grant["role"] in checked:
+                continue
+            if weakened_rule == "early-missing-license":
+                return "license-evidence-unresolved"
             unresolved = True
             continue
         expression = item["declared_expression"]
@@ -410,8 +457,12 @@ def classify(checked):
             else:
                 unresolved = True
             continue
-        if (review["disposition"] != "applicable-single-license" or review["basis"] != "published-package-grant"
-                or expression not in catalog or catalog[expression]["isDeprecatedLicenseId"]):
+        if weakened_rule == "strip-compound":
+            expression = expression.split(" ", 1)[0]
+        if (weakened_rule != "review-disposition" and review["disposition"] != "applicable-single-license"
+                or weakened_rule != "review-basis" and review["basis"] != "published-package-grant"
+                or expression not in catalog
+                or weakened_rule != "deprecated-id" and catalog[expression]["isDeprecatedLicenseId"]):
             unresolved = True
             continue
         if expression in policy["non_copyleft_allowlist"]:
@@ -420,14 +471,17 @@ def classify(checked):
                 or not catalog[expression]["isOsiApproved"]):
             incompatible = True
         else:
-            unresolved = True
-    if set(checked) - used:
+            if weakened_rule == "unclassified-gap":
+                incompatible = True
+            elif weakened_rule != "unclassified-allow":
+                unresolved = True
+    if weakened_rule != "unexpected-role" and set(checked) - used:
         return "binding-conflict"
     if missing_package:
         return "dependency-bytes-missing"
     if unresolved:
         return "license-evidence-unresolved"
-    if owner:
+    if owner and not (weakened_rule == "gap-before-owner" and incompatible):
         return "owner-evidence-required"
     return "incompatible-dependency-license" if incompatible else "dependencies-policy-satisfied"
 
@@ -504,6 +558,14 @@ def build():
     policy = (LP01 / "policy" / "lp01-policy-1.0.0.json").read_bytes()
     corpus = (LP01 / "policy" / "spdx-licenses-3.27.0.json").read_bytes()
     require(digest(policy) == POLICY_SHA and digest(corpus) == CORPUS_SHA, "accepted-policy-pin-changed")
+    catalog = {item["licenseId"]: item for item in json.loads(corpus)["licenses"]}
+    classifications = json.loads(policy)
+    require(catalog["EUPL-1.2"]["isOsiApproved"] and not catalog["EUPL-1.2"]["isDeprecatedLicenseId"]
+            and all("EUPL-1.2" not in classifications[category]
+                    for category in ("non_copyleft_allowlist", "copyleft", "weak_copyleft")),
+            "unclassified-witness-not-independent")
+    require(catalog["BSD-2-Clause-FreeBSD"]["isDeprecatedLicenseId"]
+            and not catalog["BSD-2-Clause-FreeBSD"]["isOsiApproved"], "deprecated-witness-not-independent")
     retain("policy/lp01-policy-1.0.0.json", policy)
     retain("policy/spdx-licenses-3.27.0.json", corpus)
     mit = (LP01 / "grants" / "mit-full.txt").read_bytes()
@@ -519,15 +581,11 @@ def build():
                  "targets": [{"tfm": "net8.0", "direct": ["sample.a/1.0.0"], "nodes": nodes}],
                  "unresolved": []}
         licenses = {"sample.a/1.0.0": "MIT", "sample.b/1.0.0": "BSD-2-Clause"}
-        if name == "single-mit-at-grant-limit":
-            nodes[0]["dependencies"] = []
-            nodes.pop()
-            licenses.pop("sample.b/1.0.0")
         if name == "zero-dependencies":
             graph["targets"][0]["direct"] = []
             nodes.clear()
             licenses.clear()
-        if name.startswith("multi-tfm") or name == "missing-tfm":
+        if name.startswith("multi-tfm"):
             scope["target_frameworks"].append("net9.0")
             second = copy.deepcopy(graph["targets"][0])
             second["tfm"] = "net9.0"
@@ -535,18 +593,31 @@ def build():
                 second["direct"] = ["sample.a/2.0.0"]
                 second["nodes"][0]["key"] = "sample.a/2.0.0"
                 licenses["sample.a/2.0.0"] = "MIT"
+            else:
+                second["direct"].append("sample.c/1.0.0")
+                second["nodes"].append({"key": "sample.c/1.0.0", "dependencies": []})
+                licenses["sample.c/1.0.0"] = "GPL-3.0-only" if name == "multi-tfm-second-gap" else "MIT"
             graph["targets"].append(second)
-        if name in ("direct-gpl", "incomplete-before-gap", "missing-evidence-before-gap", "binding-before-gap"):
+        if name == "same-tfm-version-conflict":
+            nodes.append({"key": "sample.a/2.0.0", "dependencies": []})
+            nodes[0]["dependencies"].append("sample.a/2.0.0")
+            licenses["sample.a/2.0.0"] = "MIT"
+        if name in ("incomplete-basis", "missing-evidence-before-gap"):
             licenses["sample.a/1.0.0"] = "GPL-3.0-only"
         if name == "transitive-weak-copyleft":
             licenses["sample.b/1.0.0"] = "LGPL-2.1-only"
         if name == "non-osi":
             licenses["sample.a/1.0.0"] = "CC-BY-NC-4.0"
-        if name in ("dual-expression", "conjunctive-expression", "custom-expression", "owner-grant"):
+        if name in ("osi-unclassified", "deprecated-id", "with-expression",
+                    "dual-expression", "conjunctive-expression", "custom-expression", "owner-before-gap"):
             licenses["sample.a/1.0.0"] = {
+                "osi-unclassified": "EUPL-1.2", "deprecated-id": "BSD-2-Clause-FreeBSD",
+                "with-expression": "MIT WITH LLVM-exception",
                 "dual-expression": "MIT OR BSD-2-Clause", "conjunctive-expression": "MIT AND BSD-2-Clause",
-                "custom-expression": "LicenseRef-unclassified", "owner-grant": "LicenseRef-owner-grant",
+                "custom-expression": "LicenseRef-unclassified", "owner-before-gap": "LicenseRef-owner-grant",
             }[name]
+        if name == "owner-before-gap":
+            licenses["sample.b/1.0.0"] = "GPL-3.0-only"
         root_bytes = package("sample.root", "1.0.0", "MIT", mit,
                              {item["tfm"]: item["direct"] for item in graph["targets"]})
         root = {"id": "sample.root", "version": "1.0.0", "sha256": digest(root_bytes)}
@@ -565,10 +636,10 @@ def build():
                 f"This entire synthetic package is offered solely under {expression}.\n"
                 "This original fixture statement is not a copy of the referenced license text.\n"
             ).encode("ascii")
-            if name == "owner-grant" and index == 0:
+            if name == "owner-before-gap" and index == 0:
                 grant = b"This synthetic package requires an individual unpublished grant from Example Owner.\n"
-            if name in ("single-mit-at-grant-limit", "grant-over-limit") and index == 0:
-                grant += b" " * ((16384 if name == "single-mit-at-grant-limit" else 16385) - len(grant))
+            if name in ("multi-tfm-versions", "grant-over-limit") and index == 0:
+                grant += b" " * ((16384 if name == "multi-tfm-versions" else 16385) - len(grant))
             groups = {
                 item["tfm"]: node["dependencies"] for item in graph["targets"]
                 for node in item["nodes"] if node["key"] == node_key
@@ -587,22 +658,13 @@ def build():
             reviews["reviews"].append({
                 "key": node_key, "package_sha256": digest(pkg), "grant_sha256": digest(grant),
                 "license_id": expression, "scope": "entire-dependency-version",
-                "basis": "unpublished-owner-grant" if name == "owner-grant" and index == 0 else "published-package-grant",
-                "disposition": "owner-grant-required" if name == "owner-grant" and index == 0 else "applicable-single-license",
+                "basis": "unpublished-owner-grant" if name == "owner-before-gap" and index == 0 else "published-package-grant",
+                "disposition": "owner-grant-required" if name == "owner-before-gap" and index == 0 else "applicable-single-license",
                 "reviewer_reference": "synthetic-reviewer/1", "authority_reference": "synthetic-grant-authority/1",
                 "review_reference": "synthetic-applicability-review/1",
             })
         if name == "dangling-edge":
-            nodes[0]["dependencies"] = ["sample.missing/1.0.0"]
-        if name == "unreachable-node":
-            graph["targets"][0]["direct"] = []
-        if name == "same-tfm-version-conflict":
-            nodes.append({"key": "sample.a/2.0.0", "dependencies": []})
-            nodes[0]["dependencies"].append("sample.a/2.0.0")
-        if name == "incomplete-before-gap":
-            graph["unresolved"] = ["sample.missing: exact version unavailable"]
-        if name == "missing-tfm":
-            graph["targets"].pop()
+            nodes[0]["dependencies"].append("sample.missing/1.0.0")
         for item in graph["targets"]:
             capture["completeness_basis"]["targets"].append({
                 "tfm": item["tfm"], "node_count": len(item["nodes"]),
@@ -610,35 +672,61 @@ def build():
             })
         if name == "incomplete-basis":
             capture["completeness_basis"]["targets"][0]["node_count"] = 1
-        if name in ("wrong-root-id", "wrong-root-version", "wrong-root-digest"):
-            field = {"wrong-root-id": "id", "wrong-root-version": "version", "wrong-root-digest": "sha256"}[name]
-            capture["root"][field] = {"id": "other.root", "version": "2.0.0", "sha256": "0" * 64}[field]
+        if name in ("wrong-root-id", "wrong-root-version"):
+            field = "id" if name == "wrong-root-id" else "version"
+            capture["root"][field] = "other.root" if field == "id" else "2.0.0"
             if name == "wrong-root-id":
                 scope["root"][field] = capture["root"][field]
                 graph["root"][field] = capture["root"][field]
-        if name in ("wrong-package-binding", "binding-before-gap"):
-            capture["packages"][0]["identity"]["sha256"] = "0" * 64
-        if name == "wrong-grant-binding":
-            capture["packages"][0]["grant"]["sha256"] = "0" * 64
-        if name == "wrong-review-binding":
-            reviews["reviews"][0]["grant_sha256"] = "0" * 64
+        if name == "wrong-graph-root":
+            graph["root"]["sha256"] = "0" * 64
+        if name == "receipt-target-mismatch":
+            capture["target_frameworks"] = ["net9.0"]
+        if name == "archive-declaration-mismatch":
+            capture["packages"][0]["declared_expression"] = "BSD-2-Clause"
+            reviews["reviews"][0]["license_id"] = "BSD-2-Clause"
+        if name == "review-unresolved":
+            reviews["reviews"][0]["disposition"] = "unresolved"
+        if name == "review-nonaccepting-basis":
+            reviews["reviews"][0]["basis"] = "unpublished-owner-grant"
+        if name == "review-package-binding":
+            reviews["reviews"][0]["package_sha256"] = "0" * 64
+        if name == "packaged-grant-binding":
+            grant = mit + b"\nSynthetic retained-only annotation.\n"
+            grant_path = f"grants/{digest(grant)}.txt"
+            local["grant-000"] = (grant_path, grant)
+            capture["packages"][0]["grant"].update(path=grant_path, sha256=digest(grant))
+            reviews["reviews"][0]["grant_sha256"] = digest(grant)
+        if name == "dependency-role-index":
+            capture["packages"][0]["role"] = "dependency-009"
+            local["dependency-009"] = local.pop("dependency-000")
+        if name == "duplicate-reviews":
+            reviews["reviews"].append(copy.deepcopy(reviews["reviews"][0]))
+        if name == "out-of-inventory-review":
+            extra = copy.deepcopy(reviews["reviews"][0])
+            extra["key"] = "sample.unlisted/1.0.0"
+            reviews["reviews"].append(extra)
+        if name == "unexpected-evidence-role":
+            local["grant-999"] = local["grant-000"]
         if name == "unsafe-grant-path":
             capture["packages"][0]["grant"]["package_entry"] = "../LICENSE.txt"
         if name == "unknown-field":
-            capture["complete"] = True
-        if name == "metadata-only":
-            for item in capture["packages"]:
-                item["grant"] = None
-            local = {role: value for role, value in local.items() if not role.startswith("grant-")}
+            capture["complete"] = "caller-asserted"
+        if name == "missing-reviews":
             reviews = None
+        if name == "missing-one-review":
+            reviews["reviews"].pop()
         if name == "missing-evidence-before-gap":
             local.pop("grant-001")
+        if name == "multi-tfm-second-unresolved":
+            local.pop("grant-002")
+        if name == "later-binding-before-unresolved":
+            local.pop("grant-000")
+            reviews["reviews"][1]["package_sha256"] = "0" * 64
         if name == "missing-dependency":
             local.pop("dependency-001")
         graph_bytes = encoded(graph)
         capture["graph_sha256"] = digest(graph_bytes)
-        if name == "wrong-graph-binding":
-            capture["graph_sha256"] = "0" * 64
         if name == "acquisition-failed":
             capture.update(result="unavailable", graph_sha256=None, packages=[])
             capture["completeness_basis"]["targets"] = []
@@ -653,9 +741,8 @@ def build():
         local["acquisition-receipt"] = (f"inputs/{name}.capture.json", capture_bytes)
         if reviews is not None:
             local["license-reviews"] = (f"inputs/{name}.reviews.json", encoded(reviews))
-        for case_name, role in (("missing-package", "package"), ("missing-scope", "assessment"),
-                                ("missing-closure", "dependency-graph"), ("missing-capture", "acquisition-receipt"),
-                                ("missing-policy", "policy")):
+        for case_name, role in (("missing-package", "package"), ("missing-closure", "dependency-graph"),
+                                ("missing-capture", "acquisition-receipt")):
             if name == case_name:
                 local.pop(role)
         if name == "changed-policy":
@@ -672,9 +759,9 @@ def build():
             "case_id": f"lp03-{name}", "row_id": "LP-03", "inputs": inputs, "expected": expected,
             "rationale": rationale, "evidence_pointers": expected["evidence_references"],
         })
-    require(len(cases) == 40, "case-count")
+    require(len(cases) == 43, "case-count")
     artifacts["cases.json"] = encoded({"schema_version": 1, "cases": cases})
-    baseline = next(item for item in cases if item["case_id"] == "lp03-direct-transitive")["inputs"]
+    baseline = next(item for item in cases if item["case_id"] == "lp03-multi-tfm-versions")["inputs"]
     controls = []
     for name, rejection in (
         ("duplicate-role", "duplicate-role"), ("parent-path", "invalid-relative-path"),
@@ -712,6 +799,13 @@ def build():
         bindings[-1]["binding"] = f"LP03_{'SYNCFUSION' if vendor['vendor'] == 'syncfusion' else 'INFRAGISTICS'}_NUPKG"
     artifacts["acceptance.json"] = encoded({"schema_version": 1, "cases": retained})
     artifacts["retained-inputs.json"] = encoded({"schema_version": 1, "vendors": bindings})
+    artifacts["discrimination.json"] = encoded({
+        "schema_version": 1,
+        "method": "fixed-weakened-oracle-rules-existing-inputs-only",
+        "variants": [{"weakened_rule": rule, "witnesses": [
+            {"case_id": f"lp03-{name}", "weakened_branch": branch} for name, branch in witnesses]}
+            for rule, witnesses in MUTATIONS],
+    })
     input_index = [{"path": path, "size_bytes": len(data), "sha256": digest(data)}
                    for path, data in sorted(artifacts.items())
                    if path.startswith(("inputs/", "packages/", "grants/", "policy/"))]
@@ -722,11 +816,14 @@ def build():
         "obligation": "All direct and transitive dependencies use OSI-approved, non-copyleft licenses.",
         "resolver_id": "lp03-dependency-licenses", "resolver_version": "1.0.0",
         "production_implementation": "absent; LP-03 remains tbd",
-        "synthetic_cases": 40, "rejected_inputs": 5, "retained_expectations": 2, "total_named_cases": 47,
+        "phase_a_correction_parent": "b91de23a90490f6f219e3183d5c19d160da498ea",
+        "synthetic_cases": 43, "rejected_inputs": 5, "retained_expectations": 2, "total_named_cases": 50,
+        "weakened_rule_variants": len(MUTATIONS), "existing_case_witness_runs": sum(len(items) for _, items in MUTATIONS),
         "input_count": len(input_index), "input_bytes": sum(item["size_bytes"] for item in input_index),
         "branch_status_mapping": {branch: details[0] for branch, details in BRANCHES.items()},
         "manifest_sha256": {path: digest(artifacts[path]) for path in
-                            ("cases.json", "rejected-inputs.json", "acceptance.json", "retained-inputs.json", "input-manifest.json")},
+                            ("cases.json", "rejected-inputs.json", "acceptance.json", "retained-inputs.json",
+                             "input-manifest.json", "discrimination.json")},
         "contract_sha256": digest((ROOT / "README.md").read_bytes()),
         "policy_sha256": POLICY_SHA, "spdx_sha256": CORPUS_SHA,
     })
@@ -745,7 +842,20 @@ def check(artifacts):
             require(str(error) == control["expected_rejection"], f"{control['case_id']}: wrong rejection: {error}")
         else:
             raise ValueError(f"{control['case_id']}: accepted rejected input")
-    require({case["expected"]["branch_id"] for case in suite["cases"]} == set(BRANCHES), "branch-coverage")
+    retained = json.loads(artifacts["acceptance.json"])["cases"]
+    controls = json.loads(artifacts["rejected-inputs.json"])["controls"]
+    ids = [case["case_id"] for case in suite["cases"] + retained + controls]
+    require(len(ids) == len(set(ids)), "duplicate-expectation-id")
+    require({case["expected"]["branch_id"] for case in suite["cases"] + retained} == set(BRANCHES), "branch-coverage")
+    require(len(ids) == 50, "named-expectation-limit")
+    require(len(MUTATIONS) == 24 and len({rule for rule, _ in MUTATIONS}) == 24, "bounded-mutation-limit")
+    by_id = {case["case_id"]: case for case in suite["cases"]}
+    for rule, witnesses in MUTATIONS:
+        for name, weakened_branch in witnesses:
+            case = by_id[f"lp03-{name}"]
+            actual = classify(pinned_inputs(case["inputs"], artifacts), weakened_rule=rule)
+            require(actual == weakened_branch and actual != case["expected"]["branch_id"],
+                    f"non-discriminating-matrix: {rule}, {name}: got {actual}, expected weakened {weakened_branch}")
 
 
 def retained_bindings(bindings, supplied):
@@ -832,8 +942,10 @@ def main():
         expected = {name for name in artifacts if name.startswith(("inputs/", "packages/", "grants/", "policy/"))}
         require(actual == expected, "unindexed-or-missing-input")
     manifest = json.loads(artifacts["acceptance-manifest.json"])
-    print(f"LP-03 Phase A: 40 oracle cases, 5 loader rejections, 12/12 branches; "
+    print(f"LP-03 Phase A: 43 oracle cases, 5 loader rejections, 2 retained expectations, 12 branch expectations; "
           f"{manifest['input_count']} inputs / {manifest['input_bytes']} bytes.")
+    print(f"Discrimination: {len(MUTATIONS)} fixed weakened-rule variants rejected by "
+          f"{sum(len(items) for _, items in MUTATIONS)} existing-case witness runs; no additional inputs.")
     print(f"Retained: {check_retained(artifacts, args.retained)}.")
     print(f"Input manifest SHA-256: {digest(artifacts['input-manifest.json'])}")
     print("No resolver, package-manager execution, license-text interpretation or network used.")

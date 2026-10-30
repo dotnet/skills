@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "method": "fixed-weakened-oracle-rules-existing-inputs-only",
+  "variants": [
+    {
+      "weakened_rule": "optional-reviews",
+      "witnesses": [
+        {
+          "case_id": "lp03-missing-reviews",
+          "weakened_branch": "dependencies-policy-satisfied"
+        },
+        {
+          "case_id": "lp03-missing-one-review",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "first-target-licenses",
+      "witnesses": [
+        {
+          "case_id": "lp03-multi-tfm-second-gap",
+          "weakened_branch": "dependencies-policy-satisfied"
+        },
+        {
+          "case_id": "lp03-multi-tfm-second-unresolved",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "unclassified-allow",
+      "witnesses": [
+        {
+          "case_id": "lp03-osi-unclassified",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "unclassified-gap",
+      "witnesses": [
+        {
+          "case_id": "lp03-osi-unclassified",
+          "weakened_branch": "incompatible-dependency-license"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "deprecated-id",
+      "witnesses": [
+        {
+          "case_id": "lp03-deprecated-id",
+          "weakened_branch": "incompatible-dependency-license"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "strip-compound",
+      "witnesses": [
+        {
+          "case_id": "lp03-with-expression",
+          "weakened_branch": "dependencies-policy-satisfied"
+        },
+        {
+          "case_id": "lp03-dual-expression",
+          "weakened_branch": "dependencies-policy-satisfied"
+        },
+        {
+          "case_id": "lp03-conjunctive-expression",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "archive-declaration",
+      "witnesses": [
+        {
+          "case_id": "lp03-archive-declaration-mismatch",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "review-disposition",
+      "witnesses": [
+        {
+          "case_id": "lp03-review-unresolved",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "review-basis",
+      "witnesses": [
+        {
+          "case_id": "lp03-review-nonaccepting-basis",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "review-package",
+      "witnesses": [
+        {
+          "case_id": "lp03-review-package-binding",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "packaged-grant",
+      "witnesses": [
+        {
+          "case_id": "lp03-packaged-grant-binding",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "receipt-targets",
+      "witnesses": [
+        {
+          "case_id": "lp03-receipt-target-mismatch",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "graph-root",
+      "witnesses": [
+        {
+          "case_id": "lp03-wrong-graph-root",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "dependency-role",
+      "witnesses": [
+        {
+          "case_id": "lp03-dependency-role-index",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "duplicate-reviews",
+      "witnesses": [
+        {
+          "case_id": "lp03-duplicate-reviews",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "out-of-inventory-review",
+      "witnesses": [
+        {
+          "case_id": "lp03-out-of-inventory-review",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "unexpected-role",
+      "witnesses": [
+        {
+          "case_id": "lp03-unexpected-evidence-role",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "gap-before-owner",
+      "witnesses": [
+        {
+          "case_id": "lp03-owner-before-gap",
+          "weakened_branch": "incompatible-dependency-license"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "early-missing-license",
+      "witnesses": [
+        {
+          "case_id": "lp03-later-binding-before-unresolved",
+          "weakened_branch": "license-evidence-unresolved"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "root-identity",
+      "witnesses": [
+        {
+          "case_id": "lp03-wrong-root-id",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "receipt-root",
+      "witnesses": [
+        {
+          "case_id": "lp03-wrong-root-version",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "completeness-counts",
+      "witnesses": [
+        {
+          "case_id": "lp03-incomplete-basis",
+          "weakened_branch": "incompatible-dependency-license"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "same-target-versions",
+      "witnesses": [
+        {
+          "case_id": "lp03-same-tfm-version-conflict",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    },
+    {
+      "weakened_rule": "policy-pin",
+      "witnesses": [
+        {
+          "case_id": "lp03-changed-policy",
+          "weakened_branch": "dependencies-policy-satisfied"
+        }
+      ]
+    }
+  ]
+}

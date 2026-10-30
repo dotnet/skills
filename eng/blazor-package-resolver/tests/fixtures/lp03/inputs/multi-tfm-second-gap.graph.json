@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "root": {
+    "id": "sample.root",
+    "version": "1.0.0",
+    "sha256": "ef1bc47e71d442457dae79cc14508fd4a86717e97ea1abb01821061c56db1992"
+  },
+  "targets": [
+    {
+      "tfm": "net8.0",
+      "direct": [
+        "sample.a/1.0.0"
+      ],
+      "nodes": [
+        {
+          "key": "sample.a/1.0.0",
+          "dependencies": [
+            "sample.b/1.0.0"
+          ]
+        },
+        {
+          "key": "sample.b/1.0.0",
+          "dependencies": []
+        }
+      ]
+    },
+    {
+      "tfm": "net9.0",
+      "direct": [
+        "sample.a/1.0.0",
+        "sample.c/1.0.0"
+      ],
+      "nodes": [
+        {
+          "key": "sample.a/1.0.0",
+          "dependencies": [
+            "sample.b/1.0.0"
+          ]
+        },
+        {
+          "key": "sample.b/1.0.0",
+          "dependencies": []
+        },
+        {
+          "key": "sample.c/1.0.0",
+          "dependencies": []
+        }
+      ]
+    }
+  ],
+  "unresolved": []
+}

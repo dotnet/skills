@@ -8,13 +8,13 @@
       "inputs": [
         {
           "role": "acquisition-receipt",
-          "path": "inputs/direct-transitive.capture.json",
-          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971"
+          "path": "inputs/multi-tfm-versions.capture.json",
+          "sha256": "b29964e572a977907bf201a2f86953dc7ccded0d3aab58decbcc7161e59643bb"
         },
         {
           "role": "assessment",
-          "path": "inputs/direct-transitive.assessment.json",
-          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+          "path": "inputs/multi-tfm-versions.assessment.json",
+          "sha256": "1e4a14bd01923d0f7db68f69bf07c5e18aabeffc8b45de396fab06284376ee2d"
         },
         {
           "role": "corpus",
@@ -23,38 +23,48 @@
         },
         {
           "role": "dependency-000",
-          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
-          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+          "path": "packages/sample.a.1.0.0.b01a813730fa.nupkg",
+          "sha256": "b01a813730faf350cd1092c5397afac1191e6a33a29dca6d77a31cd66a40035b"
         },
         {
           "role": "dependency-001",
-          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
-          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+          "path": "packages/sample.a.2.0.0.462cbf58a3fe.nupkg",
+          "sha256": "462cbf58a3fe626b34f728753ec740a2b07f43d4f15f948e4d4fdb6811dd7c7f"
+        },
+        {
+          "role": "dependency-002",
+          "path": "packages/sample.b.1.0.0.7eba81853e41.nupkg",
+          "sha256": "7eba81853e4151bd601b9ea8afb920b2d7b9992e3acca2585b05d444aa600713"
         },
         {
           "role": "dependency-graph",
-          "path": "inputs/direct-transitive.graph.json",
-          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+          "path": "inputs/multi-tfm-versions.graph.json",
+          "sha256": "e8378621ff9399cb86e2c7f19cdd8edb14de7e91f38879dd0f82fd41369f969f"
         },
         {
           "role": "grant-000",
+          "path": "grants/ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a.txt",
+          "sha256": "ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a"
+        },
+        {
+          "role": "grant-001",
           "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         },
         {
-          "role": "grant-001",
+          "role": "grant-002",
           "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
           "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
         },
         {
           "role": "license-reviews",
-          "path": "inputs/direct-transitive.reviews.json",
-          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+          "path": "inputs/multi-tfm-versions.reviews.json",
+          "sha256": "ea7c70ae3af865e8fb53f61abd6083cf091df6faeb31c34831c59bbc1a37dd6e"
         },
         {
           "role": "package",
-          "path": "packages/root.d1199980842e.nupkg",
-          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+          "path": "packages/root.11d839726bf9.nupkg",
+          "sha256": "11d839726bf9b5d1d5775fa2c1ff2f2d547c781a101c5e789d53590a7679de63"
         },
         {
           "role": "policy",
@@ -63,8 +73,8 @@
         },
         {
           "role": "acquisition-receipt",
-          "path": "inputs/direct-transitive.capture.json",
-          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971"
+          "path": "inputs/multi-tfm-versions.capture.json",
+          "sha256": "b29964e572a977907bf201a2f86953dc7ccded0d3aab58decbcc7161e59643bb"
         }
       ]
     },
@@ -76,12 +86,12 @@
         {
           "role": "acquisition-receipt",
           "path": "../outside.json",
-          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971"
+          "sha256": "b29964e572a977907bf201a2f86953dc7ccded0d3aab58decbcc7161e59643bb"
         },
         {
           "role": "assessment",
-          "path": "inputs/direct-transitive.assessment.json",
-          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+          "path": "inputs/multi-tfm-versions.assessment.json",
+          "sha256": "1e4a14bd01923d0f7db68f69bf07c5e18aabeffc8b45de396fab06284376ee2d"
         },
         {
           "role": "corpus",
@@ -90,38 +100,48 @@
         },
         {
           "role": "dependency-000",
-          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
-          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+          "path": "packages/sample.a.1.0.0.b01a813730fa.nupkg",
+          "sha256": "b01a813730faf350cd1092c5397afac1191e6a33a29dca6d77a31cd66a40035b"
         },
         {
           "role": "dependency-001",
-          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
-          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+          "path": "packages/sample.a.2.0.0.462cbf58a3fe.nupkg",
+          "sha256": "462cbf58a3fe626b34f728753ec740a2b07f43d4f15f948e4d4fdb6811dd7c7f"
+        },
+        {
+          "role": "dependency-002",
+          "path": "packages/sample.b.1.0.0.7eba81853e41.nupkg",
+          "sha256": "7eba81853e4151bd601b9ea8afb920b2d7b9992e3acca2585b05d444aa600713"
         },
         {
           "role": "dependency-graph",
-          "path": "inputs/direct-transitive.graph.json",
-          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+          "path": "inputs/multi-tfm-versions.graph.json",
+          "sha256": "e8378621ff9399cb86e2c7f19cdd8edb14de7e91f38879dd0f82fd41369f969f"
         },
         {
           "role": "grant-000",
+          "path": "grants/ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a.txt",
+          "sha256": "ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a"
+        },
+        {
+          "role": "grant-001",
           "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         },
         {
-          "role": "grant-001",
+          "role": "grant-002",
           "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
           "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
         },
         {
           "role": "license-reviews",
-          "path": "inputs/direct-transitive.reviews.json",
-          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+          "path": "inputs/multi-tfm-versions.reviews.json",
+          "sha256": "ea7c70ae3af865e8fb53f61abd6083cf091df6faeb31c34831c59bbc1a37dd6e"
         },
         {
           "role": "package",
-          "path": "packages/root.d1199980842e.nupkg",
-          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+          "path": "packages/root.11d839726bf9.nupkg",
+          "sha256": "11d839726bf9b5d1d5775fa2c1ff2f2d547c781a101c5e789d53590a7679de63"
         },
         {
           "role": "policy",
@@ -138,12 +158,12 @@
         {
           "role": "acquisition-receipt",
           "path": "inputs/not-retained.json",
-          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971"
+          "sha256": "b29964e572a977907bf201a2f86953dc7ccded0d3aab58decbcc7161e59643bb"
         },
         {
           "role": "assessment",
-          "path": "inputs/direct-transitive.assessment.json",
-          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+          "path": "inputs/multi-tfm-versions.assessment.json",
+          "sha256": "1e4a14bd01923d0f7db68f69bf07c5e18aabeffc8b45de396fab06284376ee2d"
         },
         {
           "role": "corpus",
@@ -152,38 +172,48 @@
         },
         {
           "role": "dependency-000",
-          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
-          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+          "path": "packages/sample.a.1.0.0.b01a813730fa.nupkg",
+          "sha256": "b01a813730faf350cd1092c5397afac1191e6a33a29dca6d77a31cd66a40035b"
         },
         {
           "role": "dependency-001",
-          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
-          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+          "path": "packages/sample.a.2.0.0.462cbf58a3fe.nupkg",
+          "sha256": "462cbf58a3fe626b34f728753ec740a2b07f43d4f15f948e4d4fdb6811dd7c7f"
+        },
+        {
+          "role": "dependency-002",
+          "path": "packages/sample.b.1.0.0.7eba81853e41.nupkg",
+          "sha256": "7eba81853e4151bd601b9ea8afb920b2d7b9992e3acca2585b05d444aa600713"
         },
         {
           "role": "dependency-graph",
-          "path": "inputs/direct-transitive.graph.json",
-          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+          "path": "inputs/multi-tfm-versions.graph.json",
+          "sha256": "e8378621ff9399cb86e2c7f19cdd8edb14de7e91f38879dd0f82fd41369f969f"
         },
         {
           "role": "grant-000",
+          "path": "grants/ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a.txt",
+          "sha256": "ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a"
+        },
+        {
+          "role": "grant-001",
           "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         },
         {
-          "role": "grant-001",
+          "role": "grant-002",
           "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
           "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
         },
         {
           "role": "license-reviews",
-          "path": "inputs/direct-transitive.reviews.json",
-          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+          "path": "inputs/multi-tfm-versions.reviews.json",
+          "sha256": "ea7c70ae3af865e8fb53f61abd6083cf091df6faeb31c34831c59bbc1a37dd6e"
         },
         {
           "role": "package",
-          "path": "packages/root.d1199980842e.nupkg",
-          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+          "path": "packages/root.11d839726bf9.nupkg",
+          "sha256": "11d839726bf9b5d1d5775fa2c1ff2f2d547c781a101c5e789d53590a7679de63"
         },
         {
           "role": "policy",
@@ -199,13 +229,13 @@
       "inputs": [
         {
           "role": "acquisition-receipt",
-          "path": "inputs/direct-transitive.capture.json",
+          "path": "inputs/multi-tfm-versions.capture.json",
           "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
         },
         {
           "role": "assessment",
-          "path": "inputs/direct-transitive.assessment.json",
-          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+          "path": "inputs/multi-tfm-versions.assessment.json",
+          "sha256": "1e4a14bd01923d0f7db68f69bf07c5e18aabeffc8b45de396fab06284376ee2d"
         },
         {
           "role": "corpus",
@@ -214,38 +244,48 @@
         },
         {
           "role": "dependency-000",
-          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
-          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+          "path": "packages/sample.a.1.0.0.b01a813730fa.nupkg",
+          "sha256": "b01a813730faf350cd1092c5397afac1191e6a33a29dca6d77a31cd66a40035b"
         },
         {
           "role": "dependency-001",
-          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
-          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+          "path": "packages/sample.a.2.0.0.462cbf58a3fe.nupkg",
+          "sha256": "462cbf58a3fe626b34f728753ec740a2b07f43d4f15f948e4d4fdb6811dd7c7f"
+        },
+        {
+          "role": "dependency-002",
+          "path": "packages/sample.b.1.0.0.7eba81853e41.nupkg",
+          "sha256": "7eba81853e4151bd601b9ea8afb920b2d7b9992e3acca2585b05d444aa600713"
         },
         {
           "role": "dependency-graph",
-          "path": "inputs/direct-transitive.graph.json",
-          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+          "path": "inputs/multi-tfm-versions.graph.json",
+          "sha256": "e8378621ff9399cb86e2c7f19cdd8edb14de7e91f38879dd0f82fd41369f969f"
         },
         {
           "role": "grant-000",
+          "path": "grants/ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a.txt",
+          "sha256": "ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a"
+        },
+        {
+          "role": "grant-001",
           "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         },
         {
-          "role": "grant-001",
+          "role": "grant-002",
           "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
           "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
         },
         {
           "role": "license-reviews",
-          "path": "inputs/direct-transitive.reviews.json",
-          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+          "path": "inputs/multi-tfm-versions.reviews.json",
+          "sha256": "ea7c70ae3af865e8fb53f61abd6083cf091df6faeb31c34831c59bbc1a37dd6e"
         },
         {
           "role": "package",
-          "path": "packages/root.d1199980842e.nupkg",
-          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+          "path": "packages/root.11d839726bf9.nupkg",
+          "sha256": "11d839726bf9b5d1d5775fa2c1ff2f2d547c781a101c5e789d53590a7679de63"
         },
         {
           "role": "policy",
@@ -261,14 +301,14 @@
       "inputs": [
         {
           "role": "acquisition-receipt",
-          "path": "inputs/direct-transitive.capture.json",
-          "sha256": "349ae786c54f5965ac5d6b8af33616de205aea30d4df4e2aedc019988b440971",
+          "path": "inputs/multi-tfm-versions.capture.json",
+          "sha256": "b29964e572a977907bf201a2f86953dc7ccded0d3aab58decbcc7161e59643bb",
           "complete": true
         },
         {
           "role": "assessment",
-          "path": "inputs/direct-transitive.assessment.json",
-          "sha256": "1ce2493ab97e2f3b6c310c8c38aaf0af4a6032fbeaebcefa2ec40a4bb4842d77"
+          "path": "inputs/multi-tfm-versions.assessment.json",
+          "sha256": "1e4a14bd01923d0f7db68f69bf07c5e18aabeffc8b45de396fab06284376ee2d"
         },
         {
           "role": "corpus",
@@ -277,38 +317,48 @@
         },
         {
           "role": "dependency-000",
-          "path": "packages/sample.a.1.0.0.57d43a5077b2.nupkg",
-          "sha256": "57d43a5077b266ccd456ff5265c2b97464d7548dd843e1ad8cb324382fb4aaac"
+          "path": "packages/sample.a.1.0.0.b01a813730fa.nupkg",
+          "sha256": "b01a813730faf350cd1092c5397afac1191e6a33a29dca6d77a31cd66a40035b"
         },
         {
           "role": "dependency-001",
-          "path": "packages/sample.b.1.0.0.39c153f0f032.nupkg",
-          "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+          "path": "packages/sample.a.2.0.0.462cbf58a3fe.nupkg",
+          "sha256": "462cbf58a3fe626b34f728753ec740a2b07f43d4f15f948e4d4fdb6811dd7c7f"
+        },
+        {
+          "role": "dependency-002",
+          "path": "packages/sample.b.1.0.0.7eba81853e41.nupkg",
+          "sha256": "7eba81853e4151bd601b9ea8afb920b2d7b9992e3acca2585b05d444aa600713"
         },
         {
           "role": "dependency-graph",
-          "path": "inputs/direct-transitive.graph.json",
-          "sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b"
+          "path": "inputs/multi-tfm-versions.graph.json",
+          "sha256": "e8378621ff9399cb86e2c7f19cdd8edb14de7e91f38879dd0f82fd41369f969f"
         },
         {
           "role": "grant-000",
+          "path": "grants/ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a.txt",
+          "sha256": "ac583f2fb2dae719813a7146ceda6fd4e326578f13c3df82d857adaeedfd759a"
+        },
+        {
+          "role": "grant-001",
           "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
           "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff"
         },
         {
-          "role": "grant-001",
+          "role": "grant-002",
           "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
           "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee"
         },
         {
           "role": "license-reviews",
-          "path": "inputs/direct-transitive.reviews.json",
-          "sha256": "b3799fc6d89a5734d19dbb7370247f867fb30ef1ed61212fecce38868fe9e9fe"
+          "path": "inputs/multi-tfm-versions.reviews.json",
+          "sha256": "ea7c70ae3af865e8fb53f61abd6083cf091df6faeb31c34831c59bbc1a37dd6e"
         },
         {
           "role": "package",
-          "path": "packages/root.d1199980842e.nupkg",
-          "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+          "path": "packages/root.11d839726bf9.nupkg",
+          "sha256": "11d839726bf9b5d1d5775fa2c1ff2f2d547c781a101c5e789d53590a7679de63"
         },
         {
           "role": "policy",
