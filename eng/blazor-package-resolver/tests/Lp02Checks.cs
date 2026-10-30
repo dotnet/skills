@@ -21,6 +21,25 @@ internal static class Lp02Checks
         var record = receipt.Deserialize<Lp02Observation>(Lp02PublicSourceResolver.JsonOptions)!;
         var project = record.SourceInventory[0].Path;
         var implementation = record.SourceInventory[1].Path;
+        using var originalZip = new ZipArchive(new MemoryStream(archive));
+        using var projectReader = new StreamReader(originalZip.GetEntry(project)!.Open());
+        var projectXml = projectReader.ReadToEnd();
+        using var sourceStream = originalZip.GetEntry(implementation)!.Open();
+        using var sourceBuffer = new MemoryStream();
+        sourceStream.CopyTo(sourceBuffer);
+        CaseResult ProjectResult(byte[] projectBytes, string? extraPath = null)
+        {
+            var files = new Dictionary<string, byte[]>
+            {
+                [project] = projectBytes, [implementation] = sourceBuffer.ToArray()
+            };
+            if (extraPath is not null) files.Add(extraPath, []);
+            var changed = Zip(files);
+            var observation = receipt.DeepClone();
+            Bind(observation, changed);
+            observation["source_inventory"]![0]!["sha256"] = Catalog.Digest(projectBytes);
+            return Resolve(registry, package, Encoding.UTF8.GetBytes(observation.ToJsonString()), changed);
+        }
         var runtimeCases = 0;
         void Case(string name, Action action)
         {
@@ -55,7 +74,10 @@ internal static class Lp02Checks
                 generated.Observation, Lp02PublicSourceResolver.JsonOptions), generated.Archive);
             Require(result.BranchId == "public-source-observed" &&
                 result.Finding!.Contains("It does not establish that the published binaries were built from that revision.",
-                    StringComparison.Ordinal), "Generated receipt reaches only the qualified positive");
+                    StringComparison.Ordinal) &&
+                result.Finding.Contains("It also does not establish membership in the declared repository's branches or tags, " +
+                    "because codeload may serve fork-network commit objects.", StringComparison.Ordinal),
+                "Generated receipt reaches only the qualified positive with binary and membership limitations");
         });
         Case("retrieval-result-states", () =>
         {
@@ -242,9 +264,78 @@ internal static class Lp02Checks
             }
             catch (InvalidDataException) { }
         });
-        Require(runtimeCases == 12, "12 focused runtime cases; 45 total named synthetic cases");
+        Case("unsupported-msbuild-source-mapping", () =>
+        {
+            var root = project[..project.IndexOf("/src/", StringComparison.Ordinal)];
+            var variants = new (string Name, string Xml, string? ExtraPath)[]
+            {
+                ("lowercase-default-compile", projectXml.Replace("</PropertyGroup>",
+                    "<enabledefaultcompileitems>false</enabledefaultcompileitems></PropertyGroup>", StringComparison.Ordinal), null),
+                ("mixed-case-default-items", projectXml.Replace("</PropertyGroup>",
+                    "<eNaBlEdEfAuLtItEmS>false</eNaBlEdEfAuLtItEmS></PropertyGroup>", StringComparison.Ordinal), null),
+                ("lowercase-compile-remove", projectXml.Replace("</Project>",
+                    "<ItemGroup><compile remove=\"**/*.cs\" /></ItemGroup></Project>", StringComparison.Ordinal), null),
+                ("mixed-case-import", projectXml.Replace("</Project>",
+                    "<iMpOrT pRoJeCt=\"other.props\" /></Project>", StringComparison.Ordinal), null),
+                ("duplicate-sdk-attribute", projectXml.Replace("Sdk=\"Microsoft.NET.Sdk\"",
+                    "Sdk=\"Microsoft.NET.Sdk\" sdk=\"Other.Sdk\"", StringComparison.Ordinal), null),
+                ("true-choose-override", projectXml.Replace("</Project>",
+                    "<Choose><When Condition=\"'1' == '1'\"><PropertyGroup><PackageId>Other.Library</PackageId>" +
+                    "</PropertyGroup></When></Choose></Project>", StringComparison.Ordinal), null),
+                ("mixed-case-target-override", projectXml.Replace("</Project>",
+                    "<tArGeT nAmE=\"Override\"><PropertyGroup><packageid>Other.Library</packageid>" +
+                    "</PropertyGroup></tArGeT></Project>", StringComparison.Ordinal), null),
+                ("nested-package-id", projectXml.Replace("</Project>",
+                    "<Wrapper><PropertyGroup><PackageId>Other.Library</PackageId></PropertyGroup></Wrapper></Project>",
+                    StringComparison.Ordinal), null),
+                ("competing-case-package-id", projectXml.Replace("</PropertyGroup>",
+                    "<packageid>Other.Library</packageid></PropertyGroup>", StringComparison.Ordinal), null),
+                ("mixed-case-condition", projectXml.Replace("<PropertyGroup>",
+                    "<PropertyGroup cOnDiTiOn=\"false\">", StringComparison.Ordinal), null),
+                ("default-item-excludes", projectXml.Replace("</PropertyGroup>",
+                    "<dEfAuLtItEmExClUdEs>**/*.cs</dEfAuLtItEmExClUdEs></PropertyGroup>", StringComparison.Ordinal), null),
+                ("root-directory-build-props", projectXml, root + "/Directory.Build.props"),
+                ("ancestor-directory-build-targets", projectXml, root + "/src/directory.build.targets"),
+                ("project-directory-build-props", projectXml, project[..(project.LastIndexOf('/') + 1)] + "DIRECTORY.BUILD.PROPS")
+            };
+            var outcomes = variants.Select(item => (item.Name,
+                Result: ProjectResult(Encoding.UTF8.GetBytes(item.Xml), item.ExtraPath))).ToArray();
+            foreach (var item in outcomes)
+                Console.WriteLine($"LP-02 acceptance {item.Name}: {item.Result.BranchId}.");
+            Require(outcomes.All(item => item.Result.BranchId == "source-relevance-unestablished" &&
+                item.Result.Decision == "escalated" && item.Result.Finding is null),
+                "Unsupported case variants, conditional/competing identities, exclusions and ancestor imports cannot establish relevance");
+            Require(ProjectResult(Encoding.UTF8.GetBytes(projectXml), root + "/other/Directory.Build.props").BranchId ==
+                "public-source-observed", "Only Directory.Build files in the selected project's ancestors block relevance");
+        });
+        Case("malformed-observation-unicode", () =>
+        {
+            var valid = Encoding.UTF8.GetBytes(receipt.ToJsonString());
+            var variants = new[]
+            {
+                (Name: "invalid-utf8-property", Bytes: (byte[])[.. valid[..^1], .. ",\""u8.ToArray(), 0xff, .. "\":0}"u8.ToArray()]),
+                (Name: "invalid-utf8-value", Bytes: (byte[])[.. valid[..^1], .. ",\"unknown\":\""u8.ToArray(), 0xff, .. "\"}"u8.ToArray()]),
+                (Name: "unpaired-property-surrogate", Bytes: Encoding.UTF8.GetBytes(
+                    Encoding.UTF8.GetString(valid)[..^1] + ",\"\\uD800\":0}")),
+                (Name: "unpaired-known-value-surrogate", Bytes: Encoding.UTF8.GetBytes(
+                    receipt.ToJsonString().Replace(record.MappingRationale, "\\uD800", StringComparison.Ordinal)))
+            };
+            foreach (var item in variants)
+                Require(Resolve(registry, package, item.Bytes, archive).BranchId == "observation-invalid",
+                    $"Malformed JSON Unicode must reject without an unhandled exception: {item.Name}");
+        });
+        Case("project-utf8-bom", () =>
+        {
+            var bytes = Encoding.UTF8.GetBytes(projectXml);
+            var bom = new byte[] { 0xef, 0xbb, 0xbf };
+            Require(ProjectResult([.. bom, .. bytes]).BranchId == "public-source-observed",
+                "A single UTF-8 BOM on an otherwise supported project preserves relevance");
+            Require(ProjectResult([.. bom, .. bom, .. bytes]).BranchId == "source-relevance-unestablished",
+                "Repeated BOMs are not a supported project encoding");
+        });
+        Require(runtimeCases == 15, "15 focused runtime cases; 48 total named synthetic cases");
         Retained(registry, directory);
-        Console.WriteLine("LP-02: 33 frozen oracle cases + 12 runtime cases passed (network-free).");
+        Console.WriteLine("LP-02: 33 frozen oracle cases + 15 runtime cases passed (network-free).");
     }
 
     private static void Retained(Registry registry, string directory)

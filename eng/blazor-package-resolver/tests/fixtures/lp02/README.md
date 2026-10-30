@@ -9,6 +9,11 @@ and capture time, the anonymous retrieval and bounded library-source mapping,
 and explicitly says that this does **not** establish that the published
 binaries were built from that revision.
 
+GitHub codeload can serve fork-network commit objects through the declared
+repository URL. Successful retrieval therefore does **not** prove that the
+commit belongs to that repository's branches or tags. The positive finding
+states this qualification; LP-02 does not perform a network membership check.
+
 Do not infer repository ownership, complete build closure, reproducible
 builds, binary/source correspondence, license compliance or overall
 readiness. Stronger correspondence/provenance belongs to LP-10/PI-11.
@@ -53,10 +58,18 @@ invoke `gh`, evaluate MSBuild or access the network.
   GitHub's 40-byte exact-commit archive comment (or no comment); arbitrary
   comments are unsupported. Package ZIPs remain comment-free, preserving
   LP-01's existing validator behavior.
-- The project must be UTF-8 XML with unqualified `Project`,
+- The project must be strict UTF-8 XML (optional single UTF-8 BOM) with unqualified `Project`,
   `Sdk="Microsoft.NET.Sdk"`, and one unconditional literal
-  `PropertyGroup/PackageId` matching the package ID case-insensitively.
-  Reject explicit `Compile`/`Import` nodes or disabled default compile/items.
+  direct top-level `PropertyGroup/PackageId` matching the package ID
+  case-insensitively. Compare guarded MSBuild element/attribute/property
+  names case-insensitively. Reject `Choose`, `Target`, any conditional
+  attribute, nested/noncanonical or competing `PackageId` declarations,
+  explicit compile/import/SDK-import nodes, disabled default compile/items,
+  and any `DefaultItemExcludes` declaration. Also reject when
+  `Directory.Build.props` or `Directory.Build.targets` exists in any selected
+  project ancestor directory inside the retained archive, including the
+  project's own directory and archive root (case-insensitive path comparison).
+  Do not evaluate those files or MSBuild expressions.
   The implementation must be nonblank strict UTF-8 under that project's
   directory, outside `obj`/`bin`. A nonblank ASCII rationale of at most
   1000 characters explains the mapping. This is bounded file/marker evidence,
@@ -104,6 +117,8 @@ insufficient.
 
 `observation.json` is strict UTF-8 JSON, maximum 16 KiB and depth 8, with
 duplicate/unknown fields rejected. There are no acceptance booleans.
+Malformed UTF-8, escaped Unicode or deferred JSON string/field decoding
+failures produce `observation-invalid`, never an unhandled exception.
 
 ```json
 {
@@ -171,11 +186,13 @@ escalation with unknown applicability and no factual finding: unresolved /
 
 ## Focused validation and retained replay
 
-There are **45 named synthetic cases**: 33 frozen oracle/replay cases and
-12 runtime cases covering generated anonymous observations, unresolved HTTP
+There are **48 named synthetic cases**: 33 frozen oracle/replay cases and
+15 runtime cases covering generated anonymous observations, unresolved HTTP
 states, network failure, header/stream caps, receipt/file/archive resource
-boundaries, path/root safety, mapping, duplicate inventory and checked-buffer/
-culture determinism. Runtime cases group related boundary/status assertions;
+boundaries, path/root safety, mapping, duplicate inventory, checked-buffer/
+culture determinism, unsupported case-insensitive MSBuild/identity/import/
+exclusion shapes, malformed receipt Unicode and the project UTF-8 BOM.
+Runtime cases group related boundary/status assertions;
 they are not an exhaustive cross-runtime differential matrix. The independent
 Python oracle specifies expected branches and bytes without importing or
 invoking production code. The ordinary tests never access the network.
