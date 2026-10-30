@@ -333,7 +333,8 @@ All checks raise explicit errors, remaining active under `python -O`.
 
 ### Focused correction on the blocked initial Phase A
 
-The correction parent is `049d202089eae80cdfcccf2282a51e55063c2a84`.
+The initial correction parent is `049d202089eae80cdfcccf2282a51e55063c2a84`.
+The four-guard follow-up parent is `0b4133120d77ef02850979b52c722874414e732f`.
 The original **43 replay + 5 loader + 2 retained = 50 named expectations**,
 all **331 checked inputs / 735351 bytes**, `cases.json`, `input-manifest.json`,
 loader and retained ledgers remain byte-identical. Their original SHA-256
@@ -347,9 +348,9 @@ only that document, rebinds null packet/admission document digests, retains the
 claimed captured state, and normally requires `reviews-unresolved`. Weakening
 only document presence must reproduce the incorrect `no-applicable-surface`.
 
-The bounded manual audit now registers **125 guards / 162 witnesses**:
-**112 fixed in-memory recipes**, **32 existing-case weakening executions**,
-and **105 distinct weakened variants / 144 total weakening executions**.
+The bounded manual audit now registers **128 guards / 166 witnesses**:
+**116 fixed in-memory recipes**, **32 existing-case weakening executions**,
+and **108 distinct weakened variants / 148 total weakening executions**.
 The remaining 11 existing-branch, 5 loader and 2 optional-retained witnesses
 are explicitly not counted as weakened variants. Optional actual retained
 witnesses are not claimed executed when bindings are absent.
@@ -377,12 +378,39 @@ are independently discriminating.
 
 The independent manual `CRITICAL_GUARDS` tuple must equal the registration
 inventory. Each guard lists its exact witness IDs, and every witness must be
-registered. **250 omission/empty-witness meta-checks** remove each registration
+registered. **256 omission/empty-witness meta-checks** remove each registration
 or empty its witness list in turn and require the specific rejection. Deleting
 or replacing cases/registrations cannot silently shrink that obligation set.
 `discrimination.json` retains the rule text, source case, exact recipe,
 weakening, normal branch and wrong branch. The table below is checked against
 that ledger, not automatically rediscovered from current conditionals.
+
+### Four-guard follow-up
+
+The edge-count recipe changes only a declared `edge_count` **after** automatic
+count repair, leaving the correct node count and graph intact. It independently
+protects edge-count equality under the existing `graph-counts` registration.
+The other three recipes protect nonempty obligation parts, the disposition
+enum, and the entry-kind enum with distinct critical guards. Empty parts remove
+only that obligation's mappings; the unknown disposition uses already-empty
+obligations/mappings; the unknown entry kind removes its bundled subject,
+review, mapping and checked asset. Unused leaf roles are pruned and unrelated
+bindings repaired exactly as for other fixed recipes.
+
+| Fixed-memory witness | Normal branch | Wrong branch when only its guard is weakened |
+|---|---|---|
+| `edge-count-discrepancy` | `inventories-unresolved` | `notice-coverage-satisfied` |
+| `empty-obligation-parts` | `input-invalid` | `notice-coverage-satisfied` |
+| `unknown-review-disposition` | `input-invalid` | `no-applicable-surface` |
+| `unknown-entry-kind` | `input-invalid` | `notice-coverage-satisfied` |
+
+Focused validation also performs four literal single-line source deletions
+in memory: remove only the edge-count equality term, or remove only one of
+the three corresponding `require` lines. Each independently compiled oracle
+runs the full `check(..., "all")` suite and must fail its exact new normal
+witness with the wrong branch above. These standalone deletion checks do not
+change the source on disk, add named expectations, or count as the 256
+guard-registration/empty-witness meta-checks.
 
 ### Manual audit boundaries
 
@@ -426,7 +454,7 @@ rule; the mutation removes that rule, not an unrelated binding.
 | `direct-absence` | `case:direct-absent` |
 | `direct-prefix` | `case:direct-partial` |
 | `dependency-inventory-required` | `case:missing-dependency-inventory` |
-| `graph-counts` | `case:incomplete-dependency-inventory` |
+| `graph-counts` | `case:incomplete-dependency-inventory`, `memory:edge-count-discrepancy` |
 | `graph-diagnostics` | `case:unresolved-graph` |
 | `asset-inventory-required` | `case:missing-asset-inventory` |
 | `all-root-entries` | `case:incomplete-asset-inventory` |
@@ -541,6 +569,9 @@ rule; the mutation removes that rule, not an unrelated binding.
 | `asset-byte-limit` | `memory:asset-byte-limit` |
 | `aggregate-byte-limit` | `memory:aggregate-byte-limit` |
 | `root-entry-limit` | `memory:root-entry-limit` |
+| `nonempty-obligation-parts` | `memory:empty-obligation-parts` |
+| `review-disposition-enum` | `memory:unknown-review-disposition` |
+| `entry-kind-enum` | `memory:unknown-entry-kind` |
 
 ### Commands and retained roots
 

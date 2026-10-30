@@ -136,6 +136,7 @@ FIXED_PROBES = (
     ("duplicate-node", "all-sources-covered", "graph-unique-nodes", I, V),
     ("duplicate-direct", "all-sources-covered", "graph-unique-direct", I, V),
     ("duplicate-adjacency", "all-sources-covered", "graph-unique-adjacency", I, V),
+    ("edge-count-discrepancy", "all-sources-covered", "graph-counts", I, V),
     ("edge-limit", "all-sources-covered", "graph-edge-limit", X, V),
     ("dangling-direct", "all-sources-covered", "graph-edge-membership", I, V),
     ("dangling-transitive", "all-sources-covered", "graph-edge-membership", I, V),
@@ -150,6 +151,7 @@ FIXED_PROBES = (
     ("duplicate-entry-subject", "all-sources-covered", "entry-subject-unique", I, V),
     ("unlisted-third-party", "all-sources-covered", "entry-kind-subjects", I, V),
     ("first-party-with-subject", "all-sources-covered", "entry-kind-subjects", I, V),
+    ("unknown-entry-kind", "all-sources-covered", "entry-kind-enum", X, V),
     ("repeated-asset-location", "all-sources-covered", "asset-entry-unique", I, V),
     ("missing-listed-asset", "all-sources-covered", "asset-inventory-equality", I, V),
     ("dependency-key", "all-sources-covered", "dependency-key", C, V),
@@ -177,6 +179,7 @@ FIXED_PROBES = (
     ("entry-reference-role", "all-sources-covered", "evidence-role", C, V),
     ("unsupported-only", "all-sources-covered", "review-disposition", R, V),
     ("unresolved-only", "all-sources-covered", "review-disposition", R, V),
+    ("unknown-review-disposition", "reviewed-no-obligations", "review-disposition-enum", X, N),
     ("owner-fact-missing", "owner-before-gap", "owner-fact", R, O),
     ("owner-basis-missing", "owner-before-gap", "review-basis", R, O),
     ("owner-with-obligations", "all-sources-covered", "owner-empty-obligations", R, O),
@@ -185,6 +188,7 @@ FIXED_PROBES = (
     ("none-with-obligations", "all-sources-covered", "review-obligation-form", C, V),
     ("required-without-obligations", "reviewed-no-obligations", "review-obligation-form", C, N),
     ("duplicate-obligation", "all-sources-covered", "obligations-unique", C, V),
+    ("empty-obligation-parts", "all-sources-covered", "nonempty-obligation-parts", X, V),
     ("duplicate-part", "all-sources-covered", "parts-unique", C, V),
     ("missing-part-bytes", "all-sources-covered", "part-bytes", R, V),
     ("duplicate-mapping", "all-sources-covered", "mapping-unique", C, V),
@@ -307,10 +311,14 @@ FIXED_GUARDS = (
     ("asset-byte-limit", "Separately retained asset bytes fit the 1 MiB limit.", ("asset-byte-limit",)),
     ("aggregate-byte-limit", "All checked bytes together fit the 64 MiB limit.", ("aggregate-byte-limit",)),
     ("root-entry-limit", "The full all-entry inventory fits the 128-entry profile.", ("root-entry-limit",)),
+    ("nonempty-obligation-parts", "Every retained obligation has at least one required representation part.", ("empty-obligation-parts",)),
+    ("review-disposition-enum", "An unknown disposition cannot silently mean no preservation obligations.", ("unknown-review-disposition",)),
+    ("entry-kind-enum", "An unknown entry kind cannot silently remove a bundled third-party subject.", ("unknown-entry-kind",)),
 )
 
 # Additional witnesses exercise existing guard families without duplicating registrations.
 EXTRA_WITNESSES = (
+    ("graph-counts", ("edge-count-discrepancy",)),
     ("root-identity", ("observed-root-id",)),
     ("dependency-identity-binding", ("observed-dependency-id",)),
     ("document-digests", ("packet-assets", "packet-reviews", "packet-mapping")),
@@ -336,6 +344,7 @@ CRITICAL_GUARDS += (
     "review-before-gap", "schema-version", "packet-protocol", "capture-profiles", "scope-nonempty",
     "scope-unique", "asset-scope", "json-byte-limit", "archive-byte-limit", "asset-byte-limit",
     "aggregate-byte-limit", "root-entry-limit",
+    "nonempty-obligation-parts", "review-disposition-enum", "entry-kind-enum",
 )
 WEAKENED_RULES = {case[3] for case in CASES if case[3]} | {item[2] for item in FIXED_PROBES}
 DOC_ROLES = {
@@ -561,7 +570,7 @@ def shapes(docs, checked, weakened):
             fields(entry, "path sha256 kind subjects", weakened)
             path_field(entry["path"], weakened)
             sha(entry["sha256"])
-            require(entry["kind"] in ("third-party", "first-party", "packaging", "unresolved"), "entry-kind")
+            require(weakened == "entry-kind-enum" or entry["kind"] in ("third-party", "first-party", "packaging", "unresolved"), "entry-kind")
             array(entry["subjects"])
             for subject in entry["subjects"]:
                 text(subject, 128)
@@ -579,7 +588,7 @@ def shapes(docs, checked, weakened):
             fields(review, "subject sha256 disposition basis obligations owner_fact", weakened)
             text(review["subject"], 128)
             sha(review["sha256"])
-            require(review["disposition"] in ("obligations", "no-obligations", "unresolved", "unsupported", "owner-private"), "review-disposition")
+            require(weakened == "review-disposition-enum" or review["disposition"] in ("obligations", "no-obligations", "unresolved", "unsupported", "owner-private"), "review-disposition")
             evidence_shape(review["basis"], weakened, "reference")
             if review["owner_fact"] is not None:
                 text(review["owner_fact"])
@@ -588,7 +597,7 @@ def shapes(docs, checked, weakened):
                 fields(obligation, "id parts", weakened)
                 token(obligation["id"])
                 array(obligation["parts"], 8)
-                require(obligation["parts"], "empty-obligation")
+                require(weakened == "nonempty-obligation-parts" or obligation["parts"], "empty-obligation")
                 for part in obligation["parts"]:
                     fields(part, "id kind evidence", weakened)
                     token(part["id"])
@@ -1088,6 +1097,8 @@ def fixed_probe(recipe, source, artifacts):
         deps["targets"][0]["direct"] *= 2
     elif recipe == "duplicate-adjacency":
         deps["targets"][0]["nodes"][0]["dependencies"] *= 2
+    elif recipe == "edge-count-discrepancy":
+        pass
     elif recipe in ("edge-limit", "aggregate-byte-limit"):
         for item in list(deps["packages"]):
             drop(item["role"])
@@ -1136,6 +1147,12 @@ def fixed_probe(recipe, source, artifacts):
             next(item for item in assets["entries"] if item["kind"] == "third-party")["subjects"] = []
     elif recipe == "first-party-with-subject":
         next(item for item in assets["entries"] if item["kind"] == "third-party")["kind"] = "first-party"
+    elif recipe == "unknown-entry-kind":
+        removed = assets["assets"].pop(0)
+        next(item for item in assets["entries"] if item["path"] == removed["package_entry"]).update(
+            kind="caller-unclassified", subjects=[])
+        drop(removed["role"])
+        remove_subject(removed["key"])
     elif recipe == "repeated-asset-location":
         path = "wwwroot/aa.js"
         data = values["asset-000"][1]
@@ -1215,6 +1232,8 @@ def fixed_probe(recipe, source, artifacts):
                 item["entry"]["role"] = original_role
     elif recipe in ("unsupported-only", "unresolved-only"):
         asset_review["disposition"] = "unsupported" if recipe == "unsupported-only" else "unresolved"
+    elif recipe == "unknown-review-disposition":
+        first_review["disposition"] = "caller-asserted-none"
     elif recipe == "owner-fact-missing":
         asset_review["owner_fact"] = None
     elif recipe == "owner-basis-missing":
@@ -1231,6 +1250,11 @@ def fixed_probe(recipe, source, artifacts):
         first_review["disposition"] = "obligations"
     elif recipe == "duplicate-obligation":
         first_review["obligations"].append(copy.deepcopy(first_review["obligations"][0]))
+    elif recipe == "empty-obligation-parts":
+        obligation = first_review["obligations"][0]
+        obligation["parts"] = []
+        mapping["mappings"] = [item for item in mapping["mappings"] if
+                               (item["subject"], item["obligation"]) != (first_review["subject"], obligation["id"])]
     elif recipe == "duplicate-part":
         first_review["obligations"][0]["parts"].append(copy.deepcopy(first_review["obligations"][0]["parts"][0]))
     elif recipe == "missing-part-bytes":
@@ -1334,6 +1358,8 @@ def fixed_probe(recipe, source, artifacts):
         nodes = {item["key"]: item["dependencies"] for item in target["nodes"]}
         target["node_count"] = len(nodes)
         target["edge_count"] = len(target["direct"]) + sum(len(edges) for edges in nodes.values())
+    if recipe == "edge-count-discrepancy":
+        deps["targets"][0]["edge_count"] += 1
     referenced = set()
     if docs["obligation-reviews"] is not None:
         for review in reviews["reviews"]:
@@ -1675,7 +1701,7 @@ def build():
         "obligation": "Required third-party license and notice files are preserved.",
         "resolver_id": "lp04-notice-coverage", "resolver_version": "1.0.0", "protocol": "notice-coverage-v1",
         "accepted_parent": PARENT, "production_implementation": "absent; LP-04 remains tbd",
-        "phase_a_correction_parent": "049d202089eae80cdfcccf2282a51e55063c2a84",
+        "phase_a_correction_parent": "0b4133120d77ef02850979b52c722874414e732f",
         "synthetic_cases": len(cases), "rejected_inputs": len(controls), "retained_expectations": len(retained),
         "total_named_expectations": len(cases) + len(controls) + len(retained),
         "guard_count": len(CRITICAL_GUARDS), "witness_count": len(spec["witnesses"]),
