@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "producer": "lp03-resolved-target-capture/1.0.0",
+  "root": {
+    "id": "sample.root",
+    "version": "1.0.0",
+    "sha256": "d1199980842ed0d0107d0cb89ba60980586fa613f9c755e37a8eba9008f92941"
+  },
+  "graph_sha256": "1bc773296b1c78347c190c97fbb2e04f3a31610ab90ccb676c8c0cc9ec6cb39b",
+  "target_frameworks": [
+    "net8.0"
+  ],
+  "result": "captured",
+  "completeness_basis": {
+    "profile": "resolved-target-graph/1",
+    "targets": [
+      {
+        "tfm": "net8.0",
+        "node_count": 2,
+        "edge_count": 2
+      }
+    ]
+  },
+  "packages": [
+    {
+      "key": "sample.a/1.0.0",
+      "identity": {
+        "id": "sample.a",
+        "version": "1.0.0",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "role": "dependency-000",
+      "declared_expression": "MIT",
+      "grant": {
+        "role": "grant-000",
+        "path": "grants/8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff.txt",
+        "sha256": "8fa619123f5de18e19100de37f67a18e13f2688452596be0addf3b9ccece39ff",
+        "package_entry": "LICENSE.txt"
+      }
+    },
+    {
+      "key": "sample.b/1.0.0",
+      "identity": {
+        "id": "sample.b",
+        "version": "1.0.0",
+        "sha256": "39c153f0f032b39ee88bb921429f455caf13b92dcdf39250e364889faab2ac1d"
+      },
+      "role": "dependency-001",
+      "declared_expression": "BSD-2-Clause",
+      "grant": {
+        "role": "grant-001",
+        "path": "grants/fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee.txt",
+        "sha256": "fdfdabb932dafb3cadeabf60b4cd0033079dff19369baaa51f2c08cdb703d0ee",
+        "package_entry": "LICENSE.txt"
+      }
+    }
+  ],
+  "capture_reference": "synthetic-capture/1"
+}

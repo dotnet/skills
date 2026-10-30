@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "lp03-retained-syncfusion",
+      "row_id": "LP-03",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+          "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-03",
+        "resolver_id": "lp03-dependency-licenses",
+        "resolver_version": "1.0.0",
+        "branch_id": "scope-missing",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/syncfusion.blazor.toolkit.2.0.1.nupkg",
+            "sha256": "87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+          }
+        ],
+        "evidence_references": [
+          "input:package:87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+        ],
+        "evidence_contract": "Exact root bytes and explicit target-framework union only. Accepted acquisition observations supply resolved closure and package inspection; caller-prevalidated reviews supply complete grant applicability to each entire dependency version. Hashes prove bindings, not those observations' truth or reviewer authority. No legal approval or overall readiness conclusion.",
+        "finding": null,
+        "missing_fact": "The exact root and target-framework assessment scope is missing.",
+        "required_input": "assessment",
+        "next_category": "assessment-scope"
+      },
+      "rationale": "Exact root bytes alone supply neither explicit assessment TFMs, a closure nor dependency license evidence.",
+      "evidence_pointers": [
+        "input:package:87cf6795afe5106c9d6c4db5e63e7f0ef0c741a850243557b3bbab1854c6121d"
+      ]
+    },
+    {
+      "case_id": "lp03-retained-infragistics",
+      "row_id": "LP-03",
+      "inputs": [
+        {
+          "role": "package",
+          "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+          "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+        }
+      ],
+      "expected": {
+        "row_id": "LP-03",
+        "resolver_id": "lp03-dependency-licenses",
+        "resolver_version": "1.0.0",
+        "branch_id": "scope-missing",
+        "decision": "escalated",
+        "applicability": "unknown",
+        "inputs": [
+          {
+            "role": "package",
+            "path": "packages/igniteui.blazor.lite.0.3.0.nupkg",
+            "sha256": "e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+          }
+        ],
+        "evidence_references": [
+          "input:package:e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+        ],
+        "evidence_contract": "Exact root bytes and explicit target-framework union only. Accepted acquisition observations supply resolved closure and package inspection; caller-prevalidated reviews supply complete grant applicability to each entire dependency version. Hashes prove bindings, not those observations' truth or reviewer authority. No legal approval or overall readiness conclusion.",
+        "finding": null,
+        "missing_fact": "The exact root and target-framework assessment scope is missing.",
+        "required_input": "assessment",
+        "next_category": "assessment-scope"
+      },
+      "rationale": "Exact root bytes alone supply neither explicit assessment TFMs, a closure nor dependency license evidence.",
+      "evidence_pointers": [
+        "input:package:e9565c7c7093ff3798b62abdc2e67fe9bc438807eb0fa9b9b43f4573f9df0e63"
+      ]
+    }
+  ]
+}
