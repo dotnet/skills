@@ -43,7 +43,7 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
     private static readonly string[] PolicyFields =
         ["policy_version", "spdx_version", "spdx_sha256",
          "non_copyleft_allowlist", "copyleft", "weak_copyleft"];
-    private sealed record Policy(
+    internal sealed record Policy(
         IReadOnlyDictionary<string, (bool Osi, bool Deprecated)> Licenses,
         HashSet<string> Allowed, HashSet<string> Strong, HashSet<string> Weak);
     private sealed record PackageState(string Branch, XElement? Metadata = null,
@@ -74,7 +74,7 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
         return Result(input, InspectOwner(input, package, policyBytes, state), state.LicenseFilePath);
     }
 
-    private static Policy? ReadPolicy(ReadOnlySpan<byte> policyBytes, ReadOnlySpan<byte> catalogBytes)
+    internal static Policy? ReadPolicy(ReadOnlySpan<byte> policyBytes, ReadOnlySpan<byte> catalogBytes)
     {
         if (policyBytes.Length > 8192 || Catalog.Digest(policyBytes) != PolicyDigest ||
             catalogBytes.Length > 2 * 1024 * 1024 ||
@@ -326,7 +326,7 @@ public sealed class Lp01LicensePolicyResolver : IDeterministicResolver
     private static bool PythonWhitespace(char value) =>
         char.IsWhiteSpace(value) || value is >= '\u001c' and <= '\u001f';
 
-    private static bool PythonBlank(string value) => value.All(PythonWhitespace);
+    internal static bool PythonBlank(string value) => value.All(PythonWhitespace);
 
     private static string PythonTrim(string value)
     {
