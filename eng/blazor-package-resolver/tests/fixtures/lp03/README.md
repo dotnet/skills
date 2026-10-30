@@ -438,13 +438,24 @@ inspected source path and digest. Root/dependency archive facts are looked up
 by their checked byte digests; digest comparisons and inspected ID/version
 comparisons are independent, with unchanged normal classification semantics.
 
-`discrimination.json` now freezes **64 acceptance-critical guard IDs** and
-**75 registered witnesses**:
+The two-guard follow-up to `8626b46ee47780096750e21476bc4269d86f36b8`
+adds only `empty-target-scope` and `capture-producer`, preserving all prior
+64 guard registrations and 75 witnesses without changing classification
+semantics or any named expectation/input bytes. The first recipe copies the
+existing zero-dependencies positive and consistently empties assessment,
+graph, receipt and count-target lists. The second copies a complete positive
+and changes only the receipt producer to an unaccepted value. Every affected
+digest is recomputed. Both normally return `input-invalid`; weakening only
+the respective nonempty-scope or accepted-producer guard must instead yield
+the wrong `dependencies-policy-satisfied` branch.
+
+`discrimination.json` now freezes **66 acceptance-critical guard IDs** and
+**77 registered witnesses**:
 
 - The original **24 weakened variants / 28 existing-case executions** are
   retained unchanged.
-- **31 explicit in-memory recipes** copy existing complete packets; together
-  with the original probes, **47 distinct weakened variants / 59 executions**
+- **33 explicit in-memory recipes** copy existing complete packets; together
+  with the original probes, **49 distinct weakened variants / 61 executions**
   must reach their prescribed wrong branch.
 - **16 existing-case branch witnesses** register remaining already-covered
   branch obligations and an explicit rejected counterexample branch. These
@@ -489,8 +500,8 @@ invents scope from the receipt; the ordinary classifier never does so.
 The required guard-ID list is independently enumerated, manual and finite.
 Every registered ID must have a nonempty list of known, discriminating witness
 IDs; unknown/duplicate IDs, orphan witnesses and equal normal/wrong branches
-fail. The meta-check removes each of the 64 registrations and separately
-empties each witness list: **128/128 omissions must reject**. Removing a
+fail. The meta-check removes each of the 66 registrations and separately
+empties each witness list: **132/132 omissions must reject**. Removing a
 registration therefore cannot silently shrink the required inventory.
 
 The normal and optimized commands run the entire fixed suite. There is no
@@ -558,6 +569,8 @@ case's branch without claiming a weakened-oracle execution.
 | `graph-uniqueness` | `memory:duplicate-node`, `memory:duplicate-direct-edge`, `memory:duplicate-adjacency-edge` |
 | `assessment-required` | `memory:missing-assessment` |
 | `review-whole-version-scope` | `memory:review-scope` |
+| `empty-target-scope` | `memory:empty-target-scope` |
+| `capture-producer` | `memory:capture-producer` |
 | `root-required` | `branch:root-required` |
 | `graph-required` | `branch:graph-required` |
 | `capture-required` | `branch:capture-required` |
