@@ -14,7 +14,7 @@ import test from "node:test";
 
 import {
   findRetryGroups,
-  isRetryableTimeout,
+  isRetryableExecutorFailure,
   mergeRetryRecords,
 } from "./retry-executor-timeouts.mjs";
 
@@ -48,9 +48,9 @@ function writeJsonl(path, records) {
   writeFileSync(path, `${records.map((item) => JSON.stringify(item)).join("\n")}\n`);
 }
 
-test("classifies only session.idle executor timeouts as retryable", () => {
+test("classifies only recognized transient executor failures as retryable", () => {
   assert.equal(
-    isRetryableTimeout(
+    isRetryableExecutorFailure(
       record({
         status: "error",
         error: "Trial failed: Timeout after 300000ms waiting for session.idle",
@@ -59,11 +59,40 @@ test("classifies only session.idle executor timeouts as retryable", () => {
     true,
   );
   assert.equal(
-    isRetryableTimeout(record({ status: "error", error: "401 Unauthorized" })),
+    isRetryableExecutorFailure(
+      record({
+        status: "error",
+        error: "Session disconnected while waiting for a response",
+      }),
+    ),
+    true,
+  );
+  assert.equal(
+    isRetryableExecutorFailure(
+      record({
+        status: "error",
+        error: "Trial failed: Session disconnected while waiting for a response",
+      }),
+    ),
+    true,
+  );
+  assert.equal(
+    isRetryableExecutorFailure(
+      record({
+        status: "error",
+        error: "No response was returned. Send your message again to retry.",
+      }),
+    ),
     false,
   );
   assert.equal(
-    isRetryableTimeout(
+    isRetryableExecutorFailure(
+      record({ status: "error", error: "401 Unauthorized" }),
+    ),
+    false,
+  );
+  assert.equal(
+    isRetryableExecutorFailure(
       record({
         status: "error",
         error: "Timeout after 300000ms waiting for session.idle",
@@ -73,7 +102,7 @@ test("classifies only session.idle executor timeouts as retryable", () => {
     false,
   );
   assert.equal(
-    isRetryableTimeout({
+    isRetryableExecutorFailure({
       ...record({
         status: "error",
         error: "Timeout after 300000ms waiting for session.idle",
@@ -106,7 +135,7 @@ test("discovers one retry group per affected eval and variant", () => {
       record({
         variant: "plugin",
         status: "error",
-        error: "Timeout after 180000ms waiting for session.idle",
+        error: "Session disconnected while waiting for a response",
         shardKey: "plugin-timeout",
       }),
     ]);
@@ -334,7 +363,7 @@ test("keeps ambiguous duplicate slots unresolved", () => {
   assert.strictEqual(retryDuplicate.records[0], timeout);
 });
 
-test("CLI reruns one affected eval and merges only its recovered slot", () => {
+test("CLI recovers one SDK session disconnect and preserves successful slots", () => {
   const root = mkdtempSync(join(tmpdir(), "vally-retry-cli-"));
   try {
     const runDir = join(root, "run");
@@ -342,13 +371,13 @@ test("CLI reruns one affected eval and merges only its recovered slot", () => {
     const summaryPath = join(root, "executor-retry-summary.json");
     const resultsFile = join(runDir, "skilled", "results.jsonl");
     const firstSuccess = record({ shardKey: "success", stimulus: "Keep me" });
-    const timeout = record({
+    const disconnected = record({
       status: "error",
-      error: "Timeout after 180000ms waiting for session.idle",
-      shardKey: "timeout",
+      error: "Session disconnected while waiting for a response",
+      shardKey: "disconnected",
       stimulus: "Retry me",
     });
-    writeJsonl(resultsFile, [firstSuccess, timeout]);
+    writeJsonl(resultsFile, [firstSuccess, disconnected]);
 
     const fakeVally = join(root, "fake-vally.mjs");
     writeFileSync(
@@ -364,7 +393,7 @@ mkdirSync(join(value("--output-dir"), "retry-run", variant), { recursive: true }
 const evalFile = value("--eval-filter");
 const records = [
   ${JSON.stringify(record({ shardKey: "success", stimulus: "Changed by retry" }))},
-  ${JSON.stringify(record({ shardKey: "timeout", stimulus: "Retry me" }))}
+  ${JSON.stringify(record({ shardKey: "disconnected", stimulus: "Retry me" }))}
 ].map((record) => ({ ...record, experiment: { evalFile, runId: "retry-run" } }));
 writeFileSync(output, records.map(JSON.stringify).join("\\n") + "\\n");
 `,
@@ -395,6 +424,10 @@ writeFileSync(output, records.map(JSON.stringify).join("\\n") + "\\n");
       .map(JSON.parse);
     assert.equal(merged[0].stimulus, "Keep me");
     assert.equal(merged[1].status, "success");
+    assert.equal(
+      merged[1].executorRetry.recoveredFrom.error,
+      "Session disconnected while waiting for a response",
+    );
     assert.equal(merged[1].experiment.runId, "original-run");
     assert.equal(merged[1].executorRetry.attempt, 2);
     assert.equal(merged[1].executorRetry.retryRunId, "retry-run");

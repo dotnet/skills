@@ -221,19 +221,23 @@ metadata. The adapter keeps the raw report available for diagnosis. It does not
 replace Vally's evidence; it adds repository-specific validity and decision
 fields.
 
-### 5. Retry transient executor timeouts with a bounded second pass
+### 5. Retry recognized transient executor failures with a bounded second pass
 
 If a required baseline or isolated-skilled trial fails with
-`Timeout after ... waiting for session.idle`, the workflow reruns only that eval
-and variant. If exact timeout slots remain, it performs one final targeted pass.
+`Timeout after ... waiting for session.idle` or the Copilot SDK 1.0.26 error
+`Session disconnected while waiting for a response`, the workflow reruns only
+that eval and variant. If exact retryable slots remain, it performs one final
+targeted pass.
 The recovery step merges only successful records with matching stable `shardKey`
 values after normalizing each eval path. A record without a `shardKey` fails
 closed instead of using another field as an unproven identity. The recovery
-never replaces successful first-attempt or recovered records. A timeout that
-survives both bounded passes, or a different executor error, stays in the
-original JSONL and remains
-measurement-invalid. The optional whole-plugin telemetry arm is not retried and
-remains outside the baseline-versus-skilled measurement gate.
+never replaces successful first-attempt or recovered records. A retryable
+failure that survives both bounded passes, or a different executor error, stays
+in the original JSONL and remains measurement-invalid. The broader
+`No response was returned. Send your message again to retry.` message is not
+classified as transient because it does not identify a bounded SDK transport
+failure. The optional whole-plugin telemetry arm is not retried and remains
+outside the baseline-versus-skilled measurement gate.
 Each retry invocation writes to a fresh directory, so missing current output
 cannot fall back to a stale prior run.
 The recovery summary is updated around each retry, so an outer watchdog can
