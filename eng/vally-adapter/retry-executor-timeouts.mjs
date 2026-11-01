@@ -26,9 +26,13 @@ import { pathToFileURL } from "node:url";
 import { normalizeEvalFile, splitVallyCommand } from "./adapt.mjs";
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const SESSION_IDLE_TIMEOUT_PATTERN =
+  /\bTimeout after \d+ms waiting for session\.idle\b/i;
+const SESSION_DISCONNECT_PATTERN =
+  /^(?:Trial failed:\s*)?Session disconnected while waiting for a response$/i;
 const TRANSIENT_EXECUTOR_ERROR_PATTERNS = [
-  /^(?:Trial failed:\s*)?Timeout after \d+ms waiting for session\.idle$/i,
-  /^(?:Trial failed:\s*)?Session disconnected while waiting for a response$/i,
+  SESSION_IDLE_TIMEOUT_PATTERN,
+  SESSION_DISCONNECT_PATTERN,
 ];
 const REQUIRED_VARIANTS = new Set(["baseline", "skilled"]);
 
