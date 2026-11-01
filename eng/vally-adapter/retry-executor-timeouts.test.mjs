@@ -53,7 +53,27 @@ test("classifies only recognized transient executor failures as retryable", () =
     isRetryableExecutorFailure(
       record({
         status: "error",
+        error: "Timeout after 300000ms waiting for session.idle",
+      }),
+    ),
+    true,
+  );
+  assert.equal(
+    isRetryableExecutorFailure(
+      record({
+        status: "error",
         error: "Trial failed: Timeout after 300000ms waiting for session.idle",
+      }),
+    ),
+    true,
+  );
+  assert.equal(
+    isRetryableExecutorFailure(
+      record({
+        status: "error",
+        error:
+          "Stimulus 'sample-stimulus' timed out after 300000 ms during turn 1 of 1: " +
+          "Timeout after 300000ms waiting for session.idle",
       }),
     ),
     true,
