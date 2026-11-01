@@ -346,23 +346,28 @@ runs that also fail their graders are surfaced as warnings.
 The agent crashed, the model was unavailable, evidence was missing, or the comparison judge failed. Check `stateReason`, `errors[]`, `adapter-summary.json`, and the variant's `results.jsonl`/session logs. These are invalid measurements, not skill regressions. If a required variant produced no records, the adapter writes an explicit invalid result with `missing_baseline_records` or `missing_skilled_records`.
 
 The workflow retries only required baseline or isolated-skilled executor records
-whose exact failure is a `session.idle` timeout. It reruns the affected eval and
-variant up to two bounded times while exact timeout slots remain unresolved,
-preserves all successful first-attempt and recovered slots, and replaces only
-matching failed `shardKey` slots from the same normalized eval path that
-succeed. A later pass cannot overwrite evidence recovered by an earlier pass.
+whose exact failure is a `session.idle` timeout or
+`Session disconnected while waiting for a response`. It reruns the affected
+eval and variant up to two bounded times while exact retryable slots remain
+unresolved, preserves all successful first-attempt and recovered slots, and
+replaces only matching failed `shardKey` slots from the same normalized eval
+path that succeed. A later pass cannot overwrite evidence recovered by an
+earlier pass.
 Every invocation uses a fresh output directory, so a retry that produces no
 current output cannot reuse stale evidence from an earlier invocation. Records
 without a `shardKey` remain invalid. Check
 `executor-retry-summary.json` and the raw record's `executorRetry` field for
-recovered attempts. A timeout that survives both targeted passes remains
-measurement-invalid. The summary is written before and after every retry so an
-outer watchdog termination still leaves the active attempt and the last
-completed accounting for diagnosis. The merged record retains the original
-experiment provenance; `executorRetry.retryRunId` identifies the successful retry run.
-Persistent timeouts, other executor failures, or more than three affected
-eval/variant groups remain measurement-invalid and keep the matrix leg red. The
-optional whole-plugin arm is report-only telemetry and is not retried.
+recovered attempts. A retryable failure that survives both targeted passes
+remains measurement-invalid. `No response was returned. Send your message again
+to retry.` remains ineligible because it can represent failures outside this
+bounded SDK transport class. The summary is written before and after every
+retry so an outer watchdog termination still leaves the active attempt and the
+last completed accounting for diagnosis. The merged record retains the original
+experiment provenance; `executorRetry.retryRunId` identifies the successful
+retry run. Persistent transient failures, other executor failures, or more than
+three affected eval/variant groups remain measurement-invalid and keep the
+matrix leg red. The optional whole-plugin arm is report-only telemetry and is
+not retried.
 
 If Vally writes a JSON record that cannot satisfy the comparison schema, the
 adapter emits `comparison_report_invalid` for that eval and continues the batch.
