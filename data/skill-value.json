@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdate": 1793485845890,
+  "lastUpdate": 1793524991864,
   "entries": [
     {
       "plugin": "agentic-workflows",
@@ -5912,6 +5912,317 @@
           },
           "baselineFail": 3,
           "passTotal": 11
+        }
+      ]
+    },
+    {
+      "plugin": "agentic-workflows",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524971060,
+      "model": "claude-opus-5",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "bothFail": 5,
+          "activationFired": 10,
+          "baseline": {
+            "timeMs": 40395.0,
+            "cacheRead": 147234.0,
+            "tokensOut": 2953.0,
+            "cacheWrite": 11711.9,
+            "n": 10,
+            "tokens": 161912.1,
+            "tokensIn": 158959.1
+          },
+          "treatmentFail": 5,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 10,
+          "treatment": {
+            "timeMs": 46663.8,
+            "cacheRead": 233010.8,
+            "tokensOut": 3272.7,
+            "cacheWrite": 24404.4,
+            "n": 10,
+            "tokens": 260706.7,
+            "tokensIn": 257434.0
+          },
+          "passTotal": 10,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "build-failure-analysis",
+          "baselineFail": 7,
+          "pairedN": 10,
+          "preference": {
+            "wins": 5,
+            "count": 10,
+            "minCredibleStimuli": 5,
+            "netWin": 0.3,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 3,
+            "direction": "better",
+            "pValue": 0.22656250000000014,
+            "losses": 2,
+            "conclusive": true
+          },
+          "treatAvailable": 10,
+          "activationExpected": 10,
+          "bothPass": 3,
+          "treatmentOnlyPass": 2
+        },
+        {
+          "bothFail": 1,
+          "activationFired": 12,
+          "baseline": {
+            "timeMs": 38640.5,
+            "cacheRead": 169697.41666666666,
+            "tokensOut": 2883.6666666666665,
+            "cacheWrite": 11847.833333333334,
+            "n": 12,
+            "tokens": 184443.91666666666,
+            "tokensIn": 181560.25
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 12,
+          "treatment": {
+            "timeMs": 40641.833333333336,
+            "cacheRead": 184510.16666666666,
+            "tokensOut": 3162.5,
+            "cacheWrite": 19317.416666666668,
+            "n": 12,
+            "tokens": 207005.91666666666,
+            "tokensIn": 203843.41666666666
+          },
+          "passTotal": 12,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "test-failure-analysis",
+          "baselineFail": 8,
+          "pairedN": 12,
+          "preference": {
+            "wins": 11,
+            "count": 12,
+            "minCredibleStimuli": 5,
+            "netWin": 0.9166666666666666,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 1,
+            "direction": "better",
+            "pValue": 0.00048828124999999995,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 12,
+          "activationExpected": 12,
+          "bothPass": 4,
+          "treatmentOnlyPass": 7
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 11,
+          "baseline": {
+            "timeMs": 37772.818181818184,
+            "cacheRead": 161144.36363636365,
+            "tokensOut": 2781.3636363636365,
+            "cacheWrite": 11787.363636363636,
+            "n": 11,
+            "tokens": 175727.45454545456,
+            "tokensIn": 172946.0909090909
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 1,
+          "hasPassData": true,
+          "baseAvailable": 11,
+          "treatment": {
+            "timeMs": 46562.181818181816,
+            "cacheRead": 225122.27272727274,
+            "tokensOut": 3304.6363636363635,
+            "cacheWrite": 18793.363636363636,
+            "n": 11,
+            "tokens": 247239.0,
+            "tokensIn": 243934.36363636365
+          },
+          "passTotal": 11,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "unskip-closed-tests",
+          "baselineFail": 1,
+          "pairedN": 11,
+          "preference": {
+            "wins": 3,
+            "count": 11,
+            "minCredibleStimuli": 5,
+            "netWin": 0.18181818181818182,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 7,
+            "direction": "better",
+            "pValue": 0.31249999999999994,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 11,
+          "activationExpected": 11,
+          "bothPass": 9,
+          "treatmentOnlyPass": 1
+        }
+      ]
+    },
+    {
+      "plugin": "agentic-workflows",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524971553,
+      "model": "gpt-6-astra",
+      "judgeModel": "claude-haiku-4.5",
+      "skills": [
+        {
+          "bothFail": 2,
+          "activationFired": 10,
+          "baseline": {
+            "timeMs": 24054.0,
+            "cacheRead": 65146.5,
+            "tokensOut": 955.2,
+            "cacheWrite": 7200.7,
+            "n": 10,
+            "tokens": 73317.7,
+            "tokensIn": 72362.5
+          },
+          "treatmentFail": 2,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 10,
+          "treatment": {
+            "timeMs": 24145.5,
+            "cacheRead": 79212.5,
+            "tokensOut": 940.2,
+            "cacheWrite": 13809.0,
+            "n": 10,
+            "tokens": 93977.0,
+            "tokensIn": 93036.8
+          },
+          "passTotal": 10,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "build-failure-analysis",
+          "baselineFail": 3,
+          "pairedN": 10,
+          "preference": {
+            "wins": 4,
+            "count": 10,
+            "minCredibleStimuli": 5,
+            "netWin": 0.4,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 6,
+            "direction": "better",
+            "pValue": 0.0625,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 10,
+          "activationExpected": 10,
+          "bothPass": 7,
+          "treatmentOnlyPass": 1
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 10,
+          "baseline": {
+            "timeMs": 28582.0,
+            "cacheRead": 72663.5,
+            "tokensOut": 1062.1,
+            "cacheWrite": 8207.6,
+            "n": 10,
+            "tokens": 81950.6,
+            "tokensIn": 80888.5
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 1,
+          "hasPassData": true,
+          "baseAvailable": 10,
+          "treatment": {
+            "timeMs": 27390.4,
+            "cacheRead": 90696.4,
+            "tokensOut": 984.0,
+            "cacheWrite": 11934.1,
+            "n": 10,
+            "tokens": 103633.1,
+            "tokensIn": 102649.1
+          },
+          "passTotal": 10,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "msbuild-quality-review",
+          "baselineFail": 2,
+          "pairedN": 10,
+          "preference": {
+            "wins": 5,
+            "count": 10,
+            "minCredibleStimuli": 5,
+            "netWin": 0.3,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 3,
+            "direction": "better",
+            "pValue": 0.22656250000000014,
+            "losses": 2,
+            "conclusive": true
+          },
+          "treatAvailable": 10,
+          "activationExpected": 10,
+          "bothPass": 7,
+          "treatmentOnlyPass": 2
         }
       ]
     },
@@ -17838,6 +18149,262 @@
           },
           "baselineFail": 1,
           "passTotal": 2
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-aspnetcore",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524971950,
+      "model": "claude-opus-5",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "bothFail": 0,
+          "activationFired": 1,
+          "baseline": {
+            "timeMs": 40336.0,
+            "cacheRead": 41528.0,
+            "tokensOut": 3194.0,
+            "cacheWrite": 23620.0,
+            "n": 1,
+            "tokens": 68348.0,
+            "tokensIn": 65154.0
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 1,
+          "treatment": {
+            "timeMs": 17616.0,
+            "cacheRead": 47712.0,
+            "tokensOut": 1533.0,
+            "cacheWrite": 27120.0,
+            "n": 1,
+            "tokens": 76371.0,
+            "tokensIn": 74838.0
+          },
+          "passTotal": 1,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "convert-blazor-server-to-webapp",
+          "baselineFail": 0,
+          "pairedN": 1,
+          "preference": {
+            "wins": 0,
+            "count": 1,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": true,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 1,
+            "direction": "none",
+            "pValue": 1,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 1,
+          "activationExpected": 1,
+          "bothPass": 1,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 2,
+          "activationFired": 3,
+          "baseline": {
+            "timeMs": 104261.66666666667,
+            "cacheRead": 422191.6666666667,
+            "tokensOut": 6834.666666666667,
+            "cacheWrite": 24868.666666666668,
+            "n": 3,
+            "tokens": 453928.3333333333,
+            "tokensIn": 447093.6666666667
+          },
+          "treatmentFail": 2,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 3,
+          "treatment": {
+            "timeMs": 113503.33333333333,
+            "cacheRead": 644850.3333333334,
+            "tokensOut": 8339.333333333334,
+            "cacheWrite": 25875.666666666668,
+            "n": 3,
+            "tokens": 679105.3333333334,
+            "tokensIn": 670766.0
+          },
+          "passTotal": 3,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "dotnet-webapi",
+          "baselineFail": 2,
+          "pairedN": 3,
+          "preference": {
+            "wins": 1,
+            "count": 3,
+            "minCredibleStimuli": 5,
+            "netWin": 0.3333333333333333,
+            "underpowered": true,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 2,
+            "direction": "better",
+            "pValue": 0.5,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 3,
+          "activationExpected": 3,
+          "bothPass": 1,
+          "treatmentOnlyPass": 0
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-aspnetcore",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524972047,
+      "model": "gpt-6-astra",
+      "judgeModel": "claude-haiku-4.5",
+      "skills": [
+        {
+          "bothFail": 0,
+          "activationFired": 1,
+          "baseline": {
+            "timeMs": 39842.0,
+            "cacheRead": 12056.0,
+            "tokensOut": 1839.0,
+            "cacheWrite": 18814.0,
+            "n": 1,
+            "tokens": 32715.0,
+            "tokensIn": 30876.0
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 1,
+          "treatment": {
+            "timeMs": 31407.0,
+            "cacheRead": 19557.0,
+            "tokensOut": 1425.0,
+            "cacheWrite": 8554.0,
+            "n": 1,
+            "tokens": 29542.0,
+            "tokensIn": 28117.0
+          },
+          "passTotal": 1,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "convert-blazor-server-to-webapp",
+          "baselineFail": 0,
+          "pairedN": 1,
+          "preference": {
+            "wins": 0,
+            "count": 1,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": true,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 1,
+            "direction": "none",
+            "pValue": 1,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 1,
+          "activationExpected": 1,
+          "bothPass": 1,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 1,
+          "activationFired": 3,
+          "baseline": {
+            "timeMs": 76182.66666666667,
+            "cacheRead": 146721.33333333334,
+            "tokensOut": 3558.3333333333335,
+            "cacheWrite": 10953.0,
+            "n": 3,
+            "tokens": 161271.33333333334,
+            "tokensIn": 157713.0
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 3,
+          "treatment": {
+            "timeMs": 59126.0,
+            "cacheRead": 96039.66666666667,
+            "tokensOut": 2486.0,
+            "cacheWrite": 14353.666666666666,
+            "n": 3,
+            "tokens": 112897.33333333333,
+            "tokensIn": 110411.33333333333
+          },
+          "passTotal": 3,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "dotnet-webapi",
+          "baselineFail": 2,
+          "pairedN": 3,
+          "preference": {
+            "wins": 0,
+            "count": 3,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": true,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 3,
+            "direction": "none",
+            "pValue": 1,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 3,
+          "activationExpected": 3,
+          "bothPass": 1,
+          "treatmentOnlyPass": 1
         }
       ]
     },
@@ -36392,6 +36959,152 @@
           },
           "baselineFail": 2,
           "passTotal": 12
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-data",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524972203,
+      "model": "claude-opus-5",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "bothFail": 0,
+          "activationFired": 11,
+          "baseline": {
+            "timeMs": 100608.33333333333,
+            "cacheRead": 120645.75,
+            "tokensOut": 4293.833333333333,
+            "cacheWrite": 13178.5,
+            "n": 12,
+            "tokens": 138128.75,
+            "tokensIn": 133834.91666666666
+          },
+          "treatmentFail": 5,
+          "timedOut": false,
+          "baselineOnlyPass": 5,
+          "hasPassData": true,
+          "baseAvailable": 12,
+          "treatment": {
+            "timeMs": 85437.16666666667,
+            "cacheRead": 167979.08333333334,
+            "tokensOut": 4056.9166666666665,
+            "cacheWrite": 21369.416666666668,
+            "n": 12,
+            "tokens": 193417.75,
+            "tokensIn": 189360.83333333334
+          },
+          "passTotal": 12,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "optimizing-ef-core-queries",
+          "baselineFail": 0,
+          "pairedN": 12,
+          "preference": {
+            "wins": 5,
+            "count": 11,
+            "minCredibleStimuli": 5,
+            "netWin": 0.45454545454545453,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 6,
+            "direction": "better",
+            "pValue": 0.03125,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 12,
+          "activationExpected": 11,
+          "bothPass": 7,
+          "treatmentOnlyPass": 0
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-data",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524972363,
+      "model": "gpt-6-astra",
+      "judgeModel": "claude-haiku-4.5",
+      "skills": [
+        {
+          "bothFail": 2,
+          "activationFired": 5,
+          "baseline": {
+            "timeMs": 172801.2,
+            "cacheRead": 271321.0,
+            "tokensOut": 6532.6,
+            "cacheWrite": 19950.8,
+            "n": 5,
+            "tokens": 297848.8,
+            "tokensIn": 291316.2
+          },
+          "treatmentFail": 2,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 5,
+          "treatment": {
+            "timeMs": 180733.8,
+            "cacheRead": 333384.8,
+            "tokensOut": 9305.4,
+            "cacheWrite": 24039.6,
+            "n": 5,
+            "tokens": 366770.6,
+            "tokensIn": 357465.2
+          },
+          "passTotal": 5,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "create-datadriven-aspnetcore",
+          "baselineFail": 3,
+          "pairedN": 5,
+          "preference": {
+            "wins": 0,
+            "count": 5,
+            "minCredibleStimuli": 5,
+            "netWin": -0.2,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 4,
+            "direction": "worse",
+            "pValue": 0.5,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 5,
+          "activationExpected": 5,
+          "bothPass": 2,
+          "treatmentOnlyPass": 1
         }
       ]
     },
@@ -90360,6 +91073,757 @@
       ]
     },
     {
+      "plugin": "dotnet-msbuild",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524972737,
+      "model": "claude-opus-5",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "bothFail": 1,
+          "activationFired": 5,
+          "baseline": {
+            "timeMs": 29982.0,
+            "cacheRead": 85880.4,
+            "tokensOut": 1772.6,
+            "cacheWrite": 18897.2,
+            "n": 5,
+            "tokens": 106562.6,
+            "tokensIn": 104790.0
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 5,
+          "treatment": {
+            "timeMs": 24013.8,
+            "cacheRead": 115597.2,
+            "tokensOut": 1524.0,
+            "cacheWrite": 22190.0,
+            "n": 5,
+            "tokens": 139321.2,
+            "tokensIn": 137797.2
+          },
+          "passTotal": 5,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "agent.build-perf",
+          "baselineFail": 3,
+          "pairedN": 5,
+          "preference": {
+            "wins": 2,
+            "count": 5,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 1,
+            "direction": "none",
+            "pValue": 0.6874999999999998,
+            "losses": 2,
+            "conclusive": true
+          },
+          "treatAvailable": 5,
+          "activationExpected": 5,
+          "bothPass": 2,
+          "treatmentOnlyPass": 2
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-msbuild",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524974441,
+      "model": "gpt-6-astra",
+      "judgeModel": "claude-haiku-4.5",
+      "skills": [
+        {
+          "bothFail": 1,
+          "activationFired": 5,
+          "baseline": {
+            "timeMs": 15086.2,
+            "cacheRead": 17248.2,
+            "tokensOut": 483.8,
+            "cacheWrite": 6115.6,
+            "n": 5,
+            "tokens": 23853.0,
+            "tokensIn": 23369.2
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 5,
+          "treatment": {
+            "timeMs": 15237.2,
+            "cacheRead": 28535.4,
+            "tokensOut": 464.6,
+            "cacheWrite": 11149.6,
+            "n": 5,
+            "tokens": 40157.4,
+            "tokensIn": 39692.8
+          },
+          "passTotal": 5,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "agent.build-perf",
+          "baselineFail": 4,
+          "pairedN": 5,
+          "preference": {
+            "wins": 4,
+            "count": 5,
+            "minCredibleStimuli": 5,
+            "netWin": 0.8,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 1,
+            "direction": "better",
+            "pValue": 0.0625,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 5,
+          "activationExpected": 5,
+          "bothPass": 1,
+          "treatmentOnlyPass": 3
+        },
+        {
+          "bothFail": 2,
+          "activationFired": 6,
+          "baseline": {
+            "timeMs": 34338.28571428572,
+            "cacheRead": 110315.85714285714,
+            "tokensOut": 1187.4285714285713,
+            "cacheWrite": 12660.857142857143,
+            "n": 7,
+            "tokens": 124187.28571428571,
+            "tokensIn": 122999.85714285714
+          },
+          "treatmentFail": 2,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 7,
+          "treatment": {
+            "timeMs": 28995.714285714286,
+            "cacheRead": 104119.57142857143,
+            "tokensOut": 888.0,
+            "cacheWrite": 11672.857142857143,
+            "n": 7,
+            "tokens": 117227.28571428571,
+            "tokensIn": 116339.28571428571
+          },
+          "passTotal": 7,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "binlog-failure-analysis",
+          "baselineFail": 2,
+          "pairedN": 7,
+          "preference": {
+            "wins": 1,
+            "count": 6,
+            "minCredibleStimuli": 5,
+            "netWin": -0.16666666666666666,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 3,
+            "direction": "worse",
+            "pValue": 0.5,
+            "losses": 2,
+            "conclusive": true
+          },
+          "treatAvailable": 7,
+          "activationExpected": 7,
+          "bothPass": 5,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 1,
+          "activationFired": 5,
+          "baseline": {
+            "timeMs": 13793.0,
+            "cacheRead": 33965.0,
+            "tokensOut": 427.14285714285717,
+            "cacheWrite": 8107.714285714285,
+            "n": 7,
+            "tokens": 42508.857142857145,
+            "tokensIn": 42081.71428571428
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 7,
+          "treatment": {
+            "timeMs": 17158.285714285714,
+            "cacheRead": 56321.71428571428,
+            "tokensOut": 427.57142857142856,
+            "cacheWrite": 7141.714285714285,
+            "n": 7,
+            "tokens": 63904.28571428572,
+            "tokensIn": 63476.71428571428
+          },
+          "passTotal": 7,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "build-parallelism",
+          "baselineFail": 1,
+          "pairedN": 7,
+          "preference": {
+            "wins": 1,
+            "count": 6,
+            "minCredibleStimuli": 5,
+            "netWin": 0.16666666666666666,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 5,
+            "direction": "better",
+            "pValue": 0.5,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 7,
+          "activationExpected": 6,
+          "bothPass": 6,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 7,
+          "baseline": {
+            "timeMs": 28543.14285714286,
+            "cacheRead": 64990.57142857143,
+            "tokensOut": 965.0,
+            "cacheWrite": 7139.857142857143,
+            "n": 7,
+            "tokens": 73111.71428571429,
+            "tokensIn": 72146.71428571429
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 1,
+          "hasPassData": true,
+          "baseAvailable": 7,
+          "treatment": {
+            "timeMs": 28718.14285714286,
+            "cacheRead": 104707.0,
+            "tokensOut": 946.1428571428571,
+            "cacheWrite": 12637.42857142857,
+            "n": 7,
+            "tokens": 118310.28571428571,
+            "tokensIn": 117364.14285714286
+          },
+          "passTotal": 7,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "check-bin-obj-clash",
+          "baselineFail": 0,
+          "pairedN": 7,
+          "preference": {
+            "wins": 0,
+            "count": 7,
+            "minCredibleStimuli": 5,
+            "netWin": -0.14285714285714285,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 6,
+            "direction": "worse",
+            "pValue": 0.5,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 7,
+          "activationExpected": 7,
+          "bothPass": 6,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 5,
+          "baseline": {
+            "timeMs": 27536.5,
+            "cacheRead": 53470.5,
+            "tokensOut": 1089.3333333333333,
+            "cacheWrite": 6509.166666666667,
+            "n": 6,
+            "tokens": 61083.0,
+            "tokensIn": 59993.666666666664
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 7,
+          "treatment": {
+            "timeMs": 28188.833333333332,
+            "cacheRead": 60617.666666666664,
+            "tokensOut": 1154.0,
+            "cacheWrite": 9327.333333333334,
+            "n": 6,
+            "tokens": 71113.0,
+            "tokensIn": 69959.0
+          },
+          "passTotal": 6,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "directory-build-organization",
+          "baselineFail": 0,
+          "pairedN": 6,
+          "preference": {
+            "wins": 0,
+            "count": 5,
+            "minCredibleStimuli": 5,
+            "netWin": -0.2,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 4,
+            "direction": "worse",
+            "pValue": 0.5,
+            "losses": 1,
+            "conclusive": false
+          },
+          "treatAvailable": 6,
+          "activationExpected": 6,
+          "bothPass": 6,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 2,
+          "activationFired": 10,
+          "baseline": {
+            "timeMs": 20634.5,
+            "cacheRead": 66738.6,
+            "tokensOut": 643.7,
+            "cacheWrite": 5547.1,
+            "n": 10,
+            "tokens": 72947.1,
+            "tokensIn": 72303.4
+          },
+          "treatmentFail": 2,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 10,
+          "treatment": {
+            "timeMs": 31942.3,
+            "cacheRead": 99794.7,
+            "tokensOut": 1029.9,
+            "cacheWrite": 9136.5,
+            "n": 10,
+            "tokens": 109983.0,
+            "tokensIn": 108953.1
+          },
+          "passTotal": 10,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "eliminate-redundant-restores",
+          "baselineFail": 4,
+          "pairedN": 10,
+          "preference": {
+            "wins": 0,
+            "count": 9,
+            "minCredibleStimuli": 5,
+            "netWin": -0.1111111111111111,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 8,
+            "direction": "worse",
+            "pValue": 0.5,
+            "losses": 1,
+            "conclusive": false
+          },
+          "treatAvailable": 11,
+          "activationExpected": 10,
+          "bothPass": 6,
+          "treatmentOnlyPass": 2
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 7,
+          "baseline": {
+            "timeMs": 17527.5,
+            "cacheRead": 38392.25,
+            "tokensOut": 445.125,
+            "cacheWrite": 4940.875,
+            "n": 8,
+            "tokens": 43789.125,
+            "tokensIn": 43344.0
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 8,
+          "treatment": {
+            "timeMs": 15556.25,
+            "cacheRead": 47603.0,
+            "tokensOut": 411.625,
+            "cacheWrite": 6346.25,
+            "n": 8,
+            "tokens": 54373.25,
+            "tokensIn": 53961.625
+          },
+          "passTotal": 8,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "including-generated-files",
+          "baselineFail": 0,
+          "pairedN": 8,
+          "preference": {
+            "wins": 0,
+            "count": 7,
+            "minCredibleStimuli": 5,
+            "netWin": -0.2857142857142857,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 5,
+            "direction": "worse",
+            "pValue": 0.25,
+            "losses": 2,
+            "conclusive": true
+          },
+          "treatAvailable": 8,
+          "activationExpected": 7,
+          "bothPass": 8,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 8,
+          "baseline": {
+            "timeMs": 11679.0,
+            "cacheRead": 29439.222222222223,
+            "tokensOut": 357.3333333333333,
+            "cacheWrite": 4647.333333333333,
+            "n": 9,
+            "tokens": 34456.666666666664,
+            "tokensIn": 34099.333333333336
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 9,
+          "treatment": {
+            "timeMs": 21035.666666666668,
+            "cacheRead": 59041.333333333336,
+            "tokensOut": 716.1111111111111,
+            "cacheWrite": 8995.0,
+            "n": 9,
+            "tokens": 68765.77777777778,
+            "tokensIn": 68049.66666666667
+          },
+          "passTotal": 9,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "incremental-build",
+          "baselineFail": 1,
+          "pairedN": 9,
+          "preference": {
+            "wins": 0,
+            "count": 9,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 9,
+            "direction": "none",
+            "pValue": 1,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 9,
+          "activationExpected": 9,
+          "bothPass": 8,
+          "treatmentOnlyPass": 1
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 5,
+          "baseline": {
+            "timeMs": 30697.0,
+            "cacheRead": 60754.625,
+            "tokensOut": 1026.75,
+            "cacheWrite": 7263.75,
+            "n": 8,
+            "tokens": 69060.125,
+            "tokensIn": 68033.375
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 1,
+          "hasPassData": true,
+          "baseAvailable": 8,
+          "treatment": {
+            "timeMs": 26896.125,
+            "cacheRead": 81326.75,
+            "tokensOut": 865.375,
+            "cacheWrite": 10421.125,
+            "n": 8,
+            "tokens": 92630.125,
+            "tokensIn": 91764.75
+          },
+          "passTotal": 8,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "msbuild-antipatterns",
+          "baselineFail": 0,
+          "pairedN": 8,
+          "preference": {
+            "wins": 1,
+            "count": 7,
+            "minCredibleStimuli": 5,
+            "netWin": 0.14285714285714285,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 6,
+            "direction": "better",
+            "pValue": 0.5,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 8,
+          "activationExpected": 7,
+          "bothPass": 7,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 4,
+          "baseline": {
+            "timeMs": 35416.28571428572,
+            "cacheRead": 91702.42857142857,
+            "tokensOut": 1118.5714285714287,
+            "cacheWrite": 6822.0,
+            "n": 7,
+            "tokens": 99664.85714285714,
+            "tokensIn": 98546.28571428571
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 7,
+          "treatment": {
+            "timeMs": 32442.85714285714,
+            "cacheRead": 110259.14285714286,
+            "tokensOut": 1116.0,
+            "cacheWrite": 9143.57142857143,
+            "n": 7,
+            "tokens": 120542.71428571429,
+            "tokensIn": 119426.71428571429
+          },
+          "passTotal": 7,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "msbuild-modernization",
+          "baselineFail": 0,
+          "pairedN": 7,
+          "preference": {
+            "wins": 0,
+            "count": 6,
+            "minCredibleStimuli": 5,
+            "netWin": -0.16666666666666666,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 5,
+            "direction": "worse",
+            "pValue": 0.5,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 7,
+          "activationExpected": 6,
+          "bothPass": 7,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 1,
+          "activationFired": 6,
+          "baseline": {
+            "timeMs": 26664.0,
+            "cacheRead": 65917.14285714286,
+            "tokensOut": 874.2857142857143,
+            "cacheWrite": 5639.857142857143,
+            "n": 7,
+            "tokens": 72448.85714285714,
+            "tokensIn": 71574.57142857143
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 7,
+          "treatment": {
+            "timeMs": 27717.714285714286,
+            "cacheRead": 64667.0,
+            "tokensOut": 922.8571428571429,
+            "cacheWrite": 6695.714285714285,
+            "n": 7,
+            "tokens": 72301.42857142857,
+            "tokensIn": 71378.57142857143
+          },
+          "passTotal": 7,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "property-patterns",
+          "baselineFail": 1,
+          "pairedN": 7,
+          "preference": {
+            "wins": 0,
+            "count": 7,
+            "minCredibleStimuli": 5,
+            "netWin": -0.14285714285714285,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 6,
+            "direction": "worse",
+            "pValue": 0.5,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 7,
+          "activationExpected": 7,
+          "bothPass": 6,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 1,
+          "activationFired": 6,
+          "baseline": {
+            "timeMs": 41043.142857142855,
+            "cacheRead": 70100.42857142857,
+            "tokensOut": 1490.5714285714287,
+            "cacheWrite": 6795.142857142857,
+            "n": 7,
+            "tokens": 78403.28571428571,
+            "tokensIn": 76912.71428571429
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 7,
+          "treatment": {
+            "timeMs": 42748.42857142857,
+            "cacheRead": 105308.14285714286,
+            "tokensOut": 1474.7142857142858,
+            "cacheWrite": 9180.0,
+            "n": 7,
+            "tokens": 115984.71428571429,
+            "tokensIn": 114510.0
+          },
+          "passTotal": 7,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "target-authoring",
+          "baselineFail": 2,
+          "pairedN": 7,
+          "preference": {
+            "wins": 0,
+            "count": 6,
+            "minCredibleStimuli": 5,
+            "netWin": -0.3333333333333333,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 4,
+            "direction": "worse",
+            "pValue": 0.25,
+            "losses": 2,
+            "conclusive": true
+          },
+          "treatAvailable": 7,
+          "activationExpected": 6,
+          "bothPass": 5,
+          "treatmentOnlyPass": 1
+        }
+      ]
+    },
+    {
       "plugin": "dotnet-nuget",
       "commit": {
         "url": "https://github.com/dotnet/skills/commit/10d85e25fb42d5f65c568d5e979a005ee69eecb3",
@@ -92327,6 +93791,79 @@
           },
           "baselineFail": 1,
           "passTotal": 9
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-nuget",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524975855,
+      "model": "gpt-6-astra",
+      "judgeModel": "claude-haiku-4.5",
+      "skills": [
+        {
+          "bothFail": 4,
+          "activationFired": 9,
+          "baseline": {
+            "timeMs": 34112.22222222222,
+            "cacheRead": 82029.0,
+            "tokensOut": 1224.4444444444443,
+            "cacheWrite": 7444.888888888889,
+            "n": 9,
+            "tokens": 90718.33333333333,
+            "tokensIn": 89493.88888888889
+          },
+          "treatmentFail": 4,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 9,
+          "treatment": {
+            "timeMs": 69499.33333333333,
+            "cacheRead": 172572.77777777778,
+            "tokensOut": 3117.8888888888887,
+            "cacheWrite": 15953.777777777777,
+            "n": 9,
+            "tokens": 191674.44444444444,
+            "tokensIn": 188556.55555555556
+          },
+          "passTotal": 9,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "convert-to-cpm",
+          "baselineFail": 8,
+          "pairedN": 9,
+          "preference": {
+            "wins": 0,
+            "count": 9,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 9,
+            "direction": "none",
+            "pValue": 1,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 9,
+          "activationExpected": 9,
+          "bothPass": 1,
+          "treatmentOnlyPass": 4
         }
       ]
     },
@@ -112091,6 +113628,152 @@
           },
           "baselineFail": 5,
           "passTotal": 12
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-test-migration",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524981308,
+      "model": "claude-opus-5",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "bothFail": 4,
+          "activationFired": 5,
+          "baseline": {
+            "timeMs": 55232.0,
+            "cacheRead": 177459.5,
+            "tokensOut": 2672.3333333333335,
+            "cacheWrite": 16688.5,
+            "n": 6,
+            "tokens": 196835.33333333334,
+            "tokensIn": 194163.0
+          },
+          "treatmentFail": 4,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 6,
+          "treatment": {
+            "timeMs": 37738.0,
+            "cacheRead": 283125.6666666667,
+            "tokensOut": 2511.1666666666665,
+            "cacheWrite": 24232.5,
+            "n": 6,
+            "tokens": 309889.0,
+            "tokensIn": 307377.8333333333
+          },
+          "passTotal": 6,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "agent.test-migration",
+          "baselineFail": 4,
+          "pairedN": 6,
+          "preference": {
+            "wins": 4,
+            "count": 5,
+            "minCredibleStimuli": 5,
+            "netWin": 0.6,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 0,
+            "direction": "better",
+            "pValue": 0.18750000000000003,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 6,
+          "activationExpected": 5,
+          "bothPass": 2,
+          "treatmentOnlyPass": 0
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-test-migration",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524981930,
+      "model": "gpt-6-astra",
+      "judgeModel": "claude-haiku-4.5",
+      "skills": [
+        {
+          "bothFail": 3,
+          "activationFired": 5,
+          "baseline": {
+            "timeMs": 39560.833333333336,
+            "cacheRead": 72018.0,
+            "tokensOut": 1001.8333333333334,
+            "cacheWrite": 11190.833333333334,
+            "n": 6,
+            "tokens": 84227.16666666667,
+            "tokensIn": 83225.33333333333
+          },
+          "treatmentFail": 4,
+          "timedOut": false,
+          "baselineOnlyPass": 1,
+          "hasPassData": true,
+          "baseAvailable": 6,
+          "treatment": {
+            "timeMs": 25746.5,
+            "cacheRead": 102249.33333333333,
+            "tokensOut": 732.5,
+            "cacheWrite": 15048.5,
+            "n": 6,
+            "tokens": 118048.33333333333,
+            "tokensIn": 117315.83333333333
+          },
+          "passTotal": 6,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "agent.test-migration",
+          "baselineFail": 5,
+          "pairedN": 6,
+          "preference": {
+            "wins": 0,
+            "count": 5,
+            "minCredibleStimuli": 5,
+            "netWin": -0.8,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 1,
+            "direction": "worse",
+            "pValue": 0.0625,
+            "losses": 4,
+            "conclusive": true
+          },
+          "treatAvailable": 6,
+          "activationExpected": 5,
+          "bothPass": 0,
+          "treatmentOnlyPass": 2
         }
       ]
     },
@@ -145232,6 +146915,647 @@
       ]
     },
     {
+      "plugin": "dotnet-test",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524976349,
+      "model": "claude-opus-5",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "bothFail": 3,
+          "activationFired": 8,
+          "baseline": {
+            "timeMs": 40119.875,
+            "cacheRead": 204157.625,
+            "tokensOut": 2824.0,
+            "cacheWrite": 15901.625,
+            "n": 8,
+            "tokens": 222900.25,
+            "tokensIn": 220076.25
+          },
+          "treatmentFail": 3,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 8,
+          "treatment": {
+            "timeMs": 42405.75,
+            "cacheRead": 264533.625,
+            "tokensOut": 3228.5,
+            "cacheWrite": 25092.125,
+            "n": 8,
+            "tokens": 292872.25,
+            "tokensIn": 289643.75
+          },
+          "passTotal": 8,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "agent.testability-migration",
+          "baselineFail": 3,
+          "pairedN": 8,
+          "preference": {
+            "wins": 4,
+            "count": 8,
+            "minCredibleStimuli": 5,
+            "netWin": 0.25,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 2,
+            "direction": "better",
+            "pValue": 0.3437500000000003,
+            "losses": 2,
+            "conclusive": true
+          },
+          "treatAvailable": 8,
+          "activationExpected": 8,
+          "bothPass": 5,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 14,
+          "activationFired": 6,
+          "baseline": {
+            "timeMs": 87039.05,
+            "cacheRead": 229770.15,
+            "tokensOut": 7587.5,
+            "cacheWrite": 18387.45,
+            "n": 10,
+            "tokens": 255763.4,
+            "tokensIn": 248175.9
+          },
+          "treatmentFail": 14,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 10,
+          "treatment": {
+            "timeMs": 105125.25,
+            "cacheRead": 310034.45,
+            "tokensOut": 9399.15,
+            "cacheWrite": 22030.95,
+            "n": 10,
+            "tokens": 341484.95,
+            "tokensIn": 332085.8
+          },
+          "passTotal": 20,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "code-testing",
+          "baselineFail": 18,
+          "pairedN": 10,
+          "preference": {
+            "wins": 3,
+            "count": 10,
+            "minCredibleStimuli": 5,
+            "netWin": 0.2,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 6,
+            "direction": "better",
+            "pValue": 0.31249999999999994,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 10,
+          "activationExpected": 10,
+          "bothPass": 2,
+          "treatmentOnlyPass": 4
+        },
+        {
+          "bothFail": 6,
+          "activationFired": 8,
+          "baseline": {
+            "timeMs": 44065.11111111111,
+            "cacheRead": 90002.88888888889,
+            "tokensOut": 3005.8888888888887,
+            "cacheWrite": 16537.666666666668,
+            "n": 9,
+            "tokens": 109556.44444444444,
+            "tokensIn": 106550.55555555556
+          },
+          "treatmentFail": 6,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 9,
+          "treatment": {
+            "timeMs": 62086.77777777778,
+            "cacheRead": 157909.0,
+            "tokensOut": 4510.888888888889,
+            "cacheWrite": 18755.333333333332,
+            "n": 9,
+            "tokens": 181187.44444444444,
+            "tokensIn": 176676.55555555556
+          },
+          "passTotal": 9,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "test-anti-patterns",
+          "baselineFail": 8,
+          "pairedN": 9,
+          "preference": {
+            "wins": 1,
+            "count": 8,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 6,
+            "direction": "none",
+            "pValue": 0.75,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 9,
+          "activationExpected": 8,
+          "bothPass": 1,
+          "treatmentOnlyPass": 2
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 11,
+          "baseline": {
+            "timeMs": 61666.181818181816,
+            "cacheRead": 133820.36363636365,
+            "tokensOut": 3813.090909090909,
+            "cacheWrite": 10566.181818181818,
+            "n": 11,
+            "tokens": 148212.36363636365,
+            "tokensIn": 144399.27272727274
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 11,
+          "treatment": {
+            "timeMs": 31639.272727272728,
+            "cacheRead": 109525.81818181818,
+            "tokensOut": 2192.6363636363635,
+            "cacheWrite": 12520.0,
+            "n": 11,
+            "tokens": 124248.63636363637,
+            "tokensIn": 122056.0
+          },
+          "passTotal": 11,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "test-smell-detection",
+          "baselineFail": 3,
+          "pairedN": 11,
+          "preference": {
+            "wins": 4,
+            "count": 11,
+            "minCredibleStimuli": 5,
+            "netWin": 0.36363636363636365,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 7,
+            "direction": "better",
+            "pValue": 0.0625,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 11,
+          "activationExpected": 11,
+          "bothPass": 8,
+          "treatmentOnlyPass": 3
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 9,
+          "baseline": {
+            "timeMs": 27532.666666666668,
+            "cacheRead": 90152.88888888889,
+            "tokensOut": 1769.7777777777778,
+            "cacheWrite": 10161.666666666666,
+            "n": 9,
+            "tokens": 102093.66666666667,
+            "tokensIn": 100323.88888888889
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 9,
+          "treatment": {
+            "timeMs": 23056.333333333332,
+            "cacheRead": 115583.77777777778,
+            "tokensOut": 1654.3333333333333,
+            "cacheWrite": 14985.555555555555,
+            "n": 9,
+            "tokens": 132234.11111111112,
+            "tokensIn": 130579.77777777778
+          },
+          "passTotal": 9,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "crap-score",
+          "baselineFail": 3,
+          "pairedN": 9,
+          "preference": {
+            "wins": 3,
+            "count": 9,
+            "minCredibleStimuli": 5,
+            "netWin": 0.3333333333333333,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 6,
+            "direction": "better",
+            "pValue": 0.12500000000000003,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 9,
+          "activationExpected": 9,
+          "bothPass": 6,
+          "treatmentOnlyPass": 3
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-test",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524978712,
+      "model": "gpt-6-astra",
+      "judgeModel": "claude-haiku-4.5",
+      "skills": [
+        {
+          "bothFail": 0,
+          "activationFired": 8,
+          "baseline": {
+            "timeMs": 28257.25,
+            "cacheRead": 64937.375,
+            "tokensOut": 993.125,
+            "cacheWrite": 6547.0,
+            "n": 8,
+            "tokens": 72493.625,
+            "tokensIn": 71500.5
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 8,
+          "treatment": {
+            "timeMs": 28338.375,
+            "cacheRead": 109689.125,
+            "tokensOut": 1074.5,
+            "cacheWrite": 15436.0,
+            "n": 8,
+            "tokens": 126218.375,
+            "tokensIn": 125143.875
+          },
+          "passTotal": 8,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "agent.testability-migration",
+          "baselineFail": 4,
+          "pairedN": 8,
+          "preference": {
+            "wins": 4,
+            "count": 8,
+            "minCredibleStimuli": 5,
+            "netWin": 0.25,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 2,
+            "direction": "better",
+            "pValue": 0.3437500000000003,
+            "losses": 2,
+            "conclusive": true
+          },
+          "treatAvailable": 8,
+          "activationExpected": 8,
+          "bothPass": 4,
+          "treatmentOnlyPass": 4
+        },
+        {
+          "bothFail": 4,
+          "activationFired": 10,
+          "baseline": {
+            "timeMs": 59653.05,
+            "cacheRead": 84179.95,
+            "tokensOut": 3211.05,
+            "cacheWrite": 9280.85,
+            "n": 10,
+            "tokens": 96690.0,
+            "tokensIn": 93478.95
+          },
+          "treatmentFail": 4,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 10,
+          "treatment": {
+            "timeMs": 97571.3,
+            "cacheRead": 187956.2,
+            "tokensOut": 5141.65,
+            "cacheWrite": 21734.2,
+            "n": 10,
+            "tokens": 214881.75,
+            "tokensIn": 209740.1
+          },
+          "passTotal": 20,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "code-testing",
+          "baselineFail": 18,
+          "pairedN": 10,
+          "preference": {
+            "wins": 3,
+            "count": 10,
+            "minCredibleStimuli": 5,
+            "netWin": 0.2,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 6,
+            "direction": "better",
+            "pValue": 0.31249999999999994,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 10,
+          "activationExpected": 10,
+          "bothPass": 2,
+          "treatmentOnlyPass": 14
+        },
+        {
+          "bothFail": 3,
+          "activationFired": 15,
+          "baseline": {
+            "timeMs": 17662.0,
+            "cacheRead": 50711.333333333336,
+            "tokensOut": 616.1333333333333,
+            "cacheWrite": 9615.266666666666,
+            "n": 15,
+            "tokens": 60953.933333333334,
+            "tokensIn": 60337.8
+          },
+          "treatmentFail": 4,
+          "timedOut": false,
+          "baselineOnlyPass": 1,
+          "hasPassData": true,
+          "baseAvailable": 15,
+          "treatment": {
+            "timeMs": 11982.0,
+            "cacheRead": 37358.0,
+            "tokensOut": 397.0,
+            "cacheWrite": 9658.466666666667,
+            "n": 15,
+            "tokens": 47422.666666666664,
+            "tokensIn": 47025.666666666664
+          },
+          "passTotal": 15,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "writing-mstest-tests",
+          "baselineFail": 6,
+          "pairedN": 15,
+          "preference": {
+            "wins": 1,
+            "count": 15,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 13,
+            "direction": "none",
+            "pValue": 0.75,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 15,
+          "activationExpected": 15,
+          "bothPass": 8,
+          "treatmentOnlyPass": 3
+        },
+        {
+          "bothFail": 3,
+          "activationFired": 8,
+          "baseline": {
+            "timeMs": 34450.11111111111,
+            "cacheRead": 50853.555555555555,
+            "tokensOut": 1193.0,
+            "cacheWrite": 6267.333333333333,
+            "n": 9,
+            "tokens": 58331.666666666664,
+            "tokensIn": 57138.666666666664
+          },
+          "treatmentFail": 3,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 9,
+          "treatment": {
+            "timeMs": 40430.666666666664,
+            "cacheRead": 66281.77777777778,
+            "tokensOut": 1452.7777777777778,
+            "cacheWrite": 11768.333333333334,
+            "n": 9,
+            "tokens": 79516.88888888889,
+            "tokensIn": 78064.11111111111
+          },
+          "passTotal": 9,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 1,
+            "passed": true
+          },
+          "skill": "test-anti-patterns",
+          "baselineFail": 6,
+          "pairedN": 9,
+          "preference": {
+            "wins": 0,
+            "count": 8,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 8,
+            "direction": "none",
+            "pValue": 1,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 9,
+          "activationExpected": 8,
+          "bothPass": 3,
+          "treatmentOnlyPass": 3
+        },
+        {
+          "bothFail": 2,
+          "activationFired": 11,
+          "baseline": {
+            "timeMs": 32787.0,
+            "cacheRead": 47422.09090909091,
+            "tokensOut": 1089.8181818181818,
+            "cacheWrite": 7570.272727272727,
+            "n": 11,
+            "tokens": 56095.0,
+            "tokensIn": 55005.181818181816
+          },
+          "treatmentFail": 4,
+          "timedOut": false,
+          "baselineOnlyPass": 2,
+          "hasPassData": true,
+          "baseAvailable": 11,
+          "treatment": {
+            "timeMs": 27010.363636363636,
+            "cacheRead": 62617.36363636364,
+            "tokensOut": 879.3636363636364,
+            "cacheWrite": 9299.0,
+            "n": 11,
+            "tokens": 72810.72727272728,
+            "tokensIn": 71931.36363636363
+          },
+          "passTotal": 11,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "test-smell-detection",
+          "baselineFail": 2,
+          "pairedN": 11,
+          "preference": {
+            "wins": 0,
+            "count": 11,
+            "minCredibleStimuli": 5,
+            "netWin": -0.09090909090909091,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 10,
+            "direction": "worse",
+            "pValue": 0.5,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 11,
+          "activationExpected": 11,
+          "bothPass": 7,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 0,
+          "activationFired": 10,
+          "baseline": {
+            "timeMs": 36274.9,
+            "cacheRead": 80394.7,
+            "tokensOut": 1193.8,
+            "cacheWrite": 6565.0,
+            "n": 10,
+            "tokens": 88173.9,
+            "tokensIn": 86980.1
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 10,
+          "treatment": {
+            "timeMs": 30095.3,
+            "cacheRead": 91338.6,
+            "tokensOut": 1244.5,
+            "cacheWrite": 12000.0,
+            "n": 10,
+            "tokens": 104601.7,
+            "tokensIn": 103357.2
+          },
+          "passTotal": 10,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 0,
+            "passed": true
+          },
+          "skill": "migrate-static-to-wrapper",
+          "baselineFail": 2,
+          "pairedN": 10,
+          "preference": {
+            "wins": 0,
+            "count": 10,
+            "minCredibleStimuli": 5,
+            "netWin": 0,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 10,
+            "direction": "none",
+            "pValue": 1,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 10,
+          "activationExpected": 10,
+          "bothPass": 8,
+          "treatmentOnlyPass": 2
+        }
+      ]
+    },
+    {
       "plugin": "dotnet-upgrade",
       "commit": {
         "author": {
@@ -165141,6 +167465,262 @@
           },
           "baselineFail": 6,
           "passTotal": 8
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet11",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524982589,
+      "model": "claude-opus-5",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "bothFail": 0,
+          "activationFired": 6,
+          "baseline": {
+            "timeMs": 81350.625,
+            "cacheRead": 219971.375,
+            "tokensOut": 5149.625,
+            "cacheWrite": 32554.875,
+            "n": 8,
+            "tokens": 257692.125,
+            "tokensIn": 252542.5
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 8,
+          "treatment": {
+            "timeMs": 8740.75,
+            "cacheRead": 28135.75,
+            "tokensOut": 648.25,
+            "cacheWrite": 9824.375,
+            "n": 8,
+            "tokens": 38611.875,
+            "tokensIn": 37963.625
+          },
+          "passTotal": 8,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 2,
+            "passed": true
+          },
+          "skill": "process-api-net11",
+          "baselineFail": 0,
+          "pairedN": 8,
+          "preference": {
+            "wins": 3,
+            "count": 6,
+            "minCredibleStimuli": 5,
+            "netWin": 0.5,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 3,
+            "direction": "better",
+            "pValue": 0.12500000000000003,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 8,
+          "activationExpected": 6,
+          "bothPass": 8,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 1,
+          "activationFired": 6,
+          "baseline": {
+            "timeMs": 39413.25,
+            "cacheRead": 134235.75,
+            "tokensOut": 2396.5,
+            "cacheWrite": 9386.125,
+            "n": 8,
+            "tokens": 146031.625,
+            "tokensIn": 143635.125
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 8,
+          "treatment": {
+            "timeMs": 28720.25,
+            "cacheRead": 124763.125,
+            "tokensOut": 1412.25,
+            "cacheWrite": 13182.25,
+            "n": 8,
+            "tokens": 139368.375,
+            "tokensIn": 137956.125
+          },
+          "passTotal": 8,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 2,
+            "passed": true
+          },
+          "skill": "system-text-json-net11",
+          "baselineFail": 4,
+          "pairedN": 8,
+          "preference": {
+            "wins": 5,
+            "count": 6,
+            "minCredibleStimuli": 5,
+            "netWin": 0.8333333333333334,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": true,
+            "ties": 1,
+            "direction": "better",
+            "pValue": 0.03125,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 8,
+          "activationExpected": 6,
+          "bothPass": 4,
+          "treatmentOnlyPass": 3
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet11",
+      "commit": {
+        "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
+        "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
+        "author": {
+          "name": "Abhitej John",
+          "username": "AbhitejJohn"
+        },
+        "timestamp": "2026-10-28T23:58:22+00:00"
+      },
+      "date": 1793524982710,
+      "model": "gpt-6-astra",
+      "judgeModel": "claude-haiku-4.5",
+      "skills": [
+        {
+          "bothFail": 0,
+          "activationFired": 6,
+          "baseline": {
+            "timeMs": 15588.375,
+            "cacheRead": 49501.0,
+            "tokensOut": 476.5,
+            "cacheWrite": 11799.5,
+            "n": 8,
+            "tokens": 61787.875,
+            "tokensIn": 61311.375
+          },
+          "treatmentFail": 0,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 8,
+          "treatment": {
+            "timeMs": 8204.625,
+            "cacheRead": 16073.75,
+            "tokensOut": 305.5,
+            "cacheWrite": 6229.125,
+            "n": 8,
+            "tokens": 22613.625,
+            "tokensIn": 22308.125
+          },
+          "passTotal": 8,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 2,
+            "passed": true
+          },
+          "skill": "process-api-net11",
+          "baselineFail": 0,
+          "pairedN": 8,
+          "preference": {
+            "wins": 1,
+            "count": 6,
+            "minCredibleStimuli": 5,
+            "netWin": 0.16666666666666666,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 5,
+            "direction": "better",
+            "pValue": 0.5,
+            "losses": 0,
+            "conclusive": true
+          },
+          "treatAvailable": 8,
+          "activationExpected": 6,
+          "bothPass": 8,
+          "treatmentOnlyPass": 0
+        },
+        {
+          "bothFail": 1,
+          "activationFired": 6,
+          "baseline": {
+            "timeMs": 31000.25,
+            "cacheRead": 71311.375,
+            "tokensOut": 758.75,
+            "cacheWrite": 8653.0,
+            "n": 8,
+            "tokens": 80739.25,
+            "tokensIn": 79980.5
+          },
+          "treatmentFail": 1,
+          "timedOut": false,
+          "baselineOnlyPass": 0,
+          "hasPassData": true,
+          "baseAvailable": 8,
+          "treatment": {
+            "timeMs": 26804.75,
+            "cacheRead": 73011.625,
+            "tokensOut": 664.625,
+            "cacheWrite": 8267.625,
+            "n": 8,
+            "tokens": 81960.0,
+            "tokensIn": 81295.375
+          },
+          "passTotal": 8,
+          "activationContract": {
+            "violated": 0,
+            "evaluated": true,
+            "count": 2,
+            "passed": true
+          },
+          "skill": "system-text-json-net11",
+          "baselineFail": 1,
+          "pairedN": 8,
+          "preference": {
+            "wins": 0,
+            "count": 6,
+            "minCredibleStimuli": 5,
+            "netWin": -0.16666666666666666,
+            "underpowered": false,
+            "alpha": 0.05,
+            "practicalPassed": false,
+            "ties": 5,
+            "direction": "worse",
+            "pValue": 0.5,
+            "losses": 1,
+            "conclusive": true
+          },
+          "treatAvailable": 8,
+          "activationExpected": 6,
+          "bothPass": 7,
+          "treatmentOnlyPass": 0
         }
       ]
     }
