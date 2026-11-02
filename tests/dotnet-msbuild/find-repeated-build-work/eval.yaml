@@ -695,14 +695,14 @@ stimuli:
                       assert expected_outputs.keys() <= consumed, phase + ': every generated output must be a Compile input at compilation'
                       assert all(p.is_file() for p in compiled if p.name.endswith('.g.cs')), phase + ': generated Compile inputs must exist'
                       assert all(path.is_file() and path.read_bytes() == content for path, content in expected_outputs.items()), phase + ': preserve every distinct content-dependent schema output byte-for-byte'
+                      sdk_sources = {
+                          (work / value).resolve() for value in evaluated['Properties'].values() if value
+                      }
                       generated_sources = {
                           path.resolve() for path in output_dir.rglob('*')
                           if path.is_file() and path.suffix.lower() == '.cs'
                       }
-                      assert generated_sources == expected_outputs.keys(), phase + ': preserve exactly the generated C# output set'
-                      sdk_sources = {
-                          (work / value).resolve() for value in evaluated['Properties'].values() if value
-                      }
+                      assert generated_sources - sdk_sources == expected_outputs.keys(), phase + ': preserve exactly the generated C# output set'
                       allowed_sources = expected_outputs.keys() | sdk_sources
                       assert compiled <= allowed_sources and consumed <= allowed_sources, phase + ': do not introduce additional C# compiler inputs'
                       return expected_outputs, calls

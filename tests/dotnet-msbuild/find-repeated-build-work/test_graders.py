@@ -926,6 +926,15 @@ class GraderTests(unittest.TestCase):
         tree.write(path, encoding="utf-8")
         self.grade(work, script)
 
+    def test_schema_output_can_share_sdk_intermediates(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("$(IntermediateOutputPath)gen", "$(IntermediateOutputPath)."),
+            encoding="utf-8",
+        )
+        self.grade(work, script)
+
     def test_cross_schema_copy_and_swap_are_rejected(self):
         for swap in (False, True):
             with self.subTest(swap=swap):
