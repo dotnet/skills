@@ -93,9 +93,12 @@ stimuli:
       - Reason for visit (required, max 500 chars)
 
       When the user clicks "Check Availability" between steps, call
-      AppointmentService.ValidatePatientAsync which checks server-side rules:
+      AppointmentService.ValidatePatientAsync to check the step 1 server-side rule:
       - If the email belongs to a patient with an outstanding balance, return
         an error on the Email field: "Account has outstanding balance"
+
+      After step 2 is complete, the final submit should call
+      AppointmentService.ValidateAppointmentAsync to check:
       - If the insurance provider is "None" and the selected doctor doesn't
         accept self-pay, return an error on the Doctor field: "Selected doctor
         does not accept self-pay patients"
