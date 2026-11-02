@@ -1,10 +1,10 @@
 ---
-name: find-repeated-build-work
-description: "Audit excess target/task executions inside one MSBuild invocation: invariant per-project Exec, redundant dependency builds, per-item processes, run-once generator races. Skip second/unchanged builds (incremental-build), evaluation-only repeats (eval-performance), and required variants sharing bin/obj (check-bin-obj-clash); if those skills are unavailable, answer directly, not with this skill. Also exclude restores across commands, unranked slowness and idle workers."
+name: find-repeated-work-within-one-build
+description: "Use ONLY for auditing executed-task counts or batching/hoisting costs within ONE MSBuild invocation: per-project Exec, duplicate dependency builds, per-item generators, run-once races. NOT for second/unchanged builds, restores across commands, required-variant bin/obj collisions, evaluation-only repeats, unranked slowness or idle workers. Do not load this skill just to check scope or substitute for an unavailable specialist; answer directly instead."
 license: MIT
 ---
 
-# Find Repeated Build Work
+# Find Repeated Work Within One Build
 
 MSBuild runs targets once per project instance. Work that does not depend on the project, but sits in `Directory.Build.targets` or a shared target, therefore runs once per project: a `git rev-parse` in 40 projects is 40 process launches. A project built with different global properties is a different instance, so a shared library can compile several times in one build. The binlog's `N calls` column shows both. This skill finds the repeats, separates them from work that is legitimately per project, and removes only what is safe to remove.
 
@@ -41,7 +41,7 @@ If MCP is unavailable or its tools do not expose execution counts, replay the ca
 dotnet msbuild build.binlog -noconlog "-flp:v=diag;logfile=full.log;performancesummary"
 ```
 
-Count required distinct computations, not just consumers. TFM-dependent work such as `Csc` normally runs once per project and target framework; copy-local work may also run in several targets. A multi-targeted project can legitimately show one outer build plus one inner build per TFM, so four project calls for three TFMs are not automatically duplicates. Account for required TFMs and global properties before investigating extra instances.
+Count required distinct computations, not just consumers. Derive the expected count separately for each kind of work: `Csc` normally runs once per project and target framework, whereas copy-local work scales with files and can run in several targets. Project count times TFMs is not a universal ceiling for every task; leave an unsupported expected count `unknown` rather than claiming that a larger count is redundant. A multi-targeted project can legitimately show one outer build plus one inner build per TFM, so four project calls for three TFMs are not automatically duplicates. Account for required TFMs and global properties before investigating extra instances.
 
 An invariant tool-version or revision probe needs one computation per equivalent input scope, even when several projects consume its result. A target condition restricting it to a subset of projects does not make the result per-project. Confirm that inputs, working directories, relevant properties and output semantics are equivalent; identical command text alone does not prove invariance. In particular, fresh per-project signing identities are intentionally nondeterministic: do not cache, reuse or share one identity across projects or builds. Keep each required execution unless a documented tool mode can produce all the distinct results without changing the contract.
 
@@ -52,7 +52,7 @@ An invariant tool-version or revision probe needs one computation per equivalent
 | Invariant per-project `Exec` or task (commit hash, tool version, generated file) | Multiple consumers need the same deterministic result under equivalent inputs | Compute it once outside the per-project targets: the build script passes `-p:Name=value`, or a pre-build step or orchestrator target runs first | A flag property or `Exists(stamp)` guard: properties are per project instance and `-m` worker nodes are separate processes, so the guard does not dedupe and races |
 | Same project built several times | One project path with N calls and different global properties (for example `Properties="ComponentName=%(Component.Filename)"` on an `MSBuild` task). Any extra global property, even an unused one, creates a new instance | Stop passing the property, or add `GlobalPropertiesToRemove` metadata on the shared `ProjectReference` (`RemoveProperties` on the `MSBuild` task) | Removing a property the project actually reads |
 | One process per item (`Exec` batched on `%(Item.Identity)`) | `Exec` calls equal the item count | One invocation that takes a list or response file, after checking the tool supports it; keep `Inputs`/`Outputs` (with a 1:1 transform MSBuild still passes only the stale items into the target) | Dropping `Inputs`/`Outputs` while merging |
-| Legitimate per-project or per-TFM work | Count equals projects times target frameworks | Leave it alone | Changing it to look tidy |
+| Legitimate per-project, per-TFM or per-item work | Count matches the required project, framework or output-item scopes | Leave it alone | Applying one count ceiling to unrelated task kinds |
 
 ### Step 3: Size the win
 
@@ -110,7 +110,7 @@ When no change is worthwhile: `Verdict: no repeated work worth changing`.
 
 | Pitfall | Solution |
 |---|---|
-| Treating `Csc` or copy-local counts as waste | Compare with projects times target frameworks first |
+| Treating `Csc` or copy-local counts as waste | Compare `Csc` with projects times TFMs, and copies with required files and targets; do not assume both have the same expected count |
 | Guarding with `Exists(file)` or a flag property | Move the work out of the per-project path |
 | Assuming parent-local properties are inherited by child builds | Forward the shared value explicitly or load it in each child before the fallback; otherwise the fallback repeats in those children. Existing global properties are already inherited unless removed. |
 | Claiming a saving from total task time | Check actual overlap and the critical path; do not divide sequential work by unrelated busy nodes |
