@@ -9,7 +9,8 @@ license: MIT
 For advice or static review, answer from the supplied XML, package facts, or measurements when
 they settle the question: no reference reads, checkout discovery, commands, or invented verification.
 For requested work, start at the supplied project or artifact; discover only what the next decision
-needs. Read a reference only for a specific unresolved question. References are not invocable skills.
+needs. Look for a named artifact in the working directory or its supplied path; never search from the
+filesystem root or other checkouts. Read a reference only for a specific unresolved question. References are not invocable skills.
 
 ## Start with the task and evidence
 
@@ -79,14 +80,15 @@ Do not turn a targeted failure investigation into solution-wide authoring cleanu
 
 **Goal:** measure the original workload, not an easier replacement.
 
-For advice, give the verdict, decisive facts, and a concrete next step with equivalent successful
-builds and required outputs. Do not re-prove a supplied timeline or read references to restate it.
+For advice, give the verdict, decisive facts, and a concrete next step. Any recommended change
+needs validation: compare equivalent successful builds and confirm the required outputs are
+preserved before claiming an improvement. Do not re-prove a supplied timeline or read references to restate it.
 Do not infer warm/no-op state or assign any part of a confounded timing gap to restore, cache, or
 setting effects without isolating that cause.
 
 | Supplied evidence | Decision | Smallest useful follow-up |
 | --- | --- | --- |
-| Parallel target totals include overlapping dependency waits | Keep required references and parallelism. Cumulative waits can exceed both wall time and the duration of one dependency task; they do not prove CPU utilization or healthy scheduling. | Follow the supplied timeline to the dependency task holding up consumers. For `Csc`, inspect compiler inputs and invocation, analyzer/source-generator timing, and whether compilation was expected for this workload. Measure CPU/node utilization or I/O contention if unknown; do not infer them from wait totals. Validate any change with equivalent successful builds and required outputs. |
+| Parallel target totals include overlapping dependency waits | Keep required references and parallelism. Cumulative waits can exceed both wall time and the duration of one dependency task; they do not prove CPU utilization or healthy scheduling. | Follow the supplied timeline to the dependency task holding up consumers. For `Csc`, inspect compiler inputs and invocation, analyzer/source-generator timing, and whether compilation was expected for this workload. Measure CPU/node utilization or I/O contention if unknown; do not infer them from wait totals. End with that validation: equivalent successful builds, required outputs preserved. |
 | Commands, restore policy, or starting input/output states differ | Reject attribution to the setting, not the possibility of a real gain. | Give one matched old-setting/new-setting experiment below, not a menu of different workloads or an invented setting name. |
 | Repeated successful runs have matched conditions and outputs | Accept the observed improvement for that workload; use the same summary statistic for both arms: `100 * (old - new) / old`. | Report sample count and observed elapsed-time ranges, not an invented percentage uncertainty interval. Then state residual limits: small sample, one workload/machine/SDK, what restored starting state does and does not control, and no independent rerun. Do not require a checkout to acknowledge the supplied result. |
 

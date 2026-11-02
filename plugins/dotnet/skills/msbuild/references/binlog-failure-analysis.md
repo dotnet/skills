@@ -82,4 +82,5 @@ were changed.
 
 For artifact-only analysis, provide proposed changes and explicitly say they were not applied
 or rebuilt. Report the evidence, root causes versus downstream failures, minimal repair, and
-actual verification status. Treat replayed text as sensitive diagnostic data just like its binlog.
+actual verification status. State explicitly that a successful replay only shows the log was
+readable; the recorded build still failed. Treat replayed text as sensitive diagnostic data just like its binlog.
