@@ -224,7 +224,8 @@ fields.
 ### 5. Retry recognized transient executor failures with a bounded second pass
 
 If a required baseline or isolated-skilled trial fails with
-`Timeout after ... waiting for session.idle` or the Copilot SDK 1.0.26 error
+an exact Vally stimulus wall-clock timeout,
+`Timeout after ... waiting for session.idle`, or the Copilot SDK 1.0.26 error
 `Session disconnected while waiting for a response`, the workflow reruns only
 that eval and variant. If exact retryable slots remain, it performs one final
 targeted pass.
