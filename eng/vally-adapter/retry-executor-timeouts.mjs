@@ -28,10 +28,13 @@ import { normalizeEvalFile, splitVallyCommand } from "./adapt.mjs";
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 const SESSION_IDLE_TIMEOUT_PATTERN =
   /\bTimeout after \d+ms waiting for session\.idle\b/i;
+const STIMULUS_WALL_CLOCK_TIMEOUT_PATTERN =
+  /^Stimulus '.+' timed out after \d+ ms during turn \d+ of \d+$/i;
 const SESSION_DISCONNECT_PATTERN =
   /^(?:Trial failed:\s*)?Session disconnected while waiting for a response$/i;
 const TRANSIENT_EXECUTOR_ERROR_PATTERNS = [
   SESSION_IDLE_TIMEOUT_PATTERN,
+  STIMULUS_WALL_CLOCK_TIMEOUT_PATTERN,
   SESSION_DISCONNECT_PATTERN,
 ];
 const REQUIRED_VARIANTS = new Set(["baseline", "skilled"]);

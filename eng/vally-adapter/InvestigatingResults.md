@@ -346,12 +346,12 @@ runs that also fail their graders are surfaced as warnings.
 The agent crashed, the model was unavailable, evidence was missing, or the comparison judge failed. Check `stateReason`, `errors[]`, `adapter-summary.json`, and the variant's `results.jsonl`/session logs. These are invalid measurements, not skill regressions. If a required variant produced no records, the adapter writes an explicit invalid result with `missing_baseline_records` or `missing_skilled_records`.
 
 The workflow retries only required baseline or isolated-skilled executor records
-whose exact failure is a `session.idle` timeout or
-`Session disconnected while waiting for a response`. It reruns the affected
-eval and variant up to two bounded times while exact retryable slots remain
-unresolved, preserves all successful first-attempt and recovered slots, and
-replaces only matching failed `shardKey` slots from the same normalized eval
-path that succeed. A later pass cannot overwrite evidence recovered by an
+whose exact failure is a Vally stimulus wall-clock timeout, a `session.idle`
+timeout, or `Session disconnected while waiting for a response`. It reruns the
+affected eval and variant up to two bounded times while exact retryable slots
+remain unresolved, preserves all successful first-attempt and recovered slots,
+and replaces only matching failed `shardKey` slots from the same normalized
+eval path that succeed. A later pass cannot overwrite evidence recovered by an
 earlier pass.
 Every invocation uses a fresh output directory, so a retry that produces no
 current output cannot reuse stale evidence from an earlier invocation. Records

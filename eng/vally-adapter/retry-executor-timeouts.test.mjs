@@ -82,6 +82,17 @@ test("classifies only recognized transient executor failures as retryable", () =
     isRetryableExecutorFailure(
       record({
         status: "error",
+        error:
+          "Stimulus 'Determine required Android SDK packages for specific .NET version' " +
+          "timed out after 120000 ms during turn 1 of 1",
+      }),
+    ),
+    true,
+  );
+  assert.equal(
+    isRetryableExecutorFailure(
+      record({
+        status: "error",
         error: "Session disconnected while waiting for a response",
       }),
     ),
@@ -101,6 +112,17 @@ test("classifies only recognized transient executor failures as retryable", () =
       record({
         status: "error",
         error: "No response was returned. Send your message again to retry.",
+      }),
+    ),
+    false,
+  );
+  assert.equal(
+    isRetryableExecutorFailure(
+      record({
+        status: "error",
+        error:
+          "Stimulus 'sample-stimulus' timed out after 120000 ms during turn 1 of 1: " +
+          "No response was returned. Send your message again to retry.",
       }),
     ),
     false,
