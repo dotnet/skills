@@ -89,10 +89,16 @@ stimuli:
       - type: file-exists
         config:
           path: '**/Notifications.razor'
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/Notifications.razor'
-          value: RendererInfo.IsInteractive
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            files=list(Path('.').glob('**/Notifications.razor'))+list(Path('.').glob('**/Notifications.razor.cs'));
+            text='\n'.join(p.read_text() for p in files);
+            post_render=re.search(r'OnAfterRenderAsync\s*\([^)]*\).*?\bfirstRender\b', text, re.S);
+            sys.exit(0 if files and ('RendererInfo.IsInteractive' in text or post_render) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: run-command
         config:
           command: >-
