@@ -869,6 +869,63 @@ class GraderTests(unittest.TestCase):
         result = self.grade(work, script, accepted=False)
         self.assertIn("unchanged", result.stderr)
 
+    def test_additional_schema_sources_are_rejected(self):
+        variants = (
+            ("gen/Unexpected.cs", False, False),
+            ("gen/nested/Unexpected.g.cs", True, False),
+            ("extra/Unexpected.cs", True, False),
+            ("extra/Unexpected.cs", True, True),
+        )
+        for relative, compile_source, cleanup in variants:
+            with self.subTest(path=relative, compiled=compile_source, cleanup=cleanup):
+                work, script = self.workspace("per-item-exec")
+                path = work / "per-file-exec" / "Schemas.targets"
+                tree = ET.parse(path)
+                source = "$(IntermediateOutputPath)" + relative
+                target = ET.SubElement(
+                    tree.getroot(), "Target", Name="AddUnexpectedSource", BeforeTargets="CoreCompile",
+                )
+                ET.SubElement(target, "MakeDir", Directories=source.rsplit("/", 1)[0])
+                ET.SubElement(
+                    target, "WriteLinesToFile", File=source,
+                    Lines="public sealed class UnexpectedPublicType {}", Overwrite="true",
+                )
+                if compile_source:
+                    ET.SubElement(ET.SubElement(target, "ItemGroup"), "Compile", Include=source)
+                if cleanup:
+                    after = ET.SubElement(
+                        tree.getroot(), "Target", Name="RemoveUnexpectedSource", AfterTargets="CoreCompile",
+                    )
+                    ET.SubElement(after, "Delete", Files=source)
+                    ET.SubElement(ET.SubElement(after, "ItemGroup"), "Compile", Remove=source)
+                tree.write(path, encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn(
+                    "preserve exactly the generated C# output set"
+                    if relative.startswith("gen/") else "do not introduce additional C# compiler inputs",
+                    result.stderr,
+                )
+
+    def test_uncompiled_schema_helper_is_accepted(self):
+        work, script = self.workspace("per-item-exec")
+        base = work / "per-file-exec"
+        (base / "tools" / "BatchHelper.cs").write_text(
+            "public sealed class BatchHelper {}\n", encoding="utf-8",
+        )
+        path = base / "Contoso.Schemas.csproj"
+        tree = ET.parse(path)
+        ET.SubElement(ET.SubElement(tree.getroot(), "ItemGroup"), "Compile", Remove="tools/BatchHelper.cs")
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
+    def test_sdk_generated_schema_compile_inputs_are_accepted(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Contoso.Schemas.csproj"
+        tree = ET.parse(path)
+        ET.SubElement(tree.getroot().find("PropertyGroup"), "ImplicitUsings").text = "enable"
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
+
     def test_cross_schema_copy_and_swap_are_rejected(self):
         for swap in (False, True):
             with self.subTest(swap=swap):
