@@ -7,10 +7,13 @@
 > document describes the raw `skill-validator evaluate` output retained under
 > `_agent-evaluation/` for custom-agent diagnosis and for historical results.
 >
-> The current Vally workflow makes one targeted recovery attempt for executor
-> `session.idle` timeouts before adaptation. See
-> `executor-retry-summary.json` in the result artifact and the current guide for
-> the bounded retry and fail-closed rules.
+> The current Vally workflow makes up to two targeted retry passes before
+> adaptation when a required baseline or isolated-skilled record has an exact
+> Vally stimulus wall-clock timeout, a `session.idle` timeout, or the Copilot
+> SDK `Session disconnected while waiting for a response` error. See
+> `executor-retry-summary.json` and the raw record's `executorRetry` field in
+> the result artifact for recovery evidence, and the current guide for the
+> bounded retry and fail-closed rules.
 > Native-agent `RunMetrics.errorCount` is diagnostic and may include recovered
 > tool-call failures. Adaptation invalidates a scenario only for terminal
 > evidence: an explicit execution error, a missing or timed-out required arm, a
