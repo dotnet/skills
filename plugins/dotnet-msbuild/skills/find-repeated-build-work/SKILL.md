@@ -1,6 +1,6 @@
 ---
 name: find-repeated-build-work
-description: "NEVER INVOKE for second unchanged builds: use incremental-build or answer without a skill if unavailable. Audit excess calls WITHIN ONE MSBuild command. USE FOR: invariant per-project Exec, redundant project builds, per-item Exec, run-once races. DO NOT USE FOR: evaluation-only repeats (eval-performance), restores across commands (eliminate-redundant-restores), unranked slowness (build-perf-baseline), required-variant bin/obj collisions (check-bin-obj-clash), idle workers/serial chains (build-parallelism)."
+description: "Audit excess target/task executions inside one MSBuild invocation: invariant per-project Exec, redundant dependency builds, per-item processes, run-once generator races. Skip second/unchanged builds (incremental-build), evaluation-only repeats (eval-performance), and required variants sharing bin/obj (check-bin-obj-clash); if those skills are unavailable, answer directly, not with this skill. Also exclude restores across commands, unranked slowness and idle workers."
 license: MIT
 ---
 
@@ -12,7 +12,7 @@ MSBuild runs targets once per project instance. Work that does not depend on the
 
 - The same `Exec` or task (version stamping, tool probes, file generation) runs in every project
 - Target or Task Performance Summary shows a call count far above the number of projects that need the work
-- One project appears many times in the Project Performance Summary with different global properties
+- The same project executes its build targets repeatedly under global-property sets that do not change its outputs
 - An `Exec` spawns one process per item in a list
 - A "run once per build" guard (`Exists` check, flag property) still runs repeatedly or fails with file-in-use errors under `-m`
 
@@ -41,13 +41,15 @@ If MCP is unavailable or its tools do not expose execution counts, replay the ca
 dotnet msbuild build.binlog -noconlog "-flp:v=diag;logfile=full.log;performancesummary"
 ```
 
-Compare each count with the project instances that genuinely need the operation. TFM-dependent work such as `Csc` normally runs once per project and target framework; copy-local work may also run in several targets. A multi-targeted project can legitimately show one outer build plus one inner build per TFM, so four project calls for three TFMs are not automatically duplicates. Build-invariant work is different: an identical git lookup needs one computation for the build, so 38 calls in 38 projects can still be waste. Confirm that inputs, working directories and relevant properties do not change the result; identical command text alone does not prove invariance. Investigate extra instances only after accounting for required TFMs and global properties.
+Count required distinct computations, not just consumers. TFM-dependent work such as `Csc` normally runs once per project and target framework; copy-local work may also run in several targets. A multi-targeted project can legitimately show one outer build plus one inner build per TFM, so four project calls for three TFMs are not automatically duplicates. Account for required TFMs and global properties before investigating extra instances.
+
+An invariant tool-version or revision probe needs one computation per equivalent input scope, even when several projects consume its result. A target condition restricting it to a subset of projects does not make the result per-project. Confirm that inputs, working directories, relevant properties and output semantics are equivalent; identical command text alone does not prove invariance. In particular, fresh per-project signing identities are intentionally nondeterministic: do not cache, reuse or share one identity across projects or builds. Keep each required execution unless a documented tool mode can produce all the distinct results without changing the contract.
 
 ### Step 2: Classify each candidate
 
 | Pattern | Signal | Fix | Never |
 |---|---|---|---|
-| Invariant per-project `Exec` or task (commit hash, tool version, generated file) | `Exec` calls equal the project count and the command line is identical | Compute it once outside the per-project targets: the build script passes `-p:Name=value`, or a pre-build step or orchestrator target runs first | A flag property or `Exists(stamp)` guard: properties are per project instance and `-m` worker nodes are separate processes, so the guard does not dedupe and races |
+| Invariant per-project `Exec` or task (commit hash, tool version, generated file) | Multiple consumers need the same deterministic result under equivalent inputs | Compute it once outside the per-project targets: the build script passes `-p:Name=value`, or a pre-build step or orchestrator target runs first | A flag property or `Exists(stamp)` guard: properties are per project instance and `-m` worker nodes are separate processes, so the guard does not dedupe and races |
 | Same project built several times | One project path with N calls and different global properties (for example `Properties="ComponentName=%(Component.Filename)"` on an `MSBuild` task). Any extra global property, even an unused one, creates a new instance | Stop passing the property, or add `GlobalPropertiesToRemove` metadata on the shared `ProjectReference` (`RemoveProperties` on the `MSBuild` task) | Removing a property the project actually reads |
 | One process per item (`Exec` batched on `%(Item.Identity)`) | `Exec` calls equal the item count | One invocation that takes a list or response file, after checking the tool supports it; keep `Inputs`/`Outputs` (with a 1:1 transform MSBuild still passes only the stale items into the target) | Dropping `Inputs`/`Outputs` while merging |
 | Legitimate per-project or per-TFM work | Count equals projects times target frameworks | Leave it alone | Changing it to look tidy |
@@ -57,6 +59,8 @@ Compare each count with the project instances that genuinely need the operation.
 For eliminated invariant computations, estimate avoidable aggregate task time as `(calls - expected) x average ms`. Per-item batching does not eliminate the required input processing: estimate `(old process starts - new process starts) x startup ms`, retaining every input's processing cost and any required metadata groups. Account for additional list/batch overhead when known. If startup cost is unavailable, mark that estimate unknown rather than treating the entire average task duration as removable.
 
 Wall-clock saving depends on actual overlap and the critical path. Batched per-item `Exec` calls in one target run sequentially on one node, so avoided startup time is not divided by unrelated busy nodes. Only divide by effective parallelism when the removed work actually overlaps across nodes. Use the binlog timeline to establish overlap, and mark wall-clock savings unknown when that evidence is missing. Work off the critical path can yield no wall-clock gain. For performance-only changes, if even the aggregate upper bound is below about 1% of build wall-clock, report it as not worth changing. Correctness races still need a fix regardless of the timing gain.
+
+For a cost-based no-change recommendation, show the avoidable aggregate-time bound and, when build elapsed time is supplied, `100 x bound / elapsed` as an upper-bound percentage, not a measured wall-clock gain. Distinguish work that is technically redundant but too cheap to change from work that must remain distinct.
 
 ### Step 4: Fix without changing behavior
 
@@ -91,7 +95,7 @@ If Source Link already supplies `SourceRevisionId`, it can replace an `Exec` onl
 
 ## Output
 
-For on-target requests, emit a findings table with at least one row and a `Verdict:` line. Use `unknown` for unavailable timing or critical-path evidence; distinguish estimated aggregate task time from measured wall-clock savings.
+For on-target requests, keep the answer proportional to the evidence: a compact findings table with at least one row, a short explanation of the decisive computation or preservation constraint, and a standalone, unformatted `Verdict:` line. Do not bold the line or append it to a paragraph. Use `unknown` for unavailable timing or critical-path evidence; distinguish estimated aggregate task time from measured wall-clock savings. If the contract requires every execution, report zero avoidable time even when task durations are unknown.
 
 | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
 |---|---|---|---|---|---|---|
