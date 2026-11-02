@@ -906,17 +906,34 @@ class GraderTests(unittest.TestCase):
                     result.stderr,
                 )
 
+    def test_submitted_generated_schema_sources_are_not_hidden(self):
+        for relative in ("Unexpected.g.cs", "nested/Unexpected.g.cs"):
+            with self.subTest(path=relative):
+                work, script = self.workspace("per-item-exec")
+                source = work / "per-file-exec" / relative
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_text("public sealed class UnexpectedPublicType {}\n", encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn("do not introduce additional C# compiler inputs", result.stderr)
+
     def test_uncompiled_schema_helper_is_accepted(self):
-        work, script = self.workspace("per-item-exec")
-        base = work / "per-file-exec"
-        (base / "tools" / "BatchHelper.cs").write_text(
-            "public sealed class BatchHelper {}\n", encoding="utf-8",
-        )
-        path = base / "Contoso.Schemas.csproj"
-        tree = ET.parse(path)
-        ET.SubElement(ET.SubElement(tree.getroot(), "ItemGroup"), "Compile", Remove="tools/BatchHelper.cs")
-        tree.write(path, encoding="utf-8")
-        self.grade(work, script)
+        for name in ("BatchHelper.cs", "BatchHelper.g.cs"):
+            with self.subTest(helper=name):
+                work, script = self.workspace("per-item-exec")
+                base = work / "per-file-exec"
+                helper = "tools/" + name
+                (base / helper).write_text("public sealed class BatchHelper {}\n", encoding="utf-8")
+                path = base / "Contoso.Schemas.csproj"
+                tree = ET.parse(path)
+                ET.SubElement(ET.SubElement(tree.getroot(), "ItemGroup"), "Compile", Remove=helper)
+                tree.write(path, encoding="utf-8")
+                path = base / "Schemas.targets"
+                tree = ET.parse(path)
+                tree.getroot().find("Target").insert(0, ET.Element(
+                    "Error", Condition=f"!Exists('{helper}')", Text="Preserve the submitted build helper",
+                ))
+                tree.write(path, encoding="utf-8")
+                self.grade(work, script)
 
     def test_sdk_generated_schema_compile_inputs_are_accepted(self):
         work, script = self.workspace("per-item-exec")

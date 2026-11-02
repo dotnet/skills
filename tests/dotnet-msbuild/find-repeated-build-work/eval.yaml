@@ -590,7 +590,7 @@ stimuli:
               assert dotnet, 'the .NET SDK is required to query evaluated Compile items'
               with tempfile.TemporaryDirectory() as tmp:
                   work = (pathlib.Path(tmp) / 'work').resolve()
-                  shutil.copytree('per-file-exec', work, ignore=shutil.ignore_patterns('bin', 'obj', '*.g.cs'))
+                  shutil.copytree('per-file-exec', work, ignore=shutil.ignore_patterns('bin', 'obj'))
                   bin_dir = pathlib.Path(tmp) / 'bin'
                   bin_dir.mkdir()
                   compile_items = pathlib.Path(tmp) / 'compile-items.txt'
