@@ -36,10 +36,13 @@ discovery fails explicitly because it cannot safely enumerate the production
 agent surface.
 
 Evaluation-infrastructure-only changes run the complete agentic-workflow
-collection as deterministic canaries. They do not select random plugins, because
-unrelated pre-existing invalid plugin evals would make the infrastructure gate
-nondeterministic. Skill, agent, manifest, and test changes still select their
-normal targeted plugin evaluation surface.
+collection as deterministic canaries plus the fixed
+`dotnet-aspnetcore/convert-blazor-server-to-webapp` skill sentinel. The sentinel
+exercises the Vally baseline, isolated, plugin, and adapter path. Discovery fails
+if either canary surface is unavailable. It does not select random plugins,
+because unrelated pre-existing invalid plugin evals would make the
+infrastructure gate nondeterministic. Skill, agent, manifest, and test changes
+still select their normal targeted plugin evaluation surface.
 
 The native agent parser stages `stimuli[].environment.files`, not a shared
 suite-level `environment.files` block. Declare required authentication helpers

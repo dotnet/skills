@@ -74,23 +74,23 @@ class WorkflowTargetsTests(unittest.TestCase):
                  "commit", "--quiet", "-m", message)
         return self.git("rev-parse", "HEAD")
 
-    def create_plugin_fixture(self):
-        manifest = self.root / "plugins" / "demo" / "plugin.json"
-        skill = self.root / "plugins" / "demo" / "skills" / "sample" / "SKILL.md"
-        evaluation = self.root / "tests" / "demo" / "sample" / "eval.yaml"
+    def create_plugin_fixture(self, plugin="demo", skill_name="sample"):
+        manifest = self.root / "plugins" / plugin / "plugin.json"
+        skill = self.root / "plugins" / plugin / "skills" / skill_name / "SKILL.md"
+        evaluation = self.root / "tests" / plugin / skill_name / "eval.yaml"
         manifest.parent.mkdir(parents=True)
         skill.parent.mkdir(parents=True)
         evaluation.parent.mkdir(parents=True)
         manifest.write_text(
-            '{"name":"demo","version":"1.0.0","skills":["./skills/"]}\n',
+            f'{{"name":"{plugin}","version":"1.0.0","skills":["./skills/"]}}\n',
             encoding="utf-8",
         )
         skill.write_text(
-            "---\nname: sample\ndescription: Sample.\n---\nSample.\n",
+            f"---\nname: {skill_name}\ndescription: Sample.\n---\nSample.\n",
             encoding="utf-8",
         )
         evaluation.write_text(
-            "name: sample\nstimuli: []\n",
+            f"name: {skill_name}\nstimuli: []\n",
             encoding="utf-8",
         )
         return manifest
@@ -192,9 +192,16 @@ class WorkflowTargetsTests(unittest.TestCase):
                 self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
     def test_infrastructure_only_change_uses_deterministic_workflow_canaries(self):
-        self.create_plugin_fixture()
+        manifest = self.create_plugin_fixture()
+        self.create_plugin_fixture(
+            "dotnet-aspnetcore", "convert-blazor-server-to-webapp"
+        )
         self.git("init", "--quiet")
         base = self.commit_fixture("Fixture base")
+        manifest.write_text(
+            manifest.read_text(encoding="utf-8").replace("1.0.0", "1.0.1"),
+            encoding="utf-8",
+        )
         find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
         find_targets.write_text(
             find_targets.read_text(encoding="utf-8") + "\n# Infrastructure change.\n",
@@ -227,18 +234,57 @@ class WorkflowTargetsTests(unittest.TestCase):
             repeated_result.stdout + repeated_result.stderr,
         )
         self.assertEqual(self.entries(), entries)
-        self.assertEqual(len(entries), 4)
+        self.assertEqual(len(entries), 6)
         self.assertEqual(
             {entry["target_kind"] for entry in entries},
-            {"workflow"},
+            {"skill", "workflow"},
         )
         self.assertEqual(
             {entry["plugin"] for entry in entries},
-            {"agentic-workflows"},
+            {"agentic-workflows", "dotnet-aspnetcore"},
+        )
+        sentinel_entries = [
+            entry for entry in entries
+            if entry["plugin"] == "dotnet-aspnetcore"
+        ]
+        self.assertEqual(len(sentinel_entries), 2)
+        self.assertEqual(
+            {entry["skills_path"] for entry in sentinel_entries},
+            {
+                "plugins/dotnet-aspnetcore/skills/"
+                "convert-blazor-server-to-webapp"
+            },
         )
         self.assertIn(
-            "evaluating deterministic agentic-workflow canaries",
+            "evaluating deterministic workflow canaries and Vally skill sentinel",
             result.stdout,
+        )
+
+    def test_infrastructure_only_change_fails_when_skill_sentinel_is_unavailable(self):
+        self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
+        find_targets.write_text(
+            find_targets.read_text(encoding="utf-8") + "\n# Infrastructure change.\n",
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change evaluation infrastructure")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "Infrastructure skill sentinel "
+            "'dotnet-aspnetcore/convert-blazor-server-to-webapp' is unavailable",
+            normalized_output(result),
         )
 
     def test_pr_malformed_changed_manifest_fails_target_discovery(self):
