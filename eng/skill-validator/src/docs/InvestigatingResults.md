@@ -71,9 +71,12 @@ behavior against the corrected executor.
 > enumerate the production agent surface.
 >
 > Evaluation-infrastructure-only changes use the complete agentic-workflow
-> collection as deterministic canaries instead of selecting random plugins.
-> Skill, agent, manifest, and test changes keep their normal targeted plugin
-> evaluation surface.
+> collection as deterministic canaries plus the fixed
+> `dotnet-aspnetcore/convert-blazor-server-to-webapp` skill sentinel. The
+> sentinel exercises the Vally baseline, isolated, plugin, and adapter path.
+> Discovery fails if either canary surface is unavailable. Skill, agent,
+> manifest, and test changes keep their normal targeted plugin evaluation
+> surface.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup

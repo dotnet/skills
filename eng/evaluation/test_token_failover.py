@@ -3810,9 +3810,6 @@ esac
 
             base = commit_manifest("1.0.0", "Demo", "Initial")
             version_only = commit_manifest("1.0.1", "Demo", "Stamp version")
-            semantic = commit_manifest(
-                "1.0.2", "Changed registration metadata", "Change manifest"
-            )
             def commit_raw(content: str, message: str) -> str:
                 manifest.write_text(content, encoding="utf-8")
                 subprocess.run(["git", "add", "."], cwd=root, check=True)
@@ -3830,6 +3827,21 @@ esac
                     capture_output=True,
                     text=True,
                 ).stdout.strip()
+
+            reordered = commit_raw(
+                json.dumps(
+                    {
+                        "skills": ["./skills/"],
+                        "description": "Demo",
+                        "version": "1.0.2",
+                        "name": "demo",
+                    }
+                ),
+                "Reorder manifest properties",
+            )
+            semantic = commit_manifest(
+                "1.0.3", "Changed registration metadata", "Change manifest"
+            )
 
             def classify(
                 from_commit: str,
@@ -3869,7 +3881,8 @@ esac
                 return json.loads(result.stdout.strip().splitlines()[-1])
 
             self.assertEqual(classify(base, version_only), [])
-            self.assertEqual(classify(version_only, semantic), ["demo"])
+            self.assertEqual(classify(version_only, reordered), [])
+            self.assertEqual(classify(reordered, semantic), ["demo"])
 
             invalid_manifests = {
                 "array root": '[{"name":"demo","version":"1.0.3"}]',

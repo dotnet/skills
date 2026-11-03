@@ -273,7 +273,9 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   if ($hasInfraChanges -and -not $hasSkillChanges) {
     echo "is_infra=true" >> $env:GITHUB_OUTPUT
-    # Infra-only: use the repository's deterministic workflow canaries.
+    # Infra-only: use deterministic workflow canaries plus one fixed skill
+    # sentinel that exercises the Vally baseline, isolated, plugin, and
+    # adapter path.
     # Random plugin selection can turn unrelated pre-existing invalid evals
     # into nondeterministic infrastructure failures.
     $entries = @()
@@ -283,7 +285,19 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     if ($entries.Count -eq 0) {
       throw "Infrastructure changes require at least one agentic-workflow canary."
     }
-    Write-Host "Infrastructure changes detected, evaluating deterministic agentic-workflow canaries."
+    $sentinelPlugin = "dotnet-aspnetcore"
+    $sentinelSkill = "convert-blazor-server-to-webapp"
+    $sentinelEntries = @(Get-PluginShardEntries `
+      -plugin $sentinelPlugin -contentRoot $contentRoot `
+      -selectedSkills @($sentinelSkill))
+    if ($sentinelEntries.Count -ne 1 -or
+        $sentinelEntries[0].target_kind -ne "skill" -or
+        $sentinelEntries[0].skills_path -ne
+          "plugins/$sentinelPlugin/skills/$sentinelSkill") {
+      throw "Infrastructure skill sentinel '$sentinelPlugin/$sentinelSkill' is unavailable."
+    }
+    $entries += $sentinelEntries
+    Write-Host "Infrastructure changes detected, evaluating deterministic workflow canaries and Vally skill sentinel '$sentinelPlugin/$sentinelSkill'."
   } else {
     # Extract unique plugin/skill pairs from changed skill sources and
     # non-agent eval directories.

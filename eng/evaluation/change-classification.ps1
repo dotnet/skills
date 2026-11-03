@@ -62,9 +62,9 @@ function Get-ManifestWithoutVersion {
       throw "the top-level 'version' property must be major.minor.patch"
     }
 
-    $manifest = $Content | ConvertFrom-Json -AsHashtable -Depth 100
-    [void]$manifest.Remove("version")
-    return $manifest | ConvertTo-Json -Compress -Depth 100
+    $manifest = [System.Text.Json.Nodes.JsonNode]::Parse($Content)
+    [void]$manifest.AsObject().Remove("version")
+    return [pscustomobject]@{ Node = $manifest }
   } catch {
     Write-Warning "Treating $Label as a behavior change: $($_.Exception.Message)"
     return $null
@@ -104,7 +104,8 @@ function Get-BehaviorChangedPluginManifests {
       $headManifest = Get-ManifestWithoutVersion `
         -Content ($headLines -join "`n") -Label "${HeadCommit}:$path"
       if ($null -eq $baseManifest -or $null -eq $headManifest -or
-          $baseManifest -cne $headManifest) {
+          -not [System.Text.Json.Nodes.JsonNode]::DeepEquals(
+            $baseManifest.Node, $headManifest.Node)) {
         return $plugin
       }
     } |
