@@ -4060,6 +4060,142 @@ esac
                 )
                 self.assertIn("if (Test-Path $helperPath)", script)
 
+    def test_pr_status_deleted_manifest_last_returns_success_and_needs_eval(
+        self,
+    ) -> None:
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            helper = root / "eng" / "evaluation" / "change-classification.ps1"
+            helper.parent.mkdir(parents=True)
+            shutil.copy2(CHANGE_CLASSIFICATION_SCRIPT, helper)
+            for plugin in ("alpha", "zeta"):
+                manifest = root / "plugins" / plugin / "plugin.json"
+                manifest.parent.mkdir(parents=True)
+                manifest.write_text(
+                    json.dumps(
+                        {
+                            "name": plugin,
+                            "version": "1.0.0",
+                            "skills": ["./skills/"],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            subprocess.run(
+                ["git", "init", "-b", "main"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(
+                ["git", "add", "."],
+                cwd=root,
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Evaluation Test",
+                    "-c",
+                    "user.email=evaluation@example.com",
+                    "commit",
+                    "-m",
+                    "Fixture base",
+                ],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            base = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            alpha_manifest = root / "plugins" / "alpha" / "plugin.json"
+            alpha_manifest.write_text(
+                alpha_manifest.read_text(encoding="utf-8").replace(
+                    "1.0.0", "1.0.1"
+                ),
+                encoding="utf-8",
+            )
+            (root / "plugins" / "zeta" / "plugin.json").unlink()
+            subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Evaluation Test",
+                    "-c",
+                    "user.email=evaluation@example.com",
+                    "commit",
+                    "-m",
+                    "Delete last manifest",
+                ],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            head = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+            for job_name in ("pr-status", "fork-pr-status"):
+                with self.subTest(job=job_name):
+                    output = root / f"{job_name}-output.txt"
+                    output.unlink(missing_ok=True)
+                    script = workflow_step_script(
+                        workflow, job_name, "$mergeBase = git merge-base"
+                    )
+                    script = re.sub(
+                        r'\$base = ".*?"',
+                        f'$base = "{base}"',
+                        script,
+                        count=1,
+                    )
+                    script = re.sub(
+                        r'\$head = ".*?"',
+                        f'$head = "{head}"',
+                        script,
+                        count=1,
+                    )
+                    script += (
+                        "\nif (Test-Path -LiteralPath variable:\\LASTEXITCODE) "
+                        "{ exit $LASTEXITCODE }\n"
+                    )
+                    result = subprocess.run(
+                        [
+                            "pwsh",
+                            "-NoLogo",
+                            "-NoProfile",
+                            "-NonInteractive",
+                            "-Command",
+                            script,
+                        ],
+                        cwd=root,
+                        env=dict(os.environ, GITHUB_OUTPUT=str(output)),
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    self.assertEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
+                    self.assertIn(
+                        "needs_eval=true",
+                        output.read_text(encoding="utf-8").splitlines(),
+                    )
+
     def test_manual_whole_plugin_dispatch_includes_agent_entries(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
         build_script = next(
