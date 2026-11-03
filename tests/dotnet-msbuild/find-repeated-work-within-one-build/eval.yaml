@@ -596,8 +596,21 @@ stimuli:
                   compile_items = pathlib.Path(tmp) / 'compile-items.txt'
                   project_path = work / 'Contoso.Schemas.csproj'
                   probe_project = ET.parse(project_path)
+                  project = probe_project.getroot()
+                  # Expand implicit SDK imports so the observer follows SDK-imported generation.
+                  sdk_imports = [
+                      {'Sdk': sdk.strip()} for sdk in project.attrib.pop('Sdk', '').split(';') if sdk.strip()
+                  ]
+                  for sdk in project.findall('Sdk'):
+                      sdk_imports.append({
+                          'Sdk' if key == 'Name' else key: value for key, value in sdk.attrib.items()
+                      })
+                      project.remove(sdk)
+                  for index, sdk in enumerate(sdk_imports):
+                      project.insert(index, ET.Element('Import', Project='Sdk.props', **sdk))
+                      ET.SubElement(project, 'Import', Project='Sdk.targets', **sdk)
                   observer = ET.SubElement(
-                      probe_project.getroot(), 'Target', Name='_GraderObserveCompile_' + uuid.uuid4().hex,
+                      project, 'Target', Name='_GraderObserveCompile_' + uuid.uuid4().hex,
                       BeforeTargets='CoreCompile',
                   )
                   ET.SubElement(observer, 'WriteLinesToFile', File=str(compile_items.resolve()),

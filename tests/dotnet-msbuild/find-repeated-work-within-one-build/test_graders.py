@@ -1047,6 +1047,25 @@ class GraderTests(unittest.TestCase):
                 if variant != "preserved":
                     self.assertIn("preserve all original schema contents and evidence files", result.stderr)
 
+    def test_schema_generation_imported_by_the_sdk_is_accepted(self):
+        for layout in ("sdk-attribute", "sdk-element", "explicit-imports"):
+            with self.subTest(layout=layout):
+                work, script = self.workspace("per-item-exec")
+                base = work / "per-file-exec"
+                (base / "Schemas.targets").rename(base / "Directory.Build.targets")
+                path = base / "Contoso.Schemas.csproj"
+                tree = ET.parse(path)
+                root = tree.getroot()
+                root.remove(root.find("Import"))
+                if layout == "sdk-element":
+                    root.insert(0, ET.Element("Sdk", Name=root.attrib.pop("Sdk")))
+                elif layout == "explicit-imports":
+                    sdk = root.attrib.pop("Sdk")
+                    root.insert(0, ET.Element("Import", Project="Sdk.props", Sdk=sdk))
+                    ET.SubElement(root, "Import", Project="Sdk.targets", Sdk=sdk)
+                tree.write(path, encoding="utf-8")
+                self.grade(work, script)
+
     def test_property_backed_schema_generator_is_accepted(self):
         work, script = self.workspace("per-item-exec")
         path = work / "per-file-exec" / "Schemas.targets"
@@ -1203,16 +1222,27 @@ class GraderTests(unittest.TestCase):
                 self.assertIn("clean:", result.stderr)
 
     def test_generated_schemas_must_be_compile_inputs_at_compilation(self):
-        work, script = self.workspace("per-item-exec")
-        path = work / "per-file-exec" / "Schemas.targets"
-        tree = ET.parse(path)
-        for phase, operation in (("BeforeTargets", "Remove"), ("AfterTargets", "Include")):
-            target = ET.SubElement(tree.getroot(), "Target", Name=operation + "Compile", **{phase: "CoreCompile"})
-            group = ET.SubElement(target, "ItemGroup")
-            ET.SubElement(group, "Compile", **{operation: "$(IntermediateOutputPath)gen/*.g.cs"})
-        tree.write(path, encoding="utf-8")
-        result = self.grade(work, script, accepted=False)
-        self.assertIn("Compile input at compilation", result.stderr)
+        for sdk_imported in (False, True):
+            with self.subTest(sdk_imported=sdk_imported):
+                work, script = self.workspace("per-item-exec")
+                base = work / "per-file-exec"
+                path = base / "Schemas.targets"
+                tree = ET.parse(path)
+                for phase, operation in (("BeforeTargets", "Remove"), ("AfterTargets", "Include")):
+                    target = ET.SubElement(
+                        tree.getroot(), "Target", Name=operation + "Compile", **{phase: "CoreCompile"},
+                    )
+                    group = ET.SubElement(target, "ItemGroup")
+                    ET.SubElement(group, "Compile", **{operation: "$(IntermediateOutputPath)gen/*.g.cs"})
+                tree.write(path, encoding="utf-8")
+                if sdk_imported:
+                    path.rename(base / "Directory.Build.targets")
+                    project = base / "Contoso.Schemas.csproj"
+                    tree = ET.parse(project)
+                    tree.getroot().remove(tree.getroot().find("Import"))
+                    tree.write(project, encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn("Compile input at compilation", result.stderr)
 
     def test_generated_directory_cleanup_is_rejected(self):
         for inside in (False, True):
