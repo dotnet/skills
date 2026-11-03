@@ -35,6 +35,12 @@ plugin directory survives but its root manifest is missing or invalid, target
 discovery fails explicitly because it cannot safely enumerate the production
 agent surface.
 
+Evaluation-infrastructure-only changes run the complete agentic-workflow
+collection as deterministic canaries. They do not select random plugins, because
+unrelated pre-existing invalid plugin evals would make the infrastructure gate
+nondeterministic. Skill, agent, manifest, and test changes still select their
+normal targeted plugin evaluation surface.
+
 The native agent parser stages `stimuli[].environment.files`, not a shared
 suite-level `environment.files` block. Declare required authentication helpers
 and other shared inputs in every stimulus that uses them. A missing

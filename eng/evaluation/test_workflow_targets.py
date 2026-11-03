@@ -191,6 +191,56 @@ class WorkflowTargetsTests(unittest.TestCase):
                 self.assertEqual(len(entries), 4)
                 self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
+    def test_infrastructure_only_change_uses_deterministic_workflow_canaries(self):
+        self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
+        find_targets.write_text(
+            find_targets.read_text(encoding="utf-8") + "\n# Infrastructure change.\n",
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change evaluation infrastructure")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        repeated_result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+        self.assertEqual(
+            repeated_result.returncode,
+            0,
+            repeated_result.stdout + repeated_result.stderr,
+        )
+        self.assertEqual(self.entries(), entries)
+        self.assertEqual(len(entries), 4)
+        self.assertEqual(
+            {entry["target_kind"] for entry in entries},
+            {"workflow"},
+        )
+        self.assertEqual(
+            {entry["plugin"] for entry in entries},
+            {"agentic-workflows"},
+        )
+        self.assertIn(
+            "evaluating deterministic agentic-workflow canaries",
+            result.stdout,
+        )
+
     def test_pr_malformed_changed_manifest_fails_target_discovery(self):
         manifest = self.create_plugin_fixture()
         self.git("init", "--quiet")
