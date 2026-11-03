@@ -261,6 +261,12 @@ The merged report keeps retry diagnostics even when no slot recovers.
 Retry is bounded to one additional attempt. Remaining judge errors make the
 result invalid. They are not counted as skill losses.
 
+Each comparison attempt uses a new temporary `COPILOT_HOME`. When the workflow
+provides only `GITHUB_TOKEN`, the adapter also passes it as
+`COPILOT_GITHUB_TOKEN` to the comparison process. This prevents a long-running
+adapter process from reusing an expired cached service credential. The
+temporary home is removed after each attempt.
+
 ### 7. Separate preference stimuli from activation contracts
 
 `tags.expect_activation: "false"` declares an off-target case where the isolated

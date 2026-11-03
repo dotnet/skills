@@ -70,13 +70,20 @@ function createFakeVally(root, mode, trialCount) {
   const statePath = join(root, "compare-count.txt");
   writeFileSync(
     scriptPath,
-    `import { existsSync, readFileSync, writeFileSync } from "node:fs";
+    `import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const [statePath, mode, trialCountRaw, command, ...args] = process.argv.slice(2);
 if (command !== "compare") process.exit(2);
 const trialCount = Number(trialCountRaw);
 const count = existsSync(statePath) ? Number(readFileSync(statePath, "utf8")) + 1 : 1;
 writeFileSync(statePath, String(count));
+appendFileSync(
+  statePath + ".auth.jsonl",
+  JSON.stringify({
+    copilotHome: process.env.COPILOT_HOME ?? "",
+    copilotGithubToken: process.env.COPILOT_GITHUB_TOKEN ?? "",
+  }) + "\\n",
+);
 if (mode === "fails") process.exit(3);
 const output = args[args.indexOf("--output") + 1];
 if (mode === "empty") {
@@ -155,6 +162,7 @@ if (
   );
   return {
     command: `"${process.execPath}" "${scriptPath}" "${statePath}" ${mode} ${trialCount}`,
+    authPath: `${statePath}.auth.jsonl`,
     statePath,
   };
 }
@@ -186,7 +194,19 @@ function runAdapter(
     expectedEvalsPath,
   ];
   if (repoRoot) args.push("--repo-root", repoRoot);
-  const result = spawnSync(process.execPath, args, { encoding: "utf8" });
+  const {
+    COPILOT_GITHUB_TOKEN: _copilotGithubToken,
+    ...testEnvironment
+  } = process.env;
+  const inheritedCopilotHome = join(root, "inherited-copilot-home");
+  const result = spawnSync(process.execPath, args, {
+    encoding: "utf8",
+    env: {
+      ...testEnvironment,
+      COPILOT_HOME: inheritedCopilotHome,
+      GITHUB_TOKEN: "adapter-test-github-token",
+    },
+  });
   const verdictPath = join(
     outputRoot,
     "dotnet-diag",
@@ -199,6 +219,13 @@ function runAdapter(
     compareCount: existsSync(fakeVally.statePath)
       ? Number(readFileSync(fakeVally.statePath, "utf8"))
       : undefined,
+    comparisonAuth: existsSync(fakeVally.authPath)
+      ? readFileSync(fakeVally.authPath, "utf8")
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+      : [],
+    inheritedCopilotHome,
     verdict: existsSync(verdictPath)
       ? JSON.parse(readFileSync(verdictPath, "utf8")).verdicts[0]
       : undefined,
@@ -220,9 +247,25 @@ function processOutput(result) {
 
 test("retries a transient comparison error once", () => {
   withTempDir((root) => {
-    const { result, compareCount, verdict } = runAdapter(root, "recover");
+    const {
+      result,
+      compareCount,
+      comparisonAuth,
+      inheritedCopilotHome,
+      verdict,
+    } = runAdapter(root, "recover");
     assert.equal(result.status, 0, result.stderr);
     assert.equal(compareCount, 2);
+    assert.equal(comparisonAuth.length, 2);
+    assert.notEqual(comparisonAuth[0].copilotHome, inheritedCopilotHome);
+    assert.notEqual(comparisonAuth[1].copilotHome, inheritedCopilotHome);
+    assert.notEqual(comparisonAuth[0].copilotHome, comparisonAuth[1].copilotHome);
+    assert.deepEqual(
+      comparisonAuth.map(({ copilotGithubToken }) => copilotGithubToken),
+      ["adapter-test-github-token", "adapter-test-github-token"],
+    );
+    assert.equal(existsSync(comparisonAuth[0].copilotHome), false);
+    assert.equal(existsSync(comparisonAuth[1].copilotHome), false);
     assert.equal(verdict.erroredCount, 0);
     assert.equal(verdict.conclusive, true);
     assert.equal(verdict.underpowered, false);
