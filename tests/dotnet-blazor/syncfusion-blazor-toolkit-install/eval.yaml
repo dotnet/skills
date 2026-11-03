@@ -612,54 +612,36 @@ stimuli:
       I think we already added the open-source Syncfusion Blazor Toolkit to this net9.0 Blazor Web App
       (Interactive Server, per-page). Can you check that the setup is complete and fix whatever is missing?
     environment:
-      files:
-        - src: ./fixtures/already-installed-server
-          dest: .
+      commands:
+        - dotnet new blazor -int Server --framework net9.0 --no-https --force
+        - dotnet add package Syncfusion.Blazor.Toolkit --version 2.0.1
+        - node -e 'const fs=require("fs");const e=(f,g)=>fs.writeFileSync(f,g(fs.readFileSync(f,"utf8")));e("Program.cs",s=>"using Syncfusion.Blazor.Toolkit;\n"+s.replace("var app = builder.Build();","builder.Services.AddSyncfusionBlazorToolkit();\n\nvar app = builder.Build();"));e("Components/_Imports.razor",s=>s.replace(/\s*$/,"\n")+"@using Syncfusion.Blazor.Toolkit\n")'
+        - node -e 'require("fs").writeFileSync(".gitignore","bin/\nobj/\n")'
+        - git init -q
+        - git add -A
+        - git -c user.name=baseline -c user.email=baseline@example.com commit -q -m baseline
+        - git tag baseline
     graders:
-      # Every in-scope file keeps its exact content; nothing is deleted or added
+      # The project was already correct, so nothing may differ from the baseline commit:
+      # no modified, deleted, staged, committed or new file (dot-directories such as the staged skill are ignored)
       - type: run-command
         config:
           command: node
           args:
             - -e
             - |
-              const fs = require("fs");
-              const path = require("path");
-              const crypto = require("crypto");
-              const expected = {
-                "Components/App.razor": "c5664551791799e8308259865c4992852d4c7d87080c027255897b8be3aff00c",
-                "Components/Layout/MainLayout.razor": "10a740c4dcf86ba784888e032994db9c3fb7c25fda6d57d2594514a1b6148db1",
-                "Components/Pages/Error.razor": "53dcdbdec5e8fb50389f885861f0c7d921c6622a88637af3b627a2809e6549f1",
-                "Components/Pages/Home.razor": "a54e09469b1a5b3ff6255b6a81b2148c192efed6e108c96581970795f3ee0850",
-                "Components/Routes.razor": "e58e22841fd7a4ec75e92bbd832c97fb0c700b5c7234fc631a0bcb5c099a01a7",
-                "Components/_Imports.razor": "279acfb1feb51bfecbd16e2385e1ff0d2c0aba72dec357d2e3df21f78c2175f7",
-                "ContosoApp.csproj": "6e67980789d670b09d0f3cc54589879d5339ce6eda967bbfec31a713820d1706",
-                "Program.cs": "9887c63c02e88fbfc249de658db392b17a344906ce42c10e4490d66c9ffb14a3",
-                "wwwroot/app.css": "b15843b5213d5c3186ac8862b50032838d07c7fbf516235abf4019ec88917b1a"
-              };
-              function walk(dir, out = []) {
-                for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-                  if (["obj", "bin", "node_modules"].includes(e.name) || e.name.startsWith(".")) continue;
-                  const p = path.join(dir, e.name);
-                  if (e.isDirectory()) walk(p, out);
-                  else out.push(p.replace(/\\/g, "/").replace(/^\.\//, ""));
-                }
-                return out;
-              }
-              const hash = (f) =>
-                crypto.createHash("sha256").update(fs.readFileSync(f, "utf8").replace(/\r\n/g, "\n")).digest("hex");
-              const errs = [];
-              const actual = walk(".");
-              for (const [f, h] of Object.entries(expected)) {
-                if (!fs.existsSync(f)) errs.push("deleted: " + f);
-                else if (hash(f) !== h) errs.push("modified: " + f);
-              }
-              for (const f of actual) if (!(f in expected)) errs.push("unexpected new file: " + f);
-              if (errs.length) {
-                console.error(errs.join("\n"));
+              const { execFileSync } = require("child_process");
+              const git = (...a) => execFileSync("git", a, { encoding: "utf8" });
+              const lines = (t) => t.split(/\r?\n/).filter(Boolean);
+              const changed = [
+                ...lines(git("diff", "--name-status", "baseline")),
+                ...lines(git("ls-files", "--others", "--exclude-standard")).map((f) => "?? " + f),
+              ].filter((l) => !/^\S+\s+"?\./.test(l));
+              if (changed.length) {
+                console.error("Files differ from the already-correct baseline:\n" + changed.join("\n"));
                 process.exit(1);
               }
-              console.log("all " + Object.keys(expected).length + " in-scope files unchanged");
+              console.log("no in-scope file changed from the baseline");
       - *toolkit-complete-state
       - type: run-command
         config:
