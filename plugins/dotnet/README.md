@@ -73,3 +73,12 @@ EXPERIMENT_FILE=./csharp-expert-coexistence.claude.experiment.yaml ./eng/run-ski
 Inspect the plugin-arm activation traces to confirm that installed specialists are invoked without
 installation advice. This is trace evidence rather than a shared output grader because the
 target-only arm may legitimately identify a missing specialist after completing a safe fallback.
+
+## Documentation MCP Server
+
+For live .NET documentation queries and API reference lookups, developers and agents can connect to the official [Microsoft Learn MCP Server](https://learn.microsoft.com/en-us/training/support/mcp-get-started).
+
+- **Endpoint**: `https://learn.microsoft.com/api/mcp`
+- **Transport**: Remote streamable HTTP
+- **Tools**: `microsoft_docs_search`, `microsoft_docs_fetch`, and code sample discovery
+- **Authentication**: None required (publicly available)
