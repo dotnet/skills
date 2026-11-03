@@ -94,6 +94,10 @@ function Get-BehaviorChangedPluginManifests {
       $baseExit = $LASTEXITCODE
       $headLines = @(git show "${HeadCommit}:$path" 2>$null)
       $headExit = $LASTEXITCODE
+      # Missing blobs are an expected classification input for added or
+      # deleted manifests. Do not leak their handled native exit code into the
+      # enclosing GitHub Actions pwsh step.
+      $global:LASTEXITCODE = 0
 
       if ($baseExit -ne 0 -or $headExit -ne 0) {
         return $plugin
