@@ -155,6 +155,23 @@ into a local once so the start stamp and the record decision cannot disagree.
 Substitute a test `TimeProvider` (e.g. `Microsoft.Extensions.Time.Testing.FakeTimeProvider`)
 to assert on recorded durations without sleeping.
 
+## Testing with a fake clock
+
+Production code takes `TimeProvider` as a dependency instead of calling
+`TimeProvider.System` directly, so a test can drive the clock without sleeping:
+
+```csharp
+var clock = new FakeTimeProvider();
+var start = clock.GetTimestamp();
+clock.Advance(TimeSpan.FromMilliseconds(42));
+var elapsed = clock.GetElapsedTime(start).TotalMilliseconds;   // 42
+```
+
+Pass that same instance into the code under test and assert that the recorded
+duration equals the advanced amount. Because the clock is injected, production
+code stays unchanged between test and runtime — only the caller swaps
+`TimeProvider.System` for the fake.
+
 ## Output contract
 
 Each reading is exactly one JSON object on its own line — no banner, no summary
