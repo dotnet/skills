@@ -69,6 +69,11 @@ behavior against the corrected executor.
 > evaluate. If the plugin directory survives but its root manifest is missing
 > or invalid, target discovery fails explicitly because it cannot safely
 > enumerate the production agent surface.
+>
+> Evaluation-infrastructure-only changes use the complete agentic-workflow
+> collection as deterministic canaries instead of selecting random plugins.
+> Skill, agent, manifest, and test changes keep their normal targeted plugin
+> evaluation surface.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup

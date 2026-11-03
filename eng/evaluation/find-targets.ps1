@@ -273,23 +273,17 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   if ($hasInfraChanges -and -not $hasSkillChanges) {
     echo "is_infra=true" >> $env:GITHUB_OUTPUT
-    # Infra-only: evaluate a small random subset of plugins to keep
-    # the smoke-test fast while still catching regressions.
-    $allPlugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
-      Where-Object {
-        (Test-Path (Join-Path $_.FullName "plugin.json")) -and
-        (Test-Path (Join-Path $contentRoot "tests" $_.Name))
-      } |
-      Select-Object -ExpandProperty Name)
-    $plugins = @($allPlugins | Get-Random -Count ([Math]::Min(2, $allPlugins.Count)))
-    Write-Host "Infrastructure changes detected, evaluating random subset: $($plugins -join ', ')"
-    $entries = @($plugins | ForEach-Object {
-      Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot
-      Get-PluginAgentEntries -plugin $_ -contentRoot $contentRoot
-    })
+    # Infra-only: use the repository's deterministic workflow canaries.
+    # Random plugin selection can turn unrelated pre-existing invalid evals
+    # into nondeterministic infrastructure failures.
+    $entries = @()
     if (Test-Path (Join-Path $contentRoot "agentic-workflows")) {
-      $entries += @(Get-WorkflowEntries -contentRoot $contentRoot)
+      $entries = @(Get-WorkflowEntries -contentRoot $contentRoot)
     }
+    if ($entries.Count -eq 0) {
+      throw "Infrastructure changes require at least one agentic-workflow canary."
+    }
+    Write-Host "Infrastructure changes detected, evaluating deterministic agentic-workflow canaries."
   } else {
     # Extract unique plugin/skill pairs from changed skill sources and
     # non-agent eval directories.
