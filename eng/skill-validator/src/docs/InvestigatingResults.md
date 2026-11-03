@@ -70,13 +70,14 @@ behavior against the corrected executor.
 > or invalid, target discovery fails explicitly because it cannot safely
 > enumerate the production agent surface.
 >
-> Evaluation-infrastructure changes and valid version-only root manifest
-> changes use the fixed `dotnet`, `dotnet-msbuild`, and `dotnet-test` plugin
-> canaries. These representative plugins exercise the Vally skill lane and
-> their declared agent evals without selecting unrelated plugins randomly.
-> Discovery fails if a canary has no skill evaluation entries. Skill, agent,
-> test, and semantic manifest changes keep their normal targeted plugin
-> evaluation surface.
+> Evaluation-infrastructure changes use the fixed `dotnet`,
+> `dotnet-msbuild`, and `dotnet-test` plugin canaries. These representative
+> plugins exercise the Vally skill lane and their declared agent evals without
+> selecting unrelated plugins randomly. Discovery fails if a canary has no
+> skill evaluation entries. Valid version-only root manifest changes do not
+> run model evaluations; repository versioning and manifest checks validate
+> those mechanical edits. Skill, agent, test, and semantic manifest changes
+> keep their normal targeted plugin evaluation surface.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup

@@ -66,7 +66,6 @@ function Get-ManifestWithoutVersion {
     [void]$manifest.AsObject().Remove("version")
     return [pscustomobject]@{
       Node = $manifest
-      Version = $version
     }
   } catch {
     Write-Warning "Treating $Label as a behavior change: $($_.Exception.Message)"
@@ -121,12 +120,6 @@ function Get-PluginManifestChanges {
           Kind = "Behavior"
         }
       }
-      if ($baseManifest.Version -cne $headManifest.Version) {
-        return [pscustomobject]@{
-          Plugin = $plugin
-          Kind = "VersionOnly"
-        }
-      }
     } |
     Where-Object { $_ } |
     Sort-Object Plugin -Unique)
@@ -142,18 +135,5 @@ function Get-BehaviorChangedPluginManifests {
   return @(Get-PluginManifestChanges `
     -ChangedFiles $ChangedFiles -BaseCommit $BaseCommit -HeadCommit $HeadCommit |
     Where-Object { $_.Kind -eq "Behavior" } |
-    Select-Object -ExpandProperty Plugin)
-}
-
-function Get-VersionOnlyChangedPluginManifests {
-  param(
-    [string[]]$ChangedFiles,
-    [string]$BaseCommit,
-    [string]$HeadCommit
-  )
-
-  return @(Get-PluginManifestChanges `
-    -ChangedFiles $ChangedFiles -BaseCommit $BaseCommit -HeadCommit $HeadCommit |
-    Where-Object { $_.Kind -eq "VersionOnly" } |
     Select-Object -ExpandProperty Plugin)
 }

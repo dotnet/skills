@@ -237,9 +237,6 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   $changedManifestPlugins = @($manifestChanges |
     Where-Object { $_.Kind -eq "Behavior" } |
     Select-Object -ExpandProperty Plugin)
-  $versionOnlyManifestPlugins = @($manifestChanges |
-    Where-Object { $_.Kind -eq "VersionOnly" } |
-    Select-Object -ExpandProperty Plugin)
   foreach ($plugin in $changedManifestPlugins) {
     $pluginRoot = Join-Path $contentRoot "plugins" $plugin
     if (-not (Test-Path $pluginRoot -PathType Container)) {
@@ -268,9 +265,6 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
       $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
     } |
     Select-Object -First 1
-  if ($versionOnlyManifestPlugins.Count -gt 0) {
-    $hasInfraChanges = $true
-  }
 
   # Also check for skill, agent, and test changes so we don't lose them.
   $hasSkillChanges = $changedFiles |
@@ -303,7 +297,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     if ($missingCanaryPlugins.Count -gt 0) {
       throw "Infrastructure canary plugins are unavailable: $($missingCanaryPlugins -join ', ')."
     }
-    Write-Host "Infrastructure or version-only manifest changes detected, evaluating fixed plugin canaries: $($infraCanaryPlugins -join ', ')."
+    Write-Host "Infrastructure changes detected, evaluating fixed plugin canaries: $($infraCanaryPlugins -join ', ')."
   } else {
     # Extract unique plugin/skill pairs from changed skill sources and
     # non-agent eval directories.

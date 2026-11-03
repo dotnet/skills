@@ -3722,7 +3722,6 @@ esac
                     script,
                 )
                 self.assertIn("$changedManifestPlugins", script)
-                self.assertIn("$versionOnlyManifestPlugins", script)
                 self.assertIn(
                     "git diff --name-only --no-renames --diff-filter=ACMRD",
                     script,
@@ -3886,45 +3885,9 @@ esac
                 )
                 return json.loads(result.stdout.strip().splitlines()[-1])
 
-            def classify_version_only(
-                from_commit: str,
-                to_commit: str,
-            ) -> list[str]:
-                helper = str(CHANGE_CLASSIFICATION_SCRIPT).replace("'", "''")
-                script = (
-                    f". '{helper}'; "
-                    "$result = @(Get-VersionOnlyChangedPluginManifests "
-                    "-ChangedFiles @('plugins/demo/plugin.json') "
-                    f"-BaseCommit '{from_commit}' -HeadCommit '{to_commit}'); "
-                    "ConvertTo-Json -InputObject $result -Compress"
-                )
-                result = subprocess.run(
-                    [
-                        "pwsh",
-                        "-NoLogo",
-                        "-NoProfile",
-                        "-NonInteractive",
-                        "-Command",
-                        script,
-                    ],
-                    cwd=root,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-                self.assertEqual(
-                    result.returncode, 0, result.stdout + result.stderr
-                )
-                return json.loads(result.stdout.strip().splitlines()[-1])
-
             self.assertEqual(classify(base, version_only), [])
-            self.assertEqual(classify_version_only(base, version_only), ["demo"])
             self.assertEqual(classify(version_only, reordered), [])
-            self.assertEqual(
-                classify_version_only(version_only, reordered), ["demo"]
-            )
             self.assertEqual(classify(reordered, semantic), ["demo"])
-            self.assertEqual(classify_version_only(reordered, semantic), [])
 
             invalid_manifests = {
                 "array root": '[{"name":"demo","version":"1.0.3"}]',
@@ -4238,7 +4201,7 @@ esac
                         output.read_text(encoding="utf-8").splitlines(),
                     )
 
-    def test_pr_status_version_only_manifest_requires_evaluation(self) -> None:
+    def test_pr_status_version_only_manifest_skips_model_evaluation(self) -> None:
         workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -4348,7 +4311,7 @@ esac
                         result.returncode, 0, result.stdout + result.stderr
                     )
                     self.assertIn(
-                        "needs_eval=true",
+                        "needs_eval=false",
                         output.read_text(encoding="utf-8").splitlines(),
                     )
 

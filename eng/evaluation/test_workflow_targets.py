@@ -251,7 +251,7 @@ class WorkflowTargetsTests(unittest.TestCase):
             result.stdout,
         )
 
-    def test_version_only_change_uses_fixed_plugin_canaries(self):
+    def test_version_only_change_has_no_model_targets(self):
         manifest = self.create_plugin_fixture()
         self.create_infrastructure_canary_fixtures()
         self.git("init", "--quiet")
@@ -273,15 +273,7 @@ class WorkflowTargetsTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         entries = self.entries()
-        self.assertEqual(
-            {entry["plugin"] for entry in entries},
-            {"dotnet", "dotnet-msbuild", "dotnet-test"},
-        )
-        self.assertEqual({entry["target_kind"] for entry in entries}, {"skill"})
-        self.assertIn(
-            "Infrastructure or version-only manifest changes detected",
-            result.stdout,
-        )
+        self.assertEqual(entries, [])
 
     def test_infrastructure_change_fails_when_plugin_canary_is_unavailable(self):
         self.create_plugin_fixture()
