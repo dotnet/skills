@@ -47,9 +47,11 @@ logger-option, toolset, or privacy question.
 
 For build-wiring-only work, generator and source inputs are **read-only throughout**, not restored
 after tests; edit the original only as the requested repair requires.
-Allocate scratch as a uniquely named directory **inside the owned workspace** (for example
-`mktemp -d -p <workspace>`), print it once, and write every copy, log, and hash under that exact
-path: no global `/tmp`, fixed leaf names, pointer files, pre-deleting, or globbing to recover it.
+Allocate disposable scratch as a uniquely named directory **outside the project tree**, normally
+the OS temporary directory from `mktemp -d`; a copy inside the project can be matched by SDK
+default globs and break the later confirming build. Print the path once and write every copy, log,
+and hash under it: no fixed leaf names, pointer files, pre-deleting, or globbing to recover it.
+After the checks, remove exactly that path (never a pattern) and keep it in the report.
 Copy the project/input tree and required imports; run every scenario that adds, deletes, empties,
 or retimes inputs, or deletes `obj`/outputs, with **the copy as working directory**. A backup is not
 a verification copy, nor is an original project already under a temporary path. Compare original

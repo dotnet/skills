@@ -1145,6 +1145,59 @@ def windows_traversing_fixture_destination(d):
     replace_fixture_mapping(d, "dest: sample", r"dest: ..\escaped")
 
 
+def agent_environment_alias(d):
+    replace_fixture_mapping(d, "    environment:\n", "    agent_environment:\n")
+
+
+def agent_environment_untracked_fixture(d):
+    agent_environment_alias(d)
+    untracked_fixture(d)
+
+
+def agent_environment_stale_golden_patch(d):
+    agent_environment_alias(d)
+    stale_golden_patch(d)
+
+
+def agent_environment_applicable_golden_patch(d):
+    agent_environment_alias(d)
+    applicable_golden_patch(d)
+
+
+def add_grading_environment(d, src="graders/check.mjs", dest=".eval/check.mjs", create=True):
+    if create:
+        graders = os.path.join(d, "tests", "demo", "widget", "graders")
+        os.makedirs(graders, exist_ok=True)
+        with open(os.path.join(graders, "check.mjs"), "w") as f:
+            f.write("process.exit(0);\n")
+    entry = f"        - src: {src}\n"
+    if dest is not None:
+        entry += f"          dest: {dest}\n"
+    replace_fixture_mapping(
+        d,
+        "    rubric:\n      - Did the thing\n",
+        "    grading_environment:\n      files:\n" + entry
+        + "    rubric:\n      - Did the thing\n")
+
+
+def grading_environment_missing_source(d):
+    add_grading_environment(d, create=False)
+
+
+def grading_environment_untracked_file(d):
+    add_grading_environment(d)
+    with open(os.path.join(d, ".gitignore"), "w") as f:
+        f.write("check.mjs\n")
+
+
+def grading_environment_missing_destination(d):
+    add_grading_environment(d, dest=None)
+
+
+def grading_environment_traversing_destination(d):
+    add_grading_environment(d, dest="../escaped")
+
+
 def escaping_fixture_symlink(d):
     outside = os.path.join(d, "outside.cs")
     with open(outside, "w") as f:
@@ -2108,6 +2161,29 @@ results = [
          traversing_fixture_destination, expect_fail=True),
     case("Windows-style fixture destination cannot escape workspace",
          windows_traversing_fixture_destination, expect_fail=True),
+    case("agent_environment alias fixture is accepted", agent_environment_alias,
+         expect_fail=False),
+    failing_output_case("agent_environment fixture must be tracked by git",
+                        agent_environment_untracked_fixture,
+                        "agent_environment references fixture files not tracked by git"),
+    case("golden patch applies to agent_environment fixture",
+         agent_environment_applicable_golden_patch, expect_fail=False),
+    case("stale golden patch fails against agent_environment fixture",
+         agent_environment_stale_golden_patch, expect_fail=True),
+    case("tracked grading_environment file is accepted", add_grading_environment,
+         expect_fail=False),
+    failing_output_case("grading_environment source must exist",
+                        grading_environment_missing_source,
+                        "grading_environment references missing fixture"),
+    failing_output_case("grading_environment file must be tracked by git",
+                        grading_environment_untracked_file,
+                        "grading_environment references fixture files not tracked by git"),
+    failing_output_case("grading_environment mapping requires destination",
+                        grading_environment_missing_destination,
+                        "grading_environment.files mapping requires a non-empty string dest"),
+    failing_output_case("grading_environment destination cannot escape workspace",
+                        grading_environment_traversing_destination,
+                        "grading_environment has unsafe fixture dest"),
     case("fixture symlink cannot escape suite", escaping_fixture_symlink,
          expect_fail=True),
     case("Cobertura line-rate contradicts its <lines>", bad_cobertura, expect_fail=True),
