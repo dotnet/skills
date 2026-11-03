@@ -1110,12 +1110,13 @@ jobs:
             exit 1
           fi
 
-          # A single agent session can time out transiently while every other
-          # trial succeeds. Retry only that eval/variant, then repeat once only
-          # when exact timeout slots remain unresolved. Each pass replaces only
-          # matching failed slots; successful original and recovered slots stay
-          # frozen. Persistent or non-timeout failures remain in the original
-          # JSONL and fail the measurement-validity gate below.
+          # A single agent session can hit a recognized transient executor
+          # failure while every other trial succeeds. Retry only that
+          # eval/variant, then repeat once only when exact retryable slots remain
+          # unresolved. Each pass replaces only matching failed slots;
+          # successful original and recovered slots stay frozen. Persistent or
+          # unrecognized failures remain in the original JSONL and fail the
+          # measurement-validity gate below.
           # A slot whose executor evidence is complete but whose comparison judge
           # stalled is recovered later, inside adapt.mjs, by re-judging just that
           # slot from these preserved trajectories.
@@ -1133,7 +1134,7 @@ jobs:
           EXECUTOR_RETRY_STATUS=$?
           set -e
           if [ "$EXECUTOR_RETRY_STATUS" -ne 0 ]; then
-            echo "::warning::Executor timeout recovery exited $EXECUTOR_RETRY_STATUS; adapting original and any atomically recovered records"
+            echo "::warning::Executor transient recovery exited $EXECUTOR_RETRY_STATUS; adapting original and any atomically recovered records"
           fi
 
           # Run the retained skill-validator overfitting judge over the same
