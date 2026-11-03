@@ -609,20 +609,24 @@ stimuli:
                   errs.push("generated file was " + (status === "D" ? "deleted" : "replaced") + ": " + f);
                   continue;
                 }
-                const lines = git("diff", "-U0", "--no-color", "baseline", "--", f).split("\n");
-                const body = lines.slice(lines.findIndex((l) => l.startsWith("@@")) + 1 || lines.length);
-                const allowedAdd = isProject
-                  ? /^\s*($|<\/?ItemGroup>|<PackageReference\b.*Syncfusion)/
-                  : /^\s*($|\/\/|.*(Syncfusion|Toolkit))/;
-                const removed = body.filter((l) => l[0] === "-").map((l) => l.slice(1).trim());
-                const added = body.filter((l) => l[0] === "+").map((l) => l.slice(1).trim());
-                // A last line without a trailing newline shows as removed + re-added; that is not a template change
-                for (const r of [...removed]) {
-                  const i = added.indexOf(r);
-                  if (i >= 0) { added.splice(i, 1); removed.splice(removed.indexOf(r), 1); }
+                // Remove only the permitted Toolkit lines from both versions, then require identical content in
+                // identical order. Moved, rewritten or deleted template lines therefore cannot cancel out.
+                const permitted = isProject
+                  ? /^(<\/?ItemGroup>|<PackageReference\s+Include="Syncfusion\.Blazor\.Toolkit"[^>]*>)$/
+                  : name === "_Imports.razor"
+                    ? /^@using\s+Syncfusion\.Blazor\.Toolkit$/
+                    : /^(using\s+Syncfusion\.Blazor\.Toolkit\s*;|(builder\.)?Services\.AddSyncfusionBlazorToolkit\(\s*\)\s*;|\/\/.*(Syncfusion|Toolkit).*)$/;
+                const norm = (text) => text.replace(/^\uFEFF/, "").split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== "" && !permitted.test(l));
+                const before = norm(git("show", "baseline:" + f));
+                const after = norm(fs.readFileSync(f, "utf8"));
+                const n = Math.max(before.length, after.length);
+                for (let i = 0; i < n; i++) {
+                  if (before[i] !== after[i]) {
+                    errs.push(f + ": differs from the generated template at non-Toolkit line " + (i + 1) +
+                      " (expected: " + (before[i] ?? "<end of file>") + ") (found: " + (after[i] ?? "<end of file>") + ")");
+                    break;
+                  }
                 }
-                for (const r of removed) errs.push(f + ": template line removed or rewritten: " + r);
-                for (const a of added) if (!allowedAdd.test(a)) errs.push(f + ": unexpected added line: " + a);
               }
 
               if (errs.length) {
