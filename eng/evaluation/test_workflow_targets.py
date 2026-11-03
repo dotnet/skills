@@ -191,11 +191,13 @@ class WorkflowTargetsTests(unittest.TestCase):
                 self.assertEqual(len(entries), 4)
                 self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
-    def test_infrastructure_only_change_uses_deterministic_workflow_canaries(self):
+    def create_infrastructure_canary_fixtures(self):
+        for plugin in ("dotnet", "dotnet-msbuild", "dotnet-test"):
+            self.create_plugin_fixture(plugin, "sample")
+
+    def test_infrastructure_change_uses_fixed_plugin_canaries(self):
         manifest = self.create_plugin_fixture()
-        self.create_plugin_fixture(
-            "dotnet-aspnetcore", "convert-blazor-server-to-webapp"
-        )
+        self.create_infrastructure_canary_fixtures()
         self.git("init", "--quiet")
         base = self.commit_fixture("Fixture base")
         manifest.write_text(
@@ -237,31 +239,54 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual(len(entries), 6)
         self.assertEqual(
             {entry["target_kind"] for entry in entries},
-            {"skill", "workflow"},
+            {"skill"},
         )
         self.assertEqual(
             {entry["plugin"] for entry in entries},
-            {"agentic-workflows", "dotnet-aspnetcore"},
-        )
-        sentinel_entries = [
-            entry for entry in entries
-            if entry["plugin"] == "dotnet-aspnetcore"
-        ]
-        self.assertEqual(len(sentinel_entries), 2)
-        self.assertEqual(
-            {entry["skills_path"] for entry in sentinel_entries},
-            {
-                "plugins/dotnet-aspnetcore/skills/"
-                "convert-blazor-server-to-webapp"
-            },
+            {"dotnet", "dotnet-msbuild", "dotnet-test"},
         )
         self.assertIn(
-            "evaluating deterministic workflow canaries and Vally skill sentinel",
+            "evaluating fixed plugin canaries: "
+            "dotnet, dotnet-msbuild, dotnet-test",
             result.stdout,
         )
 
-    def test_infrastructure_only_change_fails_when_skill_sentinel_is_unavailable(self):
+    def test_version_only_change_uses_fixed_plugin_canaries(self):
+        manifest = self.create_plugin_fixture()
+        self.create_infrastructure_canary_fixtures()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.write_text(
+            manifest.read_text(encoding="utf-8").replace("1.0.0", "1.0.1"),
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Stamp version")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertEqual(
+            {entry["plugin"] for entry in entries},
+            {"dotnet", "dotnet-msbuild", "dotnet-test"},
+        )
+        self.assertEqual({entry["target_kind"] for entry in entries}, {"skill"})
+        self.assertIn(
+            "Infrastructure or version-only manifest changes detected",
+            result.stdout,
+        )
+
+    def test_infrastructure_change_fails_when_plugin_canary_is_unavailable(self):
         self.create_plugin_fixture()
+        self.create_plugin_fixture("dotnet", "sample")
+        self.create_plugin_fixture("dotnet-msbuild", "sample")
         self.git("init", "--quiet")
         base = self.commit_fixture("Fixture base")
         find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
@@ -282,8 +307,8 @@ class WorkflowTargetsTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(
-            "Infrastructure skill sentinel "
-            "'dotnet-aspnetcore/convert-blazor-server-to-webapp' is unavailable",
+            "Infrastructure canary plugin 'dotnet-test' "
+            "has no skill evaluation entries",
             normalized_output(result),
         )
 

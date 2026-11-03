@@ -232,8 +232,14 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   if ($LASTEXITCODE -ne 0) {
     throw "Could not enumerate changed files for '$mergeBase..$head'."
   }
-  $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
+  $manifestChanges = @(Get-PluginManifestChanges `
     -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
+  $changedManifestPlugins = @($manifestChanges |
+    Where-Object { $_.Kind -eq "Behavior" } |
+    Select-Object -ExpandProperty Plugin)
+  $versionOnlyManifestPlugins = @($manifestChanges |
+    Where-Object { $_.Kind -eq "VersionOnly" } |
+    Select-Object -ExpandProperty Plugin)
   foreach ($plugin in $changedManifestPlugins) {
     $pluginRoot = Join-Path $contentRoot "plugins" $plugin
     if (-not (Test-Path $pluginRoot -PathType Container)) {
@@ -262,6 +268,9 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
       $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
     } |
     Select-Object -First 1
+  if ($versionOnlyManifestPlugins.Count -gt 0) {
+    $hasInfraChanges = $true
+  }
 
   # Also check for skill, agent, and test changes so we don't lose them.
   $hasSkillChanges = $changedFiles |
@@ -273,31 +282,28 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   if ($hasInfraChanges -and -not $hasSkillChanges) {
     echo "is_infra=true" >> $env:GITHUB_OUTPUT
-    # Infra-only: use deterministic workflow canaries plus one fixed skill
-    # sentinel that exercises the Vally baseline, isolated, plugin, and
-    # adapter path.
-    # Random plugin selection can turn unrelated pre-existing invalid evals
-    # into nondeterministic infrastructure failures.
-    $entries = @()
-    if (Test-Path (Join-Path $contentRoot "agentic-workflows")) {
-      $entries = @(Get-WorkflowEntries -contentRoot $contentRoot)
+    # Infrastructure and version-sync changes use a fixed representative
+    # plugin sample. This exercises the Vally skill lane and any agent evals
+    # declared by these plugins without selecting unrelated plugins randomly.
+    $infraCanaryPlugins = @("dotnet", "dotnet-msbuild", "dotnet-test")
+    $entries = @($infraCanaryPlugins | ForEach-Object {
+      $plugin = $_
+      $skillEntries = @(Get-PluginShardEntries `
+        -plugin $plugin -contentRoot $contentRoot)
+      if ($skillEntries.Count -eq 0) {
+        throw "Infrastructure canary plugin '$plugin' has no skill evaluation entries."
+      }
+      $skillEntries
+      Get-PluginAgentEntries -plugin $plugin -contentRoot $contentRoot
+    })
+    $selectedCanaryPlugins = @($entries |
+      Select-Object -ExpandProperty plugin -Unique)
+    $missingCanaryPlugins = @($infraCanaryPlugins |
+      Where-Object { $_ -notin $selectedCanaryPlugins })
+    if ($missingCanaryPlugins.Count -gt 0) {
+      throw "Infrastructure canary plugins are unavailable: $($missingCanaryPlugins -join ', ')."
     }
-    if ($entries.Count -eq 0) {
-      throw "Infrastructure changes require at least one agentic-workflow canary."
-    }
-    $sentinelPlugin = "dotnet-aspnetcore"
-    $sentinelSkill = "convert-blazor-server-to-webapp"
-    $sentinelEntries = @(Get-PluginShardEntries `
-      -plugin $sentinelPlugin -contentRoot $contentRoot `
-      -selectedSkills @($sentinelSkill))
-    if ($sentinelEntries.Count -ne 1 -or
-        $sentinelEntries[0].target_kind -ne "skill" -or
-        $sentinelEntries[0].skills_path -ne
-          "plugins/$sentinelPlugin/skills/$sentinelSkill") {
-      throw "Infrastructure skill sentinel '$sentinelPlugin/$sentinelSkill' is unavailable."
-    }
-    $entries += $sentinelEntries
-    Write-Host "Infrastructure changes detected, evaluating deterministic workflow canaries and Vally skill sentinel '$sentinelPlugin/$sentinelSkill'."
+    Write-Host "Infrastructure or version-only manifest changes detected, evaluating fixed plugin canaries: $($infraCanaryPlugins -join ', ')."
   } else {
     # Extract unique plugin/skill pairs from changed skill sources and
     # non-agent eval directories.

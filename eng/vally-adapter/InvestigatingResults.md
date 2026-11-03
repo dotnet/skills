@@ -35,14 +35,12 @@ plugin directory survives but its root manifest is missing or invalid, target
 discovery fails explicitly because it cannot safely enumerate the production
 agent surface.
 
-Evaluation-infrastructure-only changes run the complete agentic-workflow
-collection as deterministic canaries plus the fixed
-`dotnet-aspnetcore/convert-blazor-server-to-webapp` skill sentinel. The sentinel
-exercises the Vally baseline, isolated, plugin, and adapter path. Discovery fails
-if either canary surface is unavailable. It does not select random plugins,
-because unrelated pre-existing invalid plugin evals would make the
-infrastructure gate nondeterministic. Skill, agent, manifest, and test changes
-still select their normal targeted plugin evaluation surface.
+Evaluation-infrastructure changes and valid version-only root manifest changes
+run the fixed `dotnet`, `dotnet-msbuild`, and `dotnet-test` plugin canaries.
+These representative plugins exercise the Vally skill lane and their declared
+agent evals without selecting unrelated plugins randomly. Discovery fails if a
+canary has no skill evaluation entries. Skill, agent, test, and semantic
+manifest changes still select their normal targeted plugin evaluation surface.
 
 The native agent parser stages `stimuli[].environment.files`, not a shared
 suite-level `environment.files` block. Declare required authentication helpers

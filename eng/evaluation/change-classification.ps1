@@ -64,7 +64,10 @@ function Get-ManifestWithoutVersion {
 
     $manifest = [System.Text.Json.Nodes.JsonNode]::Parse($Content)
     [void]$manifest.AsObject().Remove("version")
-    return [pscustomobject]@{ Node = $manifest }
+    return [pscustomobject]@{
+      Node = $manifest
+      Version = $version
+    }
   } catch {
     Write-Warning "Treating $Label as a behavior change: $($_.Exception.Message)"
     return $null
@@ -75,7 +78,7 @@ function Get-ManifestWithoutVersion {
   }
 }
 
-function Get-BehaviorChangedPluginManifests {
+function Get-PluginManifestChanges {
   param(
     [string[]]$ChangedFiles,
     [string]$BaseCommit,
@@ -100,7 +103,10 @@ function Get-BehaviorChangedPluginManifests {
       $global:LASTEXITCODE = 0
 
       if ($baseExit -ne 0 -or $headExit -ne 0) {
-        return $plugin
+        return [pscustomobject]@{
+          Plugin = $plugin
+          Kind = "Behavior"
+        }
       }
 
       $baseManifest = Get-ManifestWithoutVersion `
@@ -110,9 +116,44 @@ function Get-BehaviorChangedPluginManifests {
       if ($null -eq $baseManifest -or $null -eq $headManifest -or
           -not [System.Text.Json.Nodes.JsonNode]::DeepEquals(
             $baseManifest.Node, $headManifest.Node)) {
-        return $plugin
+        return [pscustomobject]@{
+          Plugin = $plugin
+          Kind = "Behavior"
+        }
+      }
+      if ($baseManifest.Version -cne $headManifest.Version) {
+        return [pscustomobject]@{
+          Plugin = $plugin
+          Kind = "VersionOnly"
+        }
       }
     } |
     Where-Object { $_ } |
-    Sort-Object -Unique)
+    Sort-Object Plugin -Unique)
+}
+
+function Get-BehaviorChangedPluginManifests {
+  param(
+    [string[]]$ChangedFiles,
+    [string]$BaseCommit,
+    [string]$HeadCommit
+  )
+
+  return @(Get-PluginManifestChanges `
+    -ChangedFiles $ChangedFiles -BaseCommit $BaseCommit -HeadCommit $HeadCommit |
+    Where-Object { $_.Kind -eq "Behavior" } |
+    Select-Object -ExpandProperty Plugin)
+}
+
+function Get-VersionOnlyChangedPluginManifests {
+  param(
+    [string[]]$ChangedFiles,
+    [string]$BaseCommit,
+    [string]$HeadCommit
+  )
+
+  return @(Get-PluginManifestChanges `
+    -ChangedFiles $ChangedFiles -BaseCommit $BaseCommit -HeadCommit $HeadCommit |
+    Where-Object { $_.Kind -eq "VersionOnly" } |
+    Select-Object -ExpandProperty Plugin)
 }

@@ -201,10 +201,17 @@ jobs:
           $helperPath = Join-Path $PWD "eng/evaluation/change-classification.ps1"
           if (Test-Path $helperPath) {
             . $helperPath
-            $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
+            $manifestChanges = @(Get-PluginManifestChanges `
               -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
+            $changedManifestPlugins = @($manifestChanges |
+              Where-Object { $_.Kind -eq "Behavior" } |
+              Select-Object -ExpandProperty Plugin)
+            $versionOnlyManifestPlugins = @($manifestChanges |
+              Where-Object { $_.Kind -eq "VersionOnly" } |
+              Select-Object -ExpandProperty Plugin)
           } else {
             Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
+            $versionOnlyManifestPlugins = @()
           }
 
           $hasSkillChanges = $changedFiles |
@@ -226,6 +233,9 @@ jobs:
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
             Select-Object -First 1
+          if ($versionOnlyManifestPlugins.Count -gt 0) {
+            $hasInfraChanges = $true
+          }
 
           if ($hasSkillChanges -or $hasInfraChanges) {
             echo "needs_eval=true" >> $env:GITHUB_OUTPUT
@@ -298,10 +308,17 @@ jobs:
           $helperPath = Join-Path $PWD "eng/evaluation/change-classification.ps1"
           if (Test-Path $helperPath) {
             . $helperPath
-            $changedManifestPlugins = @(Get-BehaviorChangedPluginManifests `
+            $manifestChanges = @(Get-PluginManifestChanges `
               -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
+            $changedManifestPlugins = @($manifestChanges |
+              Where-Object { $_.Kind -eq "Behavior" } |
+              Select-Object -ExpandProperty Plugin)
+            $versionOnlyManifestPlugins = @($manifestChanges |
+              Where-Object { $_.Kind -eq "VersionOnly" } |
+              Select-Object -ExpandProperty Plugin)
           } else {
             Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
+            $versionOnlyManifestPlugins = @()
           }
 
           $hasSkillChanges = $changedFiles |
@@ -320,6 +337,9 @@ jobs:
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
             Select-Object -First 1
+          if ($versionOnlyManifestPlugins.Count -gt 0) {
+            $hasInfraChanges = $true
+          }
 
           if ($hasSkillChanges -or $hasInfraChanges) {
             echo "needs_eval=true" >> $env:GITHUB_OUTPUT

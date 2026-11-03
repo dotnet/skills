@@ -3722,6 +3722,7 @@ esac
                     script,
                 )
                 self.assertIn("$changedManifestPlugins", script)
+                self.assertIn("$versionOnlyManifestPlugins", script)
                 self.assertIn(
                     "git diff --name-only --no-renames --diff-filter=ACMRD",
                     script,
@@ -3748,6 +3749,11 @@ esac
 
         matrix_script = discovery_scripts["discover"]
         self.assertIn("$changedManifestPlugins", matrix_script)
+        self.assertIn(
+            '$infraCanaryPlugins = @("dotnet", "dotnet-msbuild", "dotnet-test")',
+            matrix_script,
+        )
+        self.assertNotIn("Get-Random", matrix_script)
         self.assertIn(
             "$changedAgentSourcePlugins + $changedSkillSourcePlugins + $changedManifestPlugins + $changedTestPlugins",
             matrix_script,
@@ -3880,9 +3886,45 @@ esac
                 )
                 return json.loads(result.stdout.strip().splitlines()[-1])
 
+            def classify_version_only(
+                from_commit: str,
+                to_commit: str,
+            ) -> list[str]:
+                helper = str(CHANGE_CLASSIFICATION_SCRIPT).replace("'", "''")
+                script = (
+                    f". '{helper}'; "
+                    "$result = @(Get-VersionOnlyChangedPluginManifests "
+                    "-ChangedFiles @('plugins/demo/plugin.json') "
+                    f"-BaseCommit '{from_commit}' -HeadCommit '{to_commit}'); "
+                    "ConvertTo-Json -InputObject $result -Compress"
+                )
+                result = subprocess.run(
+                    [
+                        "pwsh",
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        script,
+                    ],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(
+                    result.returncode, 0, result.stdout + result.stderr
+                )
+                return json.loads(result.stdout.strip().splitlines()[-1])
+
             self.assertEqual(classify(base, version_only), [])
+            self.assertEqual(classify_version_only(base, version_only), ["demo"])
             self.assertEqual(classify(version_only, reordered), [])
+            self.assertEqual(
+                classify_version_only(version_only, reordered), ["demo"]
+            )
             self.assertEqual(classify(reordered, semantic), ["demo"])
+            self.assertEqual(classify_version_only(reordered, semantic), [])
 
             invalid_manifests = {
                 "array root": '[{"name":"demo","version":"1.0.3"}]',
@@ -4172,6 +4214,120 @@ esac
                     script += (
                         "\nif (Test-Path -LiteralPath variable:\\LASTEXITCODE) "
                         "{ exit $LASTEXITCODE }\n"
+                    )
+                    result = subprocess.run(
+                        [
+                            "pwsh",
+                            "-NoLogo",
+                            "-NoProfile",
+                            "-NonInteractive",
+                            "-Command",
+                            script,
+                        ],
+                        cwd=root,
+                        env=dict(os.environ, GITHUB_OUTPUT=str(output)),
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    self.assertEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
+                    self.assertIn(
+                        "needs_eval=true",
+                        output.read_text(encoding="utf-8").splitlines(),
+                    )
+
+    def test_pr_status_version_only_manifest_requires_evaluation(self) -> None:
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            helper = root / "eng" / "evaluation" / "change-classification.ps1"
+            helper.parent.mkdir(parents=True)
+            shutil.copy2(CHANGE_CLASSIFICATION_SCRIPT, helper)
+            manifest = root / "plugins" / "demo" / "plugin.json"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                '{"name":"demo","version":"1.0.0","skills":["./skills/"]}',
+                encoding="utf-8",
+            )
+            subprocess.run(
+                ["git", "init", "-b", "main"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Evaluation Test",
+                    "-c",
+                    "user.email=evaluation@example.com",
+                    "commit",
+                    "-m",
+                    "Fixture base",
+                ],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            base = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            manifest.write_text(
+                manifest.read_text(encoding="utf-8").replace("1.0.0", "1.0.1"),
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Evaluation Test",
+                    "-c",
+                    "user.email=evaluation@example.com",
+                    "commit",
+                    "-m",
+                    "Stamp version",
+                ],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            head = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+            for job_name in ("pr-status", "fork-pr-status"):
+                with self.subTest(job=job_name):
+                    output = root / f"{job_name}-version-output.txt"
+                    script = workflow_step_script(
+                        workflow, job_name, "$mergeBase = git merge-base"
+                    )
+                    script = re.sub(
+                        r'\$base = ".*?"',
+                        f'$base = "{base}"',
+                        script,
+                        count=1,
+                    )
+                    script = re.sub(
+                        r'\$head = ".*?"',
+                        f'$head = "{head}"',
+                        script,
+                        count=1,
                     )
                     result = subprocess.run(
                         [
