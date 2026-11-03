@@ -480,6 +480,11 @@ stimuli:
     environment:
       commands:
         - dotnet new blazor -int Server --framework net9.0 --no-https --force
+        - node -e 'require("fs").writeFileSync(".gitignore","bin/\nobj/\n")'
+        - git init -q
+        - git add -A
+        - git -c user.name=baseline -c user.email=baseline@example.com commit -q -m baseline
+        - git tag baseline
     graders:
       - type: file-contains
         config:
@@ -506,7 +511,7 @@ stimuli:
         config:
           path: '**/Program.cs'
           value: RegisterLicense
-      # Complete-state check over package, version, registration, import and host files
+      # Complete-state check: package, version, registration, import, and generated host files kept intact against the pre-agent snapshot
       - &toolkit-complete-state
         type: run-command
         config:
@@ -553,7 +558,7 @@ stimuli:
                 if (/^Syncfusion\./.test(r[1]) && r[1] !== "Syncfusion.Blazor.Toolkit")
                   errs.push("unexpected Syncfusion package: " + r[1]);
               }
-              const tfm = process.argv[1];
+              const tfm = process.argv[process.argv.length - 1];
               if (!csproj.includes("<TargetFramework>" + tfm + "</TargetFramework>")) errs.push("TargetFramework must stay " + tfm);
 
               const program = only(/(^|\/)Program\.cs$/, "Program.cs");
@@ -581,6 +586,44 @@ stimuli:
               }
               for (const f of files.filter((f) => /(^|\/)(App|Routes)\.razor$/.test(f)))
                 if (/@rendermode/.test(fs.readFileSync(f, "utf8"))) errs.push(f + " must not set a global render mode for a per-page Web App");
+
+              // Generated template files must equal the pre-agent snapshot; only Toolkit additions are allowed
+              const { execFileSync } = require("child_process");
+              const git = (...a) => execFileSync("git", ["-c", "core.quotepath=off", ...a], { encoding: "utf8" });
+              let changed = [];
+              try {
+                changed = git("diff", "--name-status", "baseline").split("\n").filter(Boolean);
+              } catch (e) {
+                errs.push("baseline snapshot of the generated template is missing: " + e.message.split("\n")[0]);
+              }
+              for (const entry of changed) {
+                const [status, ...rest] = entry.split("\t");
+                const f = rest.join("\t");
+                const name = f.split("/").pop();
+                const isProject = f.endsWith(".csproj");
+                if (!(isProject || name === "Program.cs" || name === "_Imports.razor")) {
+                  errs.push("generated template file changed: " + status + " " + f);
+                  continue;
+                }
+                if (status !== "M") {
+                  errs.push("generated file was " + (status === "D" ? "deleted" : "replaced") + ": " + f);
+                  continue;
+                }
+                const lines = git("diff", "-U0", "--no-color", "baseline", "--", f).split("\n");
+                const body = lines.slice(lines.findIndex((l) => l.startsWith("@@")) + 1 || lines.length);
+                const allowedAdd = isProject
+                  ? /^\s*($|<\/?ItemGroup>|<PackageReference\b.*Syncfusion)/
+                  : /^\s*($|\/\/|.*(Syncfusion|Toolkit))/;
+                const removed = body.filter((l) => l[0] === "-").map((l) => l.slice(1).trim());
+                const added = body.filter((l) => l[0] === "+").map((l) => l.slice(1).trim());
+                // A last line without a trailing newline shows as removed + re-added; that is not a template change
+                for (const r of [...removed]) {
+                  const i = added.indexOf(r);
+                  if (i >= 0) { added.splice(i, 1); removed.splice(removed.indexOf(r), 1); }
+                }
+                for (const r of removed) errs.push(f + ": template line removed or rewritten: " + r);
+                for (const a of added) if (!allowedAdd.test(a)) errs.push(f + ": unexpected added line: " + a);
+              }
 
               if (errs.length) {
                 console.error(errs.join("\n"));
