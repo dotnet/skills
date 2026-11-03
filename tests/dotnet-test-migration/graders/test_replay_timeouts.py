@@ -163,6 +163,27 @@ console.log(JSON.stringify({
                         "type": kind, "config": dict(base, timeout="5s"),
                     }]}, Path(directory))
 
+    def test_program_receives_recorded_events_without_changing_workspace_inputs(self):
+        events = [{"type": "tool.execution_start", "data": {"toolName": "view", "toolCallId": "read"}}]
+        script = """
+import json, os
+from pathlib import Path
+path = Path(os.environ["EVALUATE_GRADER_INPUT"])
+workspace = Path(os.environ["EVALUATE_WORKSPACE"]).resolve()
+assert not path.resolve().is_relative_to(workspace)
+data = json.loads(path.read_text(encoding="utf-8"))
+assert data["trajectory"]["events"][0]["data"]["toolCallId"] == "read"
+assert data["trajectory"]["output"] == "Inspected the source."
+assert not list(workspace.iterdir())
+print('{"passed": true}')
+"""
+        with tempfile.TemporaryDirectory(prefix="replay-program-events-") as directory:
+            root = Path(directory)
+            replay.run_graders({"graders": [{"type": "program", "config": {
+                "program": sys.executable, "args": ["-c", script],
+            }}]}, root, "Inspected the source.", events=events)
+            self.assertEqual([], list(root.iterdir()))
+
 
 if __name__ == "__main__":
     unittest.main()

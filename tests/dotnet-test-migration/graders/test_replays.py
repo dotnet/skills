@@ -32,12 +32,20 @@ class ReplayTests(unittest.TestCase):
         ):
             case = next(case for case in yaml.safe_load(spec.read_text(encoding="utf-8"))["stimuli"]
                         if case["name"] == name)
-            # Trace constraints are calibrated separately through production Vally.
-            case["graders"] = [grader for grader in case["graders"] if grader["type"] != "tool-calls"]
             with self.subTest(case=name), tempfile.TemporaryDirectory(prefix="noop-preservation-") as temporary:
                 workspace = Path(temporary)
                 materialize(spec, case, workspace)
                 run_graders(case, workspace)
+                forbidden_events = [
+                    {"type": "tool.execution_start", "data": {
+                        "toolCallId": "shell", "toolName": "MCP:BASH", "arguments": {},
+                    }},
+                    {"type": "tool.execution_complete", "data": {
+                        "toolCallId": "shell", "result": "No files changed.", "success": True,
+                    }},
+                ]
+                with self.assertRaisesRegex(AssertionError, "tool-calls"):
+                    run_graders(case, workspace, events=forbidden_events)
                 original_files = {path: path.read_bytes() for path in workspace.rglob("*") if path.is_file()}
                 for path, data in original_files.items():
                     for mutation in ("change", "delete"):
@@ -59,6 +67,115 @@ class ReplayTests(unittest.TestCase):
                     with self.subTest(added=name), self.assertRaises(AssertionError):
                         run_graders(case, workspace)
                     added.unlink()
+
+    def test_tool_call_replay_enforces_recorded_native_and_vally_events(self):
+        case = {"graders": [{"type": "tool-calls", "config": {
+            "required": ["(?i)(?:^|[.:])view$"],
+            "disallowed": ["(?i)(?:^|[.:])(?:bash|powershell|agent)$"],
+        }}]}
+        with tempfile.TemporaryDirectory(prefix="tool-replay-") as temporary:
+            root = Path(temporary)
+            for native in (False, True):
+                def events(name, identity="call"):
+                    return [
+                        {"type": "tool.execution_start" if native else "tool_call", "data": {
+                            "toolCallId": identity, "toolName": name,
+                            "arguments": '{"path":"source.cs"}' if native else {"path": "source.cs"},
+                        }},
+                        {"type": "tool.execution_complete" if native else "tool_result", "data": {
+                            "toolCallId": identity, "success": True, "result": "source content",
+                            **({} if native else {"toolName": name}),
+                        }},
+                    ]
+                with self.subTest(native=native):
+                    run_graders(case, root, "Inspected the source.", events=events("functions.view"))
+                    for alias in ("bash", "functions.powershell", "MCP:BASH", "MCP:AGENT"):
+                        with self.subTest(alias=alias), self.assertRaisesRegex(AssertionError, "tool-calls"):
+                            run_graders(case, root, "No changes.", events=(
+                                events("functions.view", "read") + events(alias, "forbidden")
+                            ))
+                    with self.assertRaisesRegex(AssertionError, "tool-calls"):
+                        run_graders(case, root, "No execution.", events=[])
+                    with self.assertRaisesRegex(AssertionError, "recorded tool events"):
+                        run_graders(case, root, "No execution.")
+
+    def test_tool_call_replay_requires_correlated_completed_evidence(self):
+        case = {"graders": [{"type": "tool-calls", "config": {"disallowed": ["bash"]}}]}
+        events = [
+            {"type": "tool.execution_start", "data": {"toolCallId": "call", "toolName": "view"}},
+            {"type": "tool.execution_complete", "data": {"toolCallId": "call", "result": "read"}},
+        ]
+        with tempfile.TemporaryDirectory(prefix="tool-replay-evidence-") as temporary:
+            for mutation in ("missing-result", "wrong-identity", "duplicate-start"):
+                damaged = copy.deepcopy(events)
+                if mutation == "missing-result":
+                    damaged.pop()
+                elif mutation == "wrong-identity":
+                    damaged[1]["data"]["toolCallId"] = "unrelated"
+                else:
+                    damaged.insert(1, copy.deepcopy(damaged[0]))
+                with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                    run_graders(case, Path(temporary), "Read the source.", events=damaged)
+
+    def test_tool_call_replay_handles_mapping_entries_and_rejects_bad_patterns(self):
+        events = [
+            {"type": "tool_call", "data": {
+                "toolCallId": "call", "toolName": "functions.view", "arguments": {"path": "source.cs"},
+            }},
+            {"type": "tool_result", "data": {
+                "toolCallId": "call", "toolName": "functions.view", "result": "source content",
+            }},
+        ]
+        with tempfile.TemporaryDirectory(prefix="tool-replay-mapping-") as temporary:
+            root = Path(temporary)
+            case = {"graders": [{"type": "tool-calls", "config": {
+                "required": [{"name": "view$", "path": "^source\\.cs$", "result": "source content"}],
+            }}]}
+            run_graders(case, root, "Inspected the source.", events=events)
+            case["graders"][0]["config"]["required"][0]["path"] = "^different\\.cs$"
+            with self.assertRaisesRegex(AssertionError, "tool-calls"):
+                run_graders(case, root, "Inspected the source.", events=events)
+            case["graders"][0]["config"] = {"disallowed": ["["]}
+            with self.assertRaisesRegex(AssertionError, "tool-calls"):
+                run_graders(case, root, "Inspected the source.", events=events)
+
+    def test_path_based_inspection_golden_replays_through_cli_entry_point(self):
+        import json
+        import sys
+
+        with tempfile.TemporaryDirectory(prefix="tool-replay-reference-") as temporary:
+            root = Path(temporary)
+            reference = {
+                "schema_version": "ATIF-v1.6", "session_id": "read-only-golden",
+                "agent": {"name": "reference", "version": "1.0", "model_name": "curated"},
+                "steps": [{
+                    "step_id": 1, "source": "agent", "message": "No changes needed.",
+                    "tool_calls": [{"tool_call_id": "read", "function_name": "view",
+                                    "arguments": {"path": "source.cs"}}],
+                    "observation": {"results": [{"source_call_id": "read", "content": "source"}]},
+                }],
+            }
+            (root / "reference.json").write_text(json.dumps(reference), encoding="utf-8")
+            spec = root / "eval.yaml"
+            spec.write_text(yaml.safe_dump({"stimuli": [{
+                "name": "Inspect", "prompt": "Only inspect the source.",
+                "golden_trajectory": {"path": "reference.json"},
+                "graders": [{"type": "tool-calls", "config": {
+                    "required": ["view"], "disallowed": ["bash"],
+                }}],
+            }]}), encoding="utf-8")
+            command = [
+                sys.executable, "-B", str(ROOT / "graders" / "replay.py"),
+                str(spec), "--name", "Inspect", "--results-dir", str(root / "results"),
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn("GOLDEN PASSED: Inspect", result.stdout)
+            reference["steps"][0]["tool_calls"][0]["function_name"] = "bash"
+            (root / "reference.json").write_text(json.dumps(reference), encoding="utf-8")
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("tool-calls", result.stderr)
 
     def test_post_test_rewrites_cannot_change_verified_configuration(self):
         spec = ROOT / "migrate-mstest-v3-to-v4" / "eval.yaml"

@@ -322,6 +322,8 @@ internal sealed class BaselineStore
         sb.Append("turns=").Append(scenario.MaxTurns?.ToString() ?? "").Append('\0');
         sb.Append("tokens=").Append(scenario.MaxTokens?.ToString() ?? "").Append('\0');
         sb.Append("timeout=").Append(scenario.Timeout).Append('\0');
+        if (scenario.ExpectTools is { Count: > 0 } || scenario.RejectTools is { Count: > 0 })
+            sb.Append("tool-name-regex=v1").Append('\0');
         // Preserve existing identities when the opt-in policy is absent.
         if (scenario.DenyShell)
             sb.Append("deny-shell=true").Append('\0');

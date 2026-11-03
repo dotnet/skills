@@ -284,6 +284,7 @@ public class BaselineStoreTests
         var withAssertion = baseScenario with { Assertions = [new Assertion(AssertionType.OutputContains, Value: "error")] };
         var withTurns = baseScenario with { MaxTurns = 5 };
         var withExpectTools = baseScenario with { ExpectTools = ["bash"] };
+        var withRejectTools = baseScenario with { RejectTools = ["(?i)(?:^|[.:])bash$"] };
         var withShellDenial = baseScenario with { DenyShell = true };
         var withRejectedAgent = baseScenario with { RejectAgents = ["owner"] };
         var withRejectedRetry = baseScenario with { RejectShellRetries = true };
@@ -295,6 +296,7 @@ public class BaselineStoreTests
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withAssertion, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withTurns, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withExpectTools, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRejectTools, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withShellDenial, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRejectedAgent, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRejectedRetry, null));

@@ -194,9 +194,76 @@ def materialize(spec, stimulus, workspace):
         )
 
 
-def run_graders(stimulus, workspace, response=None):
+def run_tool_call_grader(config, workspace, events, reference):
+    assert events is not None or reference is not None, (
+        "tool-calls grader requires recorded tool events or a golden trajectory"
+    )
+    vally = Path(__file__).resolve().parents[3] / "eng" / "evaluation-tools" / "node_modules" / "@microsoft" / "vally" / "dist"
+    script = """
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const input=JSON.parse(readFileSync(process.argv[1],'utf8'));
+const load=relative=>import(pathToFileURL(join(process.argv[2],relative)).href);
+const {ToolCallGrader}=await load('graders/static/tool-call-grader.js');
+let events=input.events;
+if(events==null){
+  const {fromAtif,validateAtifTrajectory}=await load('trajectory/atif-adapter.js');
+  validateAtifTrajectory(input.reference);
+  events=fromAtif(input.reference,{stimulusName:'replay',stimulusPrompt:'Replay evidence.'}).events;
+}
+assert.ok(Array.isArray(events),'Recorded tool events must be an array');
+const pending=new Map(),seen=new Set(),normalized=[];
+for(const event of events){
+  const data=event.data??{};
+  const key=JSON.stringify([event.agentId??null,data.toolCallId]);
+  if(['tool_call','tool.execution_start'].includes(event.type)){
+    assert.ok(typeof data.toolCallId==='string'&&data.toolCallId,'Missing tool-call identity');
+    assert.ok(typeof data.toolName==='string'&&data.toolName,'Missing tool name');
+    assert.ok(!seen.has(key),'Duplicate tool-call identity');
+    seen.add(key);
+    pending.set(key,data.toolName);
+    const args=typeof data.arguments==='string'?JSON.parse(data.arguments):data.arguments;
+    normalized.push({...event,type:'tool_call',data:{...data,arguments:args}});
+  }else if(['tool_result','tool.execution_complete'].includes(event.type)){
+    assert.ok(pending.has(key),'Unmatched tool result');
+    const toolName=pending.get(key);
+    assert.ok(data.toolName==null||data.toolName===toolName,'Mismatched tool result name');
+    pending.delete(key);
+    normalized.push({...event,type:'tool_result',data:{...data,toolName}});
+  }else{
+    const type={'assistant.turn_start':'turn_start','assistant.turn_end':'turn_end'}[event.type]??event.type;
+    normalized.push({...event,type});
+  }
+}
+assert.equal(pending.size,0,'Tool calls are missing completion evidence');
+const result=await new ToolCallGrader().grade({config:input.config,trajectory:{events:normalized}});
+console.log(JSON.stringify(result));
+"""
+    with tempfile.TemporaryDirectory(prefix="tool-call-replay-") as directory:
+        evidence = Path(directory) / "input.json"
+        evidence.write_text(json.dumps({
+            "config": config, "events": events, "reference": reference,
+        }), encoding="utf-8")
+        result = run_command(
+            ["node", "--input-type=module", "-e", script, str(evidence), str(vally)],
+            cwd=workspace, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=30,
+        )
+    assert result.returncode == 0, ("tool-calls", result.stdout, result.stderr)
+    verdict = json.loads(result.stdout)
+    assert verdict["passed"], ("tool-calls", verdict)
+
+
+def run_graders(stimulus, workspace, response=None, *, events=None, spec=None):
+    reference = None
     if response is None:
-        steps = stimulus.get("golden_trajectory", {}).get("inline", {}).get("steps", [])
+        golden = stimulus.get("golden_trajectory", {})
+        reference = golden.get("inline")
+        if reference is None and spec is not None and "path" in golden:
+            reference = json.loads((spec.parent / golden["path"]).read_text(encoding="utf-8"))
+        steps = (reference or {}).get("steps", [])
         response = "\n".join(step.get("message", "") for step in steps)
     for grader in stimulus["graders"]:
         kind = grader["type"]
@@ -205,6 +272,9 @@ def run_graders(stimulus, workspace, response=None):
             continue
         if kind == "exit-success":
             assert response.strip(), "Missing reference response"
+            continue
+        if kind == "tool-calls":
+            run_tool_call_grader(config, workspace, events, reference)
             continue
         if kind.startswith("output-"):
             assert response, "Output grader has no response to grade"
@@ -224,10 +294,10 @@ def run_graders(stimulus, workspace, response=None):
             assert matched == ("not" not in kind), (kind, config)
             continue
         if kind == "program":
-            with tempfile.TemporaryDirectory(prefix="grader-input-", dir=workspace) as directory:
+            with tempfile.TemporaryDirectory(prefix="grader-input-") as directory:
                 input_path = Path(directory) / "input.json"
                 input_path.write_text(json.dumps({
-                    "trajectory": {"workDir": str(workspace), "output": response},
+                    "trajectory": {"workDir": str(workspace), "output": response, "events": events},
                 }), encoding="utf-8")
                 result = run_command(
                     [config["program"], *config.get("args", [])],
@@ -271,7 +341,7 @@ def main():
     for case in selected:
         workspace = Path(tempfile.mkdtemp(prefix="golden-", dir=args.results_dir.resolve()))
         materialize(spec, case, workspace)
-        run_graders(case, workspace)
+        run_graders(case, workspace, spec=spec)
         print(f"GOLDEN PASSED: {case['name']} ({workspace})")
 
 

@@ -427,6 +427,63 @@ public class EvaluateConstraintsTests
     }
 
     [TestMethod]
+    [DataRow("Leave an already aligned MSTest v4 native MTP project unchanged")]
+    [DataRow("Plan a staged MSTest v2 to v4 and MTP migration")]
+    public void InspectionScenariosEnforceToolPatternsAgainstAliases(string name)
+    {
+        var config = EvalSchema.ParseEvalConfigFlexible(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "fixtures", "migration-agent.eval.yaml")));
+        var scenario = Assert.ContainsSingle(config!.Scenarios.Where(item => item.Name == name));
+        foreach (var tool in new[] { "bash", "functions.powershell", "MCP:BASH", "MCP:AGENT" })
+        {
+            var results = AssertionEvaluator.EvaluateConstraints(
+                scenario, MakeMetrics(toolCallBreakdown: new() { [tool] = 1 }));
+            Assert.IsFalse(results.All(result => result.Passed), $"Allowed prohibited tool '{tool}'.");
+        }
+        foreach (var tool in new[] { "view", "functions.view", "glob", "rg", "skill" })
+        {
+            var results = AssertionEvaluator.EvaluateConstraints(
+                scenario, MakeMetrics(toolCallBreakdown: new() { [tool] = 1 }));
+            Assert.IsTrue(results.All(result => result.Passed), $"Rejected inspection tool '{tool}'.");
+        }
+    }
+
+    [TestMethod]
+    [DataRow("(?i)(?:^|[.:])(?:bash|powershell)$", "MCP:BASH", true)]
+    [DataRow("^functions\\.view$", "functions.view", true)]
+    [DataRow("^functions\\.view$", "functionsXview", false)]
+    [DataRow("^bash$", "BASH", false)]
+    public void RequiredAndRejectedToolsUseDeclaredRegexSemantics(string pattern, string tool, bool matched)
+    {
+        var metrics = MakeMetrics(toolCallBreakdown: new() { [tool] = 1 });
+        var required = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
+            MakeScenario(expectTools: [pattern]), metrics));
+        var rejected = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(
+            MakeScenario(rejectTools: [pattern]), metrics));
+        Assert.AreEqual(matched, required.Passed);
+        Assert.AreEqual(!matched, rejected.Passed);
+    }
+
+    [TestMethod]
+    [DataRow("[")]
+    [DataRow("")]
+    [DataRow("(?i)")]
+    public void InvalidToolPatternsFailEvenWithoutToolCalls(string pattern)
+    {
+        var metrics = MakeMetrics(toolCallBreakdown: []);
+        foreach (var scenario in new[]
+        {
+            MakeScenario(expectTools: [pattern]),
+            MakeScenario(rejectTools: [pattern]),
+        })
+        {
+            var result = Assert.ContainsSingle(AssertionEvaluator.EvaluateConstraints(scenario, metrics));
+            Assert.IsFalse(result.Passed);
+            Assert.Contains("Invalid tool pattern", result.Message);
+        }
+    }
+
+    [TestMethod]
     public void MaxTurnsPassesWhenUnderLimit()
     {
         var results = AssertionEvaluator.EvaluateConstraints(

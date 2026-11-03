@@ -43,6 +43,22 @@ permission contract version participates in baseline identity; recompute
 baselines recorded before this contract rather than comparing old denial
 behavior against the corrected executor.
 
+Native `tool-calls` required/disallowed string entries are regular expressions
+over recorded tool names, including declared flags such as `(?i)`. Constraints
+do not normalize away namespaces or case: use an anchored alias-aware pattern
+when names such as `functions.powershell` and `MCP:BASH` must be rejected.
+Invalid, empty, or timed-out patterns fail the assertion even in an empty
+trajectory. Tool-constrained baseline identities include the matcher contract
+version so passes from the old exact-membership implementation are not reused.
+
+The migration golden/composition replay helper also enforces `tool-calls`
+through the pinned production Vally grader. Live composition passes its
+recorded event stream; golden replay can use an inline ATIF reference or load a
+path-based reference from the eval spec. An explicitly empty trace is valid
+absence evidence, but missing, duplicate, or uncorrelated tool-call evidence
+fails. Grader inputs live outside the workspace so preservation checks still
+inspect the complete user file set without evaluator-created noise.
+
 Native-agent evals also execute Vally `program` graders. They launch
 `config.program` with the explicit `args` array and `timeout` (60 seconds by
 default), without a shell. The native lane rejects `env`, `shell`, and

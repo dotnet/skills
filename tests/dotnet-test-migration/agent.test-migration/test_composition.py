@@ -307,7 +307,7 @@ def run(args):
         if args.case == "denied-run":
             assert re.search(r"denied|blocked|rejected|not permitted|not allowed|restriction", response, re.I), response
         else:
-            replay.run_graders(stimulus, workspace, response)
+            replay.run_graders(stimulus, workspace, response, events=events)
         result["verified"] = True
     except (AssertionError, ValueError, KeyError, StopIteration) as error:
         result["failure"] = str(error)

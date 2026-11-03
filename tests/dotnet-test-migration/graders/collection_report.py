@@ -29,7 +29,7 @@ def validate_report(policy, response):
         r"(?:members|classes|tests)|(?:deferred|serialized)\s+members|FirstMember|SecondMember)\b"
     )
     peers = r"\b(?:each other|one another|themselves)\b"
-    parallel = r"\b(?:parallel|concurrent(?:ly)?|overlaps?|overlapping)\b"
+    parallel = r"\b(?:parallel(?:i[sz](?:e[sd]?|ing))?|concurrent(?:ly)?|overlaps?|overlapping)\b"
     serial = r"\b(?:serial(?:izes?|izing|ized|ly)?|sequential(?:ly)?|nonparallel|blocks?|blocked)\b"
     negation = r"\b(?:cannot|can't|don't|doesn't|won't|isn't|aren't|not|never|no longer)\b"
     continuation = (
@@ -40,6 +40,7 @@ def validate_report(policy, response):
     previous_subject = None
     previous_historical = False
     for sentence in re.split(r"[.!?;\n]+|\b(?:whereas|unlike)\b", normalized, flags=re.I):
+        sentence_claims = []
         subject = None
         historical = False
         previous_predicate = None
@@ -90,7 +91,11 @@ def validate_report(policy, response):
                 targets.append("members")
             if re.search(peers, clause, re.I):
                 targets.append("peers")
-            claims.update((target, permitted) for target in targets or ["unspecified"])
+            sentence_claims.extend((target, permitted) for target in targets or ["unspecified"])
+        for index, (target, permitted) in enumerate(sentence_claims):
+            if target == "unspecified" and permitted and ("members", False) in sentence_claims[index + 1:]:
+                target = "peers"
+            claims.add((target, permitted))
 
     if policy == "shared-resource":
         assert claims & {("members", True), ("unspecified", True)} and all(

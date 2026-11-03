@@ -42,6 +42,73 @@ DEFERRED_REPORT = (
 
 
 class DefaultCollectionTests(unittest.TestCase):
+    def test_parallelization_verbs_preserve_scheduling_polarity(self):
+        for stem in ("paralleliz", "parallelis"):
+            for positive, reverse in (
+                (f"MSTest does not {stem}e unrelated classes under this assembly-wide policy.",
+                 f"MSTest {stem}es unrelated classes under this assembly-wide policy."),
+                (f"MSTest never {stem}es unrelated classes under this assembly-wide policy.",
+                 f"MSTest {stem}es unrelated classes under this assembly-wide policy."),
+                (f"Unrelated classes are not {stem}ed under this assembly-wide policy.",
+                 f"Unrelated classes are {stem}ed under this assembly-wide policy."),
+                (f"MSTest is not {stem}ing unrelated classes under this assembly-wide policy.",
+                 f"MSTest is {stem}ing unrelated classes under this assembly-wide policy."),
+            ):
+                with self.subTest(report=positive):
+                    report.validate_report("assembly-serial", positive)
+                    with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                        report.validate_report("assembly-serial", reverse)
+                    with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                        report.validate_report("assembly-serial", positive + " " + reverse)
+                    report.validate_report("shared-resource", reverse)
+                    with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                        report.validate_report("shared-resource", positive)
+
+    def test_member_exclusion_disambiguates_untargeted_peer_concurrency(self):
+        for text in (
+            "Unrelated classes can run in parallel, but cannot overlap FirstMember or SecondMember.",
+            "Unrelated classes can run in parallel with each other, but cannot overlap FirstMember or SecondMember.",
+            "Unrelated classes may run concurrently, but they cannot overlap these deferred members.",
+            "Unrelated classes can overlap, but not with FirstMember or SecondMember.",
+        ):
+            with self.subTest(text=text):
+                report.validate_report("deferred-members", text)
+                with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                    report.validate_report("assembly-serial", text)
+                with self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                    report.validate_report("shared-resource", text)
+        for text in (
+            "Unrelated classes can run in parallel, but can overlap FirstMember or SecondMember.",
+            "Unrelated classes cannot run in parallel, but cannot overlap FirstMember or SecondMember.",
+            "Unrelated classes can run in parallel with these members, but cannot overlap FirstMember or SecondMember.",
+            "Unrelated classes can run in parallel, but cannot overlap FirstMember or SecondMember. "
+            "Unrelated classes may overlap these members.",
+            "Unrelated classes can run in parallel, but cannot overlap FirstMember or SecondMember. "
+            "Unrelated classes cannot overlap each other.",
+        ):
+            with self.subTest(text=text), self.assertRaisesRegex(AssertionError, "Scheduling disclosure"):
+                report.validate_report("deferred-members", text)
+
+    def test_review_wordings_match_the_executed_scheduling_policy(self):
+        with tempfile.TemporaryDirectory(prefix="collection-report-wording-") as parent:
+            root = self.workspace(parent)
+            replay.run_graders(
+                CASE, root,
+                "MSTest does not parallelize unrelated classes under this assembly-wide policy."
+                + LIFETIME_REPORT,
+            )
+            source = root / "CollectionTests.cs"
+            source.write_text(source.read_text(encoding="utf-8").replace(
+                "using Microsoft.VisualStudio.TestTools.UnitTesting;",
+                "using Microsoft.VisualStudio.TestTools.UnitTesting;\n"
+                "[assembly: Parallelize(Workers = 2, Scope = ExecutionScope.ClassLevel)]",
+            ), encoding="utf-8")
+            replay.run_graders(
+                CASE, root,
+                "Unrelated classes can run in parallel, but cannot overlap FirstMember or SecondMember."
+                + LIFETIME_REPORT,
+            )
+
     def test_omitted_predicate_preserves_negation_and_targets(self):
         for text in (
             "Unrelated classes can run in parallel with each other, but not with FirstMember or SecondMember.",

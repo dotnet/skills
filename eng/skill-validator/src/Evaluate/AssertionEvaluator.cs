@@ -82,29 +82,13 @@ public static class AssertionEvaluator
         if (scenario.ExpectTools is not null)
         {
             foreach (var tool in scenario.ExpectTools)
-            {
-                bool used = usedTools.Contains(tool);
-                results.Add(new AssertionResult(
-                    new Assertion(AssertionType.ExpectTools, Value: tool),
-                    used,
-                    used
-                        ? $"Tool '{tool}' was used"
-                        : $"Expected tool '{tool}' was not used (tools used: {(usedTools.Count > 0 ? string.Join(", ", usedTools) : "none")})"));
-            }
+                results.Add(EvaluateToolConstraint(tool, usedTools, required: true));
         }
 
         if (scenario.RejectTools is not null)
         {
             foreach (var tool in scenario.RejectTools)
-            {
-                bool used = usedTools.Contains(tool);
-                results.Add(new AssertionResult(
-                    new Assertion(AssertionType.RejectTools, Value: tool),
-                    !used,
-                    !used
-                        ? $"Tool '{tool}' was not used (expected)"
-                        : $"Tool '{tool}' was used but should not be"));
-            }
+                results.Add(EvaluateToolConstraint(tool, usedTools, required: false));
         }
 
         if (scenario.MaxTurns is { } maxTurns)
@@ -130,6 +114,36 @@ public static class AssertionEvaluator
         }
 
         return results;
+    }
+
+    private static AssertionResult EvaluateToolConstraint(
+        string pattern, IReadOnlyList<string> usedTools, bool required)
+    {
+        var assertion = new Assertion(required ? AssertionType.ExpectTools : AssertionType.RejectTools, Value: pattern);
+        try
+        {
+            if (Regex.IsMatch(pattern, @"^(?:\(\?[ims]+\))?$", RegexOptions.CultureInvariant, RegexTimeout))
+                return new AssertionResult(assertion, false, $"Invalid tool pattern '{pattern}': pattern must not be empty.");
+
+            var regex = new Regex(pattern, RegexOptions.CultureInvariant, RegexTimeout);
+            var used = usedTools.Any(regex.IsMatch);
+            var message = required
+                ? used
+                    ? $"Tool '{pattern}' was used"
+                    : $"Expected tool '{pattern}' was not used (tools used: {(usedTools.Count > 0 ? string.Join(", ", usedTools) : "none")})"
+                : used
+                    ? $"Tool '{pattern}' was used but should not be"
+                    : $"Tool '{pattern}' was not used (expected)";
+            return new AssertionResult(assertion, used == required, message);
+        }
+        catch (ArgumentException error)
+        {
+            return new AssertionResult(assertion, false, $"Invalid tool pattern '{pattern}': {error.Message}");
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return new AssertionResult(assertion, false, $"Tool pattern '{pattern}' timed out after {RegexTimeout.TotalSeconds}s.");
+        }
     }
 
     private static async Task<AssertionResult> EvaluateAssertion(
