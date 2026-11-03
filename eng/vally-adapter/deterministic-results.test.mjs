@@ -151,7 +151,8 @@ test("timeouts outside isolated deterministic evidence are diagnostic", async ()
     assert.equal(result.valid, true);
     assert.equal(result.passed, true);
     assert.deepEqual(result.diagnostics.map(({ arm }) => arm), ["baseline", "plugin"]);
-    assert.equal(reconcileDeterministicComparison(result, { stimuli: [] }).valid, true);
+    const comparedSlot = { stimuli: [{ stimulusName: "Check", trials: [{ trialIndex: 0 }] }] };
+    assert.equal(reconcileDeterministicComparison(result, comparedSlot).valid, true);
 
     spec.stimuli[0].graders = [{ type: "prompt" }];
     roles.skilledByStim.get("Check")[0].trajectory.endReason = "agent_timeout";
@@ -159,7 +160,7 @@ test("timeouts outside isolated deterministic evidence are diagnostic", async ()
     assert.equal(promptOnly.valid, true);
     assert.equal(promptOnly.passed, true);
     assert.deepEqual(promptOnly.diagnostics.map(({ arm }) => arm), ["baseline", "skilled", "plugin"]);
-    assert.equal(reconcileDeterministicComparison(promptOnly, { stimuli: [] }).valid, true);
+    assert.equal(reconcileDeterministicComparison(promptOnly, comparedSlot).valid, true);
   }, { plugin: true });
 });
 
