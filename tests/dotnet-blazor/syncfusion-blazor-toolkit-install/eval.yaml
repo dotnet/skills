@@ -493,12 +493,184 @@ stimuli:
         config:
           path: '**/_Imports.razor'
           value: Syncfusion.Blazor.Toolkit
+      # Wrong package, host-file and license regressions are rejected deterministically
+      - type: file-not-contains
+        config:
+          path: '**/*.csproj'
+          value: 'Include="Syncfusion.Blazor"'
+      - type: file-not-contains
+        config:
+          path: '**/App.razor'
+          value: _content/Syncfusion.Blazor.Toolkit
+      - type: file-not-contains
+        config:
+          path: '**/Program.cs'
+          value: RegisterLicense
+      # Complete-state check over package, version, registration, import and host files
+      - &toolkit-complete-state
+        type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require("fs");
+              const path = require("path");
+              function walk(dir, out = []) {
+                for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+                  if (["obj", "bin", "node_modules"].includes(e.name) || e.name.startsWith(".")) continue;
+                  const p = path.join(dir, e.name);
+                  if (e.isDirectory()) walk(p, out);
+                  else out.push(p.replace(/\\/g, "/"));
+                }
+                return out;
+              }
+              const files = walk(".");
+              const errs = [];
+              const only = (re, label) => {
+                const hit = files.filter((f) => re.test(f));
+                if (hit.length !== 1) {
+                  errs.push(label + ": expected exactly one file, found " + hit.length);
+                  return "";
+                }
+                return fs.readFileSync(hit[0], "utf8");
+              };
+              const count = (text, re) => (text.match(re) || []).length;
+
+              const csproj = only(/\.csproj$/, "csproj");
+              const refs = [...csproj.matchAll(/<PackageReference\s+Include="([^"]+)"(?:\s+Version="([^"]*)")?/g)];
+              const toolkit = refs.filter((r) => r[1] === "Syncfusion.Blazor.Toolkit");
+              if (toolkit.length !== 1) errs.push("csproj must reference Syncfusion.Blazor.Toolkit exactly once");
+              else {
+                const m = /^[\[(]?(\d+)(?:\.(\d+|\*))?(?:\.(\d+|\*))?/.exec(toolkit[0][2] || "");
+                const major = m ? +m[1] : -1;
+                const minor = m && m[2] !== undefined && m[2] !== "*" ? +m[2] : m && m[2] === "*" ? Infinity : 0;
+                const patch = m && m[3] !== undefined && m[3] !== "*" ? +m[3] : m && m[3] === "*" ? Infinity : 0;
+                const ok = major > 2 || (major === 2 && (minor > 0 || patch >= 1));
+                if (!ok) errs.push("Toolkit version must be 2.0.1 or newer, found " + toolkit[0][2]);
+              }
+              for (const r of refs) {
+                if (/^Syncfusion\./.test(r[1]) && r[1] !== "Syncfusion.Blazor.Toolkit")
+                  errs.push("unexpected Syncfusion package: " + r[1]);
+              }
+              const tfm = process.argv[1];
+              if (!csproj.includes("<TargetFramework>" + tfm + "</TargetFramework>")) errs.push("TargetFramework must stay " + tfm);
+
+              const program = only(/(^|\/)Program\.cs$/, "Program.cs");
+              if (count(program, /\busing\s+Syncfusion\.Blazor\.Toolkit\s*;/g) !== 1) errs.push("Program.cs needs one 'using Syncfusion.Blazor.Toolkit;'");
+              const reg = [...program.matchAll(/AddSyncfusionBlazorToolkit\s*\(\s*\)/g)];
+              if (reg.length !== 1) errs.push("Program.cs must call AddSyncfusionBlazorToolkit() exactly once");
+              else if (program.indexOf("builder.Build()") < reg[0].index) errs.push("AddSyncfusionBlazorToolkit() must come before builder.Build()");
+              for (const keep of ["AddRazorComponents", "AddInteractiveServerComponents", "AddInteractiveServerRenderMode", "UseAntiforgery", "MapStaticAssets", "MapRazorComponents<App>"])
+                if (!program.includes(keep)) errs.push("Program.cs lost template wiring: " + keep);
+              if (program.includes("RootComponents")) errs.push("Program.cs must not use RootComponents in a Web App");
+
+              const imports = only(/(^|\/)_Imports\.razor$/, "_Imports.razor");
+              if (count(imports, /^@using\s+Syncfusion\.Blazor\.Toolkit\s*$/gm) !== 1) errs.push("_Imports.razor needs exactly one '@using Syncfusion.Blazor.Toolkit'");
+              if (/Syncfusion\.Blazor\.Toolkit\./.test(imports)) errs.push("_Imports.razor must not use domain-specific Toolkit namespaces");
+
+              const app = only(/(^|\/)App\.razor$/, "App.razor");
+              for (const keep of ["<Routes", "<HeadOutlet", "blazor.web.js", 'Assets["app.css"]'])
+                if (!app.includes(keep)) errs.push("App.razor lost template wiring: " + keep);
+
+              for (const f of files.filter((f) => /\.(razor|html|cshtml|cs)$/.test(f))) {
+                const t = fs.readFileSync(f, "utf8");
+                if (/_content\/Syncfusion\.Blazor\.Toolkit\//i.test(t)) errs.push(f + " links Toolkit static assets");
+                if (/syncfusion[^"'\n]*\.(min\.)?(js|css)/i.test(t) && /(<link|<script)/i.test(t)) errs.push(f + " adds a Syncfusion stylesheet or script tag");
+                if (/RegisterLicense/.test(t)) errs.push(f + " registers a license key");
+              }
+              for (const f of files.filter((f) => /(^|\/)(App|Routes)\.razor$/.test(f)))
+                if (/@rendermode/.test(fs.readFileSync(f, "utf8"))) errs.push(f + " must not set a global render mode for a per-page Web App");
+
+              if (errs.length) {
+                console.error(errs.join("\n"));
+                process.exit(1);
+              }
+              console.log("complete install state verified");
+            - net9.0
+      - type: run-command
+        config:
+          command: dotnet build --nologo
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
       - Completes the installation in the workspace instead of only describing or loading guidance.
       - Registers the Toolkit once in the app's only Program.cs with the matching using directive.
       - Does not add a commercial Syncfusion.Blazor package or a Toolkit theme stylesheet link.
       - Ends with a final message that states what was changed.
+
+  # ---------------------------------------------------------------------------
+  # No-op: an already-correct install must be left alone
+  # ---------------------------------------------------------------------------
+  - name: already-installed-toolkit-left-untouched
+    tags:
+      capability: toolkit-install
+      risk: unnecessary-rewrite
+      journey: verify-existing-install
+    prompt: |
+      I think we already added the open-source Syncfusion Blazor Toolkit to this net9.0 Blazor Web App
+      (Interactive Server, per-page). Can you check that the setup is complete and fix whatever is missing?
+    environment:
+      files:
+        - src: ./fixtures/already-installed-server
+          dest: .
+    graders:
+      # Every in-scope file keeps its exact content; nothing is deleted or added
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require("fs");
+              const path = require("path");
+              const crypto = require("crypto");
+              const expected = {
+                "Components/App.razor": "c5664551791799e8308259865c4992852d4c7d87080c027255897b8be3aff00c",
+                "Components/Layout/MainLayout.razor": "10a740c4dcf86ba784888e032994db9c3fb7c25fda6d57d2594514a1b6148db1",
+                "Components/Pages/Error.razor": "53dcdbdec5e8fb50389f885861f0c7d921c6622a88637af3b627a2809e6549f1",
+                "Components/Pages/Home.razor": "a54e09469b1a5b3ff6255b6a81b2148c192efed6e108c96581970795f3ee0850",
+                "Components/Routes.razor": "e58e22841fd7a4ec75e92bbd832c97fb0c700b5c7234fc631a0bcb5c099a01a7",
+                "Components/_Imports.razor": "279acfb1feb51bfecbd16e2385e1ff0d2c0aba72dec357d2e3df21f78c2175f7",
+                "ContosoApp.csproj": "6e67980789d670b09d0f3cc54589879d5339ce6eda967bbfec31a713820d1706",
+                "Program.cs": "9887c63c02e88fbfc249de658db392b17a344906ce42c10e4490d66c9ffb14a3",
+                "wwwroot/app.css": "b15843b5213d5c3186ac8862b50032838d07c7fbf516235abf4019ec88917b1a"
+              };
+              function walk(dir, out = []) {
+                for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+                  if (["obj", "bin", "node_modules"].includes(e.name) || e.name.startsWith(".")) continue;
+                  const p = path.join(dir, e.name);
+                  if (e.isDirectory()) walk(p, out);
+                  else out.push(p.replace(/\\/g, "/").replace(/^\.\//, ""));
+                }
+                return out;
+              }
+              const hash = (f) =>
+                crypto.createHash("sha256").update(fs.readFileSync(f, "utf8").replace(/\r\n/g, "\n")).digest("hex");
+              const errs = [];
+              const actual = walk(".");
+              for (const [f, h] of Object.entries(expected)) {
+                if (!fs.existsSync(f)) errs.push("deleted: " + f);
+                else if (hash(f) !== h) errs.push("modified: " + f);
+              }
+              for (const f of actual) if (!(f in expected)) errs.push("unexpected new file: " + f);
+              if (errs.length) {
+                console.error(errs.join("\n"));
+                process.exit(1);
+              }
+              console.log("all " + Object.keys(expected).length + " in-scope files unchanged");
+      - *toolkit-complete-state
+      - type: run-command
+        config:
+          command: dotnet build --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Confirms that the package, registration, namespace import and host files are already correct, and reports that no change was needed.
+      - Makes no edits to any project file, including template files unrelated to the Toolkit.
+      - Does not add a second registration, a duplicate import, a theme stylesheet link, or a commercial Syncfusion.Blazor package.
 
   - name: question-only-install-answer-has-concrete-steps
     tags:
