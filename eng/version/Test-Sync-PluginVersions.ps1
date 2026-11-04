@@ -387,6 +387,70 @@ function Test-RepositoryClaudeManifests {
         (Join-Path $repository 'plugins/dotnet/.claude-plugin/plugin.json') -Raw | ConvertFrom-Json
     Assert-Equal './.lsp.json' $dotnetClaudeManifest.lspServers `
         "The dotnet Claude manifest must reference Claude Code's LSP configuration."
+    Assert-Equal ([Convert]::ToBase64String([IO.File]::ReadAllBytes(
+        (Join-Path $repository 'plugins/dotnet-blazor/plugin.json')))) `
+        ([Convert]::ToBase64String([IO.File]::ReadAllBytes(
+        (Join-Path $repository 'plugins/dotnet-blazor/skills/blazor-component-readiness/plugin-manifest.json')))) `
+        'Bundled readiness metadata must equal the full canonical source manifest independently.'
+}
+
+function Test-ReadinessSnapshot {
+    $repo = New-TestRepository 'readiness-snapshot'
+    $plugin = Join-Path $repo 'plugins/dotnet-blazor'
+    Copy-Item -LiteralPath (Join-Path $repo 'plugins/sample') -Destination $plugin -Recurse
+    $manifest = Join-Path $plugin 'plugin.json'
+    foreach ($relative in @('plugin.json', '.codex-plugin/plugin.json', '.claude-plugin/plugin.json')) {
+        $path = Join-Path $plugin $relative
+        [IO.File]::WriteAllText($path, [IO.File]::ReadAllText($path).Replace('"sample"', '"dotnet-blazor"'))
+    }
+    $version = Join-Path $plugin 'version.json'
+    [IO.File]::WriteAllText($version, [IO.File]::ReadAllText($version).Replace(
+        '":!version.json"', '":!version.json",' + [Environment]::NewLine +
+        '    ":!skills/blazor-component-readiness/plugin-manifest.json"'))
+    $skill = Join-Path $plugin 'skills/blazor-component-readiness'
+    [void](New-Item -ItemType Directory -Path $skill)
+    'readiness test skill' | Set-Content (Join-Path $skill 'SKILL.md')
+    [void](Invoke-Git $repo add plugins/dotnet-blazor)
+    [void](Invoke-Git $repo commit -m 'Add synthetic readiness checkpoint')
+    $checkpoint = [string](Invoke-Git $repo rev-parse HEAD)
+    $snapshot = Join-Path $skill 'plugin-manifest.json'
+    $sourceBefore = [IO.File]::ReadAllText($manifest)
+
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal 1 $report.Count 'Missing snapshot must be detected with synchronized host versions.'
+    Assert-Equal $true $report[0].snapshotChanged 'Missing snapshot has its own drift indicator.'
+    Assert-Equal '0.1.4' $report[0].computed 'Snapshot generation must not invent a version.'
+    Assert-Equal $false (Test-Path $snapshot) 'Dry run must not create metadata.'
+    Assert-Equal $sourceBefore ([IO.File]::ReadAllText($manifest)) 'Dry run must not change the source.'
+    [void](Invoke-Sync $repo -Write)
+    Assert-Equal $sourceBefore ([IO.File]::ReadAllText($snapshot)) 'Write generates the full canonical manifest.'
+    Assert-Equal 0 @(Invoke-Sync $repo -Write).Count 'Snapshot generation is idempotent.'
+
+    [IO.File]::WriteAllText($snapshot, $sourceBefore.Replace('Test plugin.', 'Wrong non-version field.'))
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal $true $report[0].snapshotChanged 'Non-version snapshot mismatch must be detected.'
+    Assert-Equal $true ([IO.File]::ReadAllText($snapshot).Contains('Wrong non-version field.')) `
+        'Dry run must not repair stale snapshot bytes.'
+    [void](Invoke-Git $repo add plugins/dotnet-blazor/skills/blazor-component-readiness/plugin-manifest.json)
+    [void](Invoke-Git $repo commit -m 'Synthetic snapshot-only change')
+    $head = [string](Invoke-Git $repo rev-parse HEAD)
+    $prediction = @(Invoke-Sync $repo -BaseCommit $checkpoint -HeadCommit $head -PredictMerge)
+    Assert-Equal '0.1.4' $prediction[0].computed 'Snapshot-only merge remains release neutral.'
+    [void](Invoke-Sync $repo -Write)
+    Assert-Equal $sourceBefore ([IO.File]::ReadAllText($snapshot)) 'Write repairs stale non-version fields.'
+    Assert-Equal 0 @(Invoke-Sync $repo).Count 'Snapshot-only history remains release neutral.'
+
+    [IO.File]::AppendAllText((Join-Path $skill 'SKILL.md'), 'real content change')
+    [void](Invoke-Git $repo add plugins/dotnet-blazor/skills/blazor-component-readiness/SKILL.md)
+    [void](Invoke-Git $repo commit -m 'Synthetic release-bearing change')
+    $report = @(Invoke-Sync $repo -Write)
+    Assert-Equal '0.1.5' $report[0].computed 'Ordinary content still advances once.'
+    foreach ($relative in @('plugin.json', '.codex-plugin/plugin.json', '.claude-plugin/plugin.json')) {
+        Assert-Equal '0.1.5' ((Get-Content (Join-Path $plugin $relative) -Raw | ConvertFrom-Json).version) `
+            'Ordinary synchronization retains all three host versions.'
+    }
+    Assert-Equal ([IO.File]::ReadAllText($manifest)) ([IO.File]::ReadAllText($snapshot)) `
+        'Ordinary synchronization updates the full snapshot alongside host manifests.'
 }
 
 [void](New-Item -ItemType Directory -Path $testRoot)
@@ -407,6 +471,7 @@ try {
     Test-MissingClaudeManifestIsRejected
     Test-ClaudeManifestHostFieldsArePreserved
     Test-RepositoryClaudeManifests
+    Test-ReadinessSnapshot
     Write-Host "Passed $script:assertions plugin-version assertions."
 }
 finally {

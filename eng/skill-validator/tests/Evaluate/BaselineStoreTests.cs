@@ -307,6 +307,30 @@ public class BaselineStoreTests
     }
 
     [TestMethod]
+    public void ComputeTargetSha_DistinguishesNativePatternsFromLegacyNames()
+    {
+        var exact = Scenario("s", "give advice") with
+        {
+            ExpectTools = ["bash"],
+            RejectTools = ["edit"],
+        };
+        var requiredPattern = exact with { ExpectToolsArePatterns = true };
+        var rejectedPattern = exact with { RejectToolsArePatterns = true };
+        Assert.AreNotEqual(
+            BaselineStore.ComputeTargetSha(exact, null),
+            BaselineStore.ComputeTargetSha(requiredPattern, null));
+        Assert.AreNotEqual(
+            BaselineStore.ComputeTargetSha(exact, null),
+            BaselineStore.ComputeTargetSha(rejectedPattern, null));
+        Assert.AreNotEqual(
+            BaselineStore.ComputeTargetSha(requiredPattern, null),
+            BaselineStore.ComputeTargetSha(rejectedPattern, null));
+        Assert.AreEqual(
+            BaselineStore.ComputeTargetSha(exact, null),
+            BaselineStore.ComputeTargetSha(exact with { RejectToolsArePatterns = false }, null));
+    }
+
+    [TestMethod]
     public void Record_IsFirstWriterWins_ForSameScenarioIdentity()
     {
         var path = TempPath();

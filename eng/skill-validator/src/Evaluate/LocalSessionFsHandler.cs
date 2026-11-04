@@ -14,6 +14,7 @@ namespace SkillValidator.Evaluate;
 internal sealed class LocalSessionFsHandler : SessionFsProvider
 {
     private readonly string _stateRoot;
+    private readonly string? _virtualStateRoot;
     private readonly string _workspaceRoot;
     private readonly string[] _allowedAbsoluteRoots;
     private readonly string[] _writableAbsoluteRoots;
@@ -29,9 +30,11 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         string workspaceRoot,
         IEnumerable<string> allowedAbsoluteRoots,
         bool offlineWorkflow = false,
+        string? virtualSessionStatePath = null,
         IEnumerable<string>? writableAbsoluteRoots = null)
     {
         _stateRoot = NormalizeRoot(stateRoot);
+        _virtualStateRoot = virtualSessionStatePath is null ? null : NormalizeRoot(virtualSessionStatePath);
         _workspaceRoot = NormalizeRoot(workspaceRoot);
         _offlineWorkflow = offlineWorkflow;
         var pathComparer = OperatingSystem.IsWindows()
@@ -61,10 +64,11 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
             : full + Path.DirectorySeparatorChar;
     }
 
-    internal static bool IsSessionStatePath(string path)
+    internal static bool IsSessionStatePath(string path, string? absoluteStateRoot = null)
     {
         if (Path.IsPathFullyQualified(path))
-            return false;
+            return absoluteStateRoot is not null
+                && IsWithinRoot(Path.GetFullPath(path), NormalizeRoot(absoluteStateRoot));
 
         var normalized = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
         return normalized.Equals("session-state", StringComparison.OrdinalIgnoreCase)
@@ -119,8 +123,18 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         if (Path.IsPathFullyQualified(path))
         {
             full = Path.GetFullPath(path);
-            root = FindAllowedAbsoluteRoot(full)
-                ?? throw new UnauthorizedAccessException($"Path outside allowed roots: {path}");
+            if (_virtualStateRoot is not null && IsWithinRoot(full, _virtualStateRoot))
+            {
+                // SDK absolute paths name a virtual namespace, not shared physical storage.
+                root = _stateRoot;
+                full = Path.GetFullPath(Path.Combine(
+                    root, "session-state", Path.GetRelativePath(_virtualStateRoot, full)));
+            }
+            else
+            {
+                root = FindAllowedAbsoluteRoot(full)
+                    ?? throw new UnauthorizedAccessException($"Path outside allowed roots: {path}");
+            }
         }
         else
         {
@@ -128,11 +142,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
             full = Path.GetFullPath(Path.Combine(root, path));
         }
 
-        var comparison = OperatingSystem.IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-        if (!full.Equals(Path.TrimEndingDirectorySeparator(root), comparison)
-            && !full.StartsWith(root, comparison))
+        if (!IsWithinRoot(full, root))
         {
             throw new UnauthorizedAccessException($"Path traversal blocked: {path}");
         }
@@ -146,15 +156,17 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         return new ResolvedPath(root, full);
     }
 
-    private string? FindAllowedAbsoluteRoot(string fullPath)
+    private static bool IsWithinRoot(string fullPath, string root)
     {
         var comparison = OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
-        return _allowedAbsoluteRoots.FirstOrDefault(root =>
-            fullPath.Equals(Path.TrimEndingDirectorySeparator(root), comparison)
-            || fullPath.StartsWith(root, comparison));
+        return fullPath.Equals(Path.TrimEndingDirectorySeparator(root), comparison)
+            || fullPath.StartsWith(root, comparison);
     }
+
+    private string? FindAllowedAbsoluteRoot(string fullPath)
+        => _allowedAbsoluteRoots.FirstOrDefault(root => IsWithinRoot(fullPath, root));
 
     private async Task ExecuteWithPathLockAsync(string path, Func<Task> action, CancellationToken cancellationToken)
     {

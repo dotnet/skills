@@ -1,0 +1,7 @@
+@namespace SourceDiscovery
+@inherits SelectionStateBase
+@using Microsoft.AspNetCore.Components.Web
+
+<button type="button" aria-pressed="@CurrentValue" disabled="@(!AllowChange)" @onclick="HandleToggleAsync">
+    @(CurrentValue ? "Selected" : "Unselected")
+</button>

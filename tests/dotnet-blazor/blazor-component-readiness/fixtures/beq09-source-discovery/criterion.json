@@ -1,0 +1,13 @@
+{
+  "requirement_id": "BEQ-09",
+  "requirement": "Use [Parameter] { get; set; } auto-properties; no required/init (BL0007) and no internal parameter mutation.",
+  "scope": "Component-owned source, including inherited members, partial declarations and rendering/event bindings.",
+  "evidence_boundary": "Inspect every applicable declaration and component-owned write, including conditional event and callback paths. A permitted path does not cancel a conflicting path. Complete source may establish this source-level requirement; it does not prove browser or runtime behavior.",
+  "status_definitions": {
+    "verified": "Direct applicable evidence satisfies every part of the requirement. Cite the supporting source.",
+    "gap": "Direct evidence conflicts with at least one required part. Cite the conflict even if other parts are satisfied.",
+    "owner evidence required": "The unresolved fact requires an owner-held record, attestation, approval or inaccessible control. Name the needed evidence.",
+    "not tested": "The requirement applies, but independently obtainable evidence was blocked, not obtained or insufficient. State the missing evidence.",
+    "not applicable": "Direct scope evidence establishes that the requirement has no applicable surface. Unknown applicability is not enough."
+  }
+}

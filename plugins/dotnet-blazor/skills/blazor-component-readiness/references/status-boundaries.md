@@ -1,0 +1,146 @@
+# Status boundaries
+
+Use the boundary labels below in working notes and explanations to force an explicit evidence-state
+decision. Only assessment schema version 2 is accepted; it stores no duplicate boundary token.
+Schema-1 assessments are rejected, not migrated. Other artifacts have independent schemas.
+
+| Status | Boundary label | Required boundary |
+|---|---|---|
+| `verified` | `direct-evidence-satisfies` | Direct applicable source, exact artifact/configuration, owner attestation, or reproduced behavior satisfies the row. Cite selected evidence. |
+| `gap` | `direct-evidence-conflicts` | Direct evidence shows the product, artifact, required documentation, behavior, or required public control conflicts with the row. Cite selected evidence. |
+| `owner evidence required` | `owner-held-evidence-only` | The unresolved fact requires an owner-held private record, attestation, approval, definition, or inaccessible control. State the requested evidence. |
+| `not tested` | `applicable-evidence-not-obtained` | The row applies and is independently testable, but the required acquisition, probe, or evidence was blocked, not run, or insufficient. State the blocker and smallest next probe. |
+| `not applicable` | `confirmed-not-applicable` | The row genuinely has no surface in the confirmed deliverable or explicit support claims. Give the direct applicability rationale; unknown is not inapplicable. |
+
+## Decision order
+
+1. Establish applicability from the confirmed deliverable and explicit support or promotion
+   claims, using [conditional-family decisions](area-conditional-families.md) when relevant.
+   A conditional `when claimed` or `when supported` row is `not applicable` when the surface is
+   explicitly unclaimed and the inspected source/artifact closure exposes no such surface.
+   Current `TA-05` is not waived by an absent AOT claim; follow
+   [trim/AOT applicability and execution prerequisites](area-trim-performance.md).
+2. Match the requirement's requested fact to the inspected evidence using the table below.
+   Keep supplied historical operations distinct from probes performed during this assessment.
+3. First resolve a directly proved conflict as `gap`, or a fully satisfied requirement as
+   `verified`. Do not retreat
+   to uncertainty after one required conjunct is directly observed missing.
+   Other unrun checks do not cancel it. Incomplete closure is not proved absence.
+4. If still undecided, distinguish an owner-defined/private fact from a reproducible one.
+   Missing required private process/review/approval records are `owner evidence required`, not a
+   source gap. Apply the row-specific evidence rule first: SEC-12 can be satisfied by a public
+   record in the vendor's own repository only when it applies to the assessed component, covers
+   both static SSR and Interactive Server guidance, and its mitigation claims hold where
+   spot-checked against code; do not demand a separate private release-review record for that
+   satisfied row.
+5. Before `not tested`, name the row's exact missing fact and perform its cheapest authorized
+   source/artifact check within the timebox; cite the path/absence search and closure limits.
+   Decide when that check settles the row. Otherwise retain `not tested` and the smallest next
+   probe. Do not widen a structural row to unrelated browser outcomes, or use structure to
+   claim unobserved behavior, conformance, completed release processes or toolchain success.
+
+`not applicable` requires the row-specific applicability or absence evidence named by the
+requirement, across the reached branch. An incomplete search, silent or partial manifest, or
+unstated support does not establish inapplicability; leave the row undecided under the existing `not
+tested` or `owner evidence required` boundaries.
+
+| Inspected evidence | Use it for this decision |
+|---|---|
+| Policy, workflow configuration or publication | Credit the published/configured fact when that is what the row requires. For actual incident handling, fix availability or release execution, inspect the relevant event/result records instead; intent does not establish completed operations or their timing. |
+| Incident records or completed run/job/scan results | Credit only the recorded operations/outcomes with their dates, source/release/package binding and coverage. If a supplied record lacks the identity or coverage needed to close the row, retain its supported fact and name that limitation; do not call it absent or infer complete/current coverage. |
+
+For applicable BEQ-04/06/07/08, structure cannot verify prerender safety or correct
+Server/WebAssembly/Auto behavior; without execution evidence retain `not tested`.
+For BEQ-13, `gap` needs a traced external-event/callback path mutating rendered state without
+required InvokeAsync/StateHasChanged marshaling. `verified` needs every such path in the complete
+component closure traced and correctly marshaled; otherwise retain `not tested`.
+
+## Owner clarifications of existing wording
+
+Keep canonical requirement fields and contract bytes unchanged; apply these owner clarifications
+when deciding status, not by rewriting the requirement.
+
+- BEQ-20 / clause 4.8 (owner clarification, 2026-10-01): isolation is the intent;
+  .razor.css or equivalent encapsulation, including shadow DOM, qualifies. The no-inline-style
+  and documented/prefixed-global-CSS obligations remain; inspect only reached styling.
+- BEQ-23 / clause 4.12 (owner clarification, 2026-10-02): public documentation stating the
+  supported render modes is sufficient; separate per-mode component samples are not required.
+  Retain component/release alignment. An exact-package or package-mapped supported-mode declaration
+  establishes alignment for that declared contract; an unversioned additional page does not
+  invalidate it. Documentation does not prove runtime mode behavior.
+
+## Paired boundary examples
+
+| Evidence | Status | Why |
+|---|---|---|
+| The confirmed complete public-policy corpus directly contains no published general response SLA. | `gap` | Publication is the required product surface, so confirmed public absence is a direct conflict. |
+| No private threat model or release approval was supplied, and the row does not require publication. | `owner evidence required` | Public absence cannot disprove an inaccessible owner-held record. |
+| For a fix-before-disclosure requirement, an incident record establishes the first fix occurred, but its availability time is unknown and owner-held. | `owner evidence required` | Retain the occurrence and request the missing timing when that is the unresolved fact, not evidence that a fix occurred. |
+| Direct evidence establishes that the first fix became available after disclosure. | `gap` | This conflicts with a fix-before-disclosure requirement; other missing facts do not soften the conflict. |
+| Every exact DLL is available, but full Authenticode digest/chain/timestamp/revocation verification was not run. | `not tested` | The fact is independently reproducible; the applicable probe is incomplete. |
+| Screen-reader announcement behavior applies, but no assistive-technology probe ran. | `not tested` | Missing private conformance evidence does not convert an unrun reproducible behavior probe into owner-only evidence. |
+| Optional telemetry is explicitly unclaimed and complete source/runtime inspection exposes no telemetry option or consent surface. | `not applicable` | The conditional feature surface is absent. |
+| Auto mode is not in the confirmed support claims. | `not applicable` | A `when supported` row does not become an unrun required probe. |
+| A keyed reorder behavior probe passes, but no Razor/source evidence shows `@key`. | not `verified` | Behavior does not prove the requested implementation mechanism. Use source evidence, otherwise `not tested` or `not applicable`. |
+| Complete component and inherited-renderer source proves there is no component-owned repeated identity surface. | `not applicable` for `PERF-02` | The implementation mechanism has no applicable owned collection or loop. |
+| Complete exact-package, release-asset, and workflow inventories contain no required published SBOM or provenance artifact. | `gap` for `PI-06`, `PI-07`, `PI-10`, and `PI-11` | Publication is required, so complete artifact absence is direct conflicting evidence. |
+| A package has third-party assets, but no evidence establishes whether all are represented. | `not tested` for `PI-08` | Asset presence proves applicability, not representation failure. |
+| A shipped source map contains attributed third-party bytes omitted from the complete supplied SBOM, while ordinary npm dependencies match. | `gap` for `PI-08` | Positive matches remain supported but cannot prove complete coverage of vendored/inlined or embedded content. |
+| Distributed third-party content has plausible SBOM coverage, but its version or byte correspondence cannot be established. | `not tested` for `PI-08` | Identify the missing fact; do not infer an omission, invent a version or promote a name-only match to verification. |
+| All applicable distributed third-party assets, including embedded source content, have evidenced identities/versions and matching SBOM representation. | `verified` for `PI-08` | Complete representation can satisfy the row without executing distributed content; source-only references are not shipped bytes. |
+| A complete notice map directly omits applicable dependencies or bundled assets. | `gap` for `PI-09` | The representation evidence itself is incomplete. |
+| Exact source discards an asynchronous callback or cleanup task. | `gap` | Direct source can establish an implementation defect even when a separate runtime probe was not run. |
+| Complete source for a non-dynamic component proves owned polling can continue after disposal because no stop/cancel/join path exists. | `gap` for `BEQ-15` | Other awaited cleanup does not cancel this conflict. This is not `async-cleanup-not-awaited`; retain exact source evidence, not a fabricated proof kind. Existing lifecycle/protocol rules still apply where required. |
+
+Interpret `null` only according to declared semantics. Unspecified or contradictory null meanings
+prove neither absence nor compliant chronology; do not map every null to `owner evidence required`
+or weaken an independently proved conflict.
+
+## Calibration rules
+
+- A failed package/document/source retrieval is `not tested`, not a `gap`.
+- Direct absence of required metadata in the exact nupkg is a `gap`.
+- Direct absence of a required published SBOM or provenance artifact is a `PI-06`, `PI-07`,
+  `PI-10`, or `PI-11` gap when complete exact-package, public-release-asset, and release-workflow
+  inventories cover the row. `PI-08` and `PI-09` require direct asset/notice representation
+  evidence; missing SBOM bytes alone do not prove those rows.
+- Direct absence of a required published/public/documented commitment is a `gap` only when the
+  confirmed owner-controlled public corpus is complete for that surface. An incomplete or blocked
+  corpus is `not tested`. For `SUP-03`, `SUP-05`, and `SUP-06`, a direct
+  absence gap in a new schema-v2 assessment uses `public-absence-v1` bound to the accepted typed
+  corpus. BEQ-05 now concerns observed static-SSR behavior, not absence of a
+  special documentation contract. Documentation-testing advice is request-only,
+  not a separate scored obligation.
+- A row may cite only one directed-gap protocol family. A directed-gap protocol must be
+  cited by its matching requirement with `gap` status; it is
+  not generic proof for another row.
+- Do not treat every word `documented` as `public`. Missing private review, retention, approval,
+  staffing, or release-governance records is `owner evidence required`.
+- If an owner must first define acceptable licenses, representative scenarios, targets, or accepted
+  risks, use `owner evidence required`. If that definition exists and only execution is missing,
+  use `not tested`.
+- Source attributes may verify source structure; they do not verify browser semantics or formal
+  conformance.
+- Complete implementation source may verify source-level mechanisms and direct defects. Trace the
+  component wrapper, inherited runtime, browser interop, styles, tests, and samples rather than
+  reading only the public wrapper.
+- A successful build does not verify runtime behavior.
+- An environmental probe blocker is `not tested` unless direct evidence ties the failure to the
+  package.
+- For an `A or B` requirement, absence of A is not a `gap` while B remains applicable and untested.
+- An unsupported optional mode may be `not applicable` only when explicitly unclaimed and safe.
+- A package signature verifies only that signature layer.
+- License or notice sidecars verify only those exact files, not complete notice coverage.
+- A PE certificate table or signer subject does not verify Authenticode file-digest, chain,
+  timestamp, or revocation validity.
+- Organization, author, or contact metadata does not verify accountable support ownership,
+  backup, or escalation coverage.
+- A behavior outcome cannot verify an implementation mechanism such as `@key`, `ShouldRender`,
+  awaited callbacks, renderer affinity, or asynchronous disposal.
+- Newer direct evidence and named current-toolchain results control the current row even when they
+  differ from a retained comparison label. Preserve and explain the evidence delta.
+- Feedback and decision guidance never establish a status.
+- Match each claim to its exact evidence field: `RepositoryUrl` is not `ProjectUrl`.
+- Absence of a feature claim does not establish absence of the feature for `not applicable`.
+
+Do not substitute alternate status words or abbreviations.

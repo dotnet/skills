@@ -1,0 +1,46 @@
+{
+  "requirement_id": "BEQ-19",
+  "requirement": "Serialization is typed and correctly escapes untrusted values.",
+  "scope": {
+    "selected_component": "DockBoard",
+    "supported_context": "Interactive .NET rendering with the Publish button enabled. QueueEnabled may be false or true. This capture contains the complete component-owned inheritance, batching, encoding and outbound channel closure.",
+    "values": "Labels may contain external text. ReservationCode and DockId are application-controlled identifiers; their presence does not establish hostile input or exploitability. Typed serialization is still a conjunct of the supplied requirement.",
+    "boundary": "Assess the .NET outbound byte-producing mechanism, not a decoded browser or DOM sink. Other utilities in the capture are applicable only if reachable from DockBoard in a supported context."
+  },
+  "status_definitions": {
+    "verified": "Complete applicable source establishes typed serialization and safe escaping on every reached outbound value path.",
+    "gap": "A supported reached path directly contradicts typed serialization or safe escaping. A satisfactory path does not cancel a conflicting one.",
+    "owner evidence required": "An applicable fact necessarily requires an absent owner record.",
+    "not tested": "Applicable evidence is insufficient to settle the mechanism, without a directly established conflict.",
+    "not applicable": "Complete scope establishes no applicable outbound serialization."
+  },
+  "worksheet": {
+    "path": "out/serialization-decision.json",
+    "fields": ["requirement_id", "status", "paths", "excluded", "limits"],
+    "path_record": {
+      "fields": ["condition", "value", "route", "serialization", "sink", "citations"],
+      "condition": "Use always for the unconditional path, otherwise the exact enabling Boolean parameter name.",
+      "value": "Use the exact source expression for the semantic value at the writer call. If the writer argument converts that value to a JSON lexeme, report the conversion's input expression, not the converted argument or an earlier projection input. Use snapshot as shorthand for the complete ordinary snapshot object.",
+      "route": "An ordered value-production spine of Class.Method symbols: Class is the type that declares the method in source; inherited members use that declaring base type, not the selected component or derived receiver type. Include every component-owned entry, projection, forwarding method, codec and scalar-producing helper for this value, ending with the send sink. This is value flow, not call-entry chronology. Include DispatchPlan.Capture for the queued projection. The framework value serializer/writer named in serialization.method may optionally appear immediately before the sink, after the owned codec and any helper producing its argument. That optional framework symbol must be unqualified or qualified by exactly System.Text.Json. or global::System.Text.Json., never an application, mixed or unknown namespace. Omit allocation, fixed metadata writes, JSON object delimiters, byte copying and task bookkeeping. No other extra or missing steps are allowed. Namespace qualification is optional for owned symbols.",
+      "serialization": {
+        "fields": ["method", "kind", "escaping"],
+        "method": "The actual serializer API symbol (Class.Method).",
+        "kind": ["typed", "raw-value"],
+        "escaping": ["default-json", "unescaped", "unresolved"]
+      },
+      "sink": "The actual outbound send method, not a browser sink or an unrelated diagnostic method.",
+      "citations": "Source ranges grounding the inheritance and button binding, inherited handler declaration, branch guard, value construction, projection declaration/body and invocation, forwarding calls, any scalar helper declaration and conversion, actual writer and its destination JSON property association, encoder configuration and send relationships. The branch guard suffices without repeating the Boolean parameter declaration. Ground both the send call site and the byte-channel sink: either the sink method declaration with its byte payload type or its payload-storage assignment establishes the latter; call-site-only evidence does not. Each citation has exactly path, start_line, end_line, quote. Paths are relative to fixture/component; quote is the exact complete text of that range, with LF newlines. Broad ranges are allowed if they contain the relevant source and the structured relationships are correct."
+    },
+    "excluded_record": {
+      "fields": ["entry", "reason", "citations"],
+      "entry": "Enumerate the Class.Method entries of send-capable raw-code utilities outside the selected component's supported call closure. Group their scalar helpers beneath the unreachable send-capable entry through its citations; do not list a scalar-only helper as a separate excluded entry, even if it too is unreachable.",
+      "reason": "not-reachable-from-selected-component",
+      "citations": "Use the same exact source-range format as path citations. Ground the excluded send-capable entry declaration, send call and scalar-conversion body. Exclusion depends on the complete supported component call closure, not a helper's absence from one method."
+    },
+    "limits": {
+      "fields": ["browser_executed", "exploitability_established", "application_ids_hostile"],
+      "values": "Boolean observations. Do not turn application-controlled identifiers into hostile input or claim operations not performed."
+    },
+    "explanation": "The structured path records are the source-bound explanation, not free-form nonempty fact strings. In the final response explain the decision naturally, preserve satisfactory path facts, distinguish unrelated raw code and state the limits. No particular prose wording is required."
+  }
+}

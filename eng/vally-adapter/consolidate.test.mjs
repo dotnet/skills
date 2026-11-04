@@ -69,6 +69,27 @@ function render(verdicts, options = {}) {
   }
 }
 
+test("working-limit warnings identify baseline, isolated, and plugin cutoffs even on winning scenarios", () => {
+  for (const [field, role] of [
+    ["baselineTimedOut", "baseline"], ["timedOut", "isolated"], ["pluginTimedOut", "plugin"],
+  ]) {
+    for (const format of ["simple", "full"]) {
+      const markdown = render([{
+        skillName: "working-limit", state: "VALID_PASS", passed: true, conclusive: true,
+        scenarios: [{
+          scenarioName: "Winning scenario", netWin: 1, wins: 1, ties: 0, losses: 0,
+          expectActivation: true, skillActivationIsolated: { activated: true },
+          [field]: true,
+        }],
+      }], { format });
+      assert.match(markdown, new RegExp(`1 ${role} timeout`));
+      assert.match(markdown, new RegExp(`Winning scenario \\(timeout: ${role}\\)`));
+      assert.match(markdown, /Inspect timeouts/);
+      assert.doesNotMatch(markdown, /INVALID_INCONCLUSIVE/);
+    }
+  }
+});
+
 test("separates preference loss from the disabled objective regression gate", () => {
   const markdown = render([
     {

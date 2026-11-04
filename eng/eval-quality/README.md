@@ -217,6 +217,13 @@ sets `reject_skills`, and rejects a wildcard on any direct skill stimulus.
 Named exclusions on an on-target stimulus remain valid when they exclude only
 unrelated sibling skills.
 
+Historical top-level Boolean `expect_activation: false` remains readable.
+Canonical `"false"` and `"true"` are recommended string tags. Main's
+case-insensitive `false`/`no`/`off` strings declare dormancy; other strings do
+not declare a false guard. Non-string values and contradictory actual
+legacy/tagged declarations are errors. Both representations preserve
+the same dormancy constraints and preference-eligible stimulus counts.
+
 Adapter schema version 4 treats the case as an
 isolated target-skill activation contract: correct dormancy passes, unexpected
 activation blocks the result, and its comparison outcome is retained but

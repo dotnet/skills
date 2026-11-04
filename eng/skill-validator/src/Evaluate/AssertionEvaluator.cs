@@ -81,13 +81,8 @@ public static class AssertionEvaluator
         {
             foreach (var tool in scenario.ExpectTools)
             {
-                bool used = usedTools.Contains(tool);
-                results.Add(new AssertionResult(
-                    new Assertion(AssertionType.ExpectTools, Value: tool),
-                    used,
-                    used
-                        ? $"Tool '{tool}' was used"
-                        : $"Expected tool '{tool}' was not used (tools used: {(usedTools.Count > 0 ? string.Join(", ", usedTools) : "none")})"));
+                results.Add(EvaluateToolConstraint(
+                    tool, scenario.ExpectToolsArePatterns, required: true, usedTools));
             }
         }
 
@@ -95,13 +90,8 @@ public static class AssertionEvaluator
         {
             foreach (var tool in scenario.RejectTools)
             {
-                bool used = usedTools.Contains(tool);
-                results.Add(new AssertionResult(
-                    new Assertion(AssertionType.RejectTools, Value: tool),
-                    !used,
-                    !used
-                        ? $"Tool '{tool}' was not used (expected)"
-                        : $"Tool '{tool}' was used but should not be"));
+                results.Add(EvaluateToolConstraint(
+                    tool, scenario.RejectToolsArePatterns, required: false, usedTools));
             }
         }
 
@@ -128,6 +118,39 @@ public static class AssertionEvaluator
         }
 
         return results;
+    }
+
+    internal static Regex CreateToolNamePattern(string pattern) =>
+        new(pattern, RegexOptions.CultureInvariant, RegexTimeout);
+
+    private static AssertionResult EvaluateToolConstraint(
+        string tool, bool isPattern, bool required, IReadOnlyList<string> usedTools)
+    {
+        var assertion = new Assertion(
+            required ? AssertionType.ExpectTools : AssertionType.RejectTools,
+            Value: tool,
+            Pattern: isPattern ? tool : null);
+        bool used;
+        try
+        {
+            used = isPattern
+                ? usedTools.Any(CreateToolNamePattern(tool).IsMatch)
+                : usedTools.Contains(tool);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return new AssertionResult(assertion, false,
+                $"Tool name pattern '{tool}' timed out after {RegexTimeout.TotalSeconds}s");
+        }
+        var subject = isPattern ? $"Tool name pattern '{tool}'" : $"Tool '{tool}'";
+        return new AssertionResult(assertion, required ? used : !used,
+            required
+                ? used
+                    ? $"{subject} was used"
+                    : $"Expected {(isPattern ? "tool name pattern" : "tool")} '{tool}' was not used (tools used: {(usedTools.Count > 0 ? string.Join(", ", usedTools) : "none")})"
+                : used
+                    ? $"{subject} was used but should not be"
+                    : $"{subject} was not used (expected)");
     }
 
     private static async Task<AssertionResult> EvaluateAssertion(

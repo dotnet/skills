@@ -1,5 +1,7 @@
 name: use-igniteui-blazor
 description: Evaluates the dotnet-blazor/use-igniteui-blazor skill
+tags:
+  executionShard: igniteui
 type: capability
 defaults:
   timeout: 10m
@@ -240,6 +242,8 @@ stimuli:
       - Does not link the GridLite stylesheet, which belongs only to a grid-only setup
       - Stays on the host-page tags the user asked for instead of restating the package and startup steps
   - name: Decide whether to pass module types to AddIgniteUIBlazor
+    constraints:
+      max_agent_duration: 9m
     prompt: |
       In my Blazor app I can write either AddIgniteUIBlazor() or AddIgniteUIBlazor(typeof(IgbComboModule), typeof(IgbDialogModule)).
 

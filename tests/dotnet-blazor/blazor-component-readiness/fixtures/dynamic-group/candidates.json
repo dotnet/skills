@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "acquisition": "release-candidate",
+  "package_origin": {"locator": "package.nupkg", "retrieval_method": "local-file"},
+  "source": {
+    "availability": "source-available",
+    "repository_uri": "https://code.example.test/synthetic/dynamic-group",
+    "commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "mapping": "The release candidate maps to this synthetic dynamic-group source.",
+    "confidence": "high"
+  },
+  "retrieval_attempts": [
+    {"subject": "package", "locator": "package.nupkg", "retrieval_method": "local-file", "result": "succeeded", "detail": null}
+  ],
+  "documentation": [],
+  "package_sources": [],
+  "source_artifacts": [
+    {"source_path": "src/DynamicGroup.razor", "content_path": "DynamicGroup.razor"}
+  ],
+  "evidence_inputs": [
+    {"path": "lifecycle-protocol.json", "kind": "structured-protocol"},
+    {"path": "raw-add-child.json", "kind": "raw-observation"},
+    {"path": "raw-callbacks-error-routing.json", "kind": "raw-observation"},
+    {"path": "raw-cleanup-disposal.json", "kind": "raw-observation"},
+    {"path": "raw-disable-or-remove-selected-child.json", "kind": "raw-observation"},
+    {"path": "raw-focus-ownership-restoration.json", "kind": "raw-observation"},
+    {"path": "raw-keyed-reorder.json", "kind": "raw-observation"},
+    {"path": "raw-membership-reconciliation.json", "kind": "raw-observation"},
+    {"path": "raw-propagated-name-default-value-state.json", "kind": "raw-observation"},
+    {"path": "raw-remove-child.json", "kind": "raw-observation"},
+    {"path": "raw-single-roving-tab-stop.json", "kind": "raw-observation"}
+  ],
+  "owner_inputs": [],
+  "components": [
+    {
+      "id": "dynamic-group",
+      "display_name": "Dynamic Group",
+      "render_modes": ["interactive-server"],
+      "allowed_source_paths": ["src/DynamicGroup.razor"],
+      "dynamic_child_lifecycle": {
+        "applicability": "required",
+        "triggers": ["grouped-children", "registered-children", "selected-children"],
+        "rationale": null
+      }
+    }
+  ],
+  "exclusions": []
+}
