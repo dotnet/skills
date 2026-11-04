@@ -990,11 +990,12 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              The only repeat is the Exec in Directory.Build.targets, which runs 4 times because four deployment-test projects stamp the tool version. It costs 6.1 s in total. Making it run once could avoid about 4.59 s of task time. Even if all of that reduced wall-clock time, it is at most 0.43% of an 18 minute build; the 16-node count alone does not establish actual overlap. Csc and the other tasks run 212 times for 212 projects. I would not change anything: the added complexity is not worth the gain.
+              The demonstrated invariant repeat is the Exec in Directory.Build.targets, which runs 4 times because four deployment-test projects stamp the tool version. It costs 6.1 s in total. Making it run once could avoid about 4.59 s of task time. Even if all of that reduced wall-clock time, it is at most 0.43% of an 18 minute build; the 16-node count alone does not establish actual overlap. Csc, ResolveAssemblyReferences and GenerateDepsFile each run 212 times for 212 projects, consistent with per-project work. Copy reports 1,884 calls, but the file and target scopes are missing, so its expected count and avoidable cost are unknown. I would leave the inexpensive version probe unchanged and inspect Copy's scopes before proposing a copy-related optimization.
 
               | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
               |---|---|---|---|---|---|---|
               | Tool-version probe | 4 | 1 | 4590 estimated | Invariant per-project probe | Leave unchanged: upper bound below 1% | unknown |
+              | Copy | 1884 | unknown | unknown | File and target scopes are missing | Inspect task inputs and targets | unknown |
 
               Verdict: no repeated work worth changing
     graders:
@@ -1032,6 +1033,9 @@ stimuli:
       - Compared the aggregate saving upper bound with the 18 minute wall-clock and concluded it is not worth changing
         without assuming every busy node divides that saving
       - Did not recommend a change to the Exec or invent other repeated work
+      - Limited the 212-call comparison to Csc, ResolveAssemblyReferences and GenerateDepsFile, not Copy
+      - Left Copy's expected count and avoidable cost unknown without file and target scopes, rather than calling Exec the
+        only repeat or declaring all 1884 copies required or redundant
 
   - name: Keep revisions separate across repository roots
     prompt: |
