@@ -3749,7 +3749,15 @@ esac
         matrix_script = discovery_scripts["discover"]
         self.assertIn("$changedManifestPlugins", matrix_script)
         self.assertIn(
-            '$infraCanaryPlugins = @("dotnet", "dotnet-msbuild", "dotnet-test")',
+            '"dotnet" = "csharp-refactoring"',
+            matrix_script,
+        )
+        self.assertIn(
+            '"dotnet-msbuild" = "build-perf-diagnostics"',
+            matrix_script,
+        )
+        self.assertIn(
+            '"dotnet-test" = "writing-mstest-tests"',
             matrix_script,
         )
         self.assertNotIn("Get-Random", matrix_script)

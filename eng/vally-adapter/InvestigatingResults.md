@@ -35,14 +35,16 @@ plugin directory survives but its root manifest is missing or invalid, target
 discovery fails explicitly because it cannot safely enumerate the production
 agent surface.
 
-Evaluation-infrastructure changes run the fixed `dotnet`, `dotnet-msbuild`, and
-`dotnet-test` plugin canaries. These representative plugins exercise the Vally
-skill lane and their declared agent evals without selecting unrelated plugins
-randomly. Discovery fails if a canary has no skill evaluation entries. Valid
-version-only root manifest changes do not run model evaluations; repository
-versioning and manifest checks validate those mechanical edits. Skill, agent,
-test, and semantic manifest changes still select their normal targeted plugin
-evaluation surface.
+Evaluation-infrastructure changes run one fixed Vally sentinel from each
+representative plugin: `dotnet/csharp-refactoring`,
+`dotnet-msbuild/build-perf-diagnostics`, and
+`dotnet-test/writing-mstest-tests`. This exercises the baseline, isolated,
+plugin, comparison, and adaptation path without making infrastructure
+validation depend on every unrelated eval in those plugins. Discovery fails if
+any sentinel is unavailable. Valid version-only root manifest changes do not
+run model evaluations; repository versioning and manifest checks validate
+those mechanical edits. Skill, agent, test, and semantic manifest changes
+still select their normal targeted plugin evaluation surface.
 
 The native agent parser stages `stimuli[].environment.files`, not a shared
 suite-level `environment.files` block. Declare required authentication helpers

@@ -276,19 +276,24 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   if ($hasInfraChanges -and -not $hasSkillChanges) {
     echo "is_infra=true" >> $env:GITHUB_OUTPUT
-    # Infrastructure and version-sync changes use a fixed representative
-    # plugin sample. This exercises the Vally skill lane and any agent evals
-    # declared by these plugins without selecting unrelated plugins randomly.
-    $infraCanaryPlugins = @("dotnet", "dotnet-msbuild", "dotnet-test")
-    $entries = @($infraCanaryPlugins | ForEach-Object {
-      $plugin = $_
+    # Infrastructure changes use one fixed, validated Vally sentinel from
+    # each representative plugin. Running every eval in these large plugins
+    # makes infrastructure validation depend on unrelated suite health.
+    $infraCanarySkills = [ordered]@{
+      "dotnet" = "csharp-refactoring"
+      "dotnet-msbuild" = "build-perf-diagnostics"
+      "dotnet-test" = "writing-mstest-tests"
+    }
+    $infraCanaryPlugins = @($infraCanarySkills.Keys)
+    $entries = @($infraCanarySkills.GetEnumerator() | ForEach-Object {
+      $plugin = $_.Key
+      $skill = $_.Value
       $skillEntries = @(Get-PluginShardEntries `
-        -plugin $plugin -contentRoot $contentRoot)
-      if ($skillEntries.Count -eq 0) {
-        throw "Infrastructure canary plugin '$plugin' has no skill evaluation entries."
+        -plugin $plugin -contentRoot $contentRoot -selectedSkills @($skill))
+      if ($skillEntries.Count -ne 1) {
+        throw "Infrastructure canary '$plugin/$skill' does not resolve to exactly one skill evaluation entry."
       }
       $skillEntries
-      Get-PluginAgentEntries -plugin $plugin -contentRoot $contentRoot
     })
     $selectedCanaryPlugins = @($entries |
       Select-Object -ExpandProperty plugin -Unique)
@@ -297,7 +302,9 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     if ($missingCanaryPlugins.Count -gt 0) {
       throw "Infrastructure canary plugins are unavailable: $($missingCanaryPlugins -join ', ')."
     }
-    Write-Host "Infrastructure changes detected, evaluating fixed plugin canaries: $($infraCanaryPlugins -join ', ')."
+    $canaryNames = @($infraCanarySkills.GetEnumerator() |
+      ForEach-Object { "$($_.Key)/$($_.Value)" })
+    Write-Host "Infrastructure changes detected, evaluating fixed Vally canaries: $($canaryNames -join ', ')."
   } else {
     # Extract unique plugin/skill pairs from changed skill sources and
     # non-agent eval directories.

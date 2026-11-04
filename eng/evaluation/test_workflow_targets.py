@@ -192,8 +192,12 @@ class WorkflowTargetsTests(unittest.TestCase):
                 self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
     def create_infrastructure_canary_fixtures(self):
-        for plugin in ("dotnet", "dotnet-msbuild", "dotnet-test"):
-            self.create_plugin_fixture(plugin, "sample")
+        for plugin, skill in (
+            ("dotnet", "csharp-refactoring"),
+            ("dotnet-msbuild", "build-perf-diagnostics"),
+            ("dotnet-test", "writing-mstest-tests"),
+        ):
+            self.create_plugin_fixture(plugin, skill)
 
     def test_infrastructure_change_uses_fixed_plugin_canaries(self):
         manifest = self.create_plugin_fixture()
@@ -245,9 +249,19 @@ class WorkflowTargetsTests(unittest.TestCase):
             {entry["plugin"] for entry in entries},
             {"dotnet", "dotnet-msbuild", "dotnet-test"},
         )
+        self.assertEqual(
+            {entry["skills_path"] for entry in entries},
+            {
+                "plugins/dotnet/skills/csharp-refactoring",
+                "plugins/dotnet-msbuild/skills/build-perf-diagnostics",
+                "plugins/dotnet-test/skills/writing-mstest-tests",
+            },
+        )
         self.assertIn(
-            "evaluating fixed plugin canaries: "
-            "dotnet, dotnet-msbuild, dotnet-test",
+            "evaluating fixed Vally canaries: "
+            "dotnet/csharp-refactoring, "
+            "dotnet-msbuild/build-perf-diagnostics, "
+            "dotnet-test/writing-mstest-tests",
             result.stdout,
         )
 
@@ -277,8 +291,8 @@ class WorkflowTargetsTests(unittest.TestCase):
 
     def test_infrastructure_change_fails_when_plugin_canary_is_unavailable(self):
         self.create_plugin_fixture()
-        self.create_plugin_fixture("dotnet", "sample")
-        self.create_plugin_fixture("dotnet-msbuild", "sample")
+        self.create_plugin_fixture("dotnet", "csharp-refactoring")
+        self.create_plugin_fixture("dotnet-msbuild", "build-perf-diagnostics")
         self.git("init", "--quiet")
         base = self.commit_fixture("Fixture base")
         find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
@@ -299,8 +313,9 @@ class WorkflowTargetsTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(
-            "Infrastructure canary plugin 'dotnet-test' "
-            "has no skill evaluation entries",
+            "Infrastructure canary "
+            "'dotnet-test/writing-mstest-tests' does not resolve to "
+            "exactly one skill evaluation entry",
             normalized_output(result),
         )
 
