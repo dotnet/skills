@@ -1,6 +1,6 @@
 ---
 name: find-repeated-work-within-one-build
-description: "Use ONLY for auditing executed-task counts or batching/hoisting costs within ONE MSBuild invocation: per-project Exec, duplicate dependency builds, per-item generators, run-once races. NOT for second/unchanged builds, restores across commands, required-variant bin/obj collisions, evaluation-only repeats, unranked slowness or idle workers. Do not load this skill just to check scope or substitute for an unavailable specialist; answer directly instead."
+description: "Use ONLY for auditing executed-task counts or batching/hoisting costs within ONE MSBuild invocation: per-project Exec, duplicate dependency builds, per-item generators, run-once races. NEVER load for evaluation-only global-property variants with once-only target/task execution, idle-node/serial-chain investigations, second/unchanged builds, restores across commands, required-variant bin/obj collisions or unranked slowness. Do not load to check scope or replace an unavailable specialist; answer directly."
 license: MIT
 ---
 
