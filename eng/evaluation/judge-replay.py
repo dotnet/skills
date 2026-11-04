@@ -562,6 +562,9 @@ def run_replay(args):
                     winner = "treatment"
                 if winner not in ("baseline", "treatment", "tie"):
                     raise ValueError(f"Missing or invalid native judgment: {scenario['scenarioName']}")
+                magnitude = result.get("overallMagnitude")
+                if magnitude == 2 or str(magnitude).lower() == "equal":
+                    winner = "tie"
                 key = (skill, scenario["scenarioName"], 0)
                 if key in new:
                     raise ValueError(f"Duplicate native scenario: {key}")

@@ -664,6 +664,15 @@ class JudgeReplayTests(unittest.TestCase):
             self.assertFalse((output / "comparison.json").exists())
 
     def test_native_rejudge_copies_sessions_and_preserves_original(self):
+        self.assert_native_rejudge("skill", 1, "treatment")
+
+    def test_native_rejudge_equal_magnitude_is_a_tie(self):
+        for winner in ("baseline", "skill"):
+            for magnitude in (2, "equal", "Equal"):
+                with self.subTest(winner=winner, magnitude=magnitude):
+                    self.assert_native_rejudge(winner, magnitude, "tie")
+
+    def assert_native_rejudge(self, winner, magnitude, expected_winner):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
             root = Path(temporary)
             source, output = root / "source", root / "output"
@@ -692,7 +701,8 @@ class JudgeReplayTests(unittest.TestCase):
                     "judgeModel": "claude-haiku-5.5", "model": "gpt-5.6-luna",
                     "verdicts": [{"skillName": "testability-migration", "scenarios": [{
                         "scenarioName": "case", "pairwiseResult": {
-                            "overallWinner": "skill", "overallReasoning": "Candidate wins",
+                            "overallWinner": winner, "overallMagnitude": magnitude,
+                            "overallReasoning": "Candidate judgment",
                         },
                     }]}],
                 }))
@@ -703,7 +713,10 @@ class JudgeReplayTests(unittest.TestCase):
                     replay.run_replay(args)
             self.assertEqual(database.read_bytes(), b"original sessions")
             report = json.loads((output / "comparison.json").read_text())
-            self.assertEqual(report["counts"]["direct_reversals"], 1)
+            self.assertEqual(report["counts"]["direct_reversals"],
+                             int(expected_winner == "treatment"))
+            self.assertEqual(report["counts"]["tie_shifts"], int(expected_winner == "tie"))
+            self.assertEqual(report["cases"][0]["candidate"]["winner"], expected_winner)
             self.assertEqual(report["cases"][0]["skill"], "agent.testability-migration")
 
     def test_native_rejudge_missing_results_reports_validator_failure(self):

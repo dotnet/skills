@@ -102,6 +102,9 @@ is a replay failure, not a failed skill verdict. Saved agent reports can use
 the `agent.` skill prefix while native rejudge uses the bare name; the replay
 matches that alias only when the original artifact contains the exact prefixed
 skill name.
+Native replay treats an `overallMagnitude` of `equal` (case-insensitive) or
+numeric `2` as a tie even when `overallWinner` names a side, matching the native
+results adapter.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup
