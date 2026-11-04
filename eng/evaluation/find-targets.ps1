@@ -277,8 +277,9 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   if ($hasInfraChanges -and -not $hasSkillChanges) {
     echo "is_infra=true" >> $env:GITHUB_OUTPUT
     # Infrastructure changes use one fixed, validated Vally sentinel from
-    # each representative plugin. Running every eval in these large plugins
-    # makes infrastructure validation depend on unrelated suite health.
+    # each representative plugin plus one native-agent sentinel. Running every
+    # eval in these large plugins makes infrastructure validation depend on
+    # unrelated suite health.
     $infraCanarySkills = [ordered]@{
       "dotnet" = "csharp-refactoring"
       "dotnet-msbuild" = "build-perf-diagnostics"
@@ -295,6 +296,15 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
       }
       $skillEntries
     })
+    $infraAgentPlugin = "dotnet-msbuild"
+    $infraAgent = "build-perf"
+    $agentEntries = @(Get-PluginAgentEntries `
+      -plugin $infraAgentPlugin -contentRoot $contentRoot `
+      -selectedAgents @($infraAgent))
+    if ($agentEntries.Count -ne 1) {
+      throw "Infrastructure canary '$infraAgentPlugin/agent.$infraAgent' does not resolve to exactly one agent evaluation entry."
+    }
+    $entries += $agentEntries
     $selectedCanaryPlugins = @($entries |
       Select-Object -ExpandProperty plugin -Unique)
     $missingCanaryPlugins = @($infraCanaryPlugins |
@@ -304,7 +314,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     }
     $canaryNames = @($infraCanarySkills.GetEnumerator() |
       ForEach-Object { "$($_.Key)/$($_.Value)" })
-    Write-Host "Infrastructure changes detected, evaluating fixed Vally canaries: $($canaryNames -join ', ')."
+    Write-Host "Infrastructure changes detected, evaluating fixed Vally canaries: $($canaryNames -join ', '); native agent canary: $infraAgentPlugin/agent.$infraAgent."
   } else {
     # Extract unique plugin/skill pairs from changed skill sources and
     # non-agent eval directories.

@@ -95,21 +95,31 @@ class WorkflowTargetsTests(unittest.TestCase):
         )
         return manifest
 
-    def create_agent_fixture(self, manifest_content=None):
-        agent = self.root / "plugins" / "demo" / "agents" / "router.agent.md"
-        evaluation = self.root / "tests" / "demo" / "agent.router" / "eval.yaml"
+    def create_agent_fixture(
+        self, manifest_content=None, plugin="demo", agent_name="router"
+    ):
+        agent = (
+            self.root
+            / "plugins"
+            / plugin
+            / "agents"
+            / f"{agent_name}.agent.md"
+        )
+        evaluation = (
+            self.root / "tests" / plugin / f"agent.{agent_name}" / "eval.yaml"
+        )
         agent.parent.mkdir(parents=True)
         evaluation.parent.mkdir(parents=True)
         agent.write_text(
-            "---\nname: router\ndescription: Route work.\n---\nRoute work.\n",
+            f"---\nname: {agent_name}\ndescription: Route work.\n---\nRoute work.\n",
             encoding="utf-8",
         )
         evaluation.write_text(
-            "name: router\nstimuli: []\n",
+            f"name: {agent_name}\nstimuli: []\n",
             encoding="utf-8",
         )
         if manifest_content is not None:
-            manifest = self.root / "plugins" / "demo" / "plugin.json"
+            manifest = self.root / "plugins" / plugin / "plugin.json"
             manifest.write_text(manifest_content, encoding="utf-8")
         return agent
 
@@ -198,6 +208,7 @@ class WorkflowTargetsTests(unittest.TestCase):
             ("dotnet-test", "writing-mstest-tests"),
         ):
             self.create_plugin_fixture(plugin, skill)
+        self.create_agent_fixture(plugin="dotnet-msbuild", agent_name="build-perf")
 
     def test_infrastructure_change_uses_fixed_plugin_canaries(self):
         manifest = self.create_plugin_fixture()
@@ -240,10 +251,10 @@ class WorkflowTargetsTests(unittest.TestCase):
             repeated_result.stdout + repeated_result.stderr,
         )
         self.assertEqual(self.entries(), entries)
-        self.assertEqual(len(entries), 6)
+        self.assertEqual(len(entries), 8)
         self.assertEqual(
             {entry["target_kind"] for entry in entries},
-            {"skill"},
+            {"skill", "agent"},
         )
         self.assertEqual(
             {entry["plugin"] for entry in entries},
@@ -252,16 +263,37 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual(
             {entry["skills_path"] for entry in entries},
             {
+                "",
                 "plugins/dotnet/skills/csharp-refactoring",
                 "plugins/dotnet-msbuild/skills/build-perf-diagnostics",
                 "plugins/dotnet-test/skills/writing-mstest-tests",
             },
         )
+        agent_entries = [
+            entry for entry in entries if entry["target_kind"] == "agent"
+        ]
+        self.assertEqual(len(agent_entries), 2)
+        self.assertEqual(
+            {entry["name"] for entry in agent_entries},
+            {
+                "dotnet-msbuild--agent.build-perf--claude-sonnet-5",
+                "dotnet-msbuild--agent.build-perf--gpt-5.6-luna",
+            },
+        )
+        self.assertEqual(
+            {entry["agents_path"] for entry in agent_entries},
+            {"plugins/dotnet-msbuild/agents/build-perf.agent.md"},
+        )
+        self.assertEqual(
+            {entry["eval_path"] for entry in agent_entries},
+            {"tests/dotnet-msbuild/agent.build-perf/eval.yaml"},
+        )
         self.assertIn(
             "evaluating fixed Vally canaries: "
             "dotnet/csharp-refactoring, "
             "dotnet-msbuild/build-perf-diagnostics, "
-            "dotnet-test/writing-mstest-tests",
+            "dotnet-test/writing-mstest-tests; "
+            "native agent canary: dotnet-msbuild/agent.build-perf",
             result.stdout,
         )
 
@@ -316,6 +348,41 @@ class WorkflowTargetsTests(unittest.TestCase):
             "Infrastructure canary "
             "'dotnet-test/writing-mstest-tests' does not resolve to "
             "exactly one skill evaluation entry",
+            normalized_output(result),
+        )
+
+    def test_infrastructure_change_fails_when_agent_canary_is_unavailable(self):
+        self.create_plugin_fixture()
+        for plugin, skill in (
+            ("dotnet", "csharp-refactoring"),
+            ("dotnet-msbuild", "build-perf-diagnostics"),
+            ("dotnet-test", "writing-mstest-tests"),
+        ):
+            self.create_plugin_fixture(plugin, skill)
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
+        find_targets.write_text(
+            find_targets.read_text(encoding="utf-8")
+            + "\n# Infrastructure change.\n",
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change evaluation infrastructure")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "Infrastructure canary "
+            "'dotnet-msbuild/agent.build-perf' does not resolve to "
+            "exactly one agent evaluation entry",
             normalized_output(result),
         )
 
