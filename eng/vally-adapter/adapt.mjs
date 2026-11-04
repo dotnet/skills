@@ -1484,7 +1484,7 @@ function runCompare(baselineSlice, skilledSlice, outFile) {
     ...process.env,
     COPILOT_HOME: copilotHome,
   };
-  if (!env.COPILOT_GITHUB_TOKEN && env.GITHUB_TOKEN) {
+  if (!env.COPILOT_GITHUB_TOKEN && !env.GH_TOKEN && env.GITHUB_TOKEN) {
     env.COPILOT_GITHUB_TOKEN = env.GITHUB_TOKEN;
   }
   const args = [

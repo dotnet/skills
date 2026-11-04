@@ -82,6 +82,8 @@ appendFileSync(
   JSON.stringify({
     copilotHome: process.env.COPILOT_HOME ?? "",
     copilotGithubToken: process.env.COPILOT_GITHUB_TOKEN ?? "",
+    ghToken: process.env.GH_TOKEN ?? "",
+    githubToken: process.env.GITHUB_TOKEN ?? "",
   }) + "\\n",
 );
 if (mode === "fails") process.exit(3);
@@ -176,6 +178,7 @@ function runAdapter(
   expectedEvalFiles = [evalFile],
   experimentFactory = createExperiment,
   repoRoot,
+  environmentOverrides = {},
 ) {
   const runDir = experimentFactory(root);
   const outputRoot = join(root, "output");
@@ -196,6 +199,7 @@ function runAdapter(
   if (repoRoot) args.push("--repo-root", repoRoot);
   const {
     COPILOT_GITHUB_TOKEN: _copilotGithubToken,
+    GH_TOKEN: _ghToken,
     ...testEnvironment
   } = process.env;
   const inheritedCopilotHome = join(root, "inherited-copilot-home");
@@ -205,6 +209,7 @@ function runAdapter(
       ...testEnvironment,
       COPILOT_HOME: inheritedCopilotHome,
       GITHUB_TOKEN: "adapter-test-github-token",
+      ...environmentOverrides,
     },
   });
   const verdictPath = join(
@@ -274,6 +279,44 @@ test("retries a transient comparison error once", () => {
     assert.equal(verdict.skillKind, "skill");
     assert.equal(verdict.recoveredErrors.length, 5);
     assert.match(processOutput(result), /without replacing successful judgments/);
+  });
+});
+
+test("preserves GH_TOKEN instead of promoting a lower-priority GITHUB_TOKEN", () => {
+  withTempDir((root) => {
+    const { result, comparisonAuth } = runAdapter(
+      root,
+      "recover",
+      5,
+      [evalFile],
+      createExperiment,
+      undefined,
+      {
+        GH_TOKEN: "adapter-test-gh-token",
+        GITHUB_TOKEN: "adapter-test-repository-token",
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(comparisonAuth.length, 2);
+    assert.deepEqual(
+      comparisonAuth.map(({ copilotGithubToken, ghToken, githubToken }) => ({
+        copilotGithubToken,
+        ghToken,
+        githubToken,
+      })),
+      [
+        {
+          copilotGithubToken: "",
+          ghToken: "adapter-test-gh-token",
+          githubToken: "adapter-test-repository-token",
+        },
+        {
+          copilotGithubToken: "",
+          ghToken: "adapter-test-gh-token",
+          githubToken: "adapter-test-repository-token",
+        },
+      ],
+    );
   });
 });
 
