@@ -29,6 +29,10 @@
 .PARAMETER CommitJson
     Optional JSON string with commit info (id, message, author, timestamp, url).
 
+.PARAMETER ExecutionId
+    Stable identity shared by every published judge view from one evaluation
+    workflow execution, such as the GitHub run ID and attempt.
+
 .PARAMETER PurgeStaleFiles
     When set, scans DataDir for plugin JSON files, purges entries older than the
     retention window, and deletes files that have no remaining entries.
@@ -70,6 +74,9 @@ param(
 
     [Parameter(ParameterSetName = 'Generate')]
     [string]$CommitJson,
+
+    [Parameter(ParameterSetName = 'Generate')]
+    [string]$ExecutionId,
 
     [Parameter(ParameterSetName = 'Generate')]
     [ValidateSet('scheduled', 'pr')]
@@ -163,6 +170,33 @@ function Get-MeanOrNull([double]$sum, [int]$count) {
 function Update-SkillValueIndex([string]$Directory) {
     if (-not (Test-Path $Directory)) { return }
 
+    function Get-EntryIdentity([object]$Entry) {
+        if ($Entry.executionId) {
+            return "execution:$($Entry.executionId):$($Entry.model)"
+        }
+        $commitId = if ($Entry.commit -and $Entry.commit.id) { $Entry.commit.id } else { "" }
+        return "legacy:$($Entry.date):$($Entry.model):$commitId"
+    }
+
+    function Set-NativeOutcomeEvidence([object]$Skill, [object]$Evidence) {
+        $completionRegressed = (
+            $Evidence.stateReason -and
+            $Evidence.stateReason.code -eq "native_completion_regression"
+        )
+        $targetActivationFailed = (
+            $Evidence.stateReason -and
+            $Evidence.stateReason.code -eq "target_agent_not_activated"
+        )
+        foreach ($property in @{
+            completionRegressed   = $completionRegressed
+            targetActivationFailed = $targetActivationFailed
+        }.GetEnumerator()) {
+            if (-not $Skill.PSObject.Properties[$property.Key]) {
+                $Skill | Add-Member -NotePropertyName $property.Key -NotePropertyValue $property.Value
+            }
+        }
+    }
+
     $entries = [System.Collections.Generic.List[object]]::new()
     $reservedFiles = @(
         "components.json",
@@ -177,12 +211,32 @@ function Update-SkillValueIndex([string]$Directory) {
     foreach ($file in $pluginFiles) {
         try {
             $data = Get-Content $file.FullName -Raw | ConvertFrom-Json
+            $qualityByIdentity = @{}
+            foreach ($qualityEntry in @($data.entries.Quality)) {
+                if ($null -eq $qualityEntry) { continue }
+                $qualityByIdentity[(Get-EntryIdentity $qualityEntry)] = $qualityEntry
+            }
             foreach ($entry in @($data.entries.SkillValue)) {
                 if ($null -eq $entry) { continue }
+                $qualityEntry = $qualityByIdentity[(Get-EntryIdentity $entry)]
+                if ($qualityEntry) {
+                    $evidenceBySkill = @{}
+                    foreach ($evidence in @($qualityEntry.verdictEvidence)) {
+                        if ($evidence -and $evidence.skillName) {
+                            $evidenceBySkill["$($evidence.skillName)"] = $evidence
+                        }
+                    }
+                    foreach ($skill in @($entry.skills)) {
+                        if ($skill -and $skill.skill -and $evidenceBySkill.ContainsKey("$($skill.skill)")) {
+                            Set-NativeOutcomeEvidence $skill $evidenceBySkill["$($skill.skill)"]
+                        }
+                    }
+                }
                 $entries.Add([ordered]@{
                     plugin     = $file.BaseName
                     commit     = $entry.commit
                     date       = $entry.date
+                    executionId = $entry.executionId
                     model      = $entry.model
                     judgeModel = $entry.judgeModel
                     skills     = $entry.skills
@@ -702,6 +756,7 @@ $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $qualityEntry = @{
     commit          = $commit
     date            = $now
+    executionId     = $ExecutionId
     tool            = "customBiggerIsBetter"
     model           = $model
     benches         = $qualityBenches.ToArray()
@@ -709,10 +764,11 @@ $qualityEntry = @{
 }
 
 $efficiencyEntry = @{
-    commit = $commit
-    date   = $now
-    tool   = "customSmallerIsBetter"
-    model  = $model
+    commit      = $commit
+    date        = $now
+    executionId = $ExecutionId
+    tool        = "customSmallerIsBetter"
+    model       = $model
     benches = $efficiencyBenches.ToArray()
 }
 
@@ -769,6 +825,16 @@ foreach ($verdict in $results.verdicts) {
     } else {
         $null
     }
+    $targetActivationFailed = (
+        $verdict.PSObject.Properties['stateReason'] -and
+        $verdict.stateReason -and
+        $verdict.stateReason.code -eq "target_agent_not_activated"
+    )
+    $completionRegressed = (
+        $verdict.PSObject.Properties['stateReason'] -and
+        $verdict.stateReason -and
+        $verdict.stateReason.code -eq "native_completion_regression"
+    )
     $preference = if ($signTest) {
         @{
             count              = [int]$verdict.stimulusVoteCount
@@ -908,17 +974,20 @@ foreach ($verdict in $results.verdicts) {
         baselineOnlyPass  = $baselineOnlyPass
         treatmentOnlyPass = $treatmentOnlyPass
         hasPassData      = ($passTotal -gt 0)
+        targetActivationFailed = $targetActivationFailed
+        completionRegressed = $completionRegressed
         activationContract = $activationContract
         preference       = $preference
     })
 }
 
 $skillValueEntry = @{
-    commit     = $commit
-    date       = $now
-    model      = $model
-    judgeModel = $results.judgeModel
-    skills     = $skillValueSkills.ToArray()
+    commit      = $commit
+    date        = $now
+    executionId = $ExecutionId
+    model       = $model
+    judgeModel  = $results.judgeModel
+    skills      = $skillValueSkills.ToArray()
 }
 
 
