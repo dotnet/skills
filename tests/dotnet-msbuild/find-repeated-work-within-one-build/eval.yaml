@@ -97,11 +97,14 @@ stimuli:
                           ) for call in calls
                       )
                   capacity = bin_dir / 'capacity.proj'
-                  ET.ElementTree(ET.Element('Project')).write(capacity, encoding='utf-8')
+                  # Evaluation-only queries report one node even when -m enables more.
+                  capacity_project = ET.Element('Project')
+                  ET.SubElement(capacity_project, 'Target', Name='_GraderMeasureCapacity')
+                  ET.ElementTree(capacity_project).write(capacity, encoding='utf-8')
                   result = subprocess.run(
                       [dotnet, 'msbuild', str(capacity), '-nologo', '-verbosity:quiet',
-                       '-maxCpuCount', '-getProperty:MSBuildNodeCount'],
-                      capture_output=True, text=True, timeout=30,
+                       '-maxCpuCount', '-target:_GraderMeasureCapacity', '-getProperty:MSBuildNodeCount'],
+                      capture_output=True, text=True, timeout=120,
                   )
                   assert result.returncode == 0, result.stdout + result.stderr
                   # -m can resolve to one node on a single-processor runner.
@@ -186,7 +189,7 @@ stimuli:
                       clear_calls()
                       result = subprocess.run(
                           [dotnet, 'build', str(project), '-nologo', '-verbosity:quiet', '-nodeReuse:false'],
-                          cwd=project.parent, env=env, capture_output=True, text=True, timeout=30,
+                          cwd=project.parent, env=env, capture_output=True, text=True, timeout=120,
                       )
                       assert result.returncode == 0, result.stdout + result.stderr
                       check_build(record, commit, ci=False)
@@ -259,11 +262,30 @@ stimuli:
                   shutil.copytree(base, work, ignore=shutil.ignore_patterns('bin', 'obj'))
                   logs = (pathlib.Path(tmp) / 'logs').resolve()
                   (logs / 'core').mkdir(parents=True)
+                  (logs / 'core-entries').mkdir()
+                  capacity = logs / 'capacity.proj'
+                  capacity_project = ET.Element('Project')
+                  ET.SubElement(capacity_project, 'Target', Name='_GraderMeasureCapacity')
+                  ET.ElementTree(capacity_project).write(capacity, encoding='utf-8')
+                  result = subprocess.run(
+                      [dotnet, 'msbuild', str(capacity), '-nologo', '-verbosity:quiet',
+                       '-maxCpuCount', '-target:_GraderMeasureCapacity', '-getProperty:MSBuildNodeCount'],
+                      cwd=work, capture_output=True, text=True, timeout=120,
+                  )
+                  assert result.returncode == 0, result.stdout + result.stderr
+                  minimum_nodes = int(result.stdout.strip())
                   core_path = work / 'Core' / 'Core.csproj'
                   core = ET.parse(core_path)
                   record = ET.SubElement(core.getroot(), 'Target', Name='_GraderRecordCoreBuild', BeforeTargets='Build')
                   ET.SubElement(record, 'WriteLinesToFile', Overwrite='true', Encoding='UTF-8',
                                 File=str(logs / 'core' / '$([System.Guid]::NewGuid()).txt'), Lines='$(TargetPath)')
+                  entry = ET.SubElement(core.getroot(), 'Target', Name='_GraderRecordCoreEntry', BeforeTargets='GetTargetPath')
+                  ET.SubElement(
+                      entry, 'WriteLinesToFile', Overwrite='true', Encoding='UTF-8',
+                      File=str(logs / 'core-entries' / '$([System.Guid]::NewGuid()).txt'),
+                      Lines='component=$(ComponentName);references=$(BuildProjectReferences);'
+                            'nodes=$(MSBuildNodeCount);parallel=$(BuildInParallel)',
+                  )
                   core.write(core_path, encoding='utf-8')
                   for component in ['Web', 'Api', 'Worker']:
                       path = work / component / (component + '.csproj')
@@ -287,6 +309,14 @@ stimuli:
                   assert len(calls) == 1, 'the submitted BuildAll path must build Core exactly once'
                   core_output = pathlib.Path(calls[0].read_text(encoding='utf-8-sig').strip()).resolve()
                   assert core_output.is_relative_to(work) and core_output.is_file() and core_output.name == 'Core.dll', 'Core must produce its assembly on a clean build'
+                  entries = list((logs / 'core-entries').glob('*.txt'))
+                  assert entries, 'exercise Core reference resolution through GetTargetPath'
+                  for entry in entries:
+                      observed = dict(line.split('=', 1) for line in entry.read_text(encoding='utf-8-sig').splitlines())
+                      assert not observed['component'], 'Core reference resolution must remove the irrelevant ComponentName property'
+                      assert observed['references'].strip().lower() not in ['false', 'off', 'no', '0'], 'Core reference resolution must keep project-reference builds enabled'
+                      assert int(observed['nodes']) >= minimum_nodes, 'preserve available parallel capacity during Core reference resolution'
+                      assert observed['parallel'].strip().lower() not in ['false', 'off', 'no', '0'], 'do not disable parallel execution during Core reference resolution'
                   for component in ['Web', 'Api', 'Worker']:
                       lines = (logs / (component + '.txt')).read_text(encoding='utf-8-sig').splitlines()
                       assert lines[0] == 'Contoso ' + component, 'preserve the effective component AssemblyTitle'
@@ -369,8 +399,20 @@ stimuli:
                   shutil.copytree(base, work)
                   bin_dir = pathlib.Path(tmp) / 'bin'
                   bin_dir.mkdir()
+                  capacity = bin_dir / 'capacity.proj'
+                  capacity_project = ET.Element('Project')
+                  ET.SubElement(capacity_project, 'Target', Name='_GraderMeasureCapacity')
+                  ET.ElementTree(capacity_project).write(capacity, encoding='utf-8')
+                  result = subprocess.run(
+                      [real_dotnet, 'msbuild', str(capacity), '-nologo', '-verbosity:quiet',
+                       '-maxCpuCount', '-target:_GraderMeasureCapacity', '-getProperty:MSBuildNodeCount'],
+                      cwd=work, capture_output=True, text=True, timeout=120,
+                  )
+                  assert result.returncode == 0, result.stdout + result.stderr
+                  minimum_nodes = int(result.stdout.strip())
                   solution = ET.Element('Solution')
                   observations = []
+                  start_observations = []
                   compile_observations = []
                   compiler_observations = []
                   boundaries = []
@@ -379,13 +421,23 @@ stimuli:
                   for name in ['Api', 'Worker']:
                       project_dir = work / 'probes' / name
                       project_dir.mkdir(parents=True)
-                      probe = ET.Element('Project')
+                      initial_target = '_GraderVerifySharedReady_' + uuid.uuid4().hex
+                      probe = ET.Element('Project', InitialTargets=initial_target)
                       ET.SubElement(probe, 'Import', Project='Sdk.props', Sdk='Microsoft.NET.Sdk')
                       properties = ET.SubElement(probe, 'PropertyGroup')
                       for property_name, value in [('Configuration', 'Release'), ('TargetFramework', 'net10.0'),
                                                    ('IsCrossTargetingBuild', 'false'), ('ProvideCommandLineArgs', 'true')]:
                           ET.SubElement(properties, property_name).text = value
                       ET.SubElement(probe, 'Import', Project='Sdk.targets', Sdk='Microsoft.NET.Sdk')
+                      ready = ET.SubElement(probe, 'Target', Name=initial_target)
+                      ET.SubElement(ready, 'Error', Condition="!Exists('" + str(generated) + "')",
+                                    Text='generate the shared source before project builds begin')
+                      started = bin_dir / (name + '.started')
+                      start_observations.append(started)
+                      ET.SubElement(
+                          ready, 'WriteLinesToFile', File=str(started.resolve()), Overwrite='false',
+                          Lines='configuration=$(Configuration);nodes=$(MSBuildNodeCount);parallel=$(BuildInParallel)',
+                      )
                       observation = bin_dir / (name + '.built')
                       observations.append((name, observation))
                       observer = ET.SubElement(probe, 'Target', Name='ObserveProbeBuild_' + uuid.uuid4().hex,
@@ -399,11 +451,12 @@ stimuli:
                                     Lines='@(CscCommandLineArgs)', Overwrite='false')
                       compiler = ET.SubElement(probe, 'Target', Name='ObserveCompile_' + uuid.uuid4().hex,
                                                BeforeTargets='CoreCompile')
-                      for phase, target in [('compile', compiler), ('built', observer)]:
-                          items = bin_dir / (name + '.' + phase + '.compile-items')
-                          compile_observations.append(items)
-                          ET.SubElement(target, 'WriteLinesToFile', File=str(items.resolve()),
-                                        Lines="@(Compile->'%(FullPath)')", Overwrite='true')
+                      for phase, target in [('start', ready), ('compile', compiler), ('built', observer)]:
+                          if phase != 'start':
+                              items = bin_dir / (name + '.' + phase + '.compile-items')
+                              compile_observations.append(items)
+                              ET.SubElement(target, 'WriteLinesToFile', File=str(items.resolve()),
+                                            Lines="@(Compile->'%(FullPath)')", Overwrite='true')
                           hashes = '_GraderGenerated_' + phase
                           expected_hashes = '_GraderExpected_' + phase
                           for file, item_name in [(generated, hashes), (expected, expected_hashes)]:
@@ -427,10 +480,13 @@ stimuli:
                   real_date = subprocess.run([bash, '-c', 'command -v date'], check=True,
                                              capture_output=True, text=True).stdout.strip()
                   assert real_date, 'GNU date is required to exercise the original generator'
+                  date_calls = bin_dir / 'date-calls'
+                  date_calls.mkdir()
                   date = bin_dir / 'date'
                   # Widen partial writes without depending on the generator's implementation or location.
                   date.write_text(
                       '#!/usr/bin/env sh\nset -eu\n'
+                      'mktemp "$DATE_CALLS/call.XXXXXX" >/dev/null\n'
                       'sleep 1\n'
                       '"$REAL_DATE" "$@"\n',
                       encoding='utf-8', newline='\n',
@@ -444,14 +500,15 @@ stimuli:
                   )
                   dotnet.chmod(0o755)
                   env = dict(os.environ, MOCK_BIN=str(bin_dir), REAL_DATE=real_date,
+                             DATE_CALLS=date_calls.resolve().as_posix(),
                              REAL_DOTNET=pathlib.Path(real_dotnet).as_posix(),
                              MSBUILDDISABLENODEREUSE='1')
-                  def source_for_date(value):
+                  def source_for_stamp(value):
                       return ('internal static class BuildInfo { public const string Stamp = "' +
-                              value.strftime('%Y%m%d') + '"; }\n').encode('utf-8')
+                              value + '"; }\n').encode('utf-8')
                   def set_stamp(value):
-                      env['BUILDINFO_STAMP'] = value.strftime('%Y%m%d')
-                      expected.write_bytes(source_for_date(value))
+                      env['BUILDINFO_STAMP'] = value if isinstance(value, str) else value.strftime('%Y%m%d')
+                      expected.write_bytes(source_for_stamp(env['BUILDINFO_STAMP']))
                   class UtcDateRollover(RuntimeError):
                       pass
                   def require_day(day):
@@ -459,15 +516,26 @@ stimuli:
                           raise UtcDateRollover('UTC date changed during the default build probe')
                   def run_build(phase, should_compile, day=None):
                       require_day(day)
-                      for path in ([path for _, path in observations] + compile_observations + compiler_observations +
-                                   boundaries):
+                      for path in ([path for _, path in observations] + start_observations + compile_observations +
+                                   compiler_observations + boundaries):
                           path.unlink(missing_ok=True)
+                      calls_before = set(date_calls.iterdir())
                       result = subprocess.run(
                           [bash, '-c', 'export MOCK_BIN="$(cd "$MOCK_BIN" && pwd)"; export PATH="$MOCK_BIN:$PATH"; bash build.sh'],
                           cwd=work, env=env, timeout=60,
                       )
                       require_day(day)
                       result.check_returncode()
+                      assert len(set(date_calls.iterdir()) - calls_before) <= 1, 'compute the shared date at most once per wrapper invocation'
+                      for path in start_observations:
+                          assert path.is_file(), 'observe the start of every project build'
+                          lines = path.read_text(encoding='utf-8-sig').splitlines()
+                          assert lines and len(lines) % 3 == 0, 'preserve every project-start observation'
+                          for index in range(0, len(lines), 3):
+                              observed = dict(line.split('=', 1) for line in lines[index:index + 3])
+                              assert observed['configuration'] == 'Release', 'preserve the effective Release configuration'
+                              assert int(observed['nodes']) >= minimum_nodes, 'preserve available parallel capacity at project start'
+                              assert observed['parallel'].strip().lower() not in ['false', 'off', 'no', '0'], 'do not disable parallel execution through global properties'
                       for name, path in observations:
                           assert path.is_file(), 'exercise both project Build paths and their submitted target hooks'
                           lines = path.read_text(encoding='utf-8-sig').splitlines()
@@ -480,12 +548,12 @@ stimuli:
                       assert all(path.is_file() and generated.resolve() in [
                           pathlib.Path(line).resolve() for line in path.read_text(encoding='utf-8-sig').splitlines()
                       ] for path in compile_observations), 'each project must retain buildinfo.g.cs in effective Compile items at the compile and build boundaries'
-                      assert generated.read_bytes() == expected.read_bytes(), 'preserve the original daily build-info output bytes'
+                      assert generated.read_bytes() == expected.read_bytes(), 'preserve the original build-info output bytes'
                       final_ns = generated.stat().st_mtime_ns
                       expected_mtime = datetime.datetime.fromtimestamp(final_ns // 1_000_000_000).strftime('%Y-%m-%d %H:%M:%S')
                       expected_mtime += '.' + format(final_ns % 1_000_000_000 // 100, '07d')
                       for mtime in boundaries:
-                          assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before compilation and preserve it through Build'
+                          assert mtime.is_file() and mtime.read_text(encoding='utf-8-sig').strip() == expected_mtime, 'publish the final source timestamp before project builds begin and preserve it through Build'
                       return generated.stat().st_mtime_ns
                   stamp = datetime.date(2040, 1, 1) + datetime.timedelta(days=uuid.uuid4().int % 20000)
                   set_stamp(stamp)
@@ -494,6 +562,9 @@ stimuli:
                   assert run_build('unchanged', False) == unchanged_mtime, 'an identical second build must preserve the generated-source timestamp'
                   set_stamp(stamp + datetime.timedelta(days=1))
                   assert run_build('changed', True) > unchanged_mtime, 'refresh the generated source when the stamp changes, preserving the existing warm cache'
+                  set_stamp('release-42')
+                  override_mtime = run_build('arbitrary-override', True)
+                  assert run_build('arbitrary-override-unchanged', False) == override_mtime, 'an unchanged arbitrary override must preserve the generated-source timestamp'
                   for phase, value in [('unset', None), ('empty', '')]:
                       for attempt in range(2):
                           day = datetime.datetime.now(datetime.timezone.utc).date()
@@ -504,7 +575,7 @@ stimuli:
                               env.pop('BUILDINFO_STAMP', None)
                           else:
                               env['BUILDINFO_STAMP'] = value
-                          expected.write_bytes(source_for_date(day))
+                          expected.write_bytes(source_for_stamp(day.strftime('%Y%m%d')))
                           try:
                               refreshed = run_build(phase, True, day)
                               assert refreshed > seed_mtime, 'the UTC default must replace the prior-day cached source'
@@ -658,7 +729,7 @@ stimuli:
                   required = {work / 'schemas' / (name + '.json') for name in ['Customer', 'Invoice', 'Order']}
                   assert required == sources, 'preserve exactly the original fixture schema inputs'
                   source_bytes = {source: source.read_bytes() for source in sources}
-                  # Separate past input/output mtimes without sleeps or future-dated outputs.
+                  # Age only inputs so target-file dependencies retain their real chronology.
                   clock = time.time_ns() - 120_000_000_000
                   for source in sources:
                       os.utime(source, ns=(clock, clock))
@@ -720,9 +791,6 @@ stimuli:
                       assert compiled <= allowed_sources and consumed <= allowed_sources, phase + ': do not introduce additional C# compiler inputs'
                       return expected_outputs, calls
                   outputs, calls = probe('clean', sources, [])
-                  for output in outputs:
-                      stamp = clock + 40_000_000_000
-                      os.utime(output, ns=(stamp, stamp))
                   timestamps = {output: output.stat().st_mtime_ns for output in outputs}
                   unchanged, calls = probe('unchanged', set(), calls)
                   assert unchanged == outputs, 'unchanged: preserve every output mapping and byte'
@@ -730,8 +798,14 @@ stimuli:
                   changed_source = work / 'schemas' / 'Order.json'
                   source_bytes[changed_source] += b'\n'
                   changed_source.write_bytes(source_bytes[changed_source])
-                  dirty_stamp = clock + 80_000_000_000
+                  dirty_stamp = max(timestamps.values()) + 2_000_000_000
                   os.utime(changed_source, ns=(dirty_stamp, dirty_stamp))
+                  # Fresh outputs must not predate the deliberately newer input.
+                  delay = max(0, (dirty_stamp - time.time_ns()) / 1_000_000_000)
+                  assert delay <= 5, 'clean generated outputs must not have future timestamps'
+                  if delay:
+                      time.sleep(delay + 0.01)
+                  assert time.time_ns() >= dirty_stamp, 'the clock must reach the changed input before regeneration'
                   partial, calls = probe('single-stale', {changed_source}, calls)
                   assert partial.keys() == outputs.keys(), 'single-stale: preserve the full output mapping'
                   changed_output = next(output for output in partial if output.name == 'Order.g.cs')
@@ -848,14 +922,15 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Nothing runs more often than expected. The solution has 12 projects and Directory.Build.props sets three target frameworks, so Csc, ResolveAssemblyReferences, GenerateDepsFile and ResolvePackageAssets each run 12 x 3 = 36 times, once per target framework of each project. Each project shows 4 calls, which is one outer build plus three inner builds. Copy is higher at 211 calls, which is normal because it runs per project for several targets. These counts are legitimate per-project work, so I would not change anything.
+              The 36 calls each of Csc, ResolveAssemblyReferences, GenerateDepsFile and ResolvePackageAssets are consistent with 12 projects times three target frameworks. The four calls per project are consistent with one outer build plus three inner builds. These counts do not show unnecessary repetition. Copy has 211 calls, but the summary has no file or target scopes to establish its expected count; 36 is not a valid bound for Copy. I would leave the build unchanged and inspect the Copy task inputs and targets before deciding whether any of those calls are avoidable.
 
               | Work | Calls | Expected | Avoidable ms | Cause | Fix | On critical path? |
               |---|---|---|---|---|---|---|
-              | Per-TFM tasks | 36 | 36 | 0 | 12 projects times 3 TFMs | Leave unchanged | unknown |
+              | Per-TFM tasks (each) | 36 | 36 | 0 | 12 projects times 3 TFMs | Leave unchanged | unknown |
               | Calls per project | 4 | 4 | 0 | One outer plus three inner builds | Leave unchanged | unknown |
+              | Copy | 211 | unknown | unknown | File and target scopes are missing | Inspect task inputs and targets | unknown |
 
-              Verdict: no repeated work worth changing
+              Verdict: no unnecessary per-TFM repetition shown; Copy repetition and savings remain unknown
     graders:
       - type: tool-calls
         config:
@@ -887,9 +962,10 @@ stimuli:
           pattern: '(?m)^Verdict:[ \t]*\S[^\r\n]*$'
       - type: prompt
     rubric:
-      - Compared the 36 calls of Csc and the other tasks with the 12 projects and three target frameworks and concluded the
-        counts are expected
-      - Concluded that no task is repeated unnecessarily
+      - Compared the 36 calls each of Csc, ResolveAssemblyReferences, GenerateDepsFile and ResolvePackageAssets with the
+        12 projects and three target frameworks without applying that bound to Copy
+      - Left Copy's expected count and avoidable cost unknown without file and target scopes, rather than claiming that
+        all 211 calls are either required or redundant
       - Did not invent a speedup or suggest removing multi-targeting
 
   - name: Leave a repeated task alone when it costs almost nothing

@@ -49,7 +49,7 @@ class GraderTests(unittest.TestCase):
         env["PATH"] = os.pathsep.join([*additions, env["PATH"]])
         result = subprocess.run(
             [sys.executable, "-c", script], cwd=work, env=env,
-            capture_output=True, text=True, encoding="utf-8", timeout=240,
+            capture_output=True, text=True, encoding="utf-8", timeout=480,
         )
         if accepted:
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -365,6 +365,57 @@ class GraderTests(unittest.TestCase):
         result = self.grade(work, script, accepted=False)
         self.assertIn("actual compilation reference", result.stderr)
 
+    def test_reference_resolution_cannot_keep_redundant_core_instances(self):
+        work, script = self.workspace("global-property-instances")
+        base = work / "shared-project-instances"
+        for component in ("Web", "Api", "Worker"):
+            path = base / component / f"{component}.csproj"
+            tree = ET.parse(path)
+            tree.getroot().find("ItemGroup/ProjectReference").attrib.pop("GlobalPropertiesToRemove")
+            tree.write(path, encoding="utf-8")
+        path = base / "Build.proj"
+        tree = ET.parse(path)
+        task = tree.getroot().find("Target/MSBuild")
+        task.set("Properties", task.get("Properties") + ";BuildProjectReferences=false")
+        task.set("BuildInParallel", "false")
+        tree.write(path, encoding="utf-8")
+        wrapper = base / "build.sh"
+        wrapper.write_text(
+            wrapper.read_text(encoding="utf-8").replace(
+                "dotnet msbuild Build.proj", "dotnet build Core/Core.csproj -m\ndotnet msbuild Build.proj",
+            ), encoding="utf-8",
+        )
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("Core reference resolution", result.stdout + result.stderr)
+
+    def test_build_wrappers_preserve_parallel_capacity(self):
+        for capability, fixture in (
+            ("invariant-per-project-exec", "git-stamp"),
+            ("global-property-instances", "shared-project-instances"),
+            ("racy-run-once-guard", "exists-sentinel-race"),
+        ):
+            with self.subTest(capability=capability):
+                work, script = self.workspace(capability)
+                capacity = work / "capacity.proj"
+                project = ET.Element("Project")
+                ET.SubElement(project, "Target", Name="MeasureCapacity")
+                ET.ElementTree(project).write(capacity, encoding="utf-8")
+                result = subprocess.run(
+                    [shutil.which("dotnet"), "msbuild", str(capacity), "-nologo", "-verbosity:quiet",
+                     "-maxCpuCount", "-target:MeasureCapacity", "-getProperty:MSBuildNodeCount"],
+                    cwd=work, capture_output=True, text=True, timeout=120,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                if int(result.stdout.strip()) == 1:
+                    self.skipTest("the runner has no additional parallel capacity")
+                wrapper = work / fixture / "build.sh"
+                wrapper.write_text(
+                    wrapper.read_text(encoding="utf-8").replace(" -m", " -m:1"),
+                    encoding="utf-8",
+                )
+                result = self.grade(work, script, accepted=False)
+                self.assertRegex(result.stdout + result.stderr, "parallel capacity|parallel execution")
+
     def test_missing_component_title_attributes_are_rejected(self):
         for component, flag in (
             ("Web", "GenerateAssemblyTitleAttribute"),
@@ -607,7 +658,7 @@ class GraderTests(unittest.TestCase):
         work, _ = self.workspace("racy-run-once-guard")
         base = work / "exists-sentinel-race"
         output = base / "obj" / "fixture-buildinfo.g.cs"
-        for stamp in (None, "", "20400229"):
+        for stamp in (None, "", "20400229", "release-42"):
             with self.subTest(stamp=stamp):
                 env = dict(os.environ)
                 env.pop("BUILDINFO_STAMP", None)
@@ -625,6 +676,58 @@ class GraderTests(unittest.TestCase):
                     ('internal static class BuildInfo { public const string Stamp = "' +
                      value + '"; }\n').encode("utf-8") for value in values
                 })
+
+    def test_shared_generation_preserves_arbitrary_stamp_overrides(self):
+        work, script = self.workspace("racy-run-once-guard")
+        generator = work / "exists-sentinel-race" / "tools" / "make-buildinfo.sh"
+        generator.write_text(
+            generator.read_text(encoding="utf-8").replace(
+                '"${BUILDINFO_STAMP:-$stamp}"',
+                '"$(printf \'%s\' "${BUILDINFO_STAMP:-$stamp}" | tr -cd \'0-9\')"',
+            ), encoding="utf-8",
+        )
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("preserve shared source bytes", result.stdout + result.stderr)
+
+    def test_atomic_per_project_generation_is_rejected(self):
+        for generated_before_build in (False, True):
+            with self.subTest(generated_before_build=generated_before_build):
+                work, script = self.workspace("racy-run-once-guard")
+                base = work / "exists-sentinel-race"
+                wrapper = base / "build.sh"
+                lines = wrapper.read_text(encoding="utf-8").splitlines()
+                dispatch = lines.pop()
+                (base / "prepare.sh").write_text("\n".join(lines) + "\n", encoding="utf-8")
+                if not generated_before_build:
+                    wrapper.write_text(
+                        "#!/usr/bin/env bash\nset -euo pipefail\n" + dispatch + "\n",
+                        encoding="utf-8",
+                    )
+                path = base / "Directory.Build.targets"
+                tree = ET.parse(path)
+                target = ET.SubElement(
+                    tree.getroot(), "Target", Name="AtomicPerProjectGeneration", BeforeTargets="PrepareForBuild",
+                )
+                ET.SubElement(
+                    target, "Exec", Command='bash "$(MSBuildThisFileDirectory)prepare.sh"',
+                    WorkingDirectory="$(MSBuildThisFileDirectory)",
+                )
+                tree.write(path, encoding="utf-8")
+                result = self.grade(work, script, accepted=False)
+                self.assertIn(
+                    "at most once" if generated_before_build else "before project builds begin",
+                    result.stdout + result.stderr,
+                )
+
+    def test_shared_generation_preserves_release_configuration(self):
+        work, script = self.workspace("racy-run-once-guard")
+        wrapper = work / "exists-sentinel-race" / "build.sh"
+        wrapper.write_text(
+            wrapper.read_text(encoding="utf-8").replace("-c Release", "-c Debug"),
+            encoding="utf-8",
+        )
+        result = self.grade(work, script, accepted=False)
+        self.assertIn("Release configuration", result.stdout + result.stderr)
 
     def test_shared_generation_requires_utc_defaults(self):
         for fallback in (
@@ -673,7 +776,10 @@ class GraderTests(unittest.TestCase):
         for filename in ("build.sh", "Directory.Build.targets"):
             shutil.copy2(SUITE / "exists-sentinel-race" / filename, base / filename)
         result = self.grade(work, script, accepted=False)
-        self.assertRegex(result.stdout + result.stderr, "error CS|preserve shared source bytes")
+        self.assertRegex(
+            result.stdout + result.stderr,
+            "error CS|preserve shared source bytes|before project builds begin",
+        )
 
     def test_relocated_per_project_writers_are_rejected(self):
         work, script = self.workspace("racy-run-once-guard")
@@ -696,7 +802,7 @@ class GraderTests(unittest.TestCase):
         self.assertNotIn("FileNotFoundError", result.stderr)
         self.assertRegex(
             result.stdout + result.stderr,
-            "unchanged|preserve shared source bytes|publish the final source timestamp|error CS1010",
+            "unchanged|preserve shared source bytes|publish the final source timestamp|at most once|error CS1010",
         )
 
     def test_shared_fixture_reproduces_reported_compiler_failure(self):
@@ -748,12 +854,20 @@ class GraderTests(unittest.TestCase):
                 lines = wrapper.read_text(encoding="utf-8").splitlines()
                 dispatch = lines.pop()
                 (base / "prepare.sh").write_text("\n".join(lines) + "\n", encoding="utf-8")
+                generator = base / "tools" / "make-buildinfo.sh"
+                generator.write_text(
+                    generator.read_text(encoding="utf-8").replace(
+                        'stamp="$(date -u +%Y%m%d)"',
+                        'stamp="${BUILDINFO_STAMP:-$(date -u +%Y%m%d)}"',
+                    ), encoding="utf-8",
+                )
                 condition = "[ ! -f obj/buildinfo.g.cs ]"
                 if refresh:
                     condition += ' || [ ! -f obj/buildinfo.stamp ] || [ "$(cat obj/buildinfo.stamp)" != "$stamp" ]'
                 wrapper.write_text(
                     "#!/usr/bin/env bash\nset -euo pipefail\n"
                     'stamp="${BUILDINFO_STAMP:-$(date -u +%Y%m%d)}"\n'
+                    'export BUILDINFO_STAMP="$stamp"\n'
                     f"if {condition}; then\n"
                     "    bash prepare.sh\n"
                     "    printf '%s\\n' \"$stamp\" > obj/buildinfo.stamp\n"
@@ -1109,6 +1223,15 @@ class GraderTests(unittest.TestCase):
                 tree.write(path, encoding="utf-8")
                 result = self.grade(work, script, accepted=False)
                 self.assertIn("unchanged: schema generation", result.stderr)
+
+    def test_schema_inputs_can_include_the_target_file(self):
+        work, script = self.workspace("per-item-exec")
+        path = work / "per-file-exec" / "Schemas.targets"
+        tree = ET.parse(path)
+        target = tree.getroot().find("Target")
+        target.set("Inputs", target.get("Inputs") + ";$(MSBuildThisFileFullPath)")
+        tree.write(path, encoding="utf-8")
+        self.grade(work, script)
 
     def test_schema_compile_hooks_are_evaluated_by_msbuild(self):
         for hook in ("property-before", "early-sdk", "property-dependency"):
