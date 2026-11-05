@@ -1,0 +1,52 @@
+diff --git a/src/Billing/AppSettingsHelper.cs b/src/Billing/AppSettingsHelper.cs
+index f8923ed..42898e2 100644
+--- a/src/Billing/AppSettingsHelper.cs
++++ b/src/Billing/AppSettingsHelper.cs
+@@ -11,11 +11,16 @@ public static class AppSettingsHelper
+ }
+ 
+ /// <summary>Reads configuration values, returning a fallback when the raw value is missing or invalid.</summary>
++/// <remarks>
++/// Shipped public API (see PublicAPI.Shipped.txt), so it is kept as a forwarder for existing
++/// consumers rather than removed. New code should call <see cref="AppSettingsHelper"/>.
++/// </remarks>
++[Obsolete("Use AppSettingsHelper.ParseIntSetting and AppSettingsHelper.ParseBoolSetting instead.")]
+ public static class ConfigReader
+ {
+     public static int ReadInt(string? raw, int fallback)
+-        => int.TryParse(raw, out var v) ? v : fallback;
++        => AppSettingsHelper.ParseIntSetting(raw, fallback);
+ 
+     public static bool ReadBool(string? raw, bool fallback)
+-        => bool.TryParse(raw, out var v) ? v : fallback;
++        => AppSettingsHelper.ParseBoolSetting(raw, fallback);
+ }
+diff --git a/tests/Billing.Tests/BillingTests.cs b/tests/Billing.Tests/BillingTests.cs
+index 039ee93..8881c17 100644
+--- a/tests/Billing.Tests/BillingTests.cs
++++ b/tests/Billing.Tests/BillingTests.cs
+@@ -97,11 +97,23 @@ public class BillingTests
+     }
+ 
+     [Fact]
+-    public void ConfigReader_MatchesAppSettingsHelper()
++    public void AppSettingsHelper_ParsesLikeShippedConfigReader()
++    {
++        Assert.Equal(10, AppSettingsHelper.ParseIntSetting("10", 0));
++        Assert.True(AppSettingsHelper.ParseBoolSetting("true", false));
++    }
++
++    // ConfigReader is shipped public API kept as an [Obsolete] forwarder; verify it still forwards.
++#pragma warning disable CS0618
++    [Fact]
++    public void ConfigReader_ForwardsToAppSettingsHelper()
+     {
+         Assert.Equal(AppSettingsHelper.ParseIntSetting("10", 0), ConfigReader.ReadInt("10", 0));
+         Assert.Equal(AppSettingsHelper.ParseBoolSetting("true", false), ConfigReader.ReadBool("true", false));
++        Assert.Equal(AppSettingsHelper.ParseIntSetting("nope", 7), ConfigReader.ReadInt("nope", 7));
++        Assert.Equal(AppSettingsHelper.ParseBoolSetting(null, true), ConfigReader.ReadBool(null, true));
+     }
++#pragma warning restore CS0618
+ 
+     [Fact]
+     public void Coupons_Redeem_AppliesRate()

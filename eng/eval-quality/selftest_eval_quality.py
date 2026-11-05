@@ -1032,6 +1032,61 @@ def stale_golden_patch(d):
     golden_patch(d, "class MissingThing {}")
 
 
+def add_suite_environment(d, src, dest):
+    eval_path = EV(d)
+    with open(eval_path) as f:
+        raw = f.read()
+    with open(eval_path, "w") as f:
+        f.write(raw.replace(
+            "stimuli:\n",
+            "environment:\n"
+            "  files:\n"
+            f"    - src: {src}\n"
+            f"      dest: {dest}\n"
+            "stimuli:\n",
+            1))
+
+
+def golden_patch_on_suite_file(d):
+    add_suite_environment(d, "fixtures/sample/Thing.cs", "shared/Thing.cs")
+    golden_patch(d, "class Thing {}")
+    patch = os.path.join(d, "tests", "demo", "widget", "references", "fix.patch")
+    with open(patch) as f:
+        text = f.read()
+    with open(patch, "w") as f:
+        f.write(text.replace("sample/Thing.cs", "shared/Thing.cs"))
+
+
+def stimulus_redeclares_suite_file(d):
+    add_suite_environment(d, "fixtures/sample", "sample")
+
+
+def move_fixture_to_suite_environment(d):
+    """Declare the sample fixture only at suite level, as many real evals do."""
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    stimulus_environment = (
+        "    environment:\n"
+        "      files:\n"
+        "        - src: fixtures/sample\n"
+        "          dest: sample\n")
+    assert stimulus_environment in raw
+    with open(path, "w") as f:
+        f.write(raw.replace(stimulus_environment, "", 1))
+    add_suite_environment(d, "fixtures/sample", "sample")
+
+
+def stale_golden_patch_on_suite_only_fixture(d):
+    stale_golden_patch(d)
+    move_fixture_to_suite_environment(d)
+
+
+def suite_only_state_grader_without_reference(d):
+    state_grader_without_materialized_reference(d)
+    move_fixture_to_suite_environment(d)
+
+
 def patch_with_output_grader_without_trajectory(d):
     applicable_golden_patch(d)
     path = EV(d)
@@ -2078,6 +2133,15 @@ results = [
     case("golden patch EOL normalization preserves context", mixed_eol_golden_patch,
          expect_fail=False),
     case("stale golden patch does not apply", stale_golden_patch, expect_fail=True),
+    case("golden patch applies to suite environment file", golden_patch_on_suite_file,
+         expect_fail=False),
+    case("stimulus redeclares a suite environment file", stimulus_redeclares_suite_file,
+         expect_fail=True),
+    case("stale golden patch on suite-only fixture", stale_golden_patch_on_suite_only_fixture,
+         expect_fail=True),
+    output_case("suite-only state grader without reference",
+                suite_only_state_grader_without_reference,
+                "workspace state that differs from the starting fixture"),
     case("patch with output grader requires response trajectory",
          patch_with_output_grader_without_trajectory, expect_fail=True),
     case("patch and response trajectory cover output grader",
