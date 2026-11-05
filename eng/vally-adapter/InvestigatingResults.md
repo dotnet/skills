@@ -1,6 +1,6 @@
 # Investigating Evaluation Results (Vally)
 
-This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill and custom-agent evaluation results. Skills are produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`; custom agents use the native Copilot SDK lane and `eng/vally-adapter/adapt-agent-results.mjs` because Vally 0.14 cannot register custom agents. Both lanes emit the same result schema.
+This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill and custom-agent evaluation results. Skills are produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`; custom agents use the native Copilot SDK lane and `eng/vally-adapter/adapt-agent-results.mjs` because Vally cannot register custom agents. Both lanes emit the same result schema.
 
 For the end-to-end architecture, decision policy, metric definitions, and
 historical examples, start with the
@@ -36,8 +36,9 @@ than manufacturing an unsupported custom approval prompt. Explicit shell
 denial remains enforced. Baseline identity includes this execution contract:
 do not reuse recordings from the older workspace/permission behavior.
 
-Native agent stimuli may opt in to `deny_shell: true`. Unlike the post-run
-`reject_tools` constraint, this rejects actual shell execution in all arms
+Native agent stimuli may opt in with the quoted string tag
+`tags.deny_shell: "true"`. Unlike the post-run `tool-calls` grader, this rejects
+actual shell execution in all arms
 without changing file-tool permissions or the existing sandbox. Setup and
 post-run command graders still execute under evaluator control. A
 `ShellDenied` assertion requires an evaluator-recorded `evaluator.shell_denied`
@@ -80,9 +81,9 @@ workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate
-an SDK startup race, not a skill or judge failure. In SDK 1.0.11 and 1.0.13, concurrent
-startup calls can create multiple transports, and session creation can use a
-connection before its filesystem provider is ready. The trusted
+an SDK startup race, not a skill or judge failure. In SDK 1.0.11, 1.0.13, and 1.0.14, concurrent
+startup calls can create multiple transports. Supported versions through SDK 1.0.26 require
+session creation to wait until the filesystem provider is ready. The trusted
 `eng/evaluation-tools/vally.mjs` launcher loads a version-checked startup guard.
 It shares startup per client and waits for readiness before creating or resuming
 sessions. It does not reduce trial concurrency or suppress startup failures.
@@ -142,7 +143,7 @@ Verdict Evidence** table shows the latest retained result per executor model:
 the authoritative preference-eligible distinct-stimulus W/T/L vote, discordant
 count, exact one-sided sign-test p-value, and net win. It shows how many
 dormancy stimuli were retained but excluded from preference inference. The
-table also separates expected dormancy (`expect_activation: false`) and
+table also separates expected dormancy (`tags.expect_activation: "false"`) and
 non-model-invocable reference skills from missing or unexpected activation,
 and exposes compact paired-judge excerpts plus source links when the result
 contains them.
@@ -158,6 +159,16 @@ age is unavailable or the evidence is not older, it reports only the mismatch
 and asks the reader to verify the revision. A green notice means the commits
 match. If deployment metadata is unavailable, the dashboard reports the
 comparison as unknown rather than guessing.
+
+Retained Skill Value entries also carry a stable evaluation execution identity
+so repeated judge views do not multiply executor resource telemetry. Native
+target non-activation is preserved separately from the dormancy activation
+contract and cannot qualify as proven differentiation. Native objective
+completion regression is also retained separately and overrides favorable
+preference evidence. Weekly health reporting labels its ratio as
+**published-result reliability** because failed executions can produce no
+retained target output; complete expected-target coverage is reported as
+unavailable rather than inferred from retained rows.
 
 The 0–10 **Quality Score Triage** summary and trend charts remain useful for
 spotting changes in absolute grader scores. They do not decide pass/fail. Older
@@ -247,7 +258,7 @@ Consumers that need the old all-stimulus view must read
 `excludedScenarioEvidence` alongside `scenarioEvidence`, or use
 `scenarios[]`/`comparisonTrialEvidence`.
 
-No eval syntax migration is required: existing `expect_activation: false`
+No eval syntax migration is required: existing `tags.expect_activation: "false"`
 annotations automatically become activation-contract-only evidence. The
 authoring floor is intentionally stricter because dormancy no longer counts
 toward five preference cases; `check_eval_quality.py` reports the eligible and
@@ -258,7 +269,7 @@ Dormancy excludes a stimulus only from preference inference and expected
 activation. It does not suppress objective task-completion evidence: if a
 native-agent baseline completes and the isolated target run does not, the
 adapter retains `native_completion_regression` even for
-`expect_activation: false`.
+`tags.expect_activation: "false"`.
 
 The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
@@ -275,7 +286,7 @@ so a rename, typo, or missing result cannot silently erase contract evidence.
 `measurementInvalidEvals` is the fail-closed subset: missing baseline or skilled
 records, unresolved judge or pairing failures, malformed reports, and other
 adapter failures. This includes an eval spec that the adapter cannot read:
-without that file it cannot enforce `expect_activation: false`, so it writes an
+without that file it cannot enforce `tags.expect_activation: "false"`, so it writes an
 `eval_spec_unreadable` invalid verdict instead of assuming that every stimulus
 should activate. The subset excludes only the explicit `underpowered`
 eval-design state. The workflow requires this list to be empty and also checks
@@ -335,23 +346,28 @@ runs that also fail their graders are surfaced as warnings.
 The agent crashed, the model was unavailable, evidence was missing, or the comparison judge failed. Check `stateReason`, `errors[]`, `adapter-summary.json`, and the variant's `results.jsonl`/session logs. These are invalid measurements, not skill regressions. If a required variant produced no records, the adapter writes an explicit invalid result with `missing_baseline_records` or `missing_skilled_records`.
 
 The workflow retries only required baseline or isolated-skilled executor records
-whose exact failure is a `session.idle` timeout. It reruns the affected eval and
-variant up to two bounded times while exact timeout slots remain unresolved,
-preserves all successful first-attempt and recovered slots, and replaces only
-matching failed `shardKey` slots from the same normalized eval path that
-succeed. A later pass cannot overwrite evidence recovered by an earlier pass.
+whose exact failure is a Vally stimulus wall-clock timeout, a `session.idle`
+timeout, or `Session disconnected while waiting for a response`. It reruns the
+affected eval and variant up to two bounded times while exact retryable slots
+remain unresolved, preserves all successful first-attempt and recovered slots,
+and replaces only matching failed `shardKey` slots from the same normalized
+eval path that succeed. A later pass cannot overwrite evidence recovered by an
+earlier pass.
 Every invocation uses a fresh output directory, so a retry that produces no
 current output cannot reuse stale evidence from an earlier invocation. Records
 without a `shardKey` remain invalid. Check
 `executor-retry-summary.json` and the raw record's `executorRetry` field for
-recovered attempts. A timeout that survives both targeted passes remains
-measurement-invalid. The summary is written before and after every retry so an
-outer watchdog termination still leaves the active attempt and the last
-completed accounting for diagnosis. The merged record retains the original
-experiment provenance; `executorRetry.retryRunId` identifies the successful retry run.
-Persistent timeouts, other executor failures, or more than three affected
-eval/variant groups remain measurement-invalid and keep the matrix leg red. The
-optional whole-plugin arm is report-only telemetry and is not retried.
+recovered attempts. A retryable failure that survives both targeted passes
+remains measurement-invalid. `No response was returned. Send your message again
+to retry.` remains ineligible because it can represent failures outside this
+bounded SDK transport class. The summary is written before and after every
+retry so an outer watchdog termination still leaves the active attempt and the
+last completed accounting for diagnosis. The merged record retains the original
+experiment provenance; `executorRetry.retryRunId` identifies the successful
+retry run. Persistent transient failures, other executor failures, or more than
+three affected eval/variant groups remain measurement-invalid and keep the
+matrix leg red. The optional whole-plugin arm is report-only telemetry and is
+not retried.
 
 If Vally writes a JSON record that cannot satisfy the comparison schema, the
 adapter emits `comparison_report_invalid` for that eval and continues the batch.
@@ -520,7 +536,7 @@ The agent didn't finish within the eval's `config.timeout`. Either the task is t
 
 ### 3. Activation contract failed (`stateReason.code == "activation_contract_failed"`)
 
-An explicit dormancy scenario (`expect_activation: false`) activated the
+An explicit dormancy scenario (`tags.expect_activation: "false"`) activated the
 isolated target skill. This is deterministic routing evidence, so it blocks a
 pass even though the scenario's judge preference is excluded from the sign
 test. Narrow the skill description or routing boundary. Plugin activation is

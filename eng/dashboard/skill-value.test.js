@@ -1,5 +1,215 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+test('skill value column headers stay visible during page scroll', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8');
+  assert.match(html, /\.sv-table\s*\{\s*overflow:\s*visible;/);
+  assert.match(html, /\.sv-table thead th\s*\{\s*position:\s*sticky;\s*top:\s*0;/);
+});
+
+function dashboardElement(className = '', dataset = {}) {
+  const element = {
+    className, dataset, style: { display: '' }, value: '', disabled: false,
+    listeners: new Map(),
+    addEventListener(event, callback) { this.listeners.set(event, callback); },
+    dispatch(event) { this.listeners.get(event)?.(); },
+  };
+  element.classList = {
+    contains: name => element.className.split(' ').includes(name),
+    add: name => { if (!element.classList.contains(name)) element.className += ` ${name}`; },
+    remove: name => { element.className = element.className.split(' ').filter(part => part !== name).join(' '); },
+    toggle: (name, force) => {
+      const enabled = force ?? !element.classList.contains(name);
+      if (enabled) element.classList.add(name);
+      else element.classList.remove(name);
+    },
+  };
+  return element;
+}
+
+function dashboardTable() {
+  const table = {
+    renders: 0, rows: [], icons: new Map(), html: '',
+    set innerHTML(html) {
+      this.html = html;
+      this.renders++;
+      this.rows = [];
+      this.icons.clear();
+      for (const match of html.matchAll(/<tr class="([^"]+)"([^>]*)>([\s\S]*?)<\/tr>/g)) {
+        const attributes = match[2];
+        const toggle = attributes.match(/data-toggle="([^"]+)"/)?.[1];
+        const parent = attributes.match(/data-parent="([^"]+)"/)?.[1];
+        const row = dashboardElement(match[1], { toggle, parent });
+        row.style.display = attributes.includes('display:none') ? 'none' : '';
+        row.html = match[3];
+        this.rows.push(row);
+        if (toggle) this.icons.set(toggle, dashboardElement('expand-icon'));
+      }
+    },
+    get innerHTML() { return this.html; },
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; },
+    querySelectorAll(selector) {
+      if (selector.startsWith('#icon-')) {
+        const icon = this.icons.get(selector.slice(6));
+        return icon ? [icon] : [];
+      }
+      if (selector === '[class*="child-of-"]') return this.rows.filter(row => row.className.includes('child-of-'));
+      if (selector.startsWith('.child-of-')) return this.rows.filter(row => row.classList.contains(selector.slice(1)));
+      return this.rows.filter(row => selector.split(',').some(part => {
+        const classes = part.trim().split('.');
+        return classes.slice(1).every(name => row.classList.contains(name));
+      }));
+    },
+  };
+  return table;
+}
+
+async function renderSearchDashboard(t, entries) {
+  const previous = { document: globalThis.document, window: globalThis.window, fetch: globalThis.fetch };
+  const present = Object.fromEntries(Object.keys(previous).map(name => [name, Object.hasOwn(globalThis, name)]));
+  const modulePath = require.resolve('./skill-value.js');
+  t.after(() => {
+    for (const name of Object.keys(previous)) {
+      if (present[name]) globalThis[name] = previous[name];
+      else delete globalThis[name];
+    }
+    delete require.cache[modulePath];
+  });
+  const wrap = dashboardTable();
+  const controls = new Map([
+    ['#sv-table-wrap', wrap],
+    ...['#sv-search', '#sv-search-empty', '#sv-model', '#sv-judge', '#sv-expand', '#sv-collapse']
+      .map(id => [id, dashboardElement()]),
+  ]);
+  const container = {
+    innerHTML: '',
+    querySelector: selector => controls.get(selector),
+  };
+  const frames = [];
+  globalThis.document = {
+    getElementById: () => container,
+    createElement: () => ({
+      innerHTML: '',
+      set textContent(value) {
+        this.innerHTML = String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+      },
+    }),
+  };
+  globalThis.window = { requestAnimationFrame: callback => frames.push(callback) };
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ entries }) });
+  delete require.cache[modulePath];
+  require(modulePath);
+  await window.initSkillValue();
+  return { wrap, controls, frames };
+}
+
+function visibleRows(wrap, level) {
+  return wrap.rows.filter(row => row.classList.contains(`level-${level}`) && row.style.display !== 'none');
+}
+
+test('search retains full matched hierarchy without rebuilding the table and pins agentic-workflows last', async t => {
+  const skill = name => ({
+    skill: name,
+    baseline: { n: 5, timeMs: 1000, tokens: 100 },
+    treatment: { n: 5, timeMs: 900, tokens: 90 },
+  });
+  const entries = [
+    { plugin: 'agentic-workflows', model: 'model-a', judgeModel: 'judge-a', date: 1, skills: [skill('workflow')] },
+    { plugin: 'zzz-plugin', model: 'model-a', judgeModel: 'judge-a', date: 1, skills: [skill('needle-two')] },
+    { plugin: 'alpha-plugin', model: 'model-a', judgeModel: 'judge-a', date: 1, skills: [skill('needle-one'), skill('other')] },
+    { plugin: 'alpha-plugin', model: 'model-b', judgeModel: 'judge-b', date: 1, skills: [skill('needle-one'), skill('other')] },
+  ];
+  const { wrap, controls, frames } = await renderSearchDashboard(t, entries);
+  const search = controls.get('#sv-search');
+  const empty = controls.get('#sv-search-empty');
+  const pluginNames = () => visibleRows(wrap, 0).map(row => row.html.match(/<\/span>([^<]+)/)?.[1].trim());
+  const skillNames = () => visibleRows(wrap, 1).map(row => row.html.match(/<\/span>([^<]+)/)?.[1].trim());
+  const submit = value => {
+    search.value = value;
+    search.dispatch('input');
+    assert.equal(frames.length, 1, 'rapid input is coalesced into a single frame');
+    frames.shift()();
+  };
+
+  assert.deepEqual(pluginNames(), ['alpha-plugin', 'zzz-plugin', 'agentic-workflows']);
+  controls.get('#sv-collapse').dispatch('click');
+  assert.equal(visibleRows(wrap, 1).length, 0);
+  search.value = 'n';
+  search.dispatch('input');
+  search.value = 'NEEDLE';
+  search.dispatch('input');
+  assert.equal(frames.length, 1);
+  frames.shift()();
+  assert.deepEqual(pluginNames(), ['alpha-plugin', 'zzz-plugin']);
+  assert.deepEqual(skillNames(), ['needle-one', 'needle-two']);
+  assert.equal(visibleRows(wrap, 2).length, 3, 'a matching skill includes every model');
+  assert.equal(wrap.renders, 1, 'search changes visibility, not table markup');
+  assert.equal(controls.get('#sv-expand').disabled, true);
+
+  submit('ALPHA');
+  assert.deepEqual(pluginNames(), ['alpha-plugin']);
+  assert.deepEqual(skillNames(), ['needle-one', 'other'], 'a plugin match shows all its skills');
+  assert.equal(visibleRows(wrap, 2).length, 4);
+
+  submit('not-present');
+  assert.equal(visibleRows(wrap, 0).length, 0);
+  assert.equal(empty.style.display, '');
+  submit('');
+  assert.deepEqual(pluginNames(), ['alpha-plugin', 'zzz-plugin', 'agentic-workflows']);
+  assert.equal(visibleRows(wrap, 1).length, 0, 'clearing search restores collapsed rows');
+  assert.equal(empty.style.display, 'none');
+  assert.equal(controls.get('#sv-expand').disabled, false);
+  assert.equal(wrap.renders, 1);
+
+  submit('needle');
+  controls.get('#sv-model').value = 'model-b';
+  controls.get('#sv-model').dispatch('change');
+  assert.deepEqual(pluginNames(), ['alpha-plugin']);
+  assert.deepEqual(skillNames(), ['needle-one']);
+  assert.equal(visibleRows(wrap, 2).length, 1, 'model filter and search intersect');
+  assert.equal(wrap.renders, 2, 'only model filter changes rebuild the table');
+  submit('');
+  assert.equal(visibleRows(wrap, 1).length, 0, 'clearing search after a model redraw restores collapsed skills');
+  assert.equal(visibleRows(wrap, 2).length, 0);
+
+  controls.get('#sv-model').value = '';
+  controls.get('#sv-model').dispatch('change');
+  controls.get('#sv-collapse').dispatch('click');
+  const alpha = wrap.rows.find(row => row.classList.contains('level-0') && row.html.includes('alpha-plugin'));
+  alpha.dispatch('click');
+  assert.equal(visibleRows(wrap, 1).length, 2);
+  submit('needle');
+  controls.get('#sv-judge').value = 'judge-b';
+  controls.get('#sv-judge').dispatch('change');
+  submit('');
+  assert.deepEqual(pluginNames(), ['alpha-plugin']);
+  assert.equal(visibleRows(wrap, 1).length, 2, 'judge redraw restores the open plugin');
+  assert.equal(visibleRows(wrap, 2).length, 0, 'judge redraw restores collapsed skills');
+
+  controls.get('#sv-judge').value = '';
+  controls.get('#sv-judge').dispatch('change');
+  controls.get('#sv-model').value = 'model-a';
+  controls.get('#sv-model').dispatch('change');
+  controls.get('#sv-collapse').dispatch('click');
+  submit('needle');
+  controls.get('#sv-model').value = '';
+  controls.get('#sv-model').dispatch('change');
+  submit('');
+  assert.equal(visibleRows(wrap, 1).length, 0, 'widening executor filter keeps skills collapsed');
+  assert.equal(visibleRows(wrap, 2).length, 0, 'new model rows stay hidden beneath collapsed skills');
+
+  controls.get('#sv-judge').value = 'judge-a';
+  controls.get('#sv-judge').dispatch('change');
+  controls.get('#sv-collapse').dispatch('click');
+  submit('needle');
+  controls.get('#sv-judge').value = '';
+  controls.get('#sv-judge').dispatch('change');
+  submit('');
+  assert.equal(visibleRows(wrap, 1).length, 0, 'widening judge filter keeps skills collapsed');
+  assert.equal(visibleRows(wrap, 2).length, 0, 'new judge rows stay hidden beneath collapsed skills');
+});
 
 test('skill value table uses preference evidence for install guidance', async (t) => {
   const previousGlobals = {
@@ -37,6 +247,7 @@ test('skill value table uses preference evidence for install guidance', async (t
       if (!elements.has(selector)) {
         elements.set(selector, {
           value: '',
+          style: {},
           addEventListener: () => {},
         });
       }

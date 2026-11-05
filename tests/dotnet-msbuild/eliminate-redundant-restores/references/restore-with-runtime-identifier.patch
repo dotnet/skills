@@ -1,0 +1,12 @@
+diff --git a/rid-mismatch/build.sh b/rid-mismatch/build.sh
+--- a/rid-mismatch/build.sh
++++ b/rid-mismatch/build.sh
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env bash
+ set -euo pipefail
+ 
+-dotnet restore src/Gateway/Gateway.csproj
++dotnet restore src/Gateway/Gateway.csproj -r linux-x64
+ dotnet build src/Gateway/Gateway.csproj -c Release --no-restore
+-dotnet publish src/Gateway/Gateway.csproj -c Release -r linux-x64 --self-contained
++dotnet publish src/Gateway/Gateway.csproj -c Release -r linux-x64 --self-contained --no-restore

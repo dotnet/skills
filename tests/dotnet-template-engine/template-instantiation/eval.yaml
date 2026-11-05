@@ -7,6 +7,11 @@ stimuli:
   - name: Create a console application
     prompt: Create a new .NET console application called MyConsoleApp in the ./test-output directory
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-contains
         config:
@@ -19,16 +24,17 @@ stimuli:
       - The agent created the requested console project
       - The agent created it at the requested ./test-output path
       - The resulting project is a valid console application
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Create and build a class library
     prompt: |
       Create a C# class library named Contoso.Utilities under
       `./src/Contoso.Utilities`, preview the generated files first, then create it
       and verify that it builds.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: file-exists
         config:
@@ -45,16 +51,17 @@ stimuli:
       - The class library is created at the exact requested path
       - The agent previews creation before writing files
       - A clean build is run and reported truthfully
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Create a controller-based web API
     prompt: |
       Create a web API named Orders.Api in `./src/Orders.Api`. It must use
       controllers rather than minimal APIs. Preview it, create it with the
       template's actual controller option, and build the result.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: file-exists
         config:
@@ -74,16 +81,17 @@ stimuli:
       - The generated project uses the webapi template's controller option
       - The project is created only under the requested src/Orders.Api path
       - Preview and build both complete successfully
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Create a worker service
     prompt: |
       Scaffold a worker service called Billing.Worker in
       `./src/Billing.Worker`. Use the workspace's available SDK defaults, show a
       dry run before creation, then build the generated service.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: file-exists
         config:
@@ -100,10 +108,6 @@ stimuli:
       - The worker template is instantiated with the requested name and output path
       - The agent does not add unrelated project types or packages
       - The generated worker is built after creation
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Compose an application and test solution
     prompt: |
       Create `Inventory.sln` with a class library at
@@ -111,6 +115,11 @@ stimuli:
       `tests/Inventory.Core.Tests`. Add a project reference from the tests to the
       library, add both projects to the solution, and build the solution.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: file-exists
         config:
@@ -135,10 +144,6 @@ stimuli:
       - The solution contains the library and its test project at the requested paths
       - The test project references the library
       - The complete solution builds successfully
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Match a neighboring project's target framework
     prompt: |
       This repo already has `src/Existing/Existing.csproj`. Create a sibling
@@ -150,6 +155,11 @@ stimuli:
         - src: ./fixtures/workspace-framework/src/Existing/Existing.csproj
           dest: src/Existing/Existing.csproj
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: file-exists
         config:
@@ -167,10 +177,6 @@ stimuli:
       - The existing project is inspected and net9.0 is treated as the workspace's explicit framework choice
       - The new project is created with a matching target framework
       - The generated console app builds cleanly
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Adapt a generated test project to central package management
     prompt: |
       This repository uses `Directory.Packages.props`. Create an xUnit test project
@@ -181,6 +187,10 @@ stimuli:
         - src: ./fixtures/central-package-management/Directory.Packages.props
           dest: Directory.Packages.props
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: file-exists
         config:
@@ -204,6 +214,3 @@ stimuli:
       - Inline versions are removed from all generated PackageReference items
       - Matching central PackageVersion entries are added without deleting the existing version
       - The adapted project restores and builds successfully
-    constraints:
-      expect_tools:
-        - skill

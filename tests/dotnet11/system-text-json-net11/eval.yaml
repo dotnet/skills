@@ -95,7 +95,8 @@ stimuli:
 
       Show me a minimal program targeting `net8.0` that produces output like
       `{"name":"Jane","age":30}` and run it.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     graders:
       - type: exit-success
       - type: output-matches
@@ -244,7 +245,8 @@ stimuli:
       My `net11.0` application is standardized on Newtonsoft.Json. Show how to
       configure a `DefaultContractResolver` so serialized property names use
       PascalCase, and keep the solution entirely on Newtonsoft.Json.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     graders:
       - type: exit-success
       - type: output-matches

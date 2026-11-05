@@ -71,13 +71,12 @@ stimuli:
       - Selected the exact source-bound candidate using explicit merged tracking evidence, not merely closed state.
       - Kept selection distinct from actual verification and publication.
   - name: Defer open and not-planned tracking items
-    expect_activation: true
     prompt: |
       Review the candidate manifest and source snapshot in inputs/ and
       decide what can safely proceed. Read RESULT_SCHEMA.md, write your
       proposed action to result.json, and briefly explain it. Do not
       reinterpret eligibility, contact GitHub, or edit source.
-    tags: {capability: unresolved-item-deferral, risk: premature-test-reenablement, journey: handle-unresolved-tracking}
+    tags: {capability: unresolved-item-deferral, risk: premature-test-reenablement, journey: handle-unresolved-tracking, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/unresolved, dest: inputs}, {src: fixtures/unresolved/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -100,13 +99,12 @@ stimuli:
       - Chose no-op because one issue remains open and the other closed as not planned.
       - Did not equate all closed items with resolved eligibility or repair candidate state.
   - name: Defer a completed issue unrelated to the ignored test
-    expect_activation: true
     prompt: |
       Inspect the manifest, source, and supplied tracking-item context in
       inputs/. Decide whether the candidate is safe to attempt.
       Read RESULT_SCHEMA.md, write result.json, and explain the proposed
       action without inventing a replacement tracking reference.
-    tags: {capability: tracking-context-ambiguity, risk: unrelated-issue-removal, journey: validate-ignore-context}
+    tags: {capability: tracking-context-ambiguity, risk: unrelated-issue-removal, journey: validate-ignore-context, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/context, dest: inputs}, {src: fixtures/context/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -158,13 +156,12 @@ stimuli:
       - Selected the class candidate only because both direct tests are enumerated and no inheritance, nesting, or partial-class deferral exists.
       - Did not invent per-method candidates or claim either test actually executed.
   - name: Defer an incomplete partial class with nested tests
-    expect_activation: true
     prompt: |
       Assess the class-level candidate, manifest deferrals, and source
       snapshot in inputs/. Decide whether a safe selection exists.
       Read RESULT_SCHEMA.md, write result.json, and explain the proposed
       action. Do not infer missing identities or rewrite the manifest.
-    tags: {capability: incomplete-class-deferral, risk: hidden-affected-tests, journey: handle-partial-test-class}
+    tags: {capability: incomplete-class-deferral, risk: hidden-affected-tests, journey: handle-partial-test-class, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/partialclass, dest: inputs}, {src: fixtures/partialclass/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -187,13 +184,12 @@ stimuli:
       - Chose no-op for partial/nested class evidence and incomplete affected-test enumeration.
       - Did not manufacture the omitted nested or partial-method identities to make the class selectable.
   - name: Reject a candidate bound to the wrong syntax owner
-    expect_activation: true
     prompt: |
       Inspect the recorded candidate owner against its actual source site
       in inputs/. Decide whether it can safely proceed.
       Read RESULT_SCHEMA.md, write the proposed action to result.json,
       and explain any inconsistency without correcting the identity yourself.
-    tags: {capability: syntax-owner-validation, risk: wrong-test-identity, journey: reject-inconsistent-manifest}
+    tags: {capability: syntax-owner-validation, risk: wrong-test-identity, journey: reject-inconsistent-manifest, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/owner, dest: inputs}, {src: fixtures/owner/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -217,13 +213,12 @@ stimuli:
       - Chose no-op because the recorded Different owner is not the Actual syntax ancestor.
       - Did not substitute a guessed candidate ID or repair the test FQN.
   - name: Reject a manifest for an obsolete source commit
-    expect_activation: true
     prompt: |
       Decide whether any candidates from inputs/ are safe to attempt given
       the trusted context and manifest revision. Read RESULT_SCHEMA.md,
       write result.json, and explain the proposed decision without
       modifying source or recalculating identities.
-    tags: {capability: source-commit-freshness, risk: stale-attribute-removal, journey: handle-default-branch-advance}
+    tags: {capability: source-commit-freshness, risk: stale-attribute-removal, journey: handle-default-branch-advance, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/stale, dest: inputs}, {src: fixtures/stale/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -308,13 +303,12 @@ stimuli:
       - Proposed the eligible candidate for a fresh deterministic attempt, not an authorized edit or published PR.
       - Explicitly recognized that exit zero with no selected tests/results proves no execution and authorizes no publication.
   - name: Reject a legacy manifest without source-bound identities
-    expect_activation: true
     prompt: |
       Inspect the candidate evidence and required contract version in
       inputs/. Decide whether a safe selection request can be formed.
       Read RESULT_SCHEMA.md, write result.json, and explain the proposed
       action without upgrading metadata or inventing source anchors.
-    tags: {capability: manifest-version-compatibility, risk: inferred-legacy-identity, journey: handle-incompatible-producer}
+    tags: {capability: manifest-version-compatibility, risk: inferred-legacy-identity, journey: handle-incompatible-producer, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/schema, dest: inputs}, {src: fixtures/schema/workflow-context.json, dest: workflow-context.json}]
     graders:

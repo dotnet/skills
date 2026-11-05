@@ -234,15 +234,13 @@ function evalIdentity(evalFile) {
   return { skill, plugin, skillPath: `plugins/${plugin}/skills/${skill}` };
 }
 
-// Read the set of stimulus names annotated `expect_activation: false` from an
-// eval spec. Vally itself ignores this field (its loader validates known keys
-// by type but tolerates extras); the adapter uses it so a scenario where the
-// skill is *expected to stay dormant* isn't flagged on the dashboard as a
-// missing activation. This is a deliberately small, block-scalar-aware YAML
-// scan rather than a full parser so the adapter keeps its zero-dependency
-// contract (no `yaml` module is guaranteed on CI runners). Reading the spec is
-// required because silently defaulting to expect-activation can remove an
-// explicit dormancy contract from the pass gate.
+// Read the set of stimulus names whose `tags.expect_activation` value is
+// "false". Repository metadata lives in tags so Vally validates and preserves
+// it without requiring a custom schema extension. This is a deliberately small,
+// block-scalar-aware YAML scan rather than a full parser so the adapter keeps
+// its zero-dependency contract (no `yaml` module is guaranteed on CI runners).
+// Reading the spec is required because silently defaulting to expected
+// activation can remove an explicit dormancy contract from the pass gate.
 function readNonActivationStimuli(evalFile, repoRoot) {
   const path = resolve(repoRoot ?? ".", evalFile);
   let text;
@@ -263,8 +261,30 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     }
     return t;
   };
-  const isFalsey = (v) =>
-    /^(?:false|False|FALSE|no|No|NO|off|Off|OFF)(?:\s+#.*)?$/.test(v.trim());
+  const isFalsey = (v) => {
+    const withoutComment = v.trim().replace(/\s+#.*$/, "");
+    return /^(?:false|no|off)$/i.test(unquote(withoutComment));
+  };
+  const stripYamlComment = (value) => {
+    let quote = null;
+    let escaped = false;
+    for (let index = 0; index < value.length; index++) {
+      const char = value[index];
+      if (quote === '"') {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === quote) quote = null;
+      } else if (quote === "'") {
+        if (char === "'" && value[index + 1] === "'") index++;
+        else if (char === quote) quote = null;
+      } else if (char === '"' || char === "'") {
+        quote = char;
+      } else if (char === "#" && (index === 0 || /\s/.test(value[index - 1]))) {
+        return value.slice(0, index).trimEnd();
+      }
+    }
+    return value;
+  };
   const result = new Set();
 
   const flowMappingEntries = (value) => {
@@ -316,6 +336,8 @@ function readNonActivationStimuli(evalFile, repoRoot) {
 
   let itemDashIndent = null; // indent of each stimulus item's leading dash
   let keyIndent = null; // column where an item's mapping keys begin
+  let tagsIndent = null;
+  let inTagsBlock = false;
   let curName = null;
   let curNonActivation = false;
   const flush = () => {
@@ -325,7 +347,34 @@ function readNonActivationStimuli(evalFile, repoRoot) {
   };
   const applyKey = (key, val) => {
     if (key === "name" && curName === null) curName = unquote(val);
+    // Legacy direct metadata remains readable for old stored evals.
     else if (key === "expect_activation") curNonActivation = isFalsey(val);
+  };
+  const applyTagKey = (key, val) => {
+    if (key === "expect_activation") curNonActivation = isFalsey(val);
+  };
+  const applyTags = (value) => {
+    const entries = flowMappingEntries(value);
+    if (!entries) return false;
+    for (const entry of entries) {
+      const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
+      if (kv) applyTagKey(kv[1], kv[2]);
+    }
+    return true;
+  };
+  const applyTagsValue = (value) => {
+    if (!value.trimStart().startsWith("{")) return applyTags(value);
+
+    let completeValue = stripYamlComment(value);
+    while (!applyTags(completeValue)) {
+      const nextLine = lines[i + 1];
+      if (nextLine === undefined || indentOf(nextLine) <= keyIndent) {
+        throw new Error(`cannot parse tags flow mapping in eval spec ${evalFile}`);
+      }
+      i++;
+      completeValue += ` ${stripYamlComment(nextLine.trim())}`;
+    }
+    return true;
   };
   // Skip a block scalar's body: every following line that is blank or indented
   // deeper than the owning key, so prompt text can't be misread as keys.
@@ -346,16 +395,23 @@ function readNonActivationStimuli(evalFile, repoRoot) {
       itemDashIndent = ind;
       const rest = dash[2];
       keyIndent = line.length - rest.length;
+      tagsIndent = null;
+      inTagsBlock = false;
       const flowEntries = flowMappingEntries(rest);
       if (flowEntries) {
         for (const entry of flowEntries) {
           const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
-          if (kv) applyKey(kv[1], kv[2]);
+          if (kv?.[1] === "tags") applyTagsValue(kv[2]);
+          else if (kv) applyKey(kv[1], kv[2]);
         }
       } else {
         const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(rest);
         if (kv) {
-          applyKey(kv[1], kv[2]);
+          if (kv[1] === "tags") {
+            inTagsBlock = !applyTagsValue(kv[2]);
+          } else {
+            applyKey(kv[1], kv[2]);
+          }
           skipBlockScalar(kv[2]);
         }
       }
@@ -371,8 +427,16 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     if (keyIndent !== null && ind === keyIndent) {
       const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(line.slice(keyIndent));
       if (kv) {
-        applyKey(kv[1], kv[2]);
+        inTagsBlock = kv[1] === "tags" && !applyTagsValue(kv[2]);
+        tagsIndent = null;
+        if (kv[1] !== "tags") applyKey(kv[1], kv[2]);
         skipBlockScalar(kv[2]);
+      }
+    } else if (inTagsBlock && keyIndent !== null && ind > keyIndent) {
+      tagsIndent ??= ind;
+      if (ind === tagsIndent) {
+        const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(line.slice(tagsIndent));
+        if (kv) applyTagKey(kv[1], kv[2]);
       }
     }
   }
@@ -1681,7 +1745,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
         treatmentPassed: t.treatmentPassed ?? null,
         errored: t.errored ?? false,
       })),
-      // Absolute dashboard fields. `expect_activation: false` in the eval spec
+      // Absolute dashboard fields. `tags.expect_activation: "false"` in the eval spec
       // marks a scenario where the skill should stay dormant. It remains visible
       // as comparison and completion evidence, but it does not vote in the
       // preference gate.
@@ -1772,7 +1836,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     }
   }
 
-  // `expect_activation: false` is an explicit contract on the isolated target
+  // `tags.expect_activation: "false"` is an explicit contract on the isolated target
   // skill. Plugin activity cannot prove a violation because the plugin arm does
   // not identify which sibling skill emitted the activity event.
   const activationContractScenarios = scenarios

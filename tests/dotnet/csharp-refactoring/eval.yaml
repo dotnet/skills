@@ -728,12 +728,12 @@ stimuli:
 
   - name: Stay dormant for an ordinary feature request
     tags:
+      expect_activation: "false"
       capability: feature-request-dormancy
       risk: incorrect-skill-activation
       journey: route-ordinary-feature
     prompt: Add a platinum loyalty tier at 15% off and make it available to orders.
     environment: *fixture-environment
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

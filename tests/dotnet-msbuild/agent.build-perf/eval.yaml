@@ -1,0 +1,218 @@
+name: agent.build-perf
+description: Evaluates performance analysis routing when the binlog MCP connection is unavailable or recovered
+type: capability
+defaults:
+  timeout: 6m
+stimuli:
+  - name: Investigate the reader connection before optimizing a build
+    prompt: |-
+      Our MSBuild performance investigation is blocked: the binlog MCP server
+      reports CONNECTION_CLOSED. Please diagnose the reader first; do not run a
+      new build or optimize projects yet. Its registration is in
+      affected-workspace/host.json. The registered launcher is an offline stand-in
+      for dotnet, including SDK and source queries; use it instead of the machine-wide
+      SDK or live feeds. Investigate from that workspace and save launch stdout,
+      stderr, and numeric exitCode in affected-workspace/launch-result.json.
+      Explain the smallest safe next step without disclosing private feed URLs or
+      credentials. Do not change the supplied files, install anything, or access the network.
+    tags:
+      capability: performance-reader-startup-routing
+      risk: optimizing-without-performance-evidence
+      journey: unblock-performance-analysis
+    environment:
+      files:
+        - src: ../troubleshoot-binlog-mcp/fixtures/launch-failure
+          dest: .
+      skills:
+        - ../../plugins/dotnet-msbuild/skills/troubleshoot-binlog-mcp
+    golden_trajectory:
+      path: references/executable-launch.json
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const assert = require('node:assert/strict');
+              const fs = require('node:fs');
+              const crypto = require('node:crypto');
+              const content = fs.readFileSync('check-launch.cjs', 'utf8').replace(/\r\n/g, '\n');
+              assert.equal(crypto.createHash('sha256').update(content).digest('hex'),
+                'b058d8c0d423ce33844c264a99c5f5ab9194ed2888a1af9f5950d5a76d9358c6', 'Changed or missing diagnostic input: check-launch.cjs');
+              require('./check-launch.cjs');
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: 'MCP status: failed'
+      - type: output-not-matches
+        config:
+          pattern: 'mirror\.example\.invalid|fixture-only-feed-token'
+      - type: prompt
+    rubric:
+      - Diagnoses the captured reader launch failure without starting a fresh performance baseline or changing project settings
+      - Grounds recovery in the workspace SDK and approved-feed configuration
+      - Preserves the supplied configuration and requires host tool discovery before declaring recovery
+
+  - name: Continue performance analysis when reader repair is declined
+    prompt: |-
+      Our .NET build took 90 seconds and wrote perf-baseline.binlog, but its MCP
+      reader is disconnected. I do not want to repair or reinstall that reader.
+      What should I run locally to investigate expensive projects, targets, tasks,
+      and analyzers without rebuilding? Advice only; do not execute commands.
+    tags:
+      capability: declined-repair-text-replay
+      risk: blocking-performance-analysis-on-reader-repair
+      journey: analyze-existing-build-offline
+    environment:
+      skills:
+        - ../../plugins/dotnet-msbuild/skills/build-perf-diagnostics
+        - ../../plugins/dotnet-msbuild/skills/troubleshoot-binlog-mcp
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: performance-replay-without-repair
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Replay the existing log, without rebuilding:
+              dotnet msbuild perf-baseline.binlog -noconlog -fl '-flp:v=diag;logfile=full.log;performancesummary'
+              Inspect Project Performance Summary, Target Performance Summary,
+              and Task Performance Summary in full.log, then any recorded analyzer
+              timing. If analyzer timings were not recorded, say that evidence is
+              missing rather than guessing. Reader installation and feed changes
+              are unnecessary for this path.
+    graders:
+      - type: output-matches
+        config:
+          pattern: 'dotnet msbuild[^\r\n]*perf-baseline\.binlog'
+      - type: prompt
+    rubric:
+      - Reuses the existing binary log through text replay without a new build or reader repair
+      - Explains how to locate project, target, task, and available analyzer timings
+      - Does not assume missing analyzer timing is proof that analyzers are cheap
+
+  - name: Keep an unresponsive launch inconclusive
+    prompt: |-
+      While investigating a slow .NET build, I reproduced the registered binlog
+      reader launch and it stayed silent with a credential-provider child still
+      running. I have no host initialization log or tool listing. Does this mean
+      the reader works? Explain how to stop the diagnostic safely and what to
+      verify next. Advice only; do not launch or stop anything here.
+    tags:
+      capability: bounded-diagnostic-lifecycle
+      risk: leaking-diagnostic-processes-or-claiming-false-health
+      journey: investigate-unresponsive-reader
+    environment:
+      skills:
+        - ../../plugins/dotnet-msbuild/skills/troubleshoot-binlog-mcp
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: performance-reader-timeout
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Silence or a live stdio process does not establish MCP initialization.
+              Use bounded host-supported cancellation to clean up only this
+              diagnostic process tree, including its credential-provider child,
+              not unrelated dotnet processes. If safe cleanup is unavailable, run
+              the diagnostic locally instead of leaving a server running.
+              Inspect redacted launch stderr and the host's initialization log.
+              Reconnect through the host and confirm tools/list exposes
+              binlog_overview before treating the connection as healthy.
+              MCP status: unverified
+    graders:
+      - type: output-matches
+        config:
+          pattern: 'MCP status: unverified'
+      - type: prompt
+    rubric:
+      - Does not mistake a running silent process for a successful MCP handshake
+      - Bounds observation and limits cleanup to the diagnostic tree including its child process
+      - Requires host initialization and binlog tool discovery rather than package availability or process liveness
+
+  - name: Follow a host launch failure despite package discovery
+    prompt: |-
+      Our performance tooling can find Microsoft.AITools.BinlogMcp in an approved
+      feed, but the unchanged registered launch fails because package source
+      mapping excludes it. Can we call the connection repaired and optimize the
+      build now? Give advice only; do not change mappings or run commands.
+    tags:
+      capability: discovery-is-not-connection-recovery
+      risk: bypassing-source-mapping-for-performance-tools
+      journey: recover-approved-reader-launch
+    environment:
+      skills:
+        - ../../plugins/dotnet-msbuild/skills/troubleshoot-binlog-mcp
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: performance-reader-mapping
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              No: package discovery does not repair the observed launch failure.
+              Ask the configuration owner to approve a mapping for the package
+              and dependencies to the approved feed; do not disable mapping.
+              Reconnect and confirm host initialization and binlog tools before
+              declaring recovery. Meanwhile an existing binlog can be replayed
+              to a text log for performance analysis without changing feed policy.
+              MCP status: failed
+    graders:
+      - type: output-matches
+        config:
+          pattern: 'MCP status: failed'
+      - type: prompt
+    rubric:
+      - Treats the observed mapping failure as unresolved despite package search success
+      - Recommends a policy-approved correction rather than disabling or bypassing mapping
+      - Allows evidence-based text replay without claiming the MCP connection is repaired
+
+  - name: Resume measured analysis after host tool discovery
+    prompt: |-
+      The host has reconnected the cached binlog reader and tools/list contains
+      binlog_overview and binlog_expensive_tasks. Package search still returns no
+      listed package. The reader measured Csc at 42 of 60 seconds of task time
+      and Copy at 3 seconds. Should I clear caches or add feeds before proceeding?
+      What should I investigate next? Advice only; do not change or run anything.
+    tags:
+      capability: verified-reader-performance-handoff
+      risk: breaking-a-working-reader-instead-of-analyzing-build
+      journey: resume-evidence-based-optimization
+    environment:
+      skills:
+        - ../../plugins/dotnet-msbuild/skills/build-perf-diagnostics
+        - ../../plugins/dotnet-msbuild/skills/troubleshoot-binlog-mcp
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: performance-reader-reconnected
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Leave the cache and feeds alone: host reconnection and tool discovery
+              demonstrate that this reader works despite an empty package search.
+              Csc accounts for 70% of the measured task time; inspect compilation
+              and recorded analyzer timings before changing compiler or analyzer
+              settings. Copy is only 5% and is not the primary measured bottleneck.
+              These are task-time shares, not necessarily wall-clock percentages.
+              MCP status: connected
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(Csc|compil|analyz)'
+      - type: prompt
+    rubric:
+      - Leaves the working reader cache, feeds, and registration unchanged
+      - Prioritizes compilation or analyzer investigation over the much smaller Copy cost
+      - Distinguishes the measured task-time share from total build wall-clock duration

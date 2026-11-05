@@ -1,7 +1,7 @@
 name: apple-crash-symbolication
 description: Evaluates the dotnet-diag/apple-crash-symbolication skill
 type: capability
-config:
+defaults:
   timeout: 5m
 stimuli:
   - name: Parse .NET frames and locate dSYMs from an iOS crash log

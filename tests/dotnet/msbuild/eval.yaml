@@ -235,6 +235,7 @@ stimuli:
 
   - name: Keep runtime CPU profiling out of build diagnosis
     tags:
+      expect_activation: "false"
       capability: runtime-profiling-boundary
       risk: medium
       journey: route-runtime-diagnostics
@@ -242,7 +243,6 @@ stimuli:
       Our ASP.NET Core service builds successfully but consumes one CPU core
       at 100 percent while handling requests. What runtime evidence should I
       collect first? Don't change any build settings or install tools yet.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
@@ -251,6 +251,7 @@ stimuli:
 
   - name: Keep failing assertions out of build troubleshooting
     tags:
+      expect_activation: "false"
       capability: assertion-failure-boundary
       risk: medium
       journey: route-test-failure
@@ -258,7 +259,6 @@ stimuli:
       dotnet test built the solution successfully. One xUnit assertion failed:
       expected invoice.Total to be 12.50, actual 12.49. How should I investigate
       the rounding behavior without changing the project or test framework?
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
@@ -267,6 +267,7 @@ stimuli:
 
   - name: Keep a C sharp rename out of build authoring
     tags:
+      expect_activation: "false"
       capability: source-refactoring-boundary
       risk: medium
       journey: route-source-refactoring
@@ -274,7 +275,6 @@ stimuli:
       I need to rename a public C# method CalculateTotal to CalculateInvoiceTotal
       across a solution. What's a safe refactoring and compatibility plan?
       The projects already build; don't edit any build files.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
@@ -283,6 +283,7 @@ stimuli:
 
   - name: Keep SDK installation separate from build analysis
     tags:
+      expect_activation: "false"
       capability: sdk-installation-boundary
       risk: medium
       journey: route-sdk-installation
@@ -290,7 +291,6 @@ stimuli:
       I only want to install the .NET SDK selected by global.json on this
       machine. The file requests version 10.0.100 with rollForward set to
       latestPatch. What should I check and install? Don't build or modify the repo.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
@@ -299,13 +299,13 @@ stimuli:
 
   - name: Keep framework migration separate from build cleanup
     tags:
+      expect_activation: "false"
       capability: framework-migration-boundary
       risk: medium
       journey: route-framework-migration
     prompt: |
       Plan an upgrade of a working ASP.NET Core app from .NET 8 to .NET 10,
       including framework and API compatibility risks. Don't edit files yet.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
@@ -314,6 +314,7 @@ stimuli:
 
   - name: Keep legacy project conversion with the migration workflow
     tags:
+      expect_activation: "false"
       capability: project-system-migration-boundary
       risk: medium
       journey: route-project-migration
@@ -321,7 +322,6 @@ stimuli:
       I have a working non-SDK-style .NET Framework csproj using packages.config.
       I want a plan to migrate it to SDK style while retaining its framework
       and package behavior. Don't perform the migration or run builds yet.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:
@@ -330,6 +330,7 @@ stimuli:
 
   - name: Keep an npm failure outside MSBuild
     tags:
+      expect_activation: "false"
       capability: non-msbuild-boundary
       risk: medium
       journey: route-non-msbuild-failure
@@ -337,7 +338,6 @@ stimuli:
       npm run build fails in a Vite TypeScript application with TS2307:
       Cannot find module '@app/config'. There are no .NET projects.
       What should I inspect first?
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

@@ -1,0 +1,13 @@
+diff --git a/rsp-inherited/ci.yml b/rsp-inherited/ci.yml
+--- a/rsp-inherited/ci.yml
++++ b/rsp-inherited/ci.yml
+@@ -1,7 +1,7 @@
+ steps:
+   - script: dotnet restore Contoso.slnx
+     displayName: Restore
+-  - script: dotnet msbuild Contoso.slnx -t:Build -p:Configuration=Release
++  - script: dotnet msbuild Contoso.slnx -t:Build -p:Configuration=Release -restore:false
+     displayName: Build
+-  - script: dotnet test Contoso.slnx -c Release --no-build
++  - script: dotnet test Contoso.slnx -c Release --no-build --no-restore -restore:false
+     displayName: Test

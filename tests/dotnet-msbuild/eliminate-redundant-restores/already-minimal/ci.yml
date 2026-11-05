@@ -1,0 +1,9 @@
+steps:
+  - script: dotnet restore Contoso.slnx --locked-mode
+    displayName: Restore (locked)
+  - script: dotnet build Contoso.slnx -c Release --no-restore
+    displayName: Build
+  - script: dotnet test Contoso.slnx -c Release --no-build
+    displayName: Test
+  - script: dotnet pack src/Contoso.Core/Contoso.Core.csproj -c Release --no-build -o artifacts/packages
+    displayName: Pack
