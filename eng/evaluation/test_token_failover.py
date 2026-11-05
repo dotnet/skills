@@ -2726,6 +2726,7 @@ esac
             triggers["pull_request_target"]["types"],
             ["opened", "synchronize", "reopened"],
         )
+        self.assertIn("global.json", triggers["pull_request_target"]["paths"])
         self.assertEqual(workflow["permissions"], {"pull-requests": "write"})
         self.assertEqual(
             workflow["concurrency"],
@@ -2760,6 +2761,14 @@ esac
             script,
         )
         self.assertIn(
+            "({ filename, previous_filename })",
+            script,
+        )
+        self.assertIn(
+            "isEvaluationInfrastructure(previous_filename)",
+            script,
+        )
+        self.assertIn(
             "github.paginate(github.rest.issues.listComments",
             script,
         )
@@ -2771,12 +2780,15 @@ esac
 
         for path in (
             "eng/evaluation-tools/",
+            "eng/evaluation/nuget.config",
             "eng/vally-adapter/",
             "eng/evaluation/find-targets.ps1",
             "eng/evaluation/path-safety.ps1",
             "eng/evaluation/workflow-targets.ps1",
+            "eng/skill-validator/Directory.Build.props",
             "eng/skill-validator/src/",
             "dotnet-skills.experiment.yaml",
+            "global.json",
             ".github/workflows/evaluation.yml",
             ".github/workflows/evaluation-run.yml",
         ):

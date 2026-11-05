@@ -9,6 +9,7 @@ on:
       - 'eng/**'
       - '.github/**'
       - 'dotnet-skills.experiment.yaml'
+      - 'global.json'
 
 permissions:
   pull-requests: write
@@ -56,9 +57,12 @@ jobs:
             const marker = '<!-- eval-infra-full-eval-required -->';
             const exactPaths = new Set([
               'eng/evaluation/find-targets.ps1',
+              'eng/evaluation/nuget.config',
               'eng/evaluation/path-safety.ps1',
               'eng/evaluation/workflow-targets.ps1',
+              'eng/skill-validator/Directory.Build.props',
               'dotnet-skills.experiment.yaml',
+              'global.json',
               '.github/workflows/evaluation.yml',
               '.github/workflows/evaluation-run.yml'
             ]);
@@ -74,9 +78,15 @@ jobs:
               pull_number: context.payload.pull_request.number,
               per_page: 100
             });
-            const changesEvaluationInfrastructure = files.some(({ filename }) =>
-              exactPaths.has(filename) ||
-              pathPrefixes.some(prefix => filename.startsWith(prefix))
+            const isEvaluationInfrastructure = path =>
+              path && (
+                exactPaths.has(path) ||
+                pathPrefixes.some(prefix => path.startsWith(prefix))
+              );
+            const changesEvaluationInfrastructure = files.some(
+              ({ filename, previous_filename }) =>
+                isEvaluationInfrastructure(filename) ||
+                isEvaluationInfrastructure(previous_filename)
             );
             if (!changesEvaluationInfrastructure) {
               core.info('No evaluation infrastructure changes found.');
