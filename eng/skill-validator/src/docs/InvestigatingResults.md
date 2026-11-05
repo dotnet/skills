@@ -7,10 +7,13 @@
 > document describes the raw `skill-validator evaluate` output retained under
 > `_agent-evaluation/` for custom-agent diagnosis and for historical results.
 >
-> The current Vally workflow makes one targeted recovery attempt for executor
-> `session.idle` timeouts before adaptation. See
-> `executor-retry-summary.json` in the result artifact and the current guide for
-> the bounded retry and fail-closed rules.
+> The current Vally workflow makes up to two targeted retry passes before
+> adaptation when a required baseline or isolated-skilled record has an exact
+> Vally stimulus wall-clock timeout, a `session.idle` timeout, or the Copilot
+> SDK `Session disconnected while waiting for a response` error. See
+> `executor-retry-summary.json` and the raw record's `executorRetry` field in
+> the result artifact for recovery evidence, and the current guide for the
+> bounded retry and fail-closed rules.
 > Native-agent `RunMetrics.errorCount` is diagnostic and may include recovered
 > tool-call failures. Adaptation invalidates a scenario only for terminal
 > evidence: an explicit execution error, a missing or timed-out required arm, a
@@ -48,6 +51,18 @@ behavior against the corrected executor.
 > the Copilot CLI's no-authentication setup block. Unrelated service and
 > configuration failures remain terminal.
 
+> Before token selection or evaluation starts, the workflow serially warms up
+> first-use state for every .NET SDK installed on the runner. This prevents
+> parallel fixture setup from racing in the .NET CLI's first-use
+> `NuGet-Migrations` initialization. `dotnet --list-sdks` returning no versions
+> fails the job with `dotnet --list-sdks reported no installed SDKs`. A warm-up
+> that does not create the SDK-specific sentinel fails with
+> `First-use sentinel missing for .NET SDK <version> after warm-up`. Both are
+> evaluation-infrastructure failures that occur before model sessions and
+> result artifacts exist; do not classify them as skill regressions. Diagnose
+> the runner's SDK installation or .NET CLI first-use state, then rerun the
+> evaluation without changing the skill.
+
 > PR session replay publishing is auxiliary. A missing or invalid
 > `SKILLS_DATA_TOKEN`, or one that cannot authenticate for a non-mutating
 > `git push --dry-run` to `dotnet/skills-data`, is detected before replay
@@ -61,7 +76,7 @@ behavior against the corrected executor.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
 
-> Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14 startup guard. It waits for
+> Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup
 > calls. Session-provider errors are harness failures, not skill-quality verdicts.
 > This does not change the historical result schema documented below.
@@ -278,10 +293,12 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > The evaluator captures `GH_TOKEN` or `GITHUB_TOKEN` for its SDK client, then
 > removes both aliases from the process and every setup-command or command-grader
 > child environment.
-> The session filesystem provider stores `session-state/*` under the private
-> config directory, resolves relative file-tool paths from the scenario
-> workspace, limits absolute paths to the private evaluator root, and rejects
-> any reparse-point or symbolic-link component that escapes the selected root.
+> The session filesystem provider stores relative `session-state/*` paths under
+> the private config directory, permits SDK state I/O under the exact absolute
+> client session-state root in the private evaluator root, resolves relative
+> file-tool paths from the scenario workspace, limits all other absolute paths to explicit
+> per-session roots, and rejects any reparse-point or symbolic-link component
+> that escapes the selected root.
 > Evaluator clients use a process-private directory under the system temp
 > directory as their SDK filesystem root because the shared client is created
 > before per-scenario `sv-*` workspaces. Fixtures and staged skills are created

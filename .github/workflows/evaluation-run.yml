@@ -373,7 +373,7 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}
 
       - name: Upload trusted skill-validator archive
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: trusted-skill-validator-${{ github.run_id }}
           path: skill-validator-dist.tar.gz
@@ -646,7 +646,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.find-evals.outputs.has_evals == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
 
@@ -685,7 +685,7 @@ jobs:
       # run; matrix jobs never build it from the evaluated checkout.
       - name: Download trusted skill-validator archive
         if: steps.find-evals.outputs.has_evals == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: trusted-skill-validator-${{ github.run_id }}
           path: ${{ runner.temp }}/trusted-validator-archive
@@ -697,6 +697,46 @@ jobs:
           mkdir -p "$RUNNER_TEMP/trusted-validator"
           tar -xzf "$RUNNER_TEMP/trusted-validator-archive/skill-validator-dist.tar.gz" \
             -C "$RUNNER_TEMP/trusted-validator"
+
+      # Infrastructure fix, not a skill-content fix: `vally experiment run
+      # --workers 5` (and the native agent lane's parallel scenarios) launch
+      # several concurrent *first* `dotnet` invocations. Each one runs the CLI
+      # first-use configurer, whose NuGet MigrationRunner takes the named mutex
+      # `NuGet-Migrations`; concurrent creation races on /tmp/.dotnet/shm and
+      # crashes fixture setup (`mkdir(...) == -1; errno == EEXIST`), leaving an
+      # unmatched trial. Run first-use serially here for every SDK on PATH (no
+      # setup-dotnet runs in this job, so these are the runner-image SDKs that
+      # fixture global.json files roll forward onto). The sentinel is per SDK
+      # version: dotnet/sdk src/Cli/Microsoft.DotNet.Configurer/
+      # FirstTimeUseNoticeSentinel.cs (`{Product.Version}.dotnetFirstUseSentinel`).
+      # `--info`/`--version` skip first-use (FirstRunExperience.cs `Terminating`
+      # option early-return; 8.0 Program.cs InfoOption/VersionOption branches),
+      # so use a cheap real subcommand; DotnetFirstTimeUseConfigurer.Configure()
+      # then runs MigrationRunner.Run() and creates the sentinel.
+      - name: Warm up .NET SDK first-use state
+        if: steps.find-evals.outputs.has_evals == 'true'
+        env:
+          DOTNET_NOLOGO: "1"
+        run: |
+          set -euo pipefail
+          mapfile -t sdk_versions < <(dotnet --list-sdks | awk '{print $1}')
+          if [ ${#sdk_versions[@]} -eq 0 ]; then
+            echo "::error::dotnet --list-sdks reported no installed SDKs"
+            exit 1
+          fi
+          dotnet_user_dir="${DOTNET_CLI_HOME:-$HOME}/.dotnet"
+          for sdk_version in "${sdk_versions[@]}"; do
+            warmup_dir=$(mktemp -d "$RUNNER_TEMP/dotnet-first-use.XXXXXX")
+            printf '{ "sdk": { "version": "%s", "rollForward": "disable" } }\n' "$sdk_version" \
+              > "$warmup_dir/global.json"
+            (cd "$warmup_dir" && dotnet nuget locals global-packages --list > /dev/null)
+            rm -rf "$warmup_dir"
+            if [ ! -f "$dotnet_user_dir/$sdk_version.dotnetFirstUseSentinel" ]; then
+              echo "::error::First-use sentinel missing for .NET SDK $sdk_version after warm-up"
+              exit 1
+            fi
+            echo "Initialized .NET SDK $sdk_version first-use state"
+          done
 
       - name: Select available Copilot token from pool
         id: select-token
@@ -1110,12 +1150,13 @@ jobs:
             exit 1
           fi
 
-          # A single agent session can time out transiently while every other
-          # trial succeeds. Retry only that eval/variant, then repeat once only
-          # when exact timeout slots remain unresolved. Each pass replaces only
-          # matching failed slots; successful original and recovered slots stay
-          # frozen. Persistent or non-timeout failures remain in the original
-          # JSONL and fail the measurement-validity gate below.
+          # A single agent session can hit a recognized transient executor
+          # failure while every other trial succeeds. Retry only that
+          # eval/variant, then repeat once only when exact retryable slots remain
+          # unresolved. Each pass replaces only matching failed slots;
+          # successful original and recovered slots stay frozen. Persistent or
+          # unrecognized failures remain in the original JSONL and fail the
+          # measurement-validity gate below.
           # A slot whose executor evidence is complete but whose comparison judge
           # stalled is recovered later, inside adapt.mjs, by re-judging just that
           # slot from these preserved trajectories.
@@ -1133,7 +1174,7 @@ jobs:
           EXECUTOR_RETRY_STATUS=$?
           set -e
           if [ "$EXECUTOR_RETRY_STATUS" -ne 0 ]; then
-            echo "::warning::Executor timeout recovery exited $EXECUTOR_RETRY_STATUS; adapting original and any atomically recovered records"
+            echo "::warning::Executor transient recovery exited $EXECUTOR_RETRY_STATUS; adapting original and any atomically recovered records"
           fi
 
           # Run the retained skill-validator overfitting judge over the same
@@ -1239,7 +1280,7 @@ jobs:
 
       - name: Upload results
         if: always() && steps.find-evals.outputs.has_evals == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: vally-results-${{ matrix.entry.name }}
           path: artifacts/TestResults/vally/${{ matrix.entry.name }}/

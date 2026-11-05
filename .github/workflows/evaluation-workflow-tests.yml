@@ -25,10 +25,14 @@ on:
       - "eng/evaluation/path-safety.ps1"
       - "eng/evaluation/workflow-targets.ps1"
       - "eng/evaluation/test_workflow_targets.py"
+      - "eng/evaluation/weekly-eval-insights.js"
+      - "eng/evaluation/weekly-eval-insights.test.js"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
       - "tests/**/eval.yaml"
+      - "tests/**/fixtures/grading/**"
+      - "tests/dotnet/dotnet-breaking-changes/**"
   push:
     branches: [main]
     paths:
@@ -54,10 +58,13 @@ on:
       - "eng/evaluation/path-safety.ps1"
       - "eng/evaluation/workflow-targets.ps1"
       - "eng/evaluation/test_workflow_targets.py"
+      - "eng/evaluation/weekly-eval-insights.js"
+      - "eng/evaluation/weekly-eval-insights.test.js"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
       - "tests/**/eval.yaml"
+      - "tests/**/fixtures/grading/**"
   workflow_dispatch:
 
 permissions:
@@ -74,12 +81,19 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
 
       - name: Run adapter fault-injection and report tests
-        run: node --test eng/vally-adapter/*.test.mjs eng/dashboard/*.test.js
+        run: >-
+          node --test
+          eng/vally-adapter/*.test.mjs
+          eng/dashboard/*.test.js
+          eng/evaluation/weekly-eval-insights.test.js
+
+      - name: Run eval grader-script regression tests
+        run: node --test tests/*/*/fixtures/grading/*.test.mjs
 
   evaluation-tools:
     runs-on: ubuntu-latest
@@ -91,7 +105,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
 
@@ -126,7 +140,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 

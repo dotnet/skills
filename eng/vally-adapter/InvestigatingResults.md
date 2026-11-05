@@ -82,8 +82,8 @@ workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
 
 `Cannot set session filesystem provider while sessions are active` can indicate
 an SDK startup race, not a skill or judge failure. In SDK 1.0.11, 1.0.13, and 1.0.14, concurrent
-startup calls can create multiple transports, and session creation can use a
-connection before its filesystem provider is ready. The trusted
+startup calls can create multiple transports. Supported versions through SDK 1.0.26 require
+session creation to wait until the filesystem provider is ready. The trusted
 `eng/evaluation-tools/vally.mjs` launcher loads a version-checked startup guard.
 It shares startup per client and waits for readiness before creating or resuming
 sessions. It does not reduce trial concurrency or suppress startup failures.
@@ -159,6 +159,16 @@ age is unavailable or the evidence is not older, it reports only the mismatch
 and asks the reader to verify the revision. A green notice means the commits
 match. If deployment metadata is unavailable, the dashboard reports the
 comparison as unknown rather than guessing.
+
+Retained Skill Value entries also carry a stable evaluation execution identity
+so repeated judge views do not multiply executor resource telemetry. Native
+target non-activation is preserved separately from the dormancy activation
+contract and cannot qualify as proven differentiation. Native objective
+completion regression is also retained separately and overrides favorable
+preference evidence. Weekly health reporting labels its ratio as
+**published-result reliability** because failed executions can produce no
+retained target output; complete expected-target coverage is reported as
+unavailable rather than inferred from retained rows.
 
 The 0–10 **Quality Score Triage** summary and trend charts remain useful for
 spotting changes in absolute grader scores. They do not decide pass/fail. Older
@@ -336,23 +346,28 @@ runs that also fail their graders are surfaced as warnings.
 The agent crashed, the model was unavailable, evidence was missing, or the comparison judge failed. Check `stateReason`, `errors[]`, `adapter-summary.json`, and the variant's `results.jsonl`/session logs. These are invalid measurements, not skill regressions. If a required variant produced no records, the adapter writes an explicit invalid result with `missing_baseline_records` or `missing_skilled_records`.
 
 The workflow retries only required baseline or isolated-skilled executor records
-whose exact failure is a `session.idle` timeout. It reruns the affected eval and
-variant up to two bounded times while exact timeout slots remain unresolved,
-preserves all successful first-attempt and recovered slots, and replaces only
-matching failed `shardKey` slots from the same normalized eval path that
-succeed. A later pass cannot overwrite evidence recovered by an earlier pass.
+whose exact failure is a Vally stimulus wall-clock timeout, a `session.idle`
+timeout, or `Session disconnected while waiting for a response`. It reruns the
+affected eval and variant up to two bounded times while exact retryable slots
+remain unresolved, preserves all successful first-attempt and recovered slots,
+and replaces only matching failed `shardKey` slots from the same normalized
+eval path that succeed. A later pass cannot overwrite evidence recovered by an
+earlier pass.
 Every invocation uses a fresh output directory, so a retry that produces no
 current output cannot reuse stale evidence from an earlier invocation. Records
 without a `shardKey` remain invalid. Check
 `executor-retry-summary.json` and the raw record's `executorRetry` field for
-recovered attempts. A timeout that survives both targeted passes remains
-measurement-invalid. The summary is written before and after every retry so an
-outer watchdog termination still leaves the active attempt and the last
-completed accounting for diagnosis. The merged record retains the original
-experiment provenance; `executorRetry.retryRunId` identifies the successful retry run.
-Persistent timeouts, other executor failures, or more than three affected
-eval/variant groups remain measurement-invalid and keep the matrix leg red. The
-optional whole-plugin arm is report-only telemetry and is not retried.
+recovered attempts. A retryable failure that survives both targeted passes
+remains measurement-invalid. `No response was returned. Send your message again
+to retry.` remains ineligible because it can represent failures outside this
+bounded SDK transport class. The summary is written before and after every
+retry so an outer watchdog termination still leaves the active attempt and the
+last completed accounting for diagnosis. The merged record retains the original
+experiment provenance; `executorRetry.retryRunId` identifies the successful
+retry run. Persistent transient failures, other executor failures, or more than
+three affected eval/variant groups remain measurement-invalid and keep the
+matrix leg red. The optional whole-plugin arm is report-only telemetry and is
+not retried.
 
 If Vally writes a JSON record that cannot satisfy the comparison schema, the
 adapter emits `comparison_report_invalid` for that eval and continues the batch.

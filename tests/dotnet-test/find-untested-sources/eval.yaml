@@ -12,7 +12,7 @@ type: capability
 # These tasks are expensive and cover distinct source-discovery cases. Add a new
 # discriminating stimulus, not more runs, to improve statistical power.
 defaults:
-  timeout: 5m
+  timeout: 10m
   runs: 3
 
 stimuli:
@@ -373,10 +373,10 @@ stimuli:
       risk: omitted-language-sources
       journey: audit-polyglot-repository
     prompt: |
-      Run the shipped static source-to-test pairing analyzer over the
-      PolyglotPairing fixture. Which four source files are unpaired, and which
-      existing tests cover the other four? Include the analyzer's suggested
-      test paths. Do not build or run any language test runner.
+      Analyze the PolyglotPairing fixture using static source-to-test pairing.
+      Which four source files are unpaired, and which existing tests cover the
+      other four? Include suggested test paths. Do not build or run any
+      language test runner.
     environment:
       files:
         - src: fixtures/polyglot-pairing
