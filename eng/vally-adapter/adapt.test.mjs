@@ -203,14 +203,18 @@ function runAdapter(
     ...testEnvironment
   } = process.env;
   const inheritedCopilotHome = join(root, "inherited-copilot-home");
+  const childEnvironment = {
+    ...testEnvironment,
+    COPILOT_HOME: inheritedCopilotHome,
+    GITHUB_TOKEN: "adapter-test-github-token",
+    ...environmentOverrides,
+  };
+  for (const [name, value] of Object.entries(childEnvironment)) {
+    if (value === undefined) delete childEnvironment[name];
+  }
   const result = spawnSync(process.execPath, args, {
     encoding: "utf8",
-    env: {
-      ...testEnvironment,
-      COPILOT_HOME: inheritedCopilotHome,
-      GITHUB_TOKEN: "adapter-test-github-token",
-      ...environmentOverrides,
-    },
+    env: childEnvironment,
   });
   const verdictPath = join(
     outputRoot,
@@ -314,6 +318,46 @@ test("preserves GH_TOKEN instead of promoting a lower-priority GITHUB_TOKEN", ()
           copilotGithubToken: "",
           ghToken: "adapter-test-gh-token",
           githubToken: "adapter-test-repository-token",
+        },
+      ],
+    );
+  });
+});
+
+test("preserves the inherited Copilot home when no explicit token is available", () => {
+  withTempDir((root) => {
+    const { result, comparisonAuth, inheritedCopilotHome } = runAdapter(
+      root,
+      "recover",
+      5,
+      [evalFile],
+      createExperiment,
+      undefined,
+      { GITHUB_TOKEN: undefined },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(comparisonAuth.length, 2);
+    assert.deepEqual(
+      comparisonAuth.map(
+        ({ copilotHome, copilotGithubToken, ghToken, githubToken }) => ({
+          copilotHome,
+          copilotGithubToken,
+          ghToken,
+          githubToken,
+        }),
+      ),
+      [
+        {
+          copilotHome: inheritedCopilotHome,
+          copilotGithubToken: "",
+          ghToken: "",
+          githubToken: "",
+        },
+        {
+          copilotHome: inheritedCopilotHome,
+          copilotGithubToken: "",
+          ghToken: "",
+          githubToken: "",
         },
       ],
     );
