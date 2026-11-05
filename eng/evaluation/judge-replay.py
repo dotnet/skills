@@ -501,6 +501,21 @@ def compare(old, new):
     return {"counts": counts, "cases": cases}
 
 
+def validate_native_retry_provenance(source):
+    retry_archive = source / "_agent-timeout-retry"
+    retry_summary = source / "agent-timeout-retry-summary.json"
+    if retry_archive.exists() and not retry_summary.is_file():
+        raise ValueError("Native timeout retry archive exists but its completion summary is missing")
+    if not retry_summary.exists():
+        return
+    summary = load(retry_summary)
+    recovered = summary.get("recoveredScenarioCount")
+    if not isinstance(recovered, int) or isinstance(recovered, bool) or recovered < 0:
+        raise ValueError("Native timeout retry summary has an invalid recoveredScenarioCount")
+    if recovered:
+        raise ValueError("Native replay does not support recovered timeout scenarios")
+
+
 def run_replay(args):
     source, output = Path(args.source).resolve(), Path(args.output).resolve()
     if not source.is_dir() or output.is_relative_to(source):
@@ -538,8 +553,10 @@ def run_replay(args):
         if activation_contract(new_files) != contracts:
             raise ValueError("Candidate activation contract differs from original evidence")
     elif len(native) == 1 and not experiment:
+        validate_native_retry_provenance(source)
         target = output / "native-rejudge"
         shutil.copytree(native[0].parent, target)
+        (target / "results.json").unlink(missing_ok=True)
         original_hash = hashlib.sha256(native[0].read_bytes()).hexdigest()
         validator_env = os.environ.copy()
         validator_env["GH_TOKEN"] = validator_env["GITHUB_TOKEN"]

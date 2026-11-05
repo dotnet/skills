@@ -139,6 +139,14 @@ be paired by array position and are not replayable. Comparison requires the
 with no trial supplies no comparison key but retains its activation contract.
 The verdict's `trialCount` counts preference-eligible stimulus votes, **not**
 all raw trial rows: dormant scenarios may still have judged trial evidence.
+Native artifacts with recovered agent-timeout scenarios are not eligible for
+judge-only replay. Their authoritative result can contain a replacement
+scenario whose sessions remain in the separate `_agent-timeout-retry` audit
+tree rather than the original `sessions.db`. Replay fails closed when
+`agent-timeout-retry-summary.json` reports a recovery, or when that retry audit
+tree exists without its summary. Native replay also deletes any copied
+`results.json` before invoking rejudge, so a same-model control requires fresh
+validator output.
 
 ### SDK startup failures
 

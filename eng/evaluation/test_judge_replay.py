@@ -673,13 +673,17 @@ class JudgeReplayTests(unittest.TestCase):
     def test_native_rejudge_copies_sessions_and_preserves_original(self):
         self.assert_native_rejudge("skill", 1, "treatment")
 
+    def test_native_rejudge_allows_unrecovered_retry_attempts(self):
+        self.assert_native_rejudge("skill", 1, "treatment", recovered_scenarios=0)
+
     def test_native_rejudge_equal_magnitude_is_a_tie(self):
         for winner in ("baseline", "skill"):
             for magnitude in (2, "equal", "Equal"):
                 with self.subTest(winner=winner, magnitude=magnitude):
                     self.assert_native_rejudge(winner, magnitude, "tie")
 
-    def assert_native_rejudge(self, winner, magnitude, expected_winner):
+    def assert_native_rejudge(self, winner, magnitude, expected_winner,
+                              recovered_scenarios=None):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
             root = Path(temporary)
             source, output = root / "source", root / "output"
@@ -692,6 +696,11 @@ class JudgeReplayTests(unittest.TestCase):
             native.mkdir(parents=True)
             database = native / "sessions.db"
             database.write_bytes(b"original sessions")
+            if recovered_scenarios is not None:
+                (source / "_agent-timeout-retry" / "attempt").mkdir(parents=True)
+                (source / "agent-timeout-retry-summary.json").write_text(json.dumps({
+                    "recoveredScenarioCount": recovered_scenarios,
+                }))
             args = SimpleNamespace(source=source, output=output, original_judge="claude-haiku-4.5",
                                    candidate_judge="claude-haiku-5.5", repo_root=str(root),
                                    adapter="adapt.mjs", validator="skill-validator",
@@ -751,6 +760,71 @@ class JudgeReplayTests(unittest.TestCase):
                         replay.run_replay(args)
             self.assertEqual(database.read_bytes(), b"original sessions")
             self.assertFalse((output / "comparison.json").exists())
+
+    def test_native_rejudge_does_not_accept_copied_stale_results(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
+            root = Path(temporary)
+            source, output = root / "source", root / "output"
+            original = source / "dotnet" / "example"
+            original.mkdir(parents=True)
+            saved = result("claude-haiku-4.5")
+            (original / "results.json").write_text(json.dumps(saved))
+            (source / "source-commit.json").write_text(json.dumps({"source_sha": "a" * 40}))
+            native = source / "_agent-evaluation" / "timestamp"
+            native.mkdir(parents=True)
+            (native / "sessions.db").write_bytes(b"original sessions")
+            (native / "results.json").write_text(json.dumps(saved))
+            args = SimpleNamespace(source=source, output=output,
+                                   original_judge="claude-haiku-4.5",
+                                   candidate_judge="claude-haiku-4.5", repo_root=str(root),
+                                   adapter="adapt.mjs", validator="skill-validator",
+                                   run_id="123", artifact_id="456",
+                                   artifact_name="vally-results-dotnet")
+
+            def fake_command(*argv, **_kwargs):
+                self.assertFalse((Path(argv[3]) / "results.json").exists())
+                return SimpleNamespace(returncode=1)
+
+            with patch.dict(replay.os.environ, {"GITHUB_TOKEN": "copilot-pat"}):
+                with patch.object(replay, "command", side_effect=fake_command):
+                    with self.assertRaisesRegex(ValueError, "produced no results.json"):
+                        replay.run_replay(args)
+            self.assertFalse((output / "comparison.json").exists())
+
+    def test_native_rejudge_rejects_recovered_or_unproven_retry_sessions(self):
+        for summary, message in (
+                ({"recoveredScenarioCount": 1}, "does not support recovered"),
+                (None, "completion summary is missing")):
+            with self.subTest(summary=summary):
+                with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
+                    root = Path(temporary)
+                    source, output = root / "source", root / "output"
+                    original = source / "dotnet" / "example"
+                    original.mkdir(parents=True)
+                    (original / "results.json").write_text(json.dumps(
+                        result("claude-haiku-4.5")))
+                    (source / "source-commit.json").write_text(json.dumps(
+                        {"source_sha": "a" * 40}))
+                    native = source / "_agent-evaluation" / "timestamp"
+                    native.mkdir(parents=True)
+                    (native / "sessions.db").write_bytes(b"original sessions")
+                    (source / "_agent-timeout-retry" / "attempt").mkdir(parents=True)
+                    if summary is not None:
+                        (source / "agent-timeout-retry-summary.json").write_text(
+                            json.dumps(summary))
+                    args = SimpleNamespace(source=source, output=output,
+                                           original_judge="claude-haiku-4.5",
+                                           candidate_judge="claude-haiku-5.5",
+                                           repo_root=str(root), adapter="adapt.mjs",
+                                           validator="skill-validator", run_id="123",
+                                           artifact_id="456",
+                                           artifact_name="vally-results-dotnet")
+
+                    with patch.object(replay, "command") as called:
+                        with self.assertRaisesRegex(ValueError, message):
+                            replay.run_replay(args)
+                    called.assert_not_called()
+                    self.assertFalse((output / "comparison.json").exists())
 
     def test_aggregate_requires_every_artifact(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:

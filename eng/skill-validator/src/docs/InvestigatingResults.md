@@ -120,6 +120,12 @@ skill name.
 Native replay treats an `overallMagnitude` of `equal` (case-insensitive) or
 numeric `2` as a tie even when `overallWinner` names a side, matching the native
 results adapter.
+Native artifacts with recovered timeout scenarios are not replayable because
+their authoritative verdict can combine the original sessions with separately
+archived retry sessions. Replay also rejects a timeout-retry archive without
+its `agent-timeout-retry-summary.json`. Before native rejudge starts, it removes
+any copied `results.json`, so only fresh validator output can become the
+candidate judgment.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup
