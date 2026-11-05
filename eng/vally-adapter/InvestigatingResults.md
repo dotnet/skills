@@ -594,9 +594,11 @@ override to the adapter too; otherwise a different parameter plan is invalid.
 The adapter requires every declared stimulus and run in the baseline, isolated,
 and required plugin arms. Trial identity comes from the persisted `shardKey`,
 not array position; comparison slots must reconcile with those executor slots.
-An execution failure, timeout, missing trial, duplicate,
-wrong arm, absent detail, non-boolean result, or grader error makes the contract
-invalid. `stateReason.code` is `deterministic_evidence_invalid`; inspect
+An execution error, missing trajectory or trial, duplicate, or wrong arm makes
+the contract invalid in any required arm. Missing, mismatched, non-boolean or
+errored deterministic grader details invalidate the isolated arm; the same
+grader-evidence problems in baseline and plugin arms remain diagnostics.
+`stateReason.code` is `deterministic_evidence_invalid`; inspect
 `deterministicContract.errors` before changing skill content. An unreadable or
 invalid spec/runtime produces `deterministic_spec_invalid` (or
 `eval_spec_unreadable`).
@@ -609,11 +611,11 @@ Baseline and plugin failures remain diagnostic; they do not block a healthy
 isolated arm. An executor timeout is incomplete execution, not a completed
 grader failure, even if Vally persists the trial with `status: "success"`.
 It invalidates required deterministic evidence only in the isolated arm.
-Timeouts in baseline, plugin, or prompt-only eval records remain diagnostics.
+Timeouts in successful baseline, plugin, or prompt-only eval records remain diagnostics.
 Non-success executor status still invalidates every arm. Native-agent completion
 policy is unchanged.
-Missing or errored evidence in any required arm also invalidates
-the measurement. LLM results, aggregate scores, weights and thresholds cannot
+An executor error with no saved trajectory remains invalid, including when its
+cause is a timeout. LLM results, aggregate scores, weights and thresholds cannot
 override an explicit deterministic failure.
 An unreviewed grader type invalidates the spec instead of silently becoming
 an unenforced check.

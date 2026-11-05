@@ -174,6 +174,32 @@ test("non-success executor status invalidates every arm", async () => {
   }, { plugin: true });
 });
 
+test("incomplete pairs stay invalid without a false comparison-slot mismatch", async () => {
+  for (const arm of ["baseline", "skilled"]) {
+    await fixture((spec, roles) => {
+      const record = roles[`${arm}ByStim`].get("Check")[0];
+      record.status = "error";
+      delete record.trajectory;
+      const contract = deterministicContract(spec, roles);
+      const reconciled = reconcileDeterministicComparison(contract, { stimuli: [] });
+      assert.equal(reconciled.valid, false);
+      assert.deepEqual(reconciled.errors, contract.errors);
+    });
+  }
+});
+
+test("baseline and plugin grader evidence errors are diagnostic", async () => {
+  await fixture((spec, roles) => {
+    roles.baselineByStim.get("Check")[0].gradeResult.details[0].status = "error";
+    delete roles.pluginByStim.get("Check")[0].gradeResult.details;
+    const contract = deterministicContract(spec, roles);
+    assert.equal(contract.valid, true);
+    assert.equal(contract.passed, true);
+    assert.deepEqual(contract.errors, []);
+    assert.deepEqual(contract.diagnostics.map(({ arm }) => arm), ["baseline", "plugin"]);
+  }, { plugin: true });
+});
+
 test("duplicate, missing and extra repeated trials fail exact accounting", async () => {
   await fixture((spec, roles) => {
     const records = roles.skilledByStim.get("Check");

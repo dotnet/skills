@@ -118,7 +118,7 @@ function checkRecord(record, stimulus, spec, requireDeterministicEvidence) {
       errors.push(`Experiment ${field} does not match the source and effective plan; use the original configuration and --param values`);
     }
   }
-  const comparisonEligible = record?.status === "success" && record.trajectory != null;
+  const comparisonEligible = record?.trajectory != null;
   if (record?.status !== "success" || !record.trajectory) {
     errors.push("Executor did not produce a completed trajectory");
   } else if (record.trajectory.endReason !== "completed") {
@@ -225,8 +225,12 @@ export function deterministicContract(spec, roles, variants = {}) {
 
 export function reconcileDeterministicComparison(contract, report) {
   const keyOf = (name, index) => JSON.stringify([name, index]);
+  const skilled = new Set(contract.trials
+    .filter((trial) => trial.arm === "skilled" && trial.comparisonEligible)
+    .map((trial) => keyOf(trial.stimulusName, trial.trialIndex)));
   const expected = new Set(contract.trials.filter((trial) => trial.arm === "baseline")
-    .filter((trial) => trial.comparisonEligible)
+    .filter((trial) => trial.comparisonEligible
+      && skilled.has(keyOf(trial.stimulusName, trial.trialIndex)))
     .map((trial) => keyOf(trial.stimulusName, trial.trialIndex)));
   const observed = (report.stimuli ?? []).flatMap((stimulus) =>
     (stimulus.trials ?? []).map((trial) => keyOf(stimulus.stimulusName, trial.trialIndex)));

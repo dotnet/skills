@@ -311,9 +311,11 @@ twelve independent test cases.
 For one model and target's baseline-versus-isolated comparison:
 
 1. Require complete and well-formed result identity.
-   Skill runs also require complete deterministic grader evidence from the pinned
-   Vally runtime and the parsed eval spec. Missing, errored or mismatched details
-   invalidate the measurement.
+   Skill runs also require complete isolated-arm deterministic grader evidence
+   from the pinned Vally runtime and the parsed eval spec. Missing, errored or
+   mismatched isolated details invalidate the measurement. Baseline and plugin
+   grader-evidence problems remain diagnostic, but executor errors or missing
+   trajectories invalidate every required arm.
 2. Require every explicit dormancy activation contract to pass. This objective
    routing result remains definitive even when preference is underpowered.
    Every allowlisted deterministic check in the isolated skill arm must also
