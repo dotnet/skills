@@ -2727,6 +2727,13 @@ esac
             ["opened", "synchronize", "reopened"],
         )
         self.assertEqual(workflow["permissions"], {"pull-requests": "write"})
+        self.assertEqual(
+            workflow["concurrency"],
+            {
+                "group": "fork-infra-check-${{ github.event.pull_request.number }}",
+                "cancel-in-progress": False,
+            },
+        )
 
         fork_job = workflow["jobs"]["check-fork-infra"]
         self.assertIn("github.event.action == 'opened'", fork_job["if"])
@@ -2767,6 +2774,7 @@ esac
             "eng/vally-adapter/",
             "eng/evaluation/find-targets.ps1",
             "eng/evaluation/path-safety.ps1",
+            "eng/evaluation/workflow-targets.ps1",
             "eng/skill-validator/src/",
             "dotnet-skills.experiment.yaml",
             ".github/workflows/evaluation.yml",

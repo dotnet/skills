@@ -13,6 +13,10 @@ on:
 permissions:
   pull-requests: write
 
+concurrency:
+  group: fork-infra-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   check-fork-infra:
     name: Check fork PRs touching infrastructure
@@ -53,6 +57,7 @@ jobs:
             const exactPaths = new Set([
               'eng/evaluation/find-targets.ps1',
               'eng/evaluation/path-safety.ps1',
+              'eng/evaluation/workflow-targets.ps1',
               'dotnet-skills.experiment.yaml',
               '.github/workflows/evaluation.yml',
               '.github/workflows/evaluation-run.yml'
