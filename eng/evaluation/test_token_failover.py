@@ -2776,6 +2776,65 @@ esac
             "error",
         )
 
+    def test_sharded_plugins_split_only_the_implicit_default_bucket(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = workflow_step_script(
+            caller, "discover", "function Get-PluginShardEntries"
+        )
+        start = discover_script.index("function Get-EvalExecutionShard")
+        end = discover_script.index('if ("$env:GATE_PR_NUMBER"', start)
+        functions = discover_script[start:end]
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for plugin, skills in {
+                "sharded": {"alpha": "", "beta": "", "heavy": "tags:\n  executionShard: heavy\n"},
+                "plain": {"alpha": "", "beta": ""},
+            }.items():
+                for skill, content in skills.items():
+                    (root / "plugins" / plugin / "skills" / skill).mkdir(parents=True)
+                    (root / "tests" / plugin / skill).mkdir(parents=True)
+                    (root / "tests" / plugin / skill / "eval.yaml").write_text(
+                        content + "stimuli: []\n", encoding="utf-8"
+                    )
+            script = (
+                "$ErrorActionPreference = 'Stop'\n" + functions
+                + f"\n$root = '{str(root).replace(chr(39), chr(39) * 2)}'\n"
+                + "$result = @{\n"
+                + "  sharded = @(Get-PluginShardEntries -plugin sharded -contentRoot $root)\n"
+                + "  plain = @(Get-PluginShardEntries -plugin plain -contentRoot $root)\n"
+                + "  selected = @(Get-PluginShardEntries -plugin sharded -contentRoot $root -selectedSkills @('beta','heavy'))\n"
+                + "}\nConvertTo-Json -InputObject $result -Depth 6 -Compress\n"
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entries = json.loads(result.stdout.strip().splitlines()[-1])
+            self.assertEqual(
+                {entry["name"] for entry in entries["sharded"]},
+                {"sharded--shard-default-alpha", "sharded--shard-default-beta", "sharded--shard-heavy"},
+            )
+            self.assertEqual(
+                sorted(entry["skills_path"] for entry in entries["sharded"]),
+                ["plugins/sharded/skills/alpha", "plugins/sharded/skills/beta", "plugins/sharded/skills/heavy"],
+            )
+            self.assertEqual([entry["name"] for entry in entries["plain"]], ["plain"])
+            self.assertEqual(
+                {entry["name"] for entry in entries["selected"]},
+                {"sharded--shard-default", "sharded--shard-heavy"},
+            )
+            (root / "tests" / "sharded" / "heavy" / "eval.yaml").write_text(
+                "tags:\n  executionShard: default-alpha\nstimuli: []\n",
+                encoding="utf-8",
+            )
+            collision = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True, text=True, timeout=30,
+            )
+            self.assertNotEqual(collision.returncode, 0)
+            self.assertIn("conflicts with an automatic shard", collision.stdout + collision.stderr)
+
     def test_execution_shard_uses_only_top_level_tags(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         discover_script = workflow_step_script(

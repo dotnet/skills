@@ -8,8 +8,8 @@ if (Test-Path "agentic-workflows") {
 # Build matrix entries for a full-plugin evaluation, sharding skills
 # that have eval specs by the optional `executionShard:` metadata key
 # under the top-level `tags` mapping in tests/<plugin>/<skill>/eval.yaml.
-# Untagged evals fall into a
-# synthetic "default" bucket. Plugins with all skills in one bucket
+# Untagged evals fall into a synthetic "default" bucket, split by skill
+# when the plugin already uses multiple shards. Plugins with all skills in one bucket
 # produce a single entry (unchanged behavior); plugins with multiple
 # buckets fan out into one matrix entry per shard so each shard
 # runs on a fresh GitHub-hosted runner. This is the mitigation for
@@ -75,6 +75,17 @@ function Get-PluginShardEntries {
     $shardGroups[$shard] += $skill
   }
   if ($shardGroups.Count -eq 0) { return @() }
+  if ($shardGroups.Count -gt 1 -and $shardGroups.ContainsKey("default") -and
+      $shardGroups["default"].Count -gt 1) {
+    foreach ($skill in $shardGroups["default"]) {
+      $shardName = "default-$skill"
+      if ($shardGroups.ContainsKey($shardName)) {
+        throw "Explicit execution shard '$shardName' conflicts with an automatic shard for $plugin/$skill"
+      }
+      $shardGroups[$shardName] = @($skill)
+    }
+    $shardGroups.Remove("default")
+  }
   if ($shardGroups.Count -le 1) {
     if ($selectedSkills.Count -gt 0) {
       $paths = ($evalSkills | ForEach-Object { "$skillsDir/$_" }) -join ' '

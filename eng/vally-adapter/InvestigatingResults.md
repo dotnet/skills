@@ -91,6 +91,43 @@ Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
 
+### Final answer followed by an executor timeout
+
+A final assistant message is not session completion. The SDK waits for
+`session.idle`, which is deferred while attached background work remains.
+Check the saved session events for a watcher or server that was left running
+after the answer. Do not treat `assistant.turn_end` or `assistant.idle` as a
+replacement for `session.idle`: background work can still change the workspace.
+
+The trusted launcher appends the same lifecycle instruction to baseline,
+isolated, and plugin `copilot-sdk` sessions: finish finite background work and stop
+persistent processes before the final answer. It preserves existing system
+instructions, does not change judge prompts, and does not change the declared
+timeout or the SDK completion condition. At main-agent `assistant.idle`, it checks
+for running attached shells and requests cleanup at most once per turn.
+It does not stop processes itself or interrupt pending background agents.
+The cleanup request requires a complete final answer to the original task, not
+only a cleanup confirmation. Its messages, tool calls, time, and tokens remain
+part of the measured trajectory. It cannot make a trial complete without a
+real `session.idle`, and it cannot extend the original deadline.
+If cleanup admission races the original idle, the launcher waits for a new real idle
+after admission and checks that no active work remains before returning the final answer.
+A task-drain timeout alone is not proof of completion.
+A trial that still ends in an executor error remains invalid evidence.
+Compare arms from the same run; older runs did not receive this instruction.
+
+### Comparison watchdog with partial skill results
+
+The adapter compares each eval in sequence, and Vally compares each trial pair
+in sequence within an eval. The comparison watchdog therefore covers the sum
+of all pairs in an execution shard, including judge retries. Check the loaded
+record count and the last written skill result before calling this a hung
+judge. For plugins that already use multiple execution shards, discovery now
+splits a multi-skill default bucket into one shard per skill. This avoids
+putting the six untagged `dotnet-test` skill evals and their 122 paired trials
+behind one watchdog. Explicit shards and unsharded plugins are unchanged.
+This changes scheduling only, not the trial counts, prompts, graders, or deadlines.
+
 ### Investigation steps
 
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`

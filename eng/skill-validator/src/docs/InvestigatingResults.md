@@ -66,6 +66,17 @@ behavior against the corrected executor.
 > calls. Session-provider errors are harness failures, not skill-quality verdicts.
 > This does not change the historical result schema documented below.
 
+> Vally `copilot-sdk` executor sessions also receive identical bounded-task
+> guidance in every arm: finish finite background work and stop persistent
+> processes before the final answer. A final message alone is not completion:
+> the launcher can request attached-shell cleanup once at main-agent idle, but
+> the SDK still waits for `session.idle`. The cleanup request requires the full
+> original answer and its work remains part of the measured trajectory.
+> If cleanup admission races the original idle, the launcher waits for a new real
+> idle and verifies that no active work remains. Judge prompts and declared timeouts
+> are unchanged, and an executor error remains invalid evidence. This behavior
+> does not apply to the native agent runner or to historical runs.
+
 > **Vally schema:** Vally adapter results use an independently owned and
 > versioned schema. Consult the current Vally investigation guide for its
 > schema version and fields. `state` is authoritative:
