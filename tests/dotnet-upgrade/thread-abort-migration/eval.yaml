@@ -1,7 +1,7 @@
 name: thread-abort-migration
 description: Evaluates the dotnet-upgrade/thread-abort-migration skill
 type: capability
-config:
+defaults:
   timeout: 2m
 stimuli:
   - name: Worker thread with abort-based cancellation

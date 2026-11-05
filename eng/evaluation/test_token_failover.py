@@ -167,6 +167,153 @@ const github = {{
         return json.loads(completed.stdout.strip())
 
 
+def run_health_publisher(
+    test_case: unittest.TestCase,
+    current_body: str,
+    *,
+    replacement_state: dict[str, object] | None = None,
+) -> dict[str, object]:
+    node = shutil.which("node")
+    if not node:
+        test_case.skipTest("Node.js is required for publisher behavior tests")
+
+    replacement_body = "\n".join(
+        [
+            "# 🏥 Daily Health Check — 2026-10-15",
+            "## 🆕 New Findings (0)",
+            "None.",
+            "## 🔍 Investigation Results",
+            "DEVOPS_HEALTH_INVESTIGATION_ROWS_SLOT_V1",
+            "## ✅ Resolved Since Yesterday (0)",
+            "None.",
+            "## 📌 Existing Findings (0)",
+            "None.",
+            "## 📊 Trends (7-day)",
+            "DEVOPS_HEALTH_STATE_SLOT_V1",
+        ]
+    )
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        output_path = root / "agent-output.json"
+        harness_path = root / "health-publisher.cjs"
+        output_path.write_text(
+            json.dumps(
+                {
+                    "items": [
+                        {
+                            "type": "publish_health_report",
+                            "body": replacement_body,
+                            "comment_body": "## 📋 Health Check — 2026-10-15",
+                            "state_json": (
+                                "```json\n"
+                                + json.dumps(
+                                    replacement_state
+                                    if replacement_state is not None
+                                    else {
+                                        "active_findings": [],
+                                        "history": [],
+                                    },
+                                    separators=(",", ":"),
+                                )
+                                + "\n```"
+                            ),
+                            "investigation_rows_json": "```json\n[]\n```",
+                            "dispatches_json": "```json\n[]\n```",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        harness_path.write_text(
+            f"""
+const fs = require("fs");
+const errors = [];
+const calls = [];
+let dashboardBody = {json.dumps(current_body)};
+const core = {{
+  setFailed: message => errors.push(String(message)),
+  info: () => {{}}
+}};
+const context = {{
+  actor: "github-actions[bot]",
+  runId: 123,
+  runNumber: 45
+}};
+const github = {{
+  rest: {{
+    repos: {{
+      get: async () => ({{ data: {{ default_branch: "main" }} }})
+    }},
+    issues: {{
+      get: async () => ({{
+        data: {{
+          state: "open",
+          title: "🏥 Repository Health Dashboard",
+          labels: [{{ name: "devops-health" }}],
+          body: dashboardBody
+        }}
+      }}),
+      update: async args => {{
+        dashboardBody = args.body;
+        calls.push({{ type: "update", body: args.body }});
+        return {{ data: {{}} }};
+      }},
+      listComments: async () => ({{ data: [] }}),
+      createComment: async args => {{
+        calls.push({{ type: "comment", body: args.body }});
+        return {{ data: {{}} }};
+      }},
+      getComment: async () => {{
+        throw new Error("getComment should not be called");
+      }}
+    }},
+    actions: {{
+      listWorkflowRuns: async () => ({{ data: {{ workflow_runs: [] }} }}),
+      createWorkflowDispatch: async args => {{
+        calls.push({{ type: "dispatch", inputs: args.inputs }});
+        return {{ data: {{}} }};
+      }},
+      getWorkflowRun: async () => {{
+        throw new Error("getWorkflowRun should not be called");
+      }}
+    }}
+  }}
+}};
+(async () => {{
+{safe_output_script(
+    "devops-health-check.md",
+    "publish-health-report",
+    "Publish dashboard and dependent outputs",
+)}
+}})().then(
+  () => console.log(JSON.stringify({{ errors, calls, dashboardBody }})),
+  error => {{
+    console.error(error);
+    process.exitCode = 1;
+  }}
+);
+""",
+            encoding="utf-8",
+        )
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "GH_AW_AGENT_OUTPUT": str(output_path),
+                "EXPECTED_REPOSITORY": "dotnet/skills",
+            }
+        )
+        completed = subprocess.run(
+            [node, str(harness_path)],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=environment,
+        )
+        return json.loads(completed.stdout.strip())
+
+
 def run_groom_publisher_without_rows(
     test_case: unittest.TestCase,
     *,
@@ -367,6 +514,282 @@ def generated_safe_output_configs(workflow: object) -> list[dict[str, object]]:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_health_publisher_gates_legacy_rows_on_persisted_state(self) -> None:
+        legacy_row = (
+            "| Legacy finding | 🔴 critical | 🔄 Dispatched | "
+            "2026-09-16 | Pending |"
+        )
+        valid_state = (
+            "<!-- devops-health-state:v1\n"
+            '{"active_findings":[],"history":[]}'
+            "\n-->"
+        )
+
+        marker_free = run_health_publisher(self, legacy_row)
+        self.assertEqual(marker_free["errors"], [])
+        self.assertEqual(
+            [call["type"] for call in marker_free["calls"]],
+            ["update", "update", "comment"],
+        )
+        self.assertIn(
+            "<!-- devops-health-state:v1",
+            marker_free["dashboardBody"],
+        )
+
+        persisted = run_health_publisher(
+            self,
+            f"{valid_state}\n{legacy_row}",
+        )
+        self.assertEqual(
+            persisted["errors"],
+            [
+                "Dashboard contains an in-flight row without valid "
+                "identity markers"
+            ],
+        )
+        self.assertEqual(persisted["calls"], [])
+
+        workflow_evidence_finding = {
+            "category": "infra",
+            "fingerprint": "infra:relaxed-skill-validation",
+            "first_seen": "2026-10-15",
+            "occurrences": 1,
+            "severity": "warning",
+            "title": "Relaxed skill validation",
+            "url": (
+                "https://github.com/dotnet/skills/actions/"
+                "workflows/validate-skills.yml"
+            ),
+        }
+        workflow_evidence_state = (
+            "<!-- devops-health-state:v1\n"
+            + json.dumps(
+                {
+                    "active_findings": [workflow_evidence_finding],
+                    "history": [],
+                },
+                separators=(",", ":"),
+            )
+            + "\n-->"
+        )
+        workflow_evidence = run_health_publisher(
+            self,
+            workflow_evidence_state,
+            replacement_state={
+                "active_findings": [
+                    {
+                        **workflow_evidence_finding,
+                        "occurrences": 2,
+                    }
+                ],
+                "history": [],
+            },
+        )
+        self.assertEqual(workflow_evidence["errors"], [])
+
+        legacy_pipeline_finding = {
+            "category": "pipeline",
+            "fingerprint": "pipeline:evaluation:failure-rate:critical",
+            "first_seen": "2026-10-15",
+            "occurrences": 1,
+            "severity": "critical",
+            "title": "Evaluation failure rate is critical",
+            "url": (
+                "https://github.com/dotnet/skills/actions/"
+                "workflows/evaluation.yml"
+            ),
+        }
+        legacy_pipeline_state = (
+            "<!-- devops-health-state:v1\n"
+            + json.dumps(
+                {
+                    "active_findings": [legacy_pipeline_finding],
+                    "history": [],
+                },
+                separators=(",", ":"),
+            )
+            + "\n-->"
+        )
+        migrated_pipeline_finding = {
+            **legacy_pipeline_finding,
+            "url": "https://github.com/dotnet/skills/actions/runs/123",
+        }
+        migrated = run_health_publisher(
+            self,
+            legacy_pipeline_state,
+            replacement_state={
+                "active_findings": [migrated_pipeline_finding],
+                "history": [],
+            },
+        )
+        self.assertEqual(migrated["errors"], [])
+        self.assertIn(
+            "https://github.com/dotnet/skills/actions/runs/123",
+            migrated["dashboardBody"],
+        )
+        self.assertNotIn(
+            "https://github.com/dotnet/skills/actions/workflows/evaluation.yml",
+            migrated["dashboardBody"],
+        )
+
+        unchanged_carry_forward = run_health_publisher(
+            self,
+            legacy_pipeline_state,
+            replacement_state={
+                "active_findings": [legacy_pipeline_finding],
+                "history": [],
+            },
+        )
+        self.assertEqual(unchanged_carry_forward["errors"], [])
+        self.assertIn(
+            "https://github.com/dotnet/skills/actions/workflows/evaluation.yml",
+            unchanged_carry_forward["dashboardBody"],
+        )
+
+        marker_free_legacy_report = "\n".join(
+            [
+                "# 🏥 Daily Health Check — 2026-10-15",
+                "## 🆕 New Findings (0)",
+                "None.",
+                "## 🔍 Investigation Results",
+                "None.",
+                "## 📌 Existing Findings (1)",
+                "<details>",
+                (
+                    "<summary>🔴 Evaluation failure rate is critical"
+                    "</summary>"
+                ),
+                "",
+                (
+                    "- **Fingerprint:** "
+                    "`pipeline:evaluation:failure-rate:critical`"
+                ),
+                (
+                    "- **Category:** Pipeline · **First seen:** 2026-10-15 "
+                    "· **Occurrences:** 1"
+                ),
+                (
+                    "- **Evidence:** "
+                    "[Evaluation workflow]"
+                    "(https://github.com/dotnet/skills/actions/"
+                    "workflows/evaluation.yml)"
+                ),
+                "",
+                "</details>",
+                "## 📊 Trends (7-day)",
+                "None.",
+            ]
+        )
+        marker_free_carry_forward = run_health_publisher(
+            self,
+            marker_free_legacy_report,
+            replacement_state={
+                "active_findings": [legacy_pipeline_finding],
+                "history": [],
+            },
+        )
+        self.assertEqual(marker_free_carry_forward["errors"], [])
+        self.assertIn(
+            "https://github.com/dotnet/skills/actions/workflows/evaluation.yml",
+            marker_free_carry_forward["dashboardBody"],
+        )
+
+        marker_free_occurrence_mutation = run_health_publisher(
+            self,
+            marker_free_legacy_report.replace(
+                "**Occurrences:** 1",
+                "**Occurrences:** 10",
+            ),
+            replacement_state={
+                "active_findings": [legacy_pipeline_finding],
+                "history": [],
+            },
+        )
+        self.assertEqual(
+            marker_free_occurrence_mutation["errors"],
+            ["Dashboard state contains an invalid active finding"],
+        )
+        self.assertEqual(marker_free_occurrence_mutation["calls"], [])
+
+        marker_free_title_mutation = run_health_publisher(
+            self,
+            marker_free_legacy_report.replace(
+                "Evaluation failure rate is critical</summary>",
+                "Evaluation failure rate is critical today</summary>",
+            ),
+            replacement_state={
+                "active_findings": [legacy_pipeline_finding],
+                "history": [],
+            },
+        )
+        self.assertEqual(
+            marker_free_title_mutation["errors"],
+            ["Dashboard state contains an invalid active finding"],
+        )
+        self.assertEqual(marker_free_title_mutation["calls"], [])
+
+        changed_legacy_pipeline = run_health_publisher(
+            self,
+            legacy_pipeline_state,
+            replacement_state={
+                "active_findings": [
+                    {
+                        **legacy_pipeline_finding,
+                        "occurrences": 2,
+                    }
+                ],
+                "history": [],
+            },
+        )
+        self.assertEqual(
+            changed_legacy_pipeline["errors"],
+            ["Dashboard state contains an invalid active finding"],
+        )
+        self.assertEqual(changed_legacy_pipeline["calls"], [])
+
+        invalid_pipeline_url_state = (
+            "<!-- devops-health-state:v1\n"
+            + json.dumps(
+                {
+                    "active_findings": [
+                        {
+                            **legacy_pipeline_finding,
+                            "url": (
+                                "https://github.com/other/repository/actions/"
+                                "runs/123"
+                            ),
+                        }
+                    ],
+                    "history": [],
+                },
+                separators=(",", ":"),
+            )
+            + "\n-->"
+        )
+        invalid_markers = {
+            "duplicated": (
+                f"{valid_state}\n{valid_state}",
+                "Existing dashboard state marker is duplicated",
+            ),
+            "malformed": (
+                "<!-- devops-health-state:v1\n{}",
+                "Existing dashboard state marker is malformed",
+            ),
+            "schema-invalid": (
+                "<!-- devops-health-state:v1\n{}\n-->",
+                "Existing dashboard state has an invalid top-level schema",
+            ),
+            "category-url-invalid": (
+                invalid_pipeline_url_state,
+                "Existing dashboard state contains an invalid active finding",
+            ),
+        }
+        for name, (body, expected_error) in invalid_markers.items():
+            with self.subTest(marker=name):
+                result = run_health_publisher(self, body)
+                self.assertEqual(result["errors"], [expected_error])
+                self.assertEqual(result["calls"], [])
+
     def test_evaluation_model_profiles_and_judges(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         discover_script = workflow_step_script(
@@ -739,6 +1162,10 @@ class TokenFailoverTests(unittest.TestCase):
             "Dashboard contains an in-flight row without valid identity markers",
             health_lock_text,
         )
+        self.assertIn(
+            "hasPersistedState &&",
+            health_lock_text,
+        )
         self.assertIn("legacyFingerprintMatch", health_lock_text)
         self.assertIn(
             "priorOutbox.get(dispatch.finding_id)?.correlation",
@@ -763,6 +1190,10 @@ class TokenFailoverTests(unittest.TestCase):
             health_lock_text,
         )
         self.assertIn("validResourceUrlForType", health_lock_text)
+        self.assertIn(
+            "actions/workflows/[A-Za-z0-9._-]+\\\\.ya?ml",
+            health_lock_text,
+        )
         self.assertIn(
             'url.pathname === `/${owner}/${repo}/issues/695`',
             health_lock_text,
@@ -1015,6 +1446,107 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn("carry_forward_unchanged", shared_health)
         self.assertIn("do not increment their occurrences", shared_health)
         self.assertIn(
+            "Never mark a scope unavailable only because page 1 contains 100 entries",
+            " ".join(shared_health.split()),
+        )
+        self.assertIn(
+            "Deterministic Actions pagination contract",
+            health_check,
+        )
+        self.assertIn("`page` values\nstarting at `1`", health_check)
+        self.assertIn(
+            "`method: list_workflow_runs`, `perPage: 100`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Do not send `workflow_runs_filter`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Filter locally to `branch=main`, `conclusion=failure`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "`conclusion` in `cancelled` or `timed_out`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "use the literal `workflow` as `job_name`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "every matched run's job inventory are complete",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "does not expose the REST `created` filter",
+            " ".join(health_check.split()),
+        )
+        self.assertIn("Stop after 100 total pages", health_check)
+        self.assertIn(
+            "A full first page is not evidence that pagination is unavailable",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "a retired evaluation lane or old severity bucket becomes RESOLVED",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Never rewrite an old fingerprint into a new one",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "The configured GitHub MCP toolset does not expose the Pages builds API",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Mark I5 as unavailable and exclude it from state resolution",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Carry any existing I5 finding forward unchanged",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "newest failed run in the observation window",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "newest cancelled scheduled run in the observation window",
+            " ".join(health_check.split()),
+        )
+        self.assertNotIn("resource_id=pages-build-deployment", health_check)
+        self.assertIn(
+            "Use `get_file_contents` to list `.github/workflows`",
+            health_check,
+        )
+        self.assertIn(
+            "list the immediate component directories under `plugins/`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Do not omit a component because its manifest is confirmed absent",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "If a component's `plugin.json` cannot be read for any other reason, "
+            "mark I7 unavailable",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Carry existing I7 findings forward unchanged through "
+            "`unavailable_scopes`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "filename:SKILL.md path:plugins/{component}",
+            health_check,
+        )
+        self.assertIn(
+            "repository-wide 100-result code-search cap",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
             "`state_json` field of the single\n`publish-health-report` request",
             shared_health,
         )
@@ -1044,7 +1576,10 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn("complete fingerprint-to-scope table", normalized_health)
         self.assertIn("smallest affected observation scope", normalized_health)
         self.assertIn("exclude them from RESOLVED", health_check)
-        self.assertIn("pages-build-deployment", health_check)
+        self.assertIn(
+            "`pages-build-deployment` is not a valid workflow resource",
+            health_check,
+        )
         self.assertNotIn("GET /repos/{owner}/{repo}/pages", health_check)
         self.assertIn("Pending — dispatch budget reached", health_check)
         self.assertIn("Dispatch retry", health_check)
@@ -1309,7 +1844,7 @@ The failing workflow run reports the same validation error on each attempt.
 None found.
 
 ---
-<sub>🔍 [Investigation Run #77](https://github.com/dotnet/skills/actions/runs/999) · Dispatched by health check · {correlation}</sub>"""
+<sub>🔍 [Investigation Run #999](https://github.com/dotnet/skills/actions/runs/999) · Dispatched by health check · {correlation}</sub>"""
 
         accepted = run_investigation_publisher(self, valid_body)
         self.assertEqual(accepted["errors"], [])
@@ -1317,6 +1852,19 @@ None found.
             [call["type"] for call in accepted["calls"]],
             ["comment"],
         )
+
+        sequence_number_footer = run_investigation_publisher(
+            self,
+            valid_body.replace(
+                "Investigation Run #999",
+                "Investigation Run #77",
+            ),
+        )
+        self.assertEqual(
+            sequence_number_footer["errors"],
+            ["Investigation comment identity fields are invalid"],
+        )
+        self.assertEqual(sequence_number_footer["calls"], [])
 
         incomplete = run_investigation_publisher(
             self,
@@ -2135,6 +2683,10 @@ esac
         tool_path = "eng/evaluation-tools/**"
         for event in ("pull_request", "push"):
             self.assertEqual(triggers[event]["paths"].count(tool_path), 1)
+            self.assertEqual(
+                triggers[event]["paths"].count("tests/**/eval.yaml"),
+                1,
+            )
 
         job = workflow["jobs"]["evaluation-tools"]
         self.assertEqual(job["runs-on"], "ubuntu-latest")
@@ -2156,6 +2708,11 @@ esac
         self.assertIn(
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             smoke_script,
+        )
+        corpus_lint = steps["Validate full eval corpus"]["run"]
+        self.assertEqual(
+            corpus_lint,
+            "node eng/evaluation-tools/lint-corpus.mjs tests",
         )
 
     def test_path_safety_helper_changes_run_workflow_tests(self) -> None:

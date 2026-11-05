@@ -16,9 +16,15 @@ ROOT = Path(__file__).resolve().parents[3]
 SUITE = Path(__file__).resolve().parent
 FIXTURE = SUITE / "fixtures" / "focused-mutations"
 SPEC = yaml.safe_load((SUITE / "eval.yaml").read_text(encoding="utf-8"))
+
+
+def expects_activation(stimulus):
+    return stimulus.get("tags", {}).get("expect_activation", "true") != "false"
+
+
 FOCUSED = [
     stimulus for stimulus in SPEC["stimuli"]
-    if stimulus.get("expect_activation", True)
+    if expects_activation(stimulus)
     and any("focused-mutations" in item["src"]
            for item in stimulus.get("environment", {}).get("files", []))
 ]
@@ -135,7 +141,7 @@ class GradingRegressions(unittest.TestCase):
 
     def test_improvement_column_and_row_actions_are_required(self):
         for stimulus in SPEC["stimuli"]:
-            if "golden_trajectory" not in stimulus or not stimulus.get("expect_activation", True):
+            if "golden_trajectory" not in stimulus or not expects_activation(stimulus):
                 continue
             response = stimulus["golden_trajectory"]["inline"]["steps"][-1]["message"]
             if "| How to improve |" not in response:

@@ -1,7 +1,7 @@
 name: exp-test-maintainability
 description: Evaluates the dotnet-experimental/exp-test-maintainability skill
 type: capability
-config:
+defaults:
   timeout: 2m
 stimuli:
   - name: Recommend data-driven patterns with display names for unclear parameters
@@ -15,6 +15,12 @@ stimuli:
         - src: fixtures/data-driven-candidate/Validation.Tests/InputValidatorTests.cs
           dest: Validation.Tests/InputValidatorTests.cs
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (DataRow|InlineData|TestCase|data.driven|parameteriz)
@@ -29,11 +35,6 @@ stimuli:
       - Recommended labeling parameterized test cases so that test runner output identifies which case failed
       - Showed concrete refactored code with clear test case labels
       - Acknowledged that the tests are otherwise well-structured (focused, clear assertions, proper naming)
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Recognize well-maintained tests that need minimal changes
     prompt: |
       Can you review my Auth.Tests project for maintainability? I want to make sure
@@ -45,6 +46,12 @@ stimuli:
         - src: fixtures/well-maintained/Auth.Tests/TokenServiceTests.cs
           dest: Auth.Tests/TokenServiceTests.cs
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (well.maintained|good shape|clean|solid|maintainable|easy to maintain|no.*(major|significant))
@@ -56,11 +63,6 @@ stimuli:
       - Acknowledged that parameterized tests are well-labeled and effectively structured
       - Did not recommend over-engineered patterns disproportionate to the test complexity
       - If any suggestions were made, they were minor and clearly labeled as optional polish
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Detect repeated object construction and setup across test methods
     prompt: |
       I feel like my test code has a lot of copy-paste. Can you analyze
@@ -73,6 +75,12 @@ stimuli:
         - src: fixtures/heavy-boilerplate/OrderService.Tests/OrderProcessorTests.cs
           dest: OrderService.Tests/OrderProcessorTests.cs
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: "(factory|helper|extract|CreateProcessor|CreateOrder|shared|reuse|common)"
@@ -89,11 +97,6 @@ stimuli:
       - Noted that OrderValidatorTests also repeats the same Order construction pattern as OrderProcessorTests, suggesting a cross-class shared helper
       - Provided concrete before/after code showing how at least one extraction would look
       - Did not recommend removing all duplication indiscriminately — acknowledged trade-offs between DRY and test readability
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Recognize tests with minimal boilerplate that need no refactoring
     prompt: |
       Can you check my Calculator.Tests project for any repeated code patterns
@@ -105,6 +108,12 @@ stimuli:
         - src: fixtures/minimal-boilerplate/Calculator.Tests/CalculatorTests.cs
           dest: Calculator.Tests/CalculatorTests.cs
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: "(clean|minimal|good|well.structured|no.*(major|significant)|already|little.*(duplicat|boilerplate)|minor)"
@@ -115,8 +124,3 @@ stimuli:
       - Identified that ScientificCalculatorTests has individual test methods that could be consolidated into parameterized tests (e.g., SquareRoot positive/zero cases, Power squared/zero/negative exponent cases)
       - Noted that the overall code is well-structured and any suggestions are minor improvements, not critical refactorings
       - Did not recommend over-engineered patterns like base classes or shared fixtures for these simple test classes
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create

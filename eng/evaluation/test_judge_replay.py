@@ -245,6 +245,13 @@ class JudgeReplayTests(unittest.TestCase):
         new[("example", "case", 0)]["errored"] = True
         self.assertEqual(replay.compare(old, new)["counts"]["new_errors"], 1)
         self.assertEqual(replay.compare(old, new)["counts"]["direct_reversals"], 0)
+        new[("example", "case", 0)] = {"winner": None, "errored": False}
+        with self.assertRaisesRegex(ValueError, "Missing or invalid candidate winner"):
+            replay.compare(old, new)
+        new[("example", "case", 0)] = {"winner": "baseline", "errored": False}
+        old[("example", "case", 0)]["winner"] = "unknown"
+        with self.assertRaisesRegex(ValueError, "Missing or invalid original winner"):
+            replay.compare(old, new)
 
     def test_stable_trial_indices_survive_array_reordering(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:

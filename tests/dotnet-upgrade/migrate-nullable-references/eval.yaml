@@ -1,7 +1,7 @@
 name: migrate-nullable-references
 description: Evaluates the dotnet-upgrade/migrate-nullable-references skill
 type: capability
-config:
+defaults:
   timeout: 5m
 stimuli:
   - name: Enable NRT in a small library with mixed nullability

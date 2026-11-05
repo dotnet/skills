@@ -473,6 +473,10 @@ def compare(old, new):
         previous, candidate = old[key], new[key]
         old_error = bool(previous.get("errored"))
         new_error = bool(candidate.get("errored"))
+        for label, verdict, errored in (
+                ("original", previous, old_error), ("candidate", candidate, new_error)):
+            if not errored and verdict.get("winner") not in ("baseline", "treatment", "tie"):
+                raise ValueError(f"Missing or invalid {label} winner: {key}")
         if old_error:
             counts["old_errors"] += 1
         if new_error:

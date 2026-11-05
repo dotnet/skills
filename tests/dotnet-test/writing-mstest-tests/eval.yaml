@@ -39,6 +39,12 @@ stimuli:
 
       Do not run tools or add another test suite.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: async Task
@@ -55,11 +61,6 @@ stimuli:
       - The token controlled by the test framework is passed to the production call instead of an uncancelable token
       - The explanation connects the timeout configuration and token flow to the observed runaway operation
       - The corrected test remains valid MSTest code and preserves the behavior being verified
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Correct expected and actual failure labels
     prompt: |
       These tests pass, but their failure output labels the calculated value as
@@ -85,6 +86,12 @@ stimuli:
       }
       ```
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: Assert\.AreEqual\(5
@@ -96,11 +103,6 @@ stimuli:
       - Both equality checks report the constants 5 and 0 as the expected values and the calculated results as the actual values
       - No unrelated test logic or production behavior is changed
       - The explanation connects argument order to accurate Expected/Actual failure diagnostics
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Modernize legacy MSTest code safely
     prompt: Review the attached legacy MSTest tests, apply current patterns that improve safety and failure diagnostics, and preserve the installed package version and tested behavior.
     environment:
@@ -148,6 +150,12 @@ stimuli:
       }
       ```
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: Assert\.ThrowsExactly|Assert\.Throws
@@ -160,11 +168,6 @@ stimuli:
       - The test requires ArgumentNullException and makes an intentional choice about whether derived exception types are accepted
       - The thrown exception is available for checking behavior such as the parameter name or message
       - The explanation accurately distinguishes exact-type matching from assignable-type matching
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Respect a pinned framework version
     prompt: |
       Our classic net472 test project is pinned to MSTest.TestFramework 3.5.2
@@ -181,6 +184,12 @@ stimuli:
       }
       ```
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: Assert\.ThrowsException<ArgumentNullException>
@@ -193,11 +202,6 @@ stimuli:
       - The response does not depend on an API introduced after the pinned version or propose changing dependencies
       - The explanation identifies version compatibility as the reason for the correction
       - Any optional check of exception details also uses APIs available to this project
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Improve collection failure diagnostics
     prompt: >
       I'm writing MSTest tests and I'm using Assert.IsTrue for all my collection checks. Are there more specific MSTest
@@ -223,6 +227,12 @@ stimuli:
 
       ```
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: Assert\.HasCount|Assert\.AreEqual\(3
@@ -236,11 +246,6 @@ stimuli:
       - Requiring one matching administrator reports zero or multiple matches as assertion failures
       - Presence checks report a null-specific failure instead of a generic false condition
       - The explanation connects each correction to more diagnostic failure output
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Report runtime type mismatches as assertion failures
     prompt: |
       If this factory returns the wrong handler, this test currently throws
@@ -261,6 +266,12 @@ stimuli:
       }
       ```
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: IsInstanceOfType
@@ -274,11 +285,6 @@ stimuli:
         can capture the typed value through an out parameter, and v4 returns it directly
       - The explanation makes the installed-version decision actionable instead of treating every 3.x release as
         one API level
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Initialize test state in lifecycle order
     prompt: >
       This project uses MSTest 3.8. Each test needs synchronous dependency construction, asynchronous database seeding,
@@ -354,6 +360,12 @@ stimuli:
       Assert.IsTrue(Regex.IsMatch(slug, "^[a-z0-9-]+$"));
       ```
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: Assert\.StartsWith
@@ -368,11 +380,6 @@ stimuli:
       - Each failure directly identifies whether the prefix, suffix, or regular-expression condition was unmet
       - The expected text or pattern and the actual string retain their original meaning and order
       - The correction uses APIs available in MSTest 3.10 rather than retaining generic Boolean checks or legacy helpers
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Diagnose failed numeric boundaries
     prompt: |
       This project uses MSTest 3.10. Rewrite these checks so failures report the
@@ -385,6 +392,12 @@ stimuli:
       Assert.IsTrue(score >= 60 && score <= 90);
       ```
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: Assert\.IsGreaterThan
@@ -400,11 +413,6 @@ stimuli:
       - The inclusive 60-through-90 check preserves both endpoints and reports the actual score
       - Argument order yields accurate expected-bound and actual-value failure diagnostics
       - No generic Boolean comparison remains
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Apply environment retry and cleanup policies
     prompt: |
       I have MSTest tests that:
@@ -416,6 +424,12 @@ stimuli:
       Show how to express each requirement in MSTest 3.10 without putting
       environment checks or cleanup control flow inside the test bodies.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: OSCondition|OsCondition
@@ -438,11 +452,6 @@ stimuli:
       - The response does not use retry to conceal deterministic race conditions or shared-state defects
       - The examples retain representative tested operations and cleanup behavior instead of replacing the bodies
         with comments or empty placeholders merely to demonstrate attributes
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Diagnose identity, null, absence, and emptiness
     prompt: |
       Every check in this MSTest 3.8 test is written as a generic Boolean
@@ -467,6 +476,13 @@ stimuli:
       }
       ```
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: Assert\.AreSame
@@ -486,12 +502,6 @@ stimuli:
       - The ended session check reports unexpected collection membership directly
       - The purge check reports that the collection was expected to be empty
       - The explanation connects each correction to failure output that states what differed
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Configure concurrent execution with a serial exception
     prompt: |
       Show the smallest recommended project file for a new MSTest project. Most
@@ -499,6 +509,12 @@ stimuli:
       state and must run serially. Include where the SDK version belongs and the
       assembly/class configuration needed for those two execution policies.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: MSTest\.Sdk|MSTest.Sdk
@@ -514,11 +530,6 @@ stimuli:
       - Parallel execution is enabled once at assembly scope with an explicit worker count and scheduling scope
       - The database integration class opts out because its tests share state
       - The SDK version is centralized so multiple test projects can stay aligned
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
   - name: Apply checked-in MSTest naming and category conventions
     tags:
       feature: repository-overlay

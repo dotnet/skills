@@ -3,7 +3,7 @@ tags:
   executionShard: b
 description: Evaluates the dotnet-test/detect-static-dependencies skill
 type: capability
-config:
+defaults:
   timeout: 5m
 stimuli:
   - name: Identify static dependencies in a multi-class project
@@ -81,7 +81,8 @@ stimuli:
       Review my Python Django view at my_app/views.py. Is its timestamp
       timezone-aware, and what Django API should it use instead? Do not modify
       files.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     environment:
       files:
         - src: ./fixtures/decline-non-csharp/views.py

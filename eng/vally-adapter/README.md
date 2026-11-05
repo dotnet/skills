@@ -185,7 +185,7 @@ exactly and no measurement-invalid result remains. Missing execution arms,
 unreadable eval specs, unresolved judge or pairing errors, malformed reports,
 and unknown invalid states fail the matrix leg after diagnostic artifacts are
 written. An unreadable spec is invalid because the adapter cannot safely infer
-whether `expect_activation: false` dormancy contracts apply. The explicit
+whether `tags.expect_activation: "false"` dormancy contracts apply. The explicit
 `underpowered` eval-design state remains visible as instrument debt but does not
 become an infrastructure failure. This proof applies inside each matrix leg.
 Discovery omits entries with no eval specs. The PR collector separately requires
@@ -208,7 +208,7 @@ variant. The plugin variant contributes absolute activation and quality
 telemetry. It can expose routing conflicts and sibling-skill interference, but
 it does not receive a separate sign-test or practical-effect verdict.
 
-Vally 0.14 exposes `environment.skills` but no custom-agent registration field,
+Vally exposes `environment.skills` but no custom-agent registration field,
 and its Copilot executor only sets `skillDirectories`. Agent evals therefore use
 the existing .NET SDK runner, which passes `CustomAgents` directly and leaves
 the default parent agent selected so routing and delegation are measured rather
@@ -221,19 +221,24 @@ metadata. The adapter keeps the raw report available for diagnosis. It does not
 replace Vally's evidence; it adds repository-specific validity and decision
 fields.
 
-### 5. Retry transient executor timeouts with a bounded second pass
+### 5. Retry recognized transient executor failures with a bounded second pass
 
 If a required baseline or isolated-skilled trial fails with
-`Timeout after ... waiting for session.idle`, the workflow reruns only that eval
-and variant. If exact timeout slots remain, it performs one final targeted pass.
+an exact Vally stimulus wall-clock timeout,
+`Timeout after ... waiting for session.idle`, or the Copilot SDK 1.0.26 error
+`Session disconnected while waiting for a response`, the workflow reruns only
+that eval and variant. If exact retryable slots remain, it performs one final
+targeted pass.
 The recovery step merges only successful records with matching stable `shardKey`
 values after normalizing each eval path. A record without a `shardKey` fails
 closed instead of using another field as an unproven identity. The recovery
-never replaces successful first-attempt or recovered records. A timeout that
-survives both bounded passes, or a different executor error, stays in the
-original JSONL and remains
-measurement-invalid. The optional whole-plugin telemetry arm is not retried and
-remains outside the baseline-versus-skilled measurement gate.
+never replaces successful first-attempt or recovered records. A retryable
+failure that survives both bounded passes, or a different executor error, stays
+in the original JSONL and remains measurement-invalid. The broader
+`No response was returned. Send your message again to retry.` message is not
+classified as transient because it does not identify a bounded SDK transport
+failure. The optional whole-plugin telemetry arm is not retried and remains
+outside the baseline-versus-skilled measurement gate.
 Each retry invocation writes to a fresh directory, so missing current output
 cannot fall back to a stale prior run.
 The recovery summary is updated around each retry, so an outer watchdog can
@@ -258,7 +263,7 @@ result invalid. They are not counted as skill losses.
 
 ### 7. Separate preference stimuli from activation contracts
 
-`expect_activation: false` declares an off-target case where the isolated
+`tags.expect_activation: "false"` declares an off-target case where the isolated
 target skill must stay dormant. Correct dormancy makes the skilled arm
 behaviorally equivalent to baseline, so its head-to-head preference is a tie or
 judge noise by construction. Schema version 4 therefore retains the comparison

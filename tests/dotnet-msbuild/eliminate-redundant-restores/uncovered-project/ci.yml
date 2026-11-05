@@ -1,0 +1,9 @@
+steps:
+  - script: dotnet restore Contoso.slnx
+    displayName: Restore
+  - script: dotnet build Contoso.slnx -c Release
+    displayName: Build solution
+  - script: dotnet build tools/Packager/Packager.csproj -c Release
+    displayName: Build packaging tool
+  - script: dotnet test Contoso.slnx -c Release --no-build
+    displayName: Test

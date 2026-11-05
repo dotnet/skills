@@ -1,0 +1,13 @@
+diff --git a/uncovered-project/ci.yml b/uncovered-project/ci.yml
+--- a/uncovered-project/ci.yml
++++ b/uncovered-project/ci.yml
+@@ -1,8 +1,8 @@
+ steps:
+   - script: dotnet restore Contoso.slnx
+     displayName: Restore
+-  - script: dotnet build Contoso.slnx -c Release
++  - script: dotnet build Contoso.slnx -c Release --no-restore
+     displayName: Build solution
+   - script: dotnet build tools/Packager/Packager.csproj -c Release
+     displayName: Build packaging tool
+   - script: dotnet test Contoso.slnx -c Release --no-build

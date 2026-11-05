@@ -278,16 +278,16 @@ stimuli:
 
   # Dormancy guard. "The static is already behind an interface" is in the skill's
   # own When Not to Use list, so staying dormant here is the correct behaviour,
-  # not a discovery failure — without `expect_activation: false` the run counts
+  # not a discovery failure — without `tags.expect_activation: "false"` the run counts
   # it as a scenario that should have activated and didn't. Do not add
   # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it identical
   # to the baseline arm, so the head-to-head score becomes pure judge noise.
   - name: Decline wrapper generation for already-abstracted code
-    expect_activation: false
     prompt: >
       My code already uses IFileSystem from System.IO.Abstractions everywhere.
       Can you generate a file system wrapper for me?
     tags:
+      expect_activation: "false"
       capability: already-abstracted-guard
       risk: redundant-wrapper-layer
       journey: avoid-duplicate-abstraction

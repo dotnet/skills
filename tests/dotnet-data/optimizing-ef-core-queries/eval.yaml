@@ -1,4 +1,6 @@
 name: optimizing-ef-core-queries
+tags:
+  executionShard: heavy
 description: Evaluates EF Core performance review and benchmarked remediation
 type: capability
 defaults:
@@ -34,13 +36,46 @@ stimuli:
       capability: end-to-end-query-optimization
       risk: high
       journey: back-office-performance-remediation
-    environment:
+    environment: &query-environment
       files:
         - src: audit-fixtures/SalesOperationsService.cs
           dest: SalesOperationsService.cs
         - src: benchmark-fixtures
           dest: perf
     graders:
+      - &benchmark-harness-integrity
+        type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const crypto = require("crypto");
+              const fs = require("fs");
+              const path = require("path");
+              const names = ["Baseline.cs", "Program.cs", "SalesBenchmarks.csproj", "Seed.cs", "Timing.cs"];
+              const expected = new Set(names);
+              const unexpected = [];
+              const walk = directory => {
+                for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+                  const full = path.join(directory, entry.name);
+                  const relative = path.relative("perf", full).replaceAll("\\", "/");
+                  if (relative.startsWith("bin/") || relative.startsWith("obj/")) continue;
+                  if (entry.isDirectory()) walk(full);
+                  else if (!expected.has(relative)) unexpected.push(relative);
+                }
+              };
+              walk("perf");
+              if (unexpected.length) {
+                throw new Error("Unexpected benchmark files: " + unexpected.join(", "));
+              }
+              const hash = crypto.createHash("sha256");
+              for (const name of names) {
+                hash.update(name); hash.update(Buffer.from([0]));
+                hash.update(fs.readFileSync(path.join("perf", name))); hash.update(Buffer.from([0]));
+              }
+              process.exit(hash.digest("hex") === "e7662ebe5a6b8b0dab5c9bd66e234275d74a982d11a4cedda1207fddaa6ab7fc" ? 0 : 1);
+          expected_exit_code: 0
       - type: output-matches
         config:
           pattern: (N\+1|per[- ]customer|round[- ]trip|Cartesian|keyset|projection|index|scan|memory|SaveChanges)
@@ -129,6 +164,267 @@ stimuli:
       - "Recognizes that GetProductForCard is a minimal query on an extremely hot path where EF's per-call expression processing and query-cache lookup can still matter despite cached translation, and recommends reducing that overhead while returning identical results"
       - "Identifies that ApplyCategoryDiscount saves changes once per product inside the loop, issuing a round-trip per row, and recommends a single set-based update"
       - "Recognizes that CountActiveProducts loads the entire product table into memory before counting, and that the count should be performed by the database"
+
+  - name: Split independent collection loads without changing results
+    prompt: |
+      GetCustomerDetail in SalesOperationsService.cs becomes very slow for customers with many
+      orders, order lines, and invoices. Optimize only that method, preserve its signature and
+      returned graph, and explain the cause. Do not edit anything under perf/.
+    tags:
+      capability: avoid-cartesian-collection-join
+      risk: high
+      journey: optimize-customer-detail
+    environment: &focused-query-environment
+      files:
+        - src: audit-fixtures/SalesOperationsService.cs
+          dest: SalesOperationsService.cs
+        - src: benchmark-fixtures
+          dest: perf
+      commands:
+        - >-
+          node -e "const crypto=require('crypto'),fs=require('fs');
+          const state=fs.existsSync('optimizing-ef-core-queries/SKILL.md')?'present':'absent';
+          const signature=crypto.createHmac('sha256','5f077eb03a9c1cb3528e0236e72b425f992db5b8321ca75dd7afcc6103ecc6f3').update(state).digest('hex');
+          fs.writeFileSync('.eval-scope-state',state+':'+signature+'\n')"
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-customer-detail"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The independent collection Includes multiply order-line and invoice rows in one result set. Keep the same loaded graph but execute it as split queries so each collection is read separately and parent data is not duplicated across a Cartesian product.
+    golden_patch:
+      path: references/customer-detail-split.patch
+    graders:
+      - *benchmark-harness-integrity
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - &single-method-scope-script |
+              const crypto = require("crypto");
+              const fs = require("fs");
+              const path = require("path");
+              const [method, expected] = process.argv.slice(1);
+              const source = fs.readFileSync("SalesOperationsService.cs", "utf8").replace(/\r\n/g, "\n");
+              const match = new RegExp("^\\s*public\\s+[^\\r\\n]*\\b" + method + "\\s*\\(", "m").exec(source);
+              if (!match) throw new Error("Method not found: " + method);
+              const open = source.indexOf("{", match.index);
+              if (open < 0) throw new Error("Method body not found: " + method);
+              let depth = 0;
+              let end = -1;
+              for (let i = open; i < source.length; i++) {
+                if (source.startsWith("//", i)) {
+                  i = source.indexOf("\n", i);
+                  if (i < 0) break;
+                  continue;
+                }
+                if (source.startsWith("/*", i)) {
+                  i = source.indexOf("*/", i + 2);
+                  if (i < 0) throw new Error("Unterminated block comment");
+                  i++;
+                  continue;
+                }
+                if (source[i] === "\"") {
+                  let quotes = 1;
+                  while (source[i + quotes] === "\"") quotes++;
+                  if (quotes >= 3) {
+                    const delimiter = "\"".repeat(quotes);
+                    i = source.indexOf(delimiter, i + quotes);
+                    if (i < 0) throw new Error("Unterminated raw string");
+                    i += quotes - 1;
+                    continue;
+                  }
+                  const verbatim = (i > 0 && source[i - 1] === "@") ||
+                    (i > 1 && source[i - 2] === "@" && source[i - 1] === "$");
+                  for (i++; i < source.length; i++) {
+                    if (verbatim && source[i] === "\"" && source[i + 1] === "\"") {
+                      i++;
+                    } else if (!verbatim && source[i] === "\\") {
+                      i++;
+                    } else if (source[i] === "\"") {
+                      break;
+                    }
+                  }
+                  continue;
+                }
+                if (source[i] === "'") {
+                  for (i++; i < source.length; i++) {
+                    if (source[i] === "\\") i++;
+                    else if (source[i] === "'") break;
+                  }
+                  continue;
+                }
+                if (source[i] === "{") depth++;
+                else if (source[i] === "}" && --depth === 0) {
+                  end = i + 1;
+                  break;
+                }
+              }
+              if (end < 0) throw new Error("Method end not found: " + method);
+              const masked = source.slice(0, open + 1) + "\n/* requested method body */\n" + source.slice(end - 1);
+              const actual = crypto.createHash("sha256").update(masked).digest("hex");
+              if (actual !== expected) {
+                throw new Error("SalesOperationsService.cs changed outside " + method);
+              }
+              const expectedFiles = new Set([
+                ".eval-scope-state",
+                "SalesOperationsService.cs",
+                "perf/Baseline.cs",
+                "perf/Program.cs",
+                "perf/SalesBenchmarks.csproj",
+                "perf/Seed.cs",
+                "perf/Timing.cs"
+              ]);
+              const marker = fs.readFileSync(".eval-scope-state", "utf8").trim().split(":");
+              if (marker.length !== 2) throw new Error("Invalid scope-state marker");
+              const [skillState, markerSignature] = marker;
+              const expectedSignature = crypto
+                .createHmac("sha256", "5f077eb03a9c1cb3528e0236e72b425f992db5b8321ca75dd7afcc6103ecc6f3")
+                .update(skillState)
+                .digest("hex");
+              if (markerSignature !== expectedSignature) throw new Error("Scope-state marker was modified");
+              const skillDirectory = "optimizing-ef-core-queries";
+              const skillPath = skillDirectory + "/SKILL.md";
+              if (skillState === "present") {
+                if (!fs.existsSync(skillDirectory)) throw new Error("Target skill directory was removed");
+                if (!fs.existsSync(skillPath)) throw new Error("Target skill file was removed");
+                expectedFiles.add(skillPath);
+                const skill = fs.readFileSync(skillPath, "utf8").replace(/\r\n/g, "\n");
+                const skillHash = crypto.createHash("sha256").update(skill).digest("hex");
+                if (skillHash !== "a4c0d87d624f3ac1e291db0e613026815ee3247f5414ece17fd3b45600943ff7") {
+                  throw new Error("Target skill file was modified");
+                }
+              } else if (skillState === "absent") {
+                if (fs.existsSync(skillDirectory)) throw new Error("Unexpected target skill directory");
+              } else {
+                throw new Error("Invalid scope-state marker value");
+              }
+              const ignoredPrefixes = [".git/", "perf/bin/", "perf/obj/"];
+              const unexpected = [];
+              const walk = directory => {
+                for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+                  const full = path.join(directory, entry.name);
+                  const relative = path.relative(".", full).replaceAll("\\", "/");
+                  if (ignoredPrefixes.some(prefix => relative.startsWith(prefix))) continue;
+                  if (entry.isDirectory()) walk(full);
+                  else if (!expectedFiles.has(relative)) unexpected.push(relative);
+                }
+              };
+              walk(".");
+              if (unexpected.length) throw new Error("Unexpected workspace files: " + unexpected.join(", "));
+            - GetCustomerDetail
+            - "0193938430a00031e0099adc5ffdfc47125823ed37aaf30ccb67f28c66fa3da7"
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, GetCustomerDetail]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Prevented Cartesian row multiplication while returning the same customer, orders, lines, and invoices
+      - Preserved the public method contract and did not replace eager loading with lazy loading
+      - Explained that independent collection joins duplicate rows and parent data
+
+  - name: Keep a hot status queue server-side and identify its missing index
+    prompt: |
+      GetPendingOrders in SalesOperationsService.cs powers a fulfillment queue that refreshes every
+      few seconds and now scans millions of rows. Optimize the method without changing its signature
+      or returned rows. The database schema is managed by a DBA rather than EF migrations, so also
+      state the supporting index the DBA should review. Do not edit anything under perf/.
+    tags:
+      capability: server-filter-with-index-recommendation
+      risk: high
+      journey: optimize-fulfillment-queue
+    environment: *focused-query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-pending-orders-index"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep the status filter, CreatedAt ordering, and OrderRow projection on IQueryable so SQL returns only pending rows and needed columns. Because the queue repeatedly filters by Status and orders by CreatedAt, ask the DBA to review a composite index with Status first and CreatedAt second, with an appropriate unique tie-breaker or included output columns for the actual provider. The code change removes client materialization; the index is a separate schema fix owned by the DBA.
+    golden_patch:
+      path: references/pending-orders-server-filter.patch
+    graders:
+      - *benchmark-harness-integrity
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *single-method-scope-script
+            - GetPendingOrders
+            - "3ace38295cf8c084d5b615eb532b3e52ee2e44e3e32ec63bc617a018150c1e6c"
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, GetPendingOrders]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Kept the Status filter, CreatedAt ordering, and OrderRow projection in the database query
+      - Preserved the method signature and exact returned rows
+      - Recommended a supporting index led by Status and then CreatedAt, while leaving the externally managed schema unchanged
+      - Distinguished the query rewrite from the separate DBA-owned index change
+
+  - name: Improve slow category discount maintenance
+    prompt: |
+      The EF Core method ApplyCategoryDiscount in SalesOperationsService.cs takes minutes for large
+      categories. Make this maintenance path faster while preserving the exact final price and
+      timestamp values, method signature, and public behavior. Optimize only that method, and do
+      not edit anything under perf/.
+    tags:
+      capability: use-set-based-bulk-update
+      risk: high
+      journey: optimize-nightly-maintenance
+    environment: *focused-query-environment
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-bulk-update"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Loading every product and calling SaveChanges inside the loop creates a select plus one update round trip per row. Use ExecuteUpdate with the category predicate and set both Price and UpdatedAt in one SQL UPDATE, preserving the final values without materializing entities.
+    golden_patch:
+      path: references/category-discount-bulk.patch
+    graders:
+      - *benchmark-harness-integrity
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - *single-method-scope-script
+            - ApplyCategoryDiscount
+            - "d4f075f06adb0119c6eca5533955b5bd593146275e98d3418807a85c71874a45"
+      - type: run-command
+        config:
+          command: dotnet
+          args: [run, -c, Release, --project, perf, --, --method, ApplyCategoryDiscount]
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: prompt
+    rubric:
+      - Replaced entity materialization and per-row SaveChanges calls with one set-based update
+      - Updated both price and timestamp for exactly the selected category
+      - Preserved the method signature and final database values
+
   - name: Review customer directory search
     prompt: |
       Please review this application's EF Core customer-directory and catalog searches before a
@@ -148,6 +444,30 @@ stimuli:
       files:
         - src: fixtures/customer-search
           dest: .
+        - &validator-program
+          src: fixture-validation/Program.cs
+          dest: .eval-harness/fixture-validation/Program.cs
+        - &validator-project
+          src: fixture-validation/ReviewFixtures.csproj
+          dest: .eval-harness/fixture-validation/ReviewFixtures.csproj
+        - &validator-fixtures
+          src: fixtures
+          dest: .eval-harness/fixtures
+      commands:
+        - dotnet run --project .eval-harness/fixture-validation/ReviewFixtures.csproj -- --case customer-search
+        - &remove-validator-harness >-
+          node -e "require('fs').rmSync('.eval-harness', { recursive: true, force: true })"
+      commandTimeout: 6m
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-review-customer-directory"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Prioritize correctness first: DirectoryOverviewService.GetOverviewAsync starts both repository counts on the one DirectoryDbContext owned by DirectorySession, so overlapping readers can fail; await them sequentially or use separately owned contexts. GetExportOverviewAsync is already safely sequential, and GetRegionComparisonAsync safely owns two sessions. In CustomerSearchRepository, FindByEmailAsync reaches DirectoryMatching.Email, which computes lower-case text instead of using the indexed stored NormalizedEmail; FindPreferredNamesAsync reaches an unsupported StringComparison translation; SearchCatalogAsync requires arbitrary substring semantics, so a prefix rewrite is not equivalent and a provider search design needs explicit contract agreement. The plain prefix, bounded region membership, and normalized-email path are sound. These are source findings only; SQL, plans, indexes, and timing were not executed or observed.
     graders:
       - type: tool-calls
         config:
@@ -191,6 +511,23 @@ stimuli:
           dest: .
         - src: fixtures/order-import
           dest: .
+        - *validator-program
+        - *validator-project
+        - *validator-fixtures
+      commands:
+        - dotnet run --project .eval-harness/fixture-validation/ReviewFixtures.csproj -- --case order-operations
+        - *remove-validator-harness
+      commandTimeout: 6m
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-review-order-operations"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Highest impact is OrderImportService.ImportPartnerFeedAsync -> ImportJournal.RecordImportedAsync: every row scans the growing tracker and saves immediately, so the final CommitAsync is not one batch and whole-feed retries can replay partial commits. Persist bounded orders and receipts together, keep input-ordered entity references for returned IDs, replace tracker scans with import-owned progress, and add durable replay identity. Next, OrderQueryService.GetLateOrdersAsync and HasBackorderedProductsAsync cross ToList/ToArray before filtering, CountReadyOrdersAsync counts for existence, and GetQueueStatistics enumerates the deferred database sequence three times; keep predicates and a combined numeric aggregate server-side. GetDashboardRowsAsync is unbounded. GetRecentPageAsync, the explicit complete ledger export, the bounded review mutation, and archive chunk ownership are sound counterparts. Validation was source-only; no query counts, SQL, build, or runtime behavior was measured.
     graders:
       - type: tool-calls
         config:
@@ -235,6 +572,23 @@ stimuli:
           dest: CommerceData.cs
         - src: fixtures/paging-sorting
           dest: .
+        - *validator-program
+        - *validator-project
+        - *validator-fixtures
+      commands:
+        - dotnet run --project .eval-harness/fixture-validation/ReviewFixtures.csproj -- --case paging-sorting
+        - *remove-validator-harness
+      commandTimeout: 6m
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-review-order-history"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              First fix correctness: OrderHistoryService.GetSearchPageAsync reaches HistoryQueryRules.Page before any order, so Skip/Take is nondeterministic. GetNextPageAsync reaches HistoryQueryRules.After, whose independent CreatedAt and Id bounds exclude older backfills with newer IDs; use CreatedAt < cursor time OR equal time with Id < cursor ID, then retain the descending pair. SupportPriority replaces arrival-time ordering instead of adding a tie-breaker, so preserve CreatedAt as primary. GetRecentPageAsync and GetWindowSortedByValue are sound bounded paths. GetJumpPageAsync has deep-offset cost, but keyset is not contract-preserving for required random page numbers. These conclusions are source-only; no SQL plan or latency was observed.
     graders:
       - type: tool-calls
         config:
@@ -269,6 +623,23 @@ stimuli:
       files:
         - src: fixtures/route-planning
           dest: .
+        - *validator-program
+        - *validator-project
+        - *validator-fixtures
+      commands:
+        - dotnet run --project .eval-harness/fixture-validation/ReviewFixtures.csproj -- --case route-planning
+        - *remove-validator-harness
+      commandTimeout: 6m
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-review-route-planning"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              RoutePlanningService.GetWarehouseRoutesAsync filters WarehouseId, ranges and orders by DepartsAt, then Id, but RouteConfigurations starts its explicit route index with unconstrained CarrierId. The relationship convention can still create WarehouseId-CarrierId coverage, so the evidenced gap is the missing date/order prefix, not proof that no warehouse-leading index exists. Validate a WarehouseId-DepartsAt-Id workload index or provider-equivalent before changing schema. GetCarrierRoutesAsync constrains both leading equality columns, and GetUpcomingWindowsAsync matches its configured equality-range-order index; keep them. Model metadata was inspected, but deployed physical indexes, plans, and timing were not.
     graders:
       - type: tool-calls
         config:
@@ -302,6 +673,23 @@ stimuli:
           dest: CommerceData.cs
         - src: fixtures/clean/CleanDataAccessService.cs
           dest: CleanDataAccessService.cs
+        - *validator-program
+        - *validator-project
+        - *validator-fixtures
+      commands:
+        - dotnet run --project .eval-harness/fixture-validation/ReviewFixtures.csproj -- --case clean-data-access
+        - *remove-validator-harness
+      commandTimeout: 6m
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-review-clean-data-access"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              No actionable source-proven defect is present. CleanDataAccessService uses AnyAsync for existence, one filtered collection plus one reference Include, an ordered bounded keyset page, parameterized bounded raw SQL, sequential scalar awaits, and bounded projections. MarkReviewedAsync limits the tenant-scoped batch, loads it once, mutates in memory, and calls SaveChangesAsync once, so it is not per-row persistence. Do not add split queries, compiled queries, indexes, or bulk updates without workload and semantic evidence. This was a source-only review; no SQL, plan, build, or runtime validation was performed.
     graders:
       - type: tool-calls
         config:
@@ -336,6 +724,23 @@ stimuli:
       files:
         - src: fixtures/saved-search
           dest: .
+        - *validator-program
+        - *validator-project
+        - *validator-fixtures
+      commands:
+        - dotnet run --project .eval-harness/fixture-validation/ReviewFixtures.csproj -- --case saved-search
+        - *remove-validator-harness
+      commandTimeout: 6m
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-review-saved-search"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              OrderSearchRepository.SearchAsync reaches OrderFilterCompiler.Build, where Expression.Constant embeds each request value into the tree; represent changing values through typed captured expressions so one filter layout can reuse a parameterized shape. GetCustomerActivityAsync reaches OrderQueryPolicies.CustomerActivity and forces each customer code into server SQL, so use normal captured parameterization or an evidenced override when plan reuse matters. Making the compiler static, caching per value, or compiling each changing tree does not fix the shape. GetCustomerHistoryAsync uses captured values, GetArchiveAsync uses a fixed structural literal, and GetImportedPageAsync deliberately forces a parameter; keep those distinctions and preserve the exact CountAsync plus bounded page contract. This is source evidence only; cache rates, SQL plans, and speedups were not measured.
     graders:
       - type: tool-calls
         config:
@@ -378,6 +783,23 @@ stimuli:
       files:
         - src: fixtures/statement-export
           dest: .
+        - *validator-program
+        - *validator-project
+        - *validator-fixtures
+      commands:
+        - dotnet run --project .eval-harness/fixture-validation/ReviewFixtures.csproj -- --case statement-export
+        - *remove-validator-harness
+      commandTimeout: 6m
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-review-statement-export"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Prioritize posting correctness: StatementPostingService.PostAsync loads a tracked account, StatementPostingRepository.RecordPaymentAsync updates the database immediately, then tracked arithmetic plus CommitAsync can overwrite that payment; the update also omits the revision predicate and the receipt saves separately. Use one coherent tracked save or a synchronized set-based transaction with token predicate, affected-row handling, refreshed state, and atomic receipt persistence. In exports, GetPortfolioAsync joins a wide compliance document through invoices although StatementExportService needs scalars; project narrowly while retaining the required single-statement view. GetCardsAsync tracks the StatementAccount inside InvoiceCard. GetPaymentRunAsync uses plain no-tracking, so the reference-keyed writer can duplicate one account ID; use identity resolution or key-based DTO processing. BuildReminderAsync tracks history before a filtered Include, allowing fixup to add paid invoices; use a detached projection or independent read context. GetTotalsAsync and standalone FlagAccountsAsync are sound. These are source findings; no production SQL, plans, concurrency run, or timing was observed.
     graders:
       - type: tool-calls
         config:
@@ -400,3 +822,57 @@ stimuli:
       - Explains that the preliminary revision comparison does not protect RecordPaymentAsync's unconditional update and preserves token enforcement or an equivalent revision predicate with affected-row handling
       - Identifies the separate immediate-write and receipt-save commit boundaries, requiring one atomic save unit or an explicit shared transaction without claiming a transaction alone refreshes the tracked account
       - Recognizes FlagAccountsAsync's standalone set-based marker update as distinct from mixing tracked balance arithmetic with immediate writes
+
+  - name: Review a slow catalog search repository
+    prompt: |
+      The product search in DapperRepository.cs slows down as the catalog grows. It runs on SQL
+      Server and must keep the existing arbitrary substring matching behavior. Review the supplied
+      data access and recommend the smallest safe performance improvement.
+    tags:
+      expect_activation: "false"
+      capability: boundary-non-ef-data-access
+      risk: routing
+      journey: redirect-dapper-query
+    environment:
+      files:
+        - src: dormancy/DapperRepository.cs
+          dest: DapperRepository.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "ef-query-dormancy-dapper"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Keep Dapper. A leading-wildcard LIKE cannot seek a normal name index. If product behavior permits prefix matching, change the pattern to @term + '%' and verify the plan uses the index. If true arbitrary substring search is required, do not claim prefix matching or SQL Server full-text prefix search is equivalent; preserve the contract and evaluate a provider-specific substring structure such as a fragment/ngram table or a search service. Do not introduce DbContext or EF Core APIs.
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const crypto = require("crypto");
+              const fs = require("fs");
+              const data = fs.readFileSync("DapperRepository.cs", "utf8").replace(/\r\n/g, "\n");
+              const actual = crypto.createHash("sha256").update(data).digest("hex");
+              process.exit(actual === "1865e1b25fffd331cf279011ccee4432f30d646175bfc279f391319a76dbee6a" ? 0 : 1);
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (Dapper|SQL)
+      - type: output-matches
+        config:
+          pattern: (prefix|full[- ]text|wildcard|LIKE)
+      - type: output-not-matches
+        config:
+          pattern: (AsNoTracking|AsSplitQuery|Include\()
+      - type: prompt
+    rubric:
+      - Recognized that the EF Core-specific guidance does not apply to a Dapper repository
+      - Kept the Dapper data-access stack and did not introduce EF Core
+      - Explained that a leading wildcard prevents a normal index seek
+      - Preserved arbitrary substring semantics unless the user accepts prefix matching
+      - Did not present SQL Server full-text prefix matching as an exact replacement for arbitrary infix substring search
