@@ -1479,6 +1479,18 @@ function recoverTransientComparisonSlots(primaryReport, config) {
  */
 function runCompare(baselineSlice, skilledSlice, outFile) {
   const { bin, prefix } = splitVallyCommand(opts.vally);
+  const env = { ...process.env };
+  const hasExplicitToken =
+    Boolean(env.COPILOT_GITHUB_TOKEN) ||
+    Boolean(env.GH_TOKEN) ||
+    Boolean(env.GITHUB_TOKEN);
+  const copilotHome = hasExplicitToken
+    ? mkdtempSync(join(tmpdir(), "vally-compare-copilot-"))
+    : null;
+  if (copilotHome) env.COPILOT_HOME = copilotHome;
+  if (!env.COPILOT_GITHUB_TOKEN && !env.GH_TOKEN && env.GITHUB_TOKEN) {
+    env.COPILOT_GITHUB_TOKEN = env.GITHUB_TOKEN;
+  }
   const args = [
     ...prefix,
     "compare",
@@ -1493,9 +1505,14 @@ function runCompare(baselineSlice, skilledSlice, outFile) {
   ];
   let invocationError;
   try {
-    execFileSync(bin, args, { stdio: ["ignore", "ignore", "inherit"] });
+    execFileSync(bin, args, {
+      env,
+      stdio: ["ignore", "ignore", "inherit"],
+    });
   } catch (error) {
     invocationError = error;
+  } finally {
+    if (copilotHome) rmSync(copilotHome, { recursive: true, force: true });
   }
 
   // Vally 0.13 exits nonzero when every comparison trial errors, but it writes
