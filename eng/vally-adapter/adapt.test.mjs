@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
+  loadReplayActivationContracts,
+  replayNonActivationStimuli,
+  assertReplayStimulusCoverage,
   comparisonToVerdict,
   classifyComparisonError,
   continuedAfterSkillActivation,
@@ -232,6 +235,37 @@ test("retries a transient comparison error once", () => {
     assert.equal(verdict.recoveredErrors.length, 5);
     assert.match(processOutput(result), /without replacing successful judgments/);
   });
+});
+
+test("replay activation contract uses saved expectations with exact stimulus coverage", () => {
+  withTempDir((root) => {
+    const contracts = { [evalFile]: Object.fromEntries(
+      Array.from({ length: 5 }, (_, i) => [`Scenario ${i + 1}`, i !== 0]),
+    ) };
+    const contractPath = join(root, "activation-contract.json");
+    writeFileSync(contractPath, JSON.stringify(contracts));
+    const loaded = loadReplayActivationContracts(contractPath);
+    const dormant = replayNonActivationStimuli(loaded, evalFile);
+    assert.deepEqual([...dormant], ["Scenario 1"]);
+    const records = [2, 3, 4, 5].map((i) => ({ stimulus: `Scenario ${i}` }));
+    assert.doesNotThrow(() => assertReplayStimulusCoverage(
+      loaded, evalFile, records, records, { stimuli: [] }, dormant,
+    ));
+    assert.throws(() => assertReplayStimulusCoverage(
+      loaded, evalFile, records.slice(1), records.slice(1), { stimuli: [] }, dormant,
+    ), /Replay stimulus coverage differs/);
+    contracts[evalFile]["Scenario 1"] = "false";
+    writeFileSync(contractPath, JSON.stringify(contracts));
+    assert.throws(() => loadReplayActivationContracts(contractPath),
+      /Invalid replay activation contract/);
+  });
+});
+
+test("adapted trial evidence retains stable comparison trialIndex", () => {
+  const report = reportFromStimulusRuns([[1]]);
+  report.stimuli[0].trials[0].trialIndex = 9;
+  const verdict = comparisonToVerdict(report, IDENTITY, EMPTY_ROLES, new Set());
+  assert.equal(verdict.scenarios[0].trials[0].trialIndex, 9);
 });
 
 test("Vally 0.13 all-errored exit still reaches slot-preserving retry", () => {

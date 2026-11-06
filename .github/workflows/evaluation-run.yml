@@ -584,6 +584,22 @@ jobs:
             echo "Found $EVAL_COUNT eval specs"
           fi
 
+      - name: Record evaluated content commit
+        if: steps.find-evals.outputs.has_evals == 'true'
+        env:
+          BOUND_SHA: ${{ inputs.head_sha }}
+          ENTRY_NAME: ${{ matrix.entry.name }}
+        run: |
+          set -euo pipefail
+          CONTENT_SHA="$(git rev-parse HEAD)"
+          if [ -n "$BOUND_SHA" ] && [ "$CONTENT_SHA" != "$BOUND_SHA" ]; then
+            echo "::error::Evaluated checkout does not match gate-bound commit"
+            exit 1
+          fi
+          mkdir -p "artifacts/TestResults/vally/$ENTRY_NAME"
+          jq -n --arg source_sha "$CONTENT_SHA" '{source_sha: $source_sha}' \
+            > "artifacts/TestResults/vally/$ENTRY_NAME/source-commit.json"
+
       - name: Resolve evaluation models
         id: eval-models
         if: steps.find-evals.outputs.has_evals == 'true'

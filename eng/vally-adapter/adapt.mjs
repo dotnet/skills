@@ -83,6 +83,7 @@ const { values: opts } = parseArgs({
     // results.json, including an explicit invalid verdict if a variant or compare
     // result is missing.
     "expected-evals": { type: "string" },
+    "replay-activation-contract": { type: "string" },
     help: { type: "boolean", default: false },
   },
   strict: true,
@@ -112,6 +113,8 @@ Options:
                             onto each verdict as verdict.overfittingResult.
   --expected-evals <file>   Optional newline-delimited or JSON-array manifest of
                             eval files that must each produce an explicit verdict.
+  --replay-activation-contract <file>
+                            Replay only: saved eval-file/scenario activation expectations.
   --help                    Show this help`);
   process.exit(opts.help ? 0 : 1);
 }
@@ -191,6 +194,41 @@ function loadExpectedEvalFiles(file) {
     values = text.split(/\r?\n/);
   }
   return [...new Set(values.map(normalizeEvalFile).filter(Boolean))].sort();
+}
+
+function loadReplayActivationContracts(file) {
+  if (!file) return null;
+  const contracts = JSON.parse(readFileSync(resolve(file), "utf-8"));
+  if (!contracts || Array.isArray(contracts) || typeof contracts !== "object") {
+    throw new Error("Replay activation contracts must be keyed by eval file");
+  }
+  for (const [evalFile, scenarios] of Object.entries(contracts)) {
+    if (!evalFile || !scenarios || Array.isArray(scenarios) || typeof scenarios !== "object"
+      || Object.keys(scenarios).length === 0
+      || Object.entries(scenarios).some(([name, expected]) =>
+        !name || typeof expected !== "boolean")) {
+      throw new Error(`Invalid replay activation contract for ${evalFile}`);
+    }
+  }
+  return contracts;
+}
+
+function replayNonActivationStimuli(contracts, evalFile) {
+  return new Set(Object.entries(contracts[evalFile])
+    .filter(([, expected]) => !expected).map(([name]) => name));
+}
+
+function assertReplayStimulusCoverage(contracts, evalFile, baseline, skilled, report, nonActivation) {
+  const expectedNames = Object.keys(contracts[evalFile]).sort();
+  const observedNames = [...new Set([
+    ...baseline.map(stimulusOf), ...skilled.map(stimulusOf),
+    ...(report.stimuli ?? []).map((stimulus) => stimulus.stimulusName),
+    ...nonActivation,
+  ])].sort();
+  if (expectedNames.length !== observedNames.length
+    || expectedNames.some((name, index) => name !== observedNames[index])) {
+    throw new Error(`Replay stimulus coverage differs from saved contract for ${evalFile}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1737,6 +1775,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
       // triage; the gate never reads it.
       meanScore: st?.meanScore ?? 0,
       trials: (st?.trials ?? []).map((t) => ({
+        trialIndex: t.trialIndex,
         winner: t.winner,
         magnitude: t.magnitude,
         score: t.score,
@@ -2289,6 +2328,7 @@ function main() {
 
   const expectedManifestProvided = Boolean(opts["expected-evals"]);
   const expectedEvals = loadExpectedEvalFiles(opts["expected-evals"]);
+  const replayContracts = loadReplayActivationContracts(opts["replay-activation-contract"]);
   const expectedSet = new Set(expectedEvals);
   const observedEvals = [...new Set([...baselineByEval.keys(), ...skilledByEval.keys()])].map(
     normalizeEvalFile,
@@ -2298,6 +2338,10 @@ function main() {
   // Include the declared manifest first so an eval missing from both variants
   // still receives an explicit invalid result instead of disappearing.
   const allEvals = [...new Set([...expectedEvals, ...observedEvals])].sort();
+  if (replayContracts && (Object.keys(replayContracts).length !== allEvals.length
+    || allEvals.some((evalFile) => !Object.hasOwn(replayContracts, evalFile)))) {
+    throw new Error("Replay activation contracts must cover every eval exactly");
+  }
 
   const workDir = mkdtempSync(join(tmpdir(), "vally-adapt-"));
   let written = 0;
@@ -2376,7 +2420,9 @@ function main() {
 
       let nonActivationStimuli;
       try {
-        nonActivationStimuli = readNonActivationStimuli(evalFile, opts["repo-root"]);
+        nonActivationStimuli = replayContracts
+          ? replayNonActivationStimuli(replayContracts, evalFile)
+          : readNonActivationStimuli(evalFile, opts["repo-root"]);
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         const message = `${plugin}/${skill}: ${detail}`;
@@ -2397,6 +2443,11 @@ function main() {
         written++;
         incomplete++;
         continue;
+      }
+      if (replayContracts) {
+        assertReplayStimulusCoverage(
+          replayContracts, evalFile, baseline, skilled, { stimuli: [] }, nonActivationStimuli,
+        );
       }
 
       const baselineSlice = join(workDir, `${plugin}__${skill}__baseline.jsonl`);
@@ -2459,6 +2510,11 @@ function main() {
         (report.unmatchedBaseline?.length ?? 0) + (report.unmatchedTreatment?.length ?? 0);
       if (unmatchedCount > 0) {
         warn(`${plugin}/${skill}: vally compare reported ${unmatchedCount} unmatched trajectory(s)`);
+      }
+      if (replayContracts) {
+        assertReplayStimulusCoverage(
+          replayContracts, evalFile, baseline, skilled, report, nonActivationStimuli,
+        );
       }
 
       const roles = {
@@ -2572,6 +2628,9 @@ if (isMain) {
 }
 
 export {
+  loadReplayActivationContracts,
+  replayNonActivationStimuli,
+  assertReplayStimulusCoverage,
   roleFromRecords,
   roleToDashboard,
   continuedAfterSkillActivation,
