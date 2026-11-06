@@ -87,6 +87,83 @@ def check_record(path, record):
     require(record in tokens, "Evidence record does not exist")
 
 
+def normalize_prose(text):
+    normalized = text.translate(str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'}))
+    normalized = re.sub(r"[*_`~]", "", normalized)
+    return re.sub(r"\s+", " ", normalized)
+
+
+def describes_empty_bundle(text):
+    text = normalize_prose(text)
+    aggregate = (
+        r"\b(?:no|zero)\s+(?:"
+        r"(?:(?:qualifying|collected|reportable)\s+)?(?:(?:test|collector|evidence)\s+)?records"
+        r"|qualifying\s+findings|evidence\s+files|findings)\b"
+    )
+    categories = (r"failures?", r"retr(?:y|ies)", r"hangs?", r"crash(?:es)?", r"duration(?:s|-regression)?")
+    category = "(?:" + "|".join(categories) + ")"
+    separator = r"\s*(?:,\s*(?:(?:and|or)\s+)?|/\s*|(?:and|or)\s+)"
+    enumeration = r"\b(?:no|zero)\s+(?:qualifying\s+)?(?P<categories>" + category + "(?:" + separator + category + r")*)\s+(?:records|findings)\b"
+    boundary = r"(?:\s*(?:[.;,:!?)\]]|$)|\s+(?:for|in|from|under|by|at)\b|\s+to\s+(?:cite|report|analyze)\b)"
+    collection = r"\b(?:record(?:ed|s)?|collect(?:ed|s)?|found|finds|contains?|lists?|suppl(?:ied|ies)|reports?)\s+$"
+    existence = r"\bthere\s+(?:are|were|is|was)\s+$"
+    predicate = (
+        r"\s+(?:(?:are|were|is|was|have been|has been)\s+)?"
+        r"(?:collected|recorded|found|supplied|retrieved|present|available|reported|observed|exists?)"
+        + boundary
+    )
+    for match in re.finditer("(?:" + aggregate + ")|(?:" + enumeration + ")", text, re.IGNORECASE):
+        listed = match["categories"]
+        if listed and not all(re.search(r"\b" + item + r"\b", listed, re.IGNORECASE) for item in categories):
+            continue
+        before, after = text[:match.start()], text[match.end():]
+        if re.match(r"\s+to\s+(?:cite|report|analyze)\b" + boundary, after, re.IGNORECASE):
+            return True
+        if re.match(predicate, after, re.IGNORECASE):
+            return True
+        if re.search("(?:" + collection + ")|(?:" + existence + ")", before, re.IGNORECASE) and re.match(boundary, after, re.IGNORECASE):
+            return True
+    return False
+
+
+def contradicts_empty_bundle(text):
+    text = normalize_prose(text)
+    count = r"(?:a|an|one|two|three|[1-9][0-9]*)\s+"
+    records = r"(?:(?:qualifying|test|collector|evidence|failure|retry|hang|crash|duration(?:-regression)?)\s+)*records?\b"
+    assertion = r"\b(?:recorded|found|collected|contains?|includes?|reports?|lists?|supplies|observed|there (?:is|are|was|were))\s+"
+    reverse = r"\b" + count + records + r"\s+(?:(?:is|are|was|were)\s+(?:present|available|recorded|found|collected|omitted)|exists?)\b"
+    denial = (
+        r"(?:\b(?:not|never)\s+"
+        r"|\bno\s+(?:(?:test|collector|evidence)\s+)?(?:files?|collectors?|bundles?)\s+"
+        r"|\b(?:it is not true that|there is no evidence that|no evidence that)\s+"
+        r"(?:(?:the\s+)?(?:collector|bundle|metadata|evidence)\s+)?)$"
+    )
+    for match in re.finditer("(?:" + assertion + count + records + ")|(?:" + reverse + ")", text, re.IGNORECASE):
+        if not re.search(denial, text[:match.start()], re.IGNORECASE):
+            return True
+    return False
+
+
+def check_test_success_claims(text):
+    claims = r"\b(?:all tests passed|tests are clean|tests are fixed|no historical recurrence)\b"
+    denial_before = (
+        r"\b(?:"
+        r"not (?:(?:an?|the|explicit|affirmative|verified) )*"
+        r"|distinct from (?:(?:an?|the|explicit|affirmative|verified) )*"
+        r"|(?:does not|do not|cannot|can't) (?:prove|establish|mean|show|imply|confirm|conclude) (?:that )?"
+        r"|no (?:evidence|proof|confirmation) (?:that|of) "
+        r")[\"']?$"
+    )
+    denial_after = r"^[\"']? (?:is|was) (?:not|never) (?:proven|established|verified|supported|justified)\b"
+    normalized = normalize_prose(text)
+    for match in re.finditer(claims, normalized, re.IGNORECASE):
+        denied = (
+            re.search(denial_before, normalized[:match.start()], re.IGNORECASE)
+            or re.search(denial_after, normalized[match.end():], re.IGNORECASE)
+        )
+        require(denied, f"Unsupported test-success claim: {match[0]}")
+
+
 def parse_options(arguments=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--expected-action", required=True, choices=("comment", "review", "noop", "patch"))
@@ -97,6 +174,8 @@ def parse_options(arguments=None):
     parser.add_argument("--require-pattern", action="append", default=[])
     parser.add_argument("--require-summary-pattern", action="append", default=[])
     parser.add_argument("--forbid-pattern", action="append", default=[])
+    parser.add_argument("--forbid-test-success-claims", action="store_true")
+    parser.add_argument("--require-empty-test-bundle", action="store_true")
     parser.add_argument("--allowed-classification", action="append", default=[])
     parser.add_argument("--allowed-finding-path", action="append", default=[])
     parser.add_argument("--expected-candidate", action="append", default=[])
@@ -195,6 +274,18 @@ def validate_result(root, options):
         require(re.search(pattern, text, re.IGNORECASE), f"Missing supported outcome: {pattern}")
     for pattern in options.forbid_pattern:
         require(not re.search(pattern, text, re.IGNORECASE), f"Forbidden result content: {pattern}")
+    if options.forbid_test_success_claims:
+        for value in (reason, result.get("body") or "", *limitations):
+            check_test_success_claims(value)
+        for finding in findings:
+            for key in ("summary", "next_step"):
+                check_test_success_claims(finding[key])
+    if options.require_empty_test_bundle:
+        metadata = read_json(root / "inputs" / "evidence" / "metadata.json")
+        require(metadata["completeness"]["complete"] is True and metadata["files"] == [], "Expected a complete empty test bundle")
+        require(action == "noop", "Empty-bundle assertion requires no-op")
+        require(not any(contradicts_empty_bundle(value) for value in (reason, *limitations)), "Claimed positive records in an empty bundle")
+        require(any(describes_empty_bundle(value) for value in (reason, *limitations)), "Missing whole-bundle record absence")
     return result
 
 
