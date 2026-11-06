@@ -1,0 +1,15 @@
+Performance summary from the nightly run of Contoso.slnx
+(212 projects; built with -m:16; Time Elapsed 00:18:07.40)
+
+Task Performance Summary:
+   2713480 ms  Csc                                       212 calls    12799 ms avg
+    684910 ms  ResolveAssemblyReferences                 212 calls     3231 ms avg
+    251622 ms  Copy                                     1884 calls      134 ms avg
+     18240 ms  GenerateDepsFile                          212 calls       86 ms avg
+      6120 ms  Exec                                        4 calls     1530 ms avg
+
+Project Performance Summary:
+   1087400 ms  Contoso.slnx                                1 calls
+     98220 ms  src\Contoso.Platform\Contoso.Platform.csproj 1 calls
+     91870 ms  src\Contoso.Storage\Contoso.Storage.csproj  1 calls
+      ... 209 more projects, 1 call each

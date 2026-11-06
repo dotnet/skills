@@ -1,0 +1,10 @@
+<Project>
+  <!-- Generates obj/buildinfo.g.cs once, then every project compiles it. -->
+  <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile" Condition="!Exists('$(MSBuildThisFileDirectory)obj/buildinfo.g.cs')">
+    <Exec Command="sh tools/make-buildinfo.sh obj/buildinfo.g.cs" WorkingDirectory="$(MSBuildThisFileDirectory)" />
+  </Target>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)obj/buildinfo.g.cs" Link="buildinfo.g.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,17 @@
+Invocation: dotnet msbuild Assets.csproj -m:16
+The full build takes 180000 ms. Other projects use 15 worker nodes.
+Assets.csproj runs PackAssets before its package consumer on the critical path.
+Task events inside PackAssets: 200 consecutive, non-overlapping Exec calls,
+450 ms each; total 90000 ms. No item runs concurrently with another item here.
+
+<Target Name="PackAssets" BeforeTargets="Pack"
+        Inputs="@(Asset)" Outputs="@(Asset->'obj/%(Filename).packed')">
+  <Exec Command="assetpack --input &quot;%(Asset.FullPath)&quot; --output-dir obj" />
+</Target>
+
+assetpack supports --input-list PATH and produces identical per-input outputs.
+Measured per-process startup: 400 ms.
+Measured per-input processing: 50 ms in either mode.
+The list mode starts once and then processes all inputs sequentially.
+These figures describe this original invocation, not a post-change measurement.
+All 200 outputs and existing incremental input/output pairing are required.
