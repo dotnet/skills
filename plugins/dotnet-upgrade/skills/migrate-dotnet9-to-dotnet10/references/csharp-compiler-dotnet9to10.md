@@ -12,6 +12,8 @@ Two diagnostics apply:
 - **CS9258** (warning, VS 17.12+): `field` binds to the synthesized backing field instead of an existing member (e.g., a class field named `field`). Use `this.field` or `@field` to refer to the member.
 - **CS9272** (error, VS 17.14+): A local variable or nested-function parameter named `field` is **disallowed** inside a property accessor. Rename the variable or use `@field`.
 
+These Visual Studio versions describe when the `field` diagnostics appear; they are not the overall Visual Studio requirement for targeting .NET 10. See the [IDE / Visual Studio compatibility guidance](sdk-msbuild-dotnet9to10.md).
+
 ```csharp
 // BREAKS — CS9272 error
 public object Property
