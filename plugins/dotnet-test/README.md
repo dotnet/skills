@@ -209,24 +209,40 @@ work that benefits from separate context.
 | **testability-migration** | test-engineer | Performs explicit .NET production-code testability refactors and adds deterministic tests |
 | **code-testing-researcher** | test-engineer | Analyzes codebase structure, testing patterns, and testability |
 | **code-testing-planner** | test-engineer | Creates phased test implementation plans from research findings |
-| **code-testing-implementer** | test-engineer | Implements one phase from the plan, runs build-test-fix cycles |
-| **code-testing-builder** | code-testing-implementer | Runs build/compile commands and reports results |
-| **code-testing-tester** | code-testing-implementer | Runs test commands and reports pass/fail results |
-| **code-testing-fixer** | code-testing-implementer | Fixes compilation errors in source or test files |
-| **code-testing-linter** | code-testing-implementer | Runs code formatting and linting |
+| **code-testing-implementer** | test-engineer | Leaf worker: implements one phase and validates it inline |
+| **code-testing-builder** | test-engineer | Runs build/compile commands and reports results |
+| **code-testing-tester** | test-engineer | Runs test commands and reports pass/fail results |
+| **code-testing-fixer** | test-engineer | Fixes compilation errors in source or test files |
+| **code-testing-linter** | test-engineer | Runs code formatting and linting |
 
-> **VS Code — optional nested delegation:** The pipeline does not require
-> phase-agent fan-out. When substantial work warrants a subagent invoking
-> another available named agent, VS Code gates that nested delegation behind a
-> setting that is **off by default**. To allow it, enable:
+A delegated `code-testing-implementer` is a leaf: it builds, tests, diagnoses
+and fixes failures, verifies harness discovery, and formats changed tests
+itself. The pipeline owner can still delegate substantial research, planning,
+implementation, or independent validation work; validation workers remain
+available to `test-engineer`, not to the implementer. This boundary is relative
+to the pipeline owner, not a global session-depth limit.
+
+Deterministic leaf-boundary and report-safe validation contracts run without
+model calls:
+
+```powershell
+python -B tests\dotnet-test\code-testing\graders\test_leaf_implementer.py -v
+python -B tests\dotnet-test\code-testing\graders\test_report_safe_names.py -v
+```
+
+> **VS Code — optional upstream delegation:** The pipeline does not require
+> phase-agent fan-out. Pipeline-owner delegation may itself be nested relative
+> to the caller's session. VS Code gates invocation from subagents behind a
+> setting that is **off by default**. To allow that upstream delegation, enable:
 >
 > ```jsonc
 > "chat.subagents.allowInvocationsFromSubagents": true
 > ```
 >
-> Without it, `test-engineer` or a delegated implementer completes the phases
-> inline; required validation and review are unchanged. The GitHub Copilot CLI
-> has no such gate, but delegation remains optional.
+> Without it, `test-engineer` completes the phases inline; required validation
+> and review are unchanged. A delegated implementer always validates inline,
+> regardless of this setting. The GitHub Copilot CLI has no such gate, but
+> upstream delegation remains optional.
 
 ## Prerequisites
 
