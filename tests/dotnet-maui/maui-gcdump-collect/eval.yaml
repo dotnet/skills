@@ -1,0 +1,1191 @@
+name: maui-gcdump-collect
+description: Physical-device Mono heap collection planning, capability boundaries, and capture integrity
+type: capability
+defaults:
+  timeout: 5m
+  runs: 3
+stimuli:
+  - name: Route Android physical device without host PID confusion
+    prompt: |
+      Read android-session.txt. Prepare capture-plan.json for our operator to
+      collect a managed heap after navigating back from CatalogDetail on the
+      selected phone. Do not run device commands, install tools, modify inputs,
+      or collect anything. The JSON must have status "planned", device_id,
+      physical_capture_verified (boolean), and a nested "commands" object
+      containing route, collect, validate, cleanup arrays of shell command
+      strings. Use the reserved artifact name; the reserved host port and IPC
+      path are only needed if a separately-started finer-control router is
+      used instead of the default self-managing route. Record the single
+      command that establishes the device route in the route array, and guard
+      its collect-array counterpart with an executable
+      no-overwrite check before invoking the collector. Include
+      selected-device routing, file-format validation, and only the cleanup
+      this route actually requires.
+      Explain the approval/relaunch checkpoint and any remaining verification.
+    tags:
+      capability: android-usb-route
+      risk: wrong-process-attachment
+      journey: prepare-navigation-snapshot
+    environment:
+      files:
+        - src: fixtures/android-session.txt
+          dest: android-session.txt
+    graders:
+      - type: file-exists
+        config:
+          path: capture-plan.json
+      - type: run-command
+        config:
+          command: |
+            python3 -c '
+            import json, pathlib, re
+            
+            p = json.loads(pathlib.Path("capture-plan.json").read_text())
+            assert p["status"] == "planned" and p["device_id"] == "R58M123" and p["physical_capture_verified"] is False
+            c = p["commands"]
+            assert all(isinstance(c[k], list) and c[k] and all(isinstance(s, str) for s in c[k]) for k in ("route", "collect", "validate", "cleanup"))
+            r = "\n".join(c["route"])
+            q = "\n".join(c["collect"])
+            v = "\n".join(c["validate"])
+            x = "\n".join(c["cleanup"])
+            route_mode = re.search(r"--dsrouter\s+(\S+)", r)
+            collect_mode = re.search(r"--dsrouter\s+(\S+)", q)
+            assert route_mode and collect_mode and route_mode.group(1) == collect_mode.group(1) == "android"
+            assert "after-navigation.gcdump" in r and "after-navigation.gcdump" in q
+            assert "dotnet-gcdump collect" in q and "--timeout" in q
+            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v
+            a = r + q + v + x
+            did = p["device_id"]
+            sq = chr(39)
+            dq = chr(34)
+            
+            def split_clauses(text):
+                # Split into the top-level clauses real POSIX sequencing
+                # operators (";", "&&", "||", "&", newline) actually
+                # delimit, skipping any that are nested inside quotes or a
+                # "(" ... ")" subshell, and record which operator (if any)
+                # precedes each clause. ";"/"&"/newline run unconditionally
+                # in textual sequence, so state from those clauses still
+                # follows left-to-right order; a clause reached only via
+                # "&&" or "||" runs or does not run depending on a prior
+                # exit status this static check cannot know, so its own
+                # assignments must not be trusted as having actually taken
+                # effect -- a real command could place a decoy assignment on
+                # the unreached side of a short-circuit (for example "true
+                # || export ANDROID_SERIAL=WRONG_BUT_UNREACHED") to make a
+                # textual walk see an assignment that a real shell never
+                # executes.
+                clauses, cur, depth, quote, sep = [], [], 0, None, None
+                i, n = 0, len(text)
+                while i < n:
+                    c = text[i]
+                    if quote:
+                        cur.append(c)
+                        if c == quote:
+                            quote = None
+                        i += 1
+                        continue
+                    if c in (dq, sq):
+                        quote = c
+                        cur.append(c)
+                        i += 1
+                        continue
+                    if c == "(":
+                        depth += 1
+                        cur.append(c)
+                        i += 1
+                        continue
+                    if c == ")":
+                        depth = max(0, depth - 1)
+                        cur.append(c)
+                        i += 1
+                        continue
+                    if depth == 0:
+                        if text[i:i + 2] in ("&&", "||"):
+                            clauses.append((sep, "".join(cur)))
+                            cur = []
+                            sep = text[i:i + 2]
+                            i += 2
+                            continue
+                        if c in (";", "&", "\n"):
+                            clauses.append((sep, "".join(cur)))
+                            cur = []
+                            sep = c
+                            i += 1
+                            continue
+                    cur.append(c)
+                    i += 1
+                clauses.append((sep, "".join(cur)))
+                return [(s, c.strip()) for s, c in clauses if c.strip()]
+            
+            assign_re = re.compile(
+                r"^(export\s+)?([A-Za-z_][A-Za-z0-9_]*)="
+                + r"(?:" + dq + r"([^" + dq + r"]*)" + dq
+                + r"|" + sq + r"([^" + sq + r"]*)" + sq
+                + r"|([^\s;&|)]+))\s*")
+            
+            def leading_assigns(clause):
+                # Walk any number of (optionally "export"-prefixed)
+                # NAME=value tokens at the start of a clause -- POSIX allows
+                # several simple-command prefix assignments before the
+                # command word -- and return them plus whatever command
+                # text remains (empty for an assignment-only clause).
+                assigns, rest = [], clause
+                while True:
+                    m = assign_re.match(rest)
+                    if not m:
+                        break
+                    if m.group(3) is not None:
+                        val, kind = m.group(3), "double"
+                    elif m.group(4) is not None:
+                        val, kind = m.group(4), "single"
+                    else:
+                        val, kind = m.group(5), "bare"
+                    assigns.append((m.group(2), val, kind, m.group(1) is not None))
+                    rest = rest[m.end():]
+                return assigns, rest.strip()
+            
+            def resolve_value(val, kind, before_vals):
+                # A single-quoted value is never subject to $VAR expansion in
+                # a real shell -- compared literally. A bare/double-quoted
+                # "$NAME" reference expands against the variable state as it
+                # stood strictly BEFORE this clauses own assignments. POSIX
+                # itself leaves same-clause sibling prefix assignments (for
+                # example "A=1 B=$A cmd") an UNSPECIFIED case (see "Simple
+                # Commands" in the Shell Command Language rationale: whether
+                # earlier prefix assignments are visible to later ones in
+                # step 4 expansion "is unspecified"); confirmed divergent
+                # real "sh -c" probes show dash, zsh and ksh resolve B to 1
+                # while bash (also reachable as "sh" via POSIX mode) resolves
+                # it to empty. Given that divergence this checker never
+                # treats a same-clause sibling as resolvable -- it is
+                # rejected by invocation_value below regardless of what any
+                # one shell happens to do, since a device-serial selector
+                # must not depend on non-portable, unspecified behavior --
+                # so before_vals intentionally excludes this clauses own
+                # assignments and an unresolved reference expands to an
+                # empty string exactly like the real shells that do not see
+                # it.
+                if kind == "single":
+                    return val
+                if val.startswith("$"):
+                    return before_vals.get(val[1:], "")
+                return val
+            
+            def invocation_values(name, text):
+                # Walk clauses in true left-to-right execution order,
+                # tracking each variables resolved value and whether it has
+                # ever been exported, and return a value for EVERY clause
+                # that actually invokes the collector in this one text (not
+                # just the last) -- an earlier wrong invocation must not be
+                # masked by a later correct one overwriting a single result.
+                # At each such clause, "name" resolves to: (a) that same
+                # clauses own prefix assignment if present -- always
+                # inherited by this one command regardless of export, since
+                # POSIX prefix assignments are inherently scoped to it;
+                # otherwise (b) the most recent EXPORTED separate-statement
+                # assignment from an earlier clause reached only
+                # UNCONDITIONALLY (by ";", "&", newline, or being the first
+                # clause); otherwise the value is unset (None).
+                # An assignment-only clause (no command word) persists into
+                # later clauses state ONLY when it was itself reached
+                # unconditionally: a clause reached solely via "&&" or "||"
+                # runs or does not run depending on a prior exit status this
+                # static check cannot know, so its assignment must not be
+                # trusted as having actually taken effect (for example "true
+                # || export ANDROID_SERIAL=WRONG_BUT_UNREACHED; <collect>"
+                # never actually runs the export in a real shell, since
+                # "true" already satisfies the "||").
+                # A prefix attached to any OTHER command is scoped to that
+                # one child process only and must not update persistent
+                # state -- matching real shell variable-propagation rules.
+                # A clause may be reached through an "if"/"then"/"else"/"do"
+                # control keyword (the guarded forms this skill actually
+                # accepts, e.g. "if <guard>; then ANDROID_SERIAL=... cmd;
+                # else exit 1; fi"); strip exactly one such leading keyword
+                # before looking for prefix assignments, since the keyword
+                # itself is not part of the invoked commands own prefix.
+                keyword_re = re.compile(r"^(?:then|else|do)\s+")
+                global_vals, global_exported, found = {}, set(), []
+                for sep, clause in split_clauses(text):
+                    assigns, rest = leading_assigns(keyword_re.sub("", clause, count=1))
+                    before_vals = dict(global_vals)
+                    resolved = {n: (resolve_value(v, k, before_vals), exp) for n, v, k, exp in assigns}
+                    if re.search(r"dotnet-gcdump\s+collect\b", rest):
+                        if name in resolved:
+                            found.append(resolved[name][0])
+                        elif name in global_exported:
+                            found.append(global_vals.get(name))
+                        else:
+                            found.append(None)
+                    if not rest and sep not in ("&&", "||"):
+                        for n, (rv, exp) in resolved.items():
+                            global_vals[n] = rv
+                            if exp:
+                                global_exported.add(n)
+                return found
+            
+            def resolves(name, commands_list, expected):
+                # Each "commands" array entry is evaluated with its OWN
+                # fresh state, never carried over from a prior entry: a JSON
+                # array of separate command strings guarantees nothing about
+                # them being pasted into one continuous shell session, so an
+                # export in one entry must not be assumed to leak into the
+                # next entrys invocation. Continuity WITHIN a single entrys
+                # own text (its own ";"/"&&"/etc. clauses) is still a real,
+                # single paste and is handled by invocation_values above.
+                found_any = False
+                for entry in commands_list:
+                    for val in invocation_values(name, entry):
+                        found_any = True
+                        if val is None or val != expected:
+                            return False
+                return found_any
+            
+            assert resolves("ANDROID_SERIAL", c["route"], did) and resolves("ANDROID_SERIAL", c["collect"], did), "route/collect must bind the selected device via a literal ANDROID_SERIAL prefix on the invocation itself, or a " + dq + "$VAR" + dq + " reference to a value assigned -- and, if in a separate, non-prefix statement, EXPORTED -- strictly before the invocation, UNCONDITIONALLY, within that SAME commands-array entry, in true left-to-right shell execution order: a single-quoted reference, a non-exported separate-statement assignment, an assignment reached only via " + dq + "&&" + dq + " or " + dq + "||" + dq + " (not provably executed), an assignment in a different commands-array entry, or a same-clause sibling assignment (left unspecified by POSIX itself, and divergent across real shells) never reliably reaches the invocations actual environment, since neither --dsrouter nor collect accepts a serial flag"
+            assert not any(t in a for t in ("server-server", "adb reverse", "adb -s", "setprop debug.mono.profile", "-ipcs", "-tcps", "AndroidEnableProfiler"))
+            assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a
+            assert pathlib.Path("android-session.txt").read_text() == """Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 10.0.750501, installed on host; the --dsrouter switch is present.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n"""
+            print("Android plan and input preservation valid")
+            '
+      - type: output-matches
+        config:
+          pattern: (?i)(approv|consent|permission)
+      - type: output-matches
+        config:
+          pattern: (?i)(not verified|not.*captur|no.*captur|pending.*device)
+      - &false-verification
+        type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Physical[- ]device capture (?:was |is )?(?:verified|tested|successful)|(?:I |We )?(?:successfully collected|verified the physical[- ]device))
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Run|Use)\s+dotnet-gcdump\s+collect\s+-p\s+2841\b
+      - &no-overwrite
+        type: run-command
+        config:
+          command: |
+            python3 -c 'import json, os, shlex, re
+            
+            def check(path):
+                p = json.load(open(path))
+                commands = p["commands"]["collect"]
+                assert isinstance(commands, list) and commands, "collect must be a non-empty list"
+            
+                def tokenize(s):
+                    lex = shlex.shlex(s, posix=True, punctuation_chars=True)
+                    lex.whitespace_split = True
+                    return expand_puncts(list(lex))
+            
+                def expand_puncts(toks):
+                    # shlex fuses adjacent punctuation characters with no
+                    # intervening whitespace into a single token (e.g. a
+                    # paren-close immediately followed by a semicolon, as in
+                    # "(exit 1);", becomes one fused closing-paren-semicolon
+                    # token) -- split those back into individual operator
+                    # tokens, preserving the real two-character shell
+                    # operators, so later exact-token comparisons against
+                    # "(", ")", ";", etc. are reliable regardless of
+                    # surrounding whitespace.
+                    two_char_ops = ("&&", "||", ";;", ">>", "<<")
+                    punct_chars = set("(){};&|<>")
+                    out = []
+                    for t in toks:
+                        if t and len(t) > 1 and t not in two_char_ops and all(ch in punct_chars for ch in t):
+                            k = 0
+                            while k < len(t):
+                                pair = t[k:k + 2]
+                                if pair in two_char_ops:
+                                    out.append(pair)
+                                    k += 2
+                                else:
+                                    out.append(t[k])
+                                    k += 1
+                        else:
+                            out.append(t)
+                    return out
+            
+                def top_level_clauses(toks):
+                    # Split a token stream on bare top-level ";" into the
+                    # shell clauses it actually sequences, skipping any ";"
+                    # nested inside balanced "(" ... ")" (a subshell), since
+                    # that semicolon never terminates the enclosing clause.
+                    clauses = []
+                    current = []
+                    depth = 0
+                    for t in toks:
+                        if t == "(":
+                            depth += 1
+                        elif t == ")":
+                            depth = max(0, depth - 1)
+                        if t == ";" and depth == 0:
+                            clauses.append(current)
+                            current = []
+                        else:
+                            current.append(t)
+                    clauses.append(current)
+                    return [c for c in clauses if c]
+            
+                def has_unconditional_exit(block_tokens):
+                    # A genuinely nonzero "exit N" only guarantees the real
+                    # enclosing script terminates right there if it is the
+                    # FIRST thing a top-level (bare ";"-separated) clause
+                    # does: an "exit" gated behind "||"/"&&" only runs if an
+                    # earlier command in the same clause fails/succeeds
+                    # (e.g. "printf msg || exit 1" never reaches exit when
+                    # printf itself succeeds, which it normally does), and an
+                    # "exit" wrapped in "(...)" only terminates that inner
+                    # subshell, not the actual script -- both must be
+                    # rejected. Requiring "exit" to be clause[0] excludes
+                    # both: a clause opening with "(" or any other command
+                    # cannot satisfy it.
+                    for clause in top_level_clauses(block_tokens):
+                        if (len(clause) >= 2 and clause[0] == "exit"
+                                and clause[1].isdigit() and 1 <= int(clause[1]) <= 255):
+                            return True
+                    return False
+            
+                norm = lambda value: os.path.abspath(value.replace("$" + "{PWD}", os.getcwd()).replace("$PWD", os.getcwd()))
+            
+                # Locate the single array element that actually invokes the collector,
+                # accepting either the literal binary name or a variable resolved from it
+                # earlier in that same element (e.g. collector="$(command -v dotnet-gcdump)").
+                invoke_idx = None
+                invoke_tokens = None
+                invoke_pos = None
+                for i, elem in enumerate(commands):
+                    assert isinstance(elem, str)
+                    tokens = tokenize(elem)
+                    literal_positions = [j for j, t in enumerate(tokens) if t == "dotnet-gcdump" and j + 1 < len(tokens) and tokens[j + 1] == "collect"]
+                    var_pos = None
+                    m = re.search(r"(\w+)=.*dotnet-gcdump", elem)
+                    if m:
+                        var = m.group(1)
+                        for j, t in enumerate(tokens):
+                            if t.strip(chr(34) + chr(39)) == "$" + var and j + 1 < len(tokens) and tokens[j + 1] == "collect":
+                                var_pos = j
+                                break
+                    pos = literal_positions[0] if literal_positions else var_pos
+                    if pos is not None:
+                        assert invoke_idx is None, "Exactly one collect element may invoke the collector"
+                        invoke_idx = i
+                        invoke_tokens = tokens
+                        invoke_pos = pos
+            
+                assert invoke_idx is not None, "No guarded capture invocation found"
+                tokens = invoke_tokens
+                index = invoke_pos
+                assert tokens[index + 1] == "collect"
+                output = tokens[tokens.index("--output") + 1] if "--output" in tokens else tokens[tokens.index("-o") + 1]
+                prefix = tokens[:index]
+                # Strip inline environment-variable assignments (e.g.
+                # "ANDROID_SERIAL=...") immediately preceding the invocation: these
+                # bind the environment for that command and are not a separate
+                # shell clause, so the real preceding guard clause is whatever
+                # came before them.
+                while prefix and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", prefix[-1]):
+                    prefix = prefix[:-1]
+            
+                def guard_tests_output(guard_tokens):
+                    forms = [["test", "!", "-e", output], ["!", "test", "-e", output], ["[", "!", "-e", output, "]"]]
+                    return any(
+                        len(guard_tokens) == len(form) and guard_tokens[:3] == form[:3]
+                        and norm(guard_tokens[3]) == norm(output) and guard_tokens[4:] == form[4:]
+                        for form in forms
+                    )
+            
+                matched = False
+                matched_form_b = False
+            
+                # Form A: "<guard> && [<other guards> &&]... <invoke>" -- take the clause
+                # immediately preceding the invocation (the rightmost "&&"-joined clause),
+                # so additional defensive checks earlier in the chain (binary resolution,
+                # executability) does not block recognition of the actual guard.
+                if not matched and prefix[-1:] == ["&&"]:
+                    chain = prefix[:-1]
+                    # split chain by top-level "&&" tokens into clauses
+                    clauses = [[]]
+                    for t in chain:
+                        if t == "&&":
+                            clauses.append([])
+                        else:
+                            clauses[-1].append(t)
+                    if clauses and guard_tests_output(clauses[-1]):
+                        matched = True
+            
+                # Form B: "if <guard>; then <invoke>; else <exit N>; fi" -- a bare
+                # "if <guard>; then <invoke>; fi" with NO else is not accepted on its
+                # own: when the guard is false (output already exists), an if with no
+                # executed branch exits 0, which falsely reports success for a skipped
+                # capture -- the same false-success defect the Form C "exit 0" mutation is
+                # rejected for below. A qualifying "else ...exit N; fi" closer with a
+                # genuinely nonzero (1-255; see the modulo-256 note on Form C) exit is
+                # required, mirroring the Form C nonzero-exit requirement.
+                form_b_else_idx = None
+                if (not matched and prefix[:1] == ["if"] and prefix[-2:] == [";", "then"]
+                        and tokens[-1] == "fi" and "else" in tokens[index:]):
+                    guard = prefix[1:-2]
+                    else_idx = len(tokens) - 1 - tokens[::-1].index("else")
+                    else_block = tokens[else_idx + 1:-1]
+                    # "exit N" merely appearing somewhere in the else-block is not
+                    # enough: e.g. "else printf \"exists\\n\" || exit 1; fi" never
+                    # reaches exit when printf itself succeeds (the normal case),
+                    # so the if-statement still exits 0 overall. Require exit to be
+                    # the unconditional first action of a top-level clause instead.
+                    has_else_exit = has_unconditional_exit(else_block)
+                    if has_else_exit and guard_tests_output(guard):
+                        matched = True
+                        matched_form_b = True
+                        form_b_else_idx = else_idx
+            
+                # Form C: "<guard> || { ...; exit N; }; <invoke>" -- inverse guard with an
+                # early-exit block, joined to the invocation within the SAME shell string
+                # so the exit genuinely short-circuits execution of the collector.
+                if not matched and prefix[-1:] == [";"] and len(prefix) >= 2 and prefix[-2] == "}":
+                    # find matching "{" by scanning backward, tracking brace depth
+                    # (prefix[-2] is the already-identified closing brace, so depth starts at 1)
+                    depth = 1
+                    open_idx = None
+                    for j in range(len(prefix) - 3, -1, -1):
+                        if prefix[j] == "}":
+                            depth += 1
+                        elif prefix[j] == "{":
+                            depth -= 1
+                            if depth == 0:
+                                open_idx = j
+                                break
+                    if open_idx is not None and open_idx >= 1 and prefix[open_idx - 1] == "||":
+                        block = prefix[open_idx + 1:-2]
+                        guard = prefix[:open_idx - 1]
+                        # "exit 0" would unconditionally terminate the script before the
+                        # collector runs too, but it falsely reports success to any caller
+                        # even though the guard skipped the capture -- only a nonzero exit
+                        # correctly signals "nothing was captured" to an orchestrating process.
+                        # POSIX shells reduce the exit status modulo 256, so "exit 256" (and
+                        # any other multiple of 256) is indistinguishable from "exit 0" at
+                        # runtime; only 1-255 are genuinely nonzero once the shell truncates.
+                        # "exit N" merely appearing somewhere in the block is not enough
+                        # either: "{ printf \"exists\\n\" || exit 1; }" never reaches exit
+                        # when printf succeeds (the normal case), so the group real exit
+                        # status is printf success and the following bare ";" still runs
+                        # the collector regardless; "{ (exit 1); }" only terminates the
+                        # inner subshell, never the actual script, so the bare ";" after it
+                        # still runs the collector too. Require exit to be the unconditional
+                        # first action of a top-level (non-subshelled) clause instead.
+                        has_exit = has_unconditional_exit(block)
+                        if has_exit and guard_tests_output(guard):
+                            matched = True
+            
+                assert matched, "Collector lacks a short-circuit output-exists guard connected to the invocation in the same command"
+            
+                # The guard is worthless if a trailing shell control operator after the
+                # invocation (in the SAME array element) can mask its real exit status,
+                # e.g. "dotnet-gcdump collect ... || true" (unconditionally succeeds),
+                # "; echo done" (runs regardless of the exit code of the invocation), or a
+                # trailing pipe (the exit code of the pipeline becomes that of the last
+                # stage, not that of the collector) -- the Form B matched "else ...; fi" closer
+                # terminates the invocation at the "else" keyword -- that is one carve-out.
+                # Two more safety-preserving forms are also allowed: a single bare trailing
+                # ";" with nothing after it (just a statement terminator, nothing can run
+                # unconditionally), and any chain of additional "&&"-joined commands (each
+                # only runs if everything before it, including the collector, already
+                # succeeded, so a collector failure still short-circuits the chain and
+                # surfaces as the failure).
+                # A single bare trailing ";" is stripped before scanning: any "||", "|",
+                # or additional ";" remaining after that strip means a later clause can
+                # run (or an exit code can be swallowed) regardless of whether
+                # the collector itself succeeded, which is what must be rejected. A
+                # single trailing "&" (background) is NOT stripped: it backgrounds the
+                # invocation and the shell reports status 0 immediately, so the guard
+                # exit status can never propagate and validation can race the capture.
+                invocation_tail = tokens[index:form_b_else_idx] if matched_form_b else tokens[index:]
+                if invocation_tail and invocation_tail[-1] == ";":
+                    invocation_tail = invocation_tail[:-1]
+                unsafe_operators = {"||", ";", "|", "&"}
+                assert not any(t in unsafe_operators for t in invocation_tail), (
+                    "A shell control operator after the collector invocation can mask its exit status"
+                )
+                print("No-overwrite guard valid:", path)
+            
+            check("capture-plan.json")
+            '
+      - type: prompt
+    rubric:
+      - Provides a coherent selected-serial USB connection between the Mono app and host collector, not a host attach to the phone PID; binds the route/collect commands to that serial via ANDROID_SERIAL since neither `--dsrouter` nor `collect` accepts a serial flag.
+      - Accounts for diagnostics starting at app launch and reproduction after an approved restart, without claiming the current heap can survive that restart.
+      - Identifies managed GC pause and confidentiality risks without performing capture or exposing a network listener.
+      - Validates a host-side gcdump and confirms --dsrouter android leaves no router process, port forward, or device property requiring manual cleanup.
+    golden_patch:
+      inline: |
+        diff --git a/capture-plan.json b/capture-plan.json
+        new file mode 100644
+        --- /dev/null
+        +++ b/capture-plan.json
+        @@ -0,0 +1,15 @@
+        +{
+        +  "status": "planned",
+        +  "device_id": "R58M123",
+        +  "physical_capture_verified": false,
+        +  "commands": {
+        +    "route": [
+        +      "ANDROID_SERIAL=R58M123 dotnet-gcdump collect --dsrouter android --output \"$PWD/after-navigation.gcdump\" --timeout 60"
+        +    ],
+        +    "collect": ["test ! -e \"$PWD/after-navigation.gcdump\" && ANDROID_SERIAL=R58M123 dotnet-gcdump collect --dsrouter android --output \"$PWD/after-navigation.gcdump\" --timeout 60"],
+        +    "validate": ["dotnet-gcdump report \"$PWD/after-navigation.gcdump\""],
+        +    "cleanup": [
+        +      "echo \"--dsrouter android owns its own port forward and router process for this single capture and tears both down on exit; no manual process or property to restore\""
+        +    ]
+        +  }
+        +}
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: android-plan
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              This is an advisory plan, not an executed capture. Obtain approval
+              before creating the route or relaunching. The configured component
+              alone does not add a port to the running app; apply the launch
+              setting to an approved restart, then repeat the navigation.
+              The single dotnet-gcdump collect --dsrouter android command starts
+              its own adb-reverse route and dsrouter process for this one
+              capture; no separate router or manual adb step is needed. Neither
+              --dsrouter nor collect accepts a device-serial flag, so prefix
+              both with ANDROID_SERIAL=R58M123 (the inherited adb selector) to
+              scope this to the intended device when other serials are present.
+              Verify
+              its connection belongs to com.example.catalog on R58M123 before
+              collecting. PID 2841 is the phone app, not a host attach.
+              Collection induces a full GC and may pause/OOM the app. Keep
+              diagnostic TCP on loopback and keep the dump private. The collector
+              writes after-navigation.gcdump on the host; require successful exit,
+              a new nonempty file and readable type statistics from file report.
+              The collect command short-circuits if the output path already exists;
+              choose a new name rather than overwriting an earlier capture.
+              --dsrouter android tears down its router and reverse mapping when
+              the capture finishes, so there is no separate process or property
+              to restore. Physical-device capture not verified.
+
+  - name: Use physical iOS listener without restarting a prepared app
+    prompt: |
+      Read ios-session.txt and write capture-plan.json for collecting the current
+      managed object graph from this running iPhone app. It is important not to
+      lose current state. No installation, relaunch, tool installation, capture
+      or device commands are authorized here. Preserve inputs. The JSON must
+      have status "planned", device_id, physical_capture_verified (boolean), and
+      a nested "commands" object containing route, collect, validate, cleanup
+      arrays of shell strings. Use the reserved artifact name; the reserved host
+      IPC path is only needed if a separately-started finer-control router is
+      used instead of the default self-managing route. Include an executable
+      no-overwrite check before collection. Explain how the host reaches
+      this device rather than a simulator, and what still needs verification.
+    tags:
+      capability: ios-live-usb-route
+      risk: simulator-device-conflation
+      journey: preserve-live-reproduction
+    environment:
+      files:
+        - src: fixtures/ios-session.txt
+          dest: ios-session.txt
+    graders:
+      - type: file-exists
+        config:
+          path: capture-plan.json
+      - type: run-command
+        config:
+          command: >-
+            python3 -c 'import json,pathlib,re; p=json.loads(pathlib.Path("capture-plan.json").read_text());
+            assert p["status"]=="planned" and p["device_id"]=="00008110-001234567890001E" and p["physical_capture_verified"] is False;
+            c=p["commands"]; assert all(isinstance(c[k],list) and c[k] and all(isinstance(s,str) for s in c[k]) for k in ("route","collect","validate","cleanup"));
+            r="\n".join(c["route"]); q="\n".join(c["collect"]); v="\n".join(c["validate"]); a=r+q+v+"\n".join(c["cleanup"]);
+            assert "server-client" in r and "-tcpc" in r and "127.0.0.1:9001" in r and "--forward-port" in r and re.search(r"(?i)\bios\b", r) and "capture-diag.sock" in r;
+            assert "--diagnostic-port" in q and "capture-diag.sock" in q and ",connect" in q;
+            assert "after-navigation.gcdump" in q;
+            assert "dotnet-gcdump collect" in q and "--timeout" in q;
+            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v;
+            assert all(t not in a for t in ("--dsrouter","mlaunch","--launchdev","--installdev","--launchsim","ios-sim","simctl","adb ","0.0.0.0","-p 519"));
+            assert pathlib.Path("ios-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102, matching iOS workload/Xcode; dotnet-gcdump and dotnet-dsrouter 10.0.750501 (the --dsrouter switch is present).\nProject: Catalog.csproj, net10.0-ios, ios-arm64, Mono AOT (PublishAot=false), Release.\nSigned development .app has the real static diagnostics_tracing component, not the stub.\nOne physical USB iPhone: UDID 00008110-001234567890001E; trusted, unlocked, Developer Mode enabled.\nBundle: com.example.catalog; device PID 519 is not a host diagnostics PID.\nThe app is already running with DiagnosticConfiguration=127.0.0.1:9001,nosuspend,listen from its last approved dotnet run launch.\nNo host router is currently running; no app restart or install is permitted.\nReserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
+            print("iOS live plan and input preservation valid")'
+      - type: output-matches
+        config:
+          pattern: (?i)(not verified|not.*captur|no.*captur|pending.*device)
+      - *false-verification
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Run|Use)\s+dotnet-gcdump\s+collect\s+-p\s+519\b
+      - *no-overwrite
+      - type: prompt
+    rubric:
+      - Reaches a physical USB iPhone via the explicit finer-control router (the listener is on a non-default port the self-managing `--dsrouter ios` route cannot reach), not simulator tooling or direct host attach to PID 519.
+      - Preserves the prepared running session rather than introducing an unnecessary install, rebuild, or restart.
+      - Distinguishes Mono AOT from NativeAOT and handles the stated diagnostic component as a satisfied prerequisite.
+      - Explains file-format and identity checks still required before claiming a successful snapshot.
+    golden_patch:
+      inline: |
+        diff --git a/capture-plan.json b/capture-plan.json
+        new file mode 100644
+        --- /dev/null
+        +++ b/capture-plan.json
+        @@ -0,0 +1,16 @@
+        +{
+        +  "status": "planned",
+        +  "device_id": "00008110-001234567890001E",
+        +  "physical_capture_verified": false,
+        +  "commands": {
+        +    "route": [
+        +      "dotnet-dsrouter server-client -ipcs \"$PWD/capture-diag.sock\" -tcpc 127.0.0.1:9001 --forward-port iOS &"
+        +    ],
+        +    "collect": ["test ! -e \"$PWD/after-navigation.gcdump\" && dotnet-gcdump collect --diagnostic-port \"$PWD/capture-diag.sock\",connect --output \"$PWD/after-navigation.gcdump\" --timeout 60"],
+        +    "validate": ["dotnet-gcdump report \"$PWD/after-navigation.gcdump\""],
+        +    "cleanup": [
+        +      "echo \"stop the backgrounded server-client router process once collection and validation finish; no app restart needed\""
+        +    ]
+        +  },
+        +  "note": "The running app and its launch-time listener are preserved; no reinstall or relaunch."
+        +}
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: ios-plan
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Plan only: no capture performed. Mono AOT is not NativeAOT.
+              The supplied real static diagnostic component and launch-time
+              listener satisfy build/launch prerequisites; preserve this session.
+              Obtain approval before starting the router and triggering GC.
+              The listener is already on 127.0.0.1:9001, but dotnet-gcdump's
+              self-managing --dsrouter ios route always targets the physical
+              device's usbmux port 9000 with no port offset, so it cannot reach
+              this listener without a restart. Instead, start the explicit
+              finer-control router (dotnet-dsrouter server-client -ipcs
+              capture-diag.sock -tcpc 127.0.0.1:9001 --forward-port iOS) over
+              the physical iPhone's usbmux connection, then connect
+              dotnet-gcdump collect to that same IPC path with ",connect"; no
+              simulator or adb is involved. One attached USB iPhone avoids
+              router selection ambiguity; confirm bundle/build and router logs
+              before collecting. PID 519 is not a host attach.
+              The dump is written on the Mac. Require successful collector exit,
+              a new nonempty file and a readable file report. Collection can pause
+              or OOM the app, and managed graph data must stay private. Protect
+              existing output with the collect command's short-circuit guard;
+              choose another name if a prior file exists. Stop the backgrounded
+              server-client router once collection and validation finish; the
+              launch-time diagnostics listener stays in place until the next
+              ordinary launch, so there is nothing else to stop now.
+              Physical-device capture not verified.
+
+  - name: Preserve an unprepared running heap
+    prompt: |
+      We have a Mono net10.0-android MAUI app on a real phone. A memory problem
+      has just appeared and we must preserve the current process. The Release
+      APK omitted profiling support and it was launched without diagnostic
+      ports. Can we get the required managed heap file right now by setting an
+      adb property? Give a go/no-go decision and the smallest safe next step.
+      We cannot restart, install, or change the app today. Advice only.
+    tags:
+      capability: launch-prerequisite
+      risk: fabricated-live-attach
+      journey: preserve-incident-state
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(no-go|cannot|can't|not possible|blocked)
+      - type: output-matches
+        config:
+          pattern: (?i)(launch|start|restart|relaunch)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(successfully captured|dump collected|capture succeeded)
+      - *false-verification
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:You|The property|This setting)\s+(?:can|will)\s+(?:retrofit|enable)\s+(?:the\s+)?diagnostic[^\n]*(?:already running|without (?:a )?restart)
+      - type: prompt
+    rubric:
+      - Explains both missing component and launch-time endpoint as blockers to collecting the current live heap.
+      - Respects the no-restart constraint instead of running deployment or retroactive port activation.
+      - Offers an approved future profiling build and new reproduction without misrepresenting it as preserving this process.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: missing-component
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No-go for the current process. The diagnostic component is absent,
+              and setting debug.mono.profile now cannot retrofit a diagnostic
+              server into an already running app. A launch-time port alone cannot
+              replace the omitted component. Preserve the process and perform no
+              changes today. The next opportunity needs approval for a profiling
+              build with -p:EnableDiagnostics=true, a selected-serial USB route,
+              nosuspend diagnostics at launch, and a fresh reproduction; that
+              produces a different heap, not this incident's current state.
+              Physical-device capture not verified.
+
+  - name: Prepare iOS Release profiling without store guarantees
+    prompt: |
+      Give our Mac operator a concise preparation checklist for a signed
+      development Release build of a Mono MAUI net9.0-ios app on a physical
+      iPhone. PublishAot is false. We need a managed memory snapshot after
+      navigation, not startup timing. The linker used the diagnostics stub.
+      Include the SDK build switch to investigate, actual component evidence,
+      and how to pass the endpoint to the phone app. No commands are authorized
+      to run; the shipping App Store configuration must remain unchanged.
+    tags:
+      capability: ios-release-component
+      risk: diagnostics-stub-shipping
+      journey: prepare-test-binary
+    graders:
+      - type: output-contains
+        config:
+          substring: EnableDiagnostics
+      - type: output-matches
+        config:
+          pattern: (?is)(static|link).*(component|diagnostic)|(component|diagnostic).*(static|link)
+      - type: output-matches
+        config:
+          pattern: nosuspend%2clisten
+      - type: output-contains
+        config:
+          substring: --device
+      - type: output-contains
+        config:
+          substring: DiagnosticConfiguration
+      - type: output-matches
+        config:
+          pattern: (?i)(?:-p:|--property:)DiagnosticConfiguration=
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?!(?:[-*+]\s+|\d+[.)]\s+)?(?:Never|Don['\u2019]?t|Do\s+not|Won['\u2019]?t|Should\s+not|Must\s+not|Avoid(?:ing)?)\b)(?:[-*+]\s+|\d+[.)]\s+)?[^\n]*?(?:-e[:\s]|--environment[:\s])DiagnosticConfiguration=
+      - *false-verification
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Use|Require|Verify|Load)[^\n]*libmono-component-diagnostics_tracing\.so
+      - type: output-not-matches
+        config:
+          pattern: (?i)\bmlaunch\b|--launchdev|--installdev
+      - type: prompt
+    rubric:
+      - Treats the diagnostics stub as a blocker and proposes a separate diagnostic test build with version-specific verification, not a shipping edit.
+      - Identifies a real static diagnostic component for physical iOS rather than looking for an Android-style shared library.
+      - Uses dotnet run's device launch with the diagnostic configuration passed as an
+        MSBuild property and a matching physical USB route, not a runtime environment
+        variable or a simulator/stale mlaunch command.
+      - Recognizes Mono AOT as distinct from NativeAOT and accounts for signing, trust and Developer Mode.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: ios-release
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Blocked until the test build links the real static diagnostics_tracing
+              component rather than its stub. For this Mono Release lane,
+              investigate -p:EnableDiagnostics=true on an ios-arm64 test build; this
+              is the documented, version-independent switch that gates linking the
+              component, so inspect actual link evidence.
+              Keep shipping configuration untouched. Mono AOT is not NativeAOT.
+              On the Mac verify matching workload/Xcode, signed provisioning for
+              the selected UDID, trust/unlock and Developer Mode as required.
+              Discover the device UDID with the SDK's own
+              --list-devices output rather than assuming one device.
+              After approval launch the exact test build with dotnet run
+              --project App.csproj -f net9.0-ios -c Release --device UDID
+              -p:DiagnosticConfiguration=127.0.0.1:9000%2cnosuspend%2clisten (the
+              comma is escaped as %2c because dotnet run's own argument parser
+              treats an unescaped comma as a separator; this must be an MSBuild
+              property, -p:, not a runtime environment variable of the same
+              name, because the build maps the DiagnosticConfiguration property
+              to the DOTNET_DiagnosticPorts variable actually forwarded to the
+              device app -- passing it instead as a runtime variable would
+              forward that literal, wrong name unchanged and establish no
+              listener; setting this property also implicitly sets
+              EnableDiagnostics=true for the build).
+              Then collect with dotnet-gcdump collect --dsrouter ios after
+              reproduction. No store-build access is promised. Physical-device
+              capture not verified.
+
+  - name: Disambiguate two iPhones before GC
+    prompt: |
+      Two physical USB iPhones are plugged into our Mac. The test app on phone A
+      has a Mono diagnostic listener at 127.0.0.1:9001. Phone B runs another test
+      build with the same port. We launched A using its UDID with dotnet run
+      --device and want its heap only. Does dotnet-gcdump's --dsrouter ios
+      select A too? If not, give a safe action before any
+      collection. Do not perform device or collection actions.
+    tags:
+      capability: ios-device-selection
+      risk: wrong-device-heap
+      journey: coordinate-device-lab
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(disconnect|only.*device|one.*device|single.*device)
+      - type: output-not-matches
+        config:
+          pattern: (?:dotnet-dsrouter\s+\w+|--dsrouter)[^\n]*(--udid|--devname|--device-id)
+      - *false-verification
+      - type: output-not-matches
+        config:
+          pattern: (?i)\bUDID\s+(?:guarantees|automatically selects|also selects)
+      - type: prompt
+    rubric:
+      - Does not assume dotnet run's --device selection controls the separate --dsrouter USB device selection.
+      - Prevents wrong-phone capture by isolating the intended USB device and verifying app identity before triggering GC.
+      - Avoids an invented router UDID flag or collecting both heaps to discover the target afterwards.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: ios-selection
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              No. The dotnet run --device UDID selects its launch target, not
+              the separate --dsrouter ios USB device. This forwarding
+              implementation has no router UDID selector. Coordinate with the
+              lab operator to disconnect B
+              temporarily so only A is connected over USB. Confirm A's bundle,
+              build and listener and correlate the router connection before any
+              approved GC collection. Do not capture both phones to identify them.
+              Physical-device capture not verified.
+
+  - name: Repair contradictory Android transport modes
+    prompt: |
+      Advisory only. Our Mono net8.0-android app on physical serial ZX123
+      includes the diagnostics component. It started with
+      127.0.0.1:9000,nosuspend,connect. The host is running:
+      dotnet-dsrouter server-client -ipcs ./heap.sock -tcpc 127.0.0.1:9001
+      We also used adb forward tcp:9001 tcp:9000. The host collector times out.
+      Explain the mismatches and give one coherent correction that retains
+      the app's stated connect-mode configuration. Don't change any device.
+    tags:
+      capability: android-transport-diagnosis
+      risk: complementary-mode-mismatch
+      journey: recover-timeout
+    graders:
+      - type: output-matches
+        config:
+          pattern: server-server
+      - type: output-matches
+        config:
+          pattern: adb -s ZX123 reverse tcp:9000 tcp:9001
+      - type: output-matches
+        config:
+          pattern: (?i)(loopback|127\.0\.0\.1)
+      - *false-verification
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?!(?:[-*+]\s+|\d+[.)]\s+)?(?:Never|Don['\u2019]?t|Do\s+not|Won['\u2019]?t|Should\s+not|Must\s+not|Avoid(?:ing)?)\b)(?:[-*+]\s+|\d+[.)]\s+)?(?:(?:Bind|Listen|Start|Open|Expose|Enable|Use|Run|Attempt)\b[^\n]*?(?:public(?:\s+listener)?|0\.0\.0\.0)|[^\n]*\bdotnet-dsrouter\b[^\n]*0\.0\.0\.0)
+      - type: prompt
+    rubric:
+      - Identifies both a TCP client/client mismatch and the wrong forwarding direction for the supplied runtime connect configuration.
+      - Corrects the route using the chosen physical device serial and complementary host listener without exposing a public listener.
+      - Explains that collection requires connected-runtime evidence and file validation rather than treating a timeout as success.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: android-modes
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Both app and router are TCP clients; neither listens. adb forward
+              also sends host-to-device, while this app needs device-to-host.
+              After approval stop only the incorrect router and remove only
+              your incorrect forward rule. Use:
+              dotnet-dsrouter server-server -ipcs "$PWD/heap.sock" -tcps 127.0.0.1:9001
+              adb -s ZX123 reverse tcp:9000 tcp:9001
+              The existing app connect configuration now has a complementary
+              host listener over USB. Keep loopback binding. Verify the selected
+              app connects, then collect via --diagnostic-port "$PWD/heap.sock,connect"
+              to an explicit host .gcdump output. Check exit, nonempty file and
+              file report before success. Physical-device capture not verified.
+
+  - name: Reject incomplete capture and false format conversion
+    prompt: |
+      Our physical Android Mono app was routed to the host and the collector
+      reported "ETL file shows the start of a heap dump but not its completion".
+      A 4096-byte after.gcdump exists on the Mac. Someone suggests copying it
+      off the phone with adb pull, or renaming yesterday's CPU.nettrace instead.
+      Is our mandated managed heap artifact ready? Say what validation and next
+      investigation are warranted. Advice only; no phone is connected here.
+    tags:
+      capability: artifact-integrity
+      risk: false-gcdump-success
+      journey: hand-off-capture
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(invalid|incomplete|not ready|failed|not valid)
+      - type: output-matches
+        config:
+          pattern: dotnet-gcdump report
+      - type: output-matches
+        config:
+          pattern: (?i)(host|Mac)
+      - *false-verification
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:The\s+)?(?:artifact|dump|file)\s+(?:is|counts as)\s+(?:ready|valid|complete)[^\n]*(?:despite|even though|regardless)
+      - type: prompt
+    rubric:
+      - Rejects completion based on the file extension or byte count when heap completion failed.
+      - Uses a local file reader to validate format without triggering another live capture.
+      - Recognizes host output requires no device extraction and a CPU trace cannot become a gcdump by renaming.
+      - Investigates event loss, memory pressure, device termination or connection loss before proposing a consented retry.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: incomplete
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Not ready: the collector reported an incomplete graph, so file
+              existence and 4096 bytes do not prove success. The collector wrote
+              on the host Mac, not the phone; adb pull is unnecessary. Renaming
+              CPU.nettrace is not a format conversion. Preserve the failure
+              evidence and propose dotnet-gcdump report ./after.gcdump as file
+              validation, not report -p which would collect again. Investigate
+              event loss/buffer pressure, app OOM/OS termination and USB/router
+              connection loss. Only a fresh, approved collection with successful
+              exit and readable type statistics can satisfy the requirement.
+              Physical-device capture not verified.
+
+  - name: Avoid destructive repeated GC under iOS memory pressure
+    prompt: |
+      On a physical iPhone our signed Mono MAUI development app is already
+      connected to a diagnostic router. It has a very large managed heap and
+      the last two snapshot attempts froze then the OS killed it. The mandated
+      handoff is a managed gcdump. Should our operator keep retrying with a huge
+      timeout, run report with the phone PID, or collect a core file instead?
+      Give a safe decision and next steps. No capture is authorized now.
+    tags:
+      capability: resource-pressure-restraint
+      risk: induced-gc-termination
+      journey: protect-device-reproduction
+    graders:
+      - type: output-matches
+        config:
+          # \W{0,4} tolerates markdown emphasis markers (e.g. "**Don't** retry")
+          # between the keywords without requiring an exact literal phrase.
+          pattern: (?i)(stop|do\W{0,4}not\W{0,4}retry|don['’]?t\W{0,4}retry|pause.*retry)
+      - type: output-matches
+        config:
+          # Accepts the literal "full GC"/"pause" phrasing as well as the
+          # equally-correct "induces/induction" phrasing in either word order
+          # (e.g. "GC induction" or "induces a full GC"), since a response can
+          # correctly name the induced-collection risk without those exact words.
+          pattern: (?i)(full GC|full garbage|GC.*pause|garbage.*pause|induc\w*.*(?:GC|garbage)|(?:GC|garbage).*induc\w*)
+      - *false-verification
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Keep|Continue)\s+(?:retrying|collecting)
+      - type: prompt
+    rubric:
+      - Stops blind repeated collection because induced GC and diagnostic buffering can pause or terminate a memory-constrained app.
+      - Does not use a mobile PID in host report or a core file as a substitute for required gcdump format.
+      - Offers an operator-approved safer reproduction/capture point and truthful failure reporting without promising that a longer timeout fixes memory pressure.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: memory-pressure
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Stop repeated collection. It induces a full GC and the graph
+              event buffers plus collector overhead can increase memory pressure;
+              a large timeout does not fix OS termination or incomplete events.
+              Do not pass the phone PID to host report. report -p collects again,
+              whereas report FILE validates an existing host artifact. A Mono
+              core-dump capture is not this supported workflow and is not a
+              substitute for the mandated gcdump. Record failed/unvalidated
+              attempts, inspect app termination and router logs, then agree a
+              lower-pressure reproduction/capture point with the operator before
+              another consented attempt. Physical-device capture not verified.
+
+  - name: Leave a validated snapshot alone
+    expect_activation: false
+    prompt: |
+      Our operator already collected the requested phone snapshot, the collector
+      exited 0, and dotnet-gcdump report after.gcdump produced type statistics.
+      The router was stopped and temporary forwarding was restored. I don't
+      want analysis or a new capture. Please just acknowledge that there is no
+      remaining collection action; do not access files, devices, or tools.
+    tags:
+      capability: completed-capture-noop
+      risk: unnecessary-recollection
+      journey: close-handoff
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(no.*(action|collection)|nothing.*(do|remain)|complete)
+      - *false-verification
+      - &unnecessary-collection
+        type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:Run|Use)\s+dotnet-gcdump\s+collect\b
+      - type: prompt
+    rubric:
+      - Acknowledges supplied completion evidence without claiming independent verification.
+      - Does not perform a new collection or derail the acknowledgement into a capture procedure.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: complete-noop
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: Based on the operator's supplied evidence, collection is complete; no remaining collection action. No independent verification is implied.
+
+  - name: Do not apply Mono recipe to NativeAOT iPhone
+    expect_activation: false
+    prompt: |
+      Our physical iPhone MAUI Release app uses PublishAot=true, NativeAOT, not
+      Mono. Can we use the Mono diagnostic component and its adb property to
+      take a heap snapshot from that binary? Please explain the boundary only,
+      without installing tools, changing our binary, or offering commands.
+    tags:
+      capability: nativeaot-boundary
+      risk: incompatible-runtime
+      journey: choose-runtime-workflow
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(not.*Mono|NativeAOT|different.*runtime)
+      - *false-verification
+      - type: output-not-matches
+        config:
+          pattern: (?i)\bNativeAOT\s+(?:supports|uses|can use)\s+(?:the\s+)?(?:same|Mono)
+      - type: prompt
+    rubric:
+      - Identifies the NativeAOT vs Mono runtime mismatch and that adb is not an iOS transport.
+      - Does not apply the Mono collection procedure or promise undocumented NativeAOT gcdump support.
+      - Redirects to runtime-specific diagnostics capability verification while respecting the request for no commands.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: nativeaot-guard
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: No. NativeAOT is not Mono; a Mono diagnostic component cannot retrofit support into that binary, and adb is Android tooling, not iOS transport. Verify NativeAOT-specific diagnostic capabilities for your exact platform/runtime; no supported gcdump path is implied here.
+
+  - name: Keep simulator-only CPU tracing separate
+    expect_activation: false
+    prompt: |
+      My MAUI app is running only on the iOS simulator. I want CPU time samples
+      to open as a flame graph, not a memory dump and not a physical device
+      workflow. Which diagnostic artifact category should I choose? No tools
+      or file changes, just a short answer.
+    tags:
+      capability: simulator-tracing-boundary
+      risk: wrong-artifact-workflow
+      journey: choose-cpu-artifact
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(speedscope|nettrace|CPU.*trace)
+      - *false-verification
+      - *unnecessary-collection
+      - type: prompt
+    rubric:
+      - Recommends CPU trace/flame-graph artifacts rather than a managed heap dump.
+      - Does not apply a physical-device memory collection procedure or change files.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: simulator-guard
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: Choose a CPU sampling trace, typically .nettrace with a Speedscope flame-graph export. This is simulator tracing, not a physical-device managed heap collection.
+
+  - name: Keep existing crash dump analysis separate
+    expect_activation: false
+    prompt: |
+      I already have a CoreCLR service crash.dmp from a Linux server. The task
+      is to inspect its failing thread and exception. No mobile app or device
+      is involved. What workflow should I use next? Don't collect another dump
+      or install anything.
+    tags:
+      capability: existing-coreclr-dump-boundary
+      risk: collection-hijack
+      journey: analyze-crash
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(dotnet-dump analyze|dump analy|SOS)
+      - *false-verification
+      - *unnecessary-collection
+      - type: prompt
+    rubric:
+      - Redirects to analysis of the existing CoreCLR crash dump.
+      - Does not perform mobile heap collection, install tools, or derail into device setup.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: existing-dump-guard
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: Use an existing-dump analysis workflow, such as dotnet-dump analyze with SOS exception/thread inspection for a compatible CoreCLR dump. No new collection or mobile setup is needed.
+
+  - name: Do not expose production store diagnostics
+    expect_activation: false
+    prompt: |
+      Our only available artifact is the production App Store iPhone binary,
+      no development build or diagnostics component. We're not permitted to
+      rebuild, relaunch, change ports, or access user heap data. Should I
+      attempt remote heap access by opening a public listener anyway? Give a
+      brief security decision, no operational steps.
+    tags:
+      capability: production-permission-boundary
+      risk: unauthorized-heap-access
+      journey: stop-unapproved-diagnostics
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(no|do not|don't|cannot|stop)
+      - *false-verification
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?!(?:[-*+]\s+|\d+[.)]\s+)?(?:Never|Don['\u2019]?t|Do\s+not|Won['\u2019]?t|Should\s+not|Must\s+not|Avoid(?:ing)?)\b)(?:[-*+]\s+|\d+[.)]\s+)?(?:(?:Open|Bind|Expose|Enable|Listen|Start|Use|Run|Attempt)\b[^\n]*?(?:public(?:\s+listener)?|0\.0\.0\.0)|[^\n]*\bdotnet-dsrouter\b[^\n]*0\.0\.0\.0)
+      - type: prompt
+    rubric:
+      - Rejects unauthorized production heap access and unauthenticated public diagnostics exposure.
+      - Does not apply a collection procedure or bypass platform restrictions.
+      - Suggests an approved diagnostic test build or appropriate permitted telemetry as a future alternative.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: production-guard
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: >
+              No. Stop: there is no approval or diagnostic-capable test binary,
+              and a public listener would expose unauthenticated diagnostics
+              without solving those blockers. Use permitted telemetry or arrange
+              an approved development/test investigation later.
