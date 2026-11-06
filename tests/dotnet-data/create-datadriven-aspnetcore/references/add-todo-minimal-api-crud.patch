@@ -1,0 +1,408 @@
+diff --git a/fixtures/minimal-api/Data/TodoDbContext.cs b/fixtures/minimal-api/Data/TodoDbContext.cs
+new file mode 100644
+index 0000000..f131e50
+--- /dev/null
++++ b/fixtures/minimal-api/Data/TodoDbContext.cs
+@@ -0,0 +1,9 @@
++using Microsoft.EntityFrameworkCore;
++using TodoApi.Models;
++
++namespace TodoApi.Data;
++
++public class TodoDbContext(DbContextOptions<TodoDbContext> options) : DbContext(options)
++{
++    public DbSet<TodoItem> TodoItems => Set<TodoItem>();
++}
+diff --git a/fixtures/minimal-api/Endpoints/TodoEndpoints.cs b/fixtures/minimal-api/Endpoints/TodoEndpoints.cs
+new file mode 100644
+index 0000000..eab6f07
+--- /dev/null
++++ b/fixtures/minimal-api/Endpoints/TodoEndpoints.cs
+@@ -0,0 +1,145 @@
++using Microsoft.EntityFrameworkCore;
++using TodoApi.Data;
++using TodoApi.Models;
++
++namespace TodoApi.Endpoints;
++
++public static class TodoEndpoints
++{
++    public static IEndpointRouteBuilder MapTodoEndpoints(this IEndpointRouteBuilder endpoints)
++    {
++        var group = endpoints.MapGroup("/api/todos").WithTags("Todos");
++
++        group.MapGet("", GetTodosAsync)
++            .WithName("GetTodoItems")
++            .WithSummary("List todo items")
++            .WithDescription("Returns every todo item ordered by its server-assigned identifier.")
++            .Produces<List<TodoItem>>(StatusCodes.Status200OK);
++
++        group.MapGet("/{id:int}", GetTodoByIdAsync)
++            .WithName("GetTodoItemById")
++            .WithSummary("Get one todo item")
++            .WithDescription("Returns the todo item with the requested identifier, or 404 when it does not exist.")
++            .Produces<TodoItem>(StatusCodes.Status200OK)
++            .Produces(StatusCodes.Status404NotFound);
++
++        group.MapPost("", CreateTodoAsync)
++            .WithName("CreateTodoItem")
++            .WithSummary("Create a todo item")
++            .WithDescription("Validates the request and creates a todo item with a server-assigned identifier.")
++            .Accepts<TodoRequest>("application/json")
++            .Produces<TodoItem>(StatusCodes.Status201Created)
++            .ProducesValidationProblem();
++
++        group.MapPut("/{id:int}", UpdateTodoAsync)
++            .WithName("UpdateTodoItem")
++            .WithSummary("Update a todo item")
++            .WithDescription("Replaces the editable values of an existing todo item.")
++            .Accepts<TodoRequest>("application/json")
++            .Produces<TodoItem>(StatusCodes.Status200OK)
++            .ProducesValidationProblem()
++            .Produces(StatusCodes.Status404NotFound);
++
++        group.MapDelete("/{id:int}", DeleteTodoAsync)
++            .WithName("DeleteTodoItem")
++            .WithSummary("Delete a todo item")
++            .WithDescription("Deletes an existing todo item and returns 404 when the identifier is unknown.")
++            .Produces(StatusCodes.Status204NoContent)
++            .Produces(StatusCodes.Status404NotFound);
++
++        return endpoints;
++    }
++
++    private static async Task<IResult> GetTodosAsync(TodoDbContext dbContext)
++    {
++        var items = await dbContext.TodoItems
++            .AsNoTracking()
++            .OrderBy(item => item.Id)
++            .ToListAsync();
++
++        return TypedResults.Ok(items);
++    }
++
++    private static async Task<IResult> GetTodoByIdAsync(int id, TodoDbContext dbContext)
++    {
++        var item = await dbContext.TodoItems.AsNoTracking()
++            .SingleOrDefaultAsync(item => item.Id == id);
++
++        return item is null ? TypedResults.NotFound() : TypedResults.Ok(item);
++    }
++
++    private static async Task<IResult> CreateTodoAsync(TodoRequest request, TodoDbContext dbContext)
++    {
++        var errors = Validate(request);
++        if (errors.Count > 0)
++        {
++            return TypedResults.ValidationProblem(errors);
++        }
++
++        var item = new TodoItem
++        {
++            Title = request.Title.Trim(),
++            IsComplete = request.IsComplete
++        };
++
++        dbContext.TodoItems.Add(item);
++        await dbContext.SaveChangesAsync();
++
++        return TypedResults.Created($"/api/todos/{item.Id}", item);
++    }
++
++    private static async Task<IResult> UpdateTodoAsync(
++        int id,
++        TodoRequest request,
++        TodoDbContext dbContext)
++    {
++        var item = await dbContext.TodoItems.FindAsync(id);
++        if (item is null)
++        {
++            return TypedResults.NotFound();
++        }
++
++        var errors = Validate(request);
++        if (errors.Count > 0)
++        {
++            return TypedResults.ValidationProblem(errors);
++        }
++
++        item.Title = request.Title.Trim();
++        item.IsComplete = request.IsComplete;
++        await dbContext.SaveChangesAsync();
++
++        return TypedResults.Ok(item);
++    }
++
++    private static async Task<IResult> DeleteTodoAsync(int id, TodoDbContext dbContext)
++    {
++        var item = await dbContext.TodoItems.FindAsync(id);
++        if (item is null)
++        {
++            return TypedResults.NotFound();
++        }
++
++        dbContext.TodoItems.Remove(item);
++        await dbContext.SaveChangesAsync();
++
++        return TypedResults.NoContent();
++    }
++
++    private static Dictionary<string, string[]> Validate(TodoRequest request)
++    {
++        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
++        if (string.IsNullOrWhiteSpace(request.Title))
++        {
++            errors[nameof(request.Title)] = ["Title is required."];
++        }
++        else if (request.Title.Trim().Length > 200)
++        {
++            errors[nameof(request.Title)] = ["Title must be 200 characters or fewer."];
++        }
++
++        return errors;
++    }
++
++    public sealed record TodoRequest(string Title, bool IsComplete);
++}
+diff --git a/fixtures/minimal-api/Migrations/20261012220222_InitialCreate.Designer.cs b/fixtures/minimal-api/Migrations/20261012220222_InitialCreate.Designer.cs
+new file mode 100644
+index 0000000..2197be8
+--- /dev/null
++++ b/fixtures/minimal-api/Migrations/20261012220222_InitialCreate.Designer.cs
+@@ -0,0 +1,39 @@
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++using TodoApi.Data;
++
++#nullable disable
++
++namespace TodoApi.Migrations;
++
++[DbContext(typeof(TodoDbContext))]
++[Migration("20261012220222_InitialCreate")]
++partial class InitialCreate
++{
++    protected override void BuildTargetModel(ModelBuilder modelBuilder)
++    {
++#pragma warning disable 612, 618
++        modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
++
++        modelBuilder.Entity("TodoApi.Models.TodoItem", entity =>
++        {
++            entity.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("INTEGER");
++
++            entity.Property<bool>("IsComplete")
++                .HasColumnType("INTEGER");
++
++            entity.Property<string>("Title")
++                .IsRequired()
++                .HasMaxLength(200)
++                .HasColumnType("TEXT");
++
++            entity.HasKey("Id");
++            entity.ToTable("TodoItems");
++        });
++#pragma warning restore 612, 618
++    }
++}
+diff --git a/fixtures/minimal-api/Migrations/20261012220222_InitialCreate.cs b/fixtures/minimal-api/Migrations/20261012220222_InitialCreate.cs
+new file mode 100644
+index 0000000..51b0999
+--- /dev/null
++++ b/fixtures/minimal-api/Migrations/20261012220222_InitialCreate.cs
+@@ -0,0 +1,30 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace TodoApi.Migrations;
++
++public partial class InitialCreate : Migration
++{
++    protected override void Up(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.CreateTable(
++            name: "TodoItems",
++            columns: table => new
++            {
++                Id = table.Column<int>(type: "INTEGER", nullable: false)
++                    .Annotation("Sqlite:Autoincrement", true),
++                Title = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
++                IsComplete = table.Column<bool>(type: "INTEGER", nullable: false)
++            },
++            constraints: table =>
++            {
++                table.PrimaryKey("PK_TodoItems", x => x.Id);
++            });
++    }
++
++    protected override void Down(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropTable(name: "TodoItems");
++    }
++}
+diff --git a/fixtures/minimal-api/Migrations/TodoDbContextModelSnapshot.cs b/fixtures/minimal-api/Migrations/TodoDbContextModelSnapshot.cs
+new file mode 100644
+index 0000000..f480307
+--- /dev/null
++++ b/fixtures/minimal-api/Migrations/TodoDbContextModelSnapshot.cs
+@@ -0,0 +1,37 @@
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++using TodoApi.Data;
++
++#nullable disable
++
++namespace TodoApi.Migrations;
++
++[DbContext(typeof(TodoDbContext))]
++partial class TodoDbContextModelSnapshot : ModelSnapshot
++{
++    protected override void BuildModel(ModelBuilder modelBuilder)
++    {
++#pragma warning disable 612, 618
++        modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
++
++        modelBuilder.Entity("TodoApi.Models.TodoItem", entity =>
++        {
++            entity.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("INTEGER");
++
++            entity.Property<bool>("IsComplete")
++                .HasColumnType("INTEGER");
++
++            entity.Property<string>("Title")
++                .IsRequired()
++                .HasMaxLength(200)
++                .HasColumnType("TEXT");
++
++            entity.HasKey("Id");
++            entity.ToTable("TodoItems");
++        });
++#pragma warning restore 612, 618
++    }
++}
+diff --git a/fixtures/minimal-api/Program.cs b/fixtures/minimal-api/Program.cs
+index 8000192..79182a8 100644
+--- a/fixtures/minimal-api/Program.cs
++++ b/fixtures/minimal-api/Program.cs
+@@ -1,41 +1,21 @@
++using Microsoft.EntityFrameworkCore;
++using TodoApi.Data;
++using TodoApi.Endpoints;
++
+ var builder = WebApplication.CreateBuilder(args);
+
+-// Add services to the container.
+-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+ builder.Services.AddOpenApi();
++builder.Services.AddDbContext<TodoDbContext>(options =>
++    options.UseSqlite(builder.Configuration.GetConnectionString("TodoDb")));
+
+ var app = builder.Build();
+
+-// Configure the HTTP request pipeline.
+ if (app.Environment.IsDevelopment())
+ {
+     app.MapOpenApi();
+ }
+
+ app.UseHttpsRedirection();
+-
+-var summaries = new[]
+-{
+-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
+-};
+-
+-app.MapGet("/weatherforecast", () =>
+-{
+-    var forecast = Enumerable.Range(1, 5).Select(index =>
+-        new WeatherForecast
+-        (
+-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+-            Random.Shared.Next(-20, 55),
+-            summaries[Random.Shared.Next(summaries.Length)]
+-        ))
+-        .ToArray();
+-    return forecast;
+-})
+-.WithName("GetWeatherForecast");
++app.MapTodoEndpoints();
+
+ app.Run();
+-
+-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+-{
+-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+-}
+diff --git a/fixtures/minimal-api/TodoApi.csproj b/fixtures/minimal-api/TodoApi.csproj
+index d1cee09..6f6b697 100644
+--- a/fixtures/minimal-api/TodoApi.csproj
++++ b/fixtures/minimal-api/TodoApi.csproj
+@@ -8,6 +8,11 @@
+
+   <ItemGroup>
+     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
++    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
++      <PrivateAssets>all</PrivateAssets>
++      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
++    </PackageReference>
++    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
+   </ItemGroup>
+
+ </Project>
+diff --git a/fixtures/minimal-api/TodoApi.http b/fixtures/minimal-api/TodoApi.http
+new file mode 100644
+index 0000000..defb02b
+--- /dev/null
++++ b/fixtures/minimal-api/TodoApi.http
+@@ -0,0 +1,31 @@
++@TodoApi_HostAddress = http://localhost:5082
++
++### List todo items
++GET {{TodoApi_HostAddress}}/api/todos
++Accept: application/json
++
++### Create a todo item
++# @name createTodo
++POST {{TodoApi_HostAddress}}/api/todos
++Content-Type: application/json
++
++{
++  "title": "Verify the Minimal API",
++  "isComplete": false
++}
++
++### Get the created todo item
++GET {{TodoApi_HostAddress}}/api/todos/{{createTodo.response.body.$.id}}
++Accept: application/json
++
++### Update the created todo item
++PUT {{TodoApi_HostAddress}}/api/todos/{{createTodo.response.body.$.id}}
++Content-Type: application/json
++
++{
++  "title": "Verify the Minimal API",
++  "isComplete": true
++}
++
++### Delete the created todo item
++DELETE {{TodoApi_HostAddress}}/api/todos/{{createTodo.response.body.$.id}}
+diff --git a/fixtures/minimal-api/appsettings.json b/fixtures/minimal-api/appsettings.json
+index 10f68b8..ed38fa2 100644
+--- a/fixtures/minimal-api/appsettings.json
++++ b/fixtures/minimal-api/appsettings.json
+@@ -1,4 +1,7 @@
+ {
++  "ConnectionStrings": {
++    "TodoDb": "Data Source=todo.db"
++  },
+   "Logging": {
+     "LogLevel": {
+       "Default": "Information",
