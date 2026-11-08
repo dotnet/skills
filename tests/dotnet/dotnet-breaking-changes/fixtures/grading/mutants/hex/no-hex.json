@@ -1,0 +1,10 @@
+{
+  "description": "Hex support removed: the allowHex overload ignores the flag and parses decimals only. Only the body is replaced, so the agent's parameter names and defaults (and therefore its PublicAPI baseline) are kept.",
+  "replace": [
+    {
+      "type": "AppSettingsHelper",
+      "declaration": "\\b(?:int|(?:System\\.)?Int32)\\s+ParseIntSetting\\s*\\(\\s*string\\s*\\??\\s*\\w+\\s*,\\s*(?:int|(?:System\\.)?Int32)\\s+\\w+\\s*,\\s*(?:bool|(?:System\\.)?Boolean)\\s+\\w+(?:\\s*=\\s*\\w+)?\\s*\\)",
+      "body": "=> int.TryParse($1, out var mutantValue) ? mutantValue : $2;"
+    }
+  ]
+}

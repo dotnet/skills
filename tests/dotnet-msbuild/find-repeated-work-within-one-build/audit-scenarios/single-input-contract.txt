@@ -1,0 +1,18 @@
+Invocation: dotnet msbuild Contracts.csproj -m
+Task Performance Summary: Exec 30000 ms, 60 calls.
+All 60 calls are inside GenerateContracts on one project instance.
+Each input has different content and a different generated output.
+
+<Target Name="GenerateContracts" BeforeTargets="CoreCompile"
+        Inputs="@(Contract)" Outputs="@(Contract->'obj/%(Filename).g.cs')">
+  <Exec Command="contractc --input &quot;%(Contract.FullPath)&quot; --output &quot;obj/%(Contract.Filename).g.cs&quot;" />
+  <ItemGroup><Compile Include="@(Contract->'obj/%(Filename).g.cs')" /></ItemGroup>
+</Target>
+
+Installed contractc 2.4 command contract:
+  contractc --input PATH --output PATH
+Exactly one input and exactly one output are accepted.
+There is no response-file, directory, list, daemon or multi-command interface.
+The installed tool cannot be replaced in this release.
+Launching extra processes concurrently is not the requested change.
+No startup-versus-processing breakdown or critical-path timeline is available.

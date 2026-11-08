@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Example</id>
+    <version>1.0.0</version>
+    <authors>MSBuild evaluation fixture</authors>
+    <description>Local build-assets import contract fixture.</description>
+  </metadata>
+  <files>
+    <file src="build\net8.0\Example.props" target="build\net8.0\Example.props" />
+    <file src="buildTransitive\common\Example.props" target="buildTransitive\net8.0\Example.props" />
+  </files>
+</package>

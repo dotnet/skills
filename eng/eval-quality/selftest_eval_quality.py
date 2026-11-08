@@ -1032,6 +1032,61 @@ def stale_golden_patch(d):
     golden_patch(d, "class MissingThing {}")
 
 
+def add_suite_environment(d, src, dest):
+    eval_path = EV(d)
+    with open(eval_path) as f:
+        raw = f.read()
+    with open(eval_path, "w") as f:
+        f.write(raw.replace(
+            "stimuli:\n",
+            "environment:\n"
+            "  files:\n"
+            f"    - src: {src}\n"
+            f"      dest: {dest}\n"
+            "stimuli:\n",
+            1))
+
+
+def golden_patch_on_suite_file(d):
+    add_suite_environment(d, "fixtures/sample/Thing.cs", "shared/Thing.cs")
+    golden_patch(d, "class Thing {}")
+    patch = os.path.join(d, "tests", "demo", "widget", "references", "fix.patch")
+    with open(patch) as f:
+        text = f.read()
+    with open(patch, "w") as f:
+        f.write(text.replace("sample/Thing.cs", "shared/Thing.cs"))
+
+
+def stimulus_redeclares_suite_file(d):
+    add_suite_environment(d, "fixtures/sample", "sample")
+
+
+def move_fixture_to_suite_environment(d):
+    """Declare the sample fixture only at suite level, as many real evals do."""
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    stimulus_environment = (
+        "    environment:\n"
+        "      files:\n"
+        "        - src: fixtures/sample\n"
+        "          dest: sample\n")
+    assert stimulus_environment in raw
+    with open(path, "w") as f:
+        f.write(raw.replace(stimulus_environment, "", 1))
+    add_suite_environment(d, "fixtures/sample", "sample")
+
+
+def stale_golden_patch_on_suite_only_fixture(d):
+    stale_golden_patch(d)
+    move_fixture_to_suite_environment(d)
+
+
+def suite_only_state_grader_without_reference(d):
+    state_grader_without_materialized_reference(d)
+    move_fixture_to_suite_environment(d)
+
+
 def patch_with_output_grader_without_trajectory(d):
     applicable_golden_patch(d)
     path = EV(d)
@@ -1143,6 +1198,71 @@ def traversing_fixture_destination(d):
 
 def windows_traversing_fixture_destination(d):
     replace_fixture_mapping(d, "dest: sample", r"dest: ..\escaped")
+
+
+def agent_environment_alias(d):
+    replace_fixture_mapping(d, "    environment:\n", "    agent_environment:\n")
+
+
+def agent_environment_untracked_fixture(d):
+    agent_environment_alias(d)
+    untracked_fixture(d)
+
+
+def agent_environment_stale_golden_patch(d):
+    agent_environment_alias(d)
+    stale_golden_patch(d)
+
+
+def agent_environment_applicable_golden_patch(d):
+    agent_environment_alias(d)
+    applicable_golden_patch(d)
+
+
+def suite_agent_environment_stale_golden_patch(d):
+    """A suite-level agent_environment must feed the golden-patch preimage check."""
+    stale_golden_patch_on_suite_only_fixture(d)
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    renamed = raw.replace("\nenvironment:\n  files:", "\nagent_environment:\n  files:", 1)
+    assert renamed != raw
+    with open(path, "w") as f:
+        f.write(renamed)
+
+
+def add_grading_environment(d, src="graders/check.mjs", dest=".eval/check.mjs", create=True):
+    if create:
+        graders = os.path.join(d, "tests", "demo", "widget", "graders")
+        os.makedirs(graders, exist_ok=True)
+        with open(os.path.join(graders, "check.mjs"), "w") as f:
+            f.write("process.exit(0);\n")
+    entry = f"        - src: {src}\n"
+    if dest is not None:
+        entry += f"          dest: {dest}\n"
+    replace_fixture_mapping(
+        d,
+        "    rubric:\n      - Did the thing\n",
+        "    grading_environment:\n      files:\n" + entry
+        + "    rubric:\n      - Did the thing\n")
+
+
+def grading_environment_missing_source(d):
+    add_grading_environment(d, create=False)
+
+
+def grading_environment_untracked_file(d):
+    add_grading_environment(d)
+    with open(os.path.join(d, ".gitignore"), "w") as f:
+        f.write("check.mjs\n")
+
+
+def grading_environment_missing_destination(d):
+    add_grading_environment(d, dest=None)
+
+
+def grading_environment_traversing_destination(d):
+    add_grading_environment(d, dest="../escaped")
 
 
 def escaping_fixture_symlink(d):
@@ -2078,6 +2198,15 @@ results = [
     case("golden patch EOL normalization preserves context", mixed_eol_golden_patch,
          expect_fail=False),
     case("stale golden patch does not apply", stale_golden_patch, expect_fail=True),
+    case("golden patch applies to suite environment file", golden_patch_on_suite_file,
+         expect_fail=False),
+    case("stimulus redeclares a suite environment file", stimulus_redeclares_suite_file,
+         expect_fail=True),
+    case("stale golden patch on suite-only fixture", stale_golden_patch_on_suite_only_fixture,
+         expect_fail=True),
+    output_case("suite-only state grader without reference",
+                suite_only_state_grader_without_reference,
+                "workspace state that differs from the starting fixture"),
     case("patch with output grader requires response trajectory",
          patch_with_output_grader_without_trajectory, expect_fail=True),
     case("patch and response trajectory cover output grader",
@@ -2108,6 +2237,31 @@ results = [
          traversing_fixture_destination, expect_fail=True),
     case("Windows-style fixture destination cannot escape workspace",
          windows_traversing_fixture_destination, expect_fail=True),
+    case("agent_environment alias fixture is accepted", agent_environment_alias,
+         expect_fail=False),
+    failing_output_case("agent_environment fixture must be tracked by git",
+                        agent_environment_untracked_fixture,
+                        "agent_environment references fixture files not tracked by git"),
+    case("golden patch applies to agent_environment fixture",
+         agent_environment_applicable_golden_patch, expect_fail=False),
+    case("stale golden patch fails against agent_environment fixture",
+         agent_environment_stale_golden_patch, expect_fail=True),
+    case("stale golden patch fails against suite agent_environment fixture",
+         suite_agent_environment_stale_golden_patch, expect_fail=True),
+    case("tracked grading_environment file is accepted", add_grading_environment,
+         expect_fail=False),
+    failing_output_case("grading_environment source must exist",
+                        grading_environment_missing_source,
+                        "grading_environment references missing fixture"),
+    failing_output_case("grading_environment file must be tracked by git",
+                        grading_environment_untracked_file,
+                        "grading_environment references fixture files not tracked by git"),
+    failing_output_case("grading_environment mapping requires destination",
+                        grading_environment_missing_destination,
+                        "grading_environment.files mapping requires a non-empty string dest"),
+    failing_output_case("grading_environment destination cannot escape workspace",
+                        grading_environment_traversing_destination,
+                        "grading_environment has unsafe fixture dest"),
     case("fixture symlink cannot escape suite", escaping_fixture_symlink,
          expect_fail=True),
     case("Cobertura line-rate contradicts its <lines>", bad_cobertura, expect_fail=True),
