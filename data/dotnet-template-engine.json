@@ -52831,6 +52831,2046 @@
             ]
           }
         ]
+      },
+      {
+        "verdictEvidence": [
+          {
+            "skillName": "template-authoring",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +14.3% (1W/6T/0L over 7 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +5.7% across 7 paired run(s) — not credible — 6 of 7 preference-eligible stimulus vote(s) tied, leaving only 1 discordant preference vote(s). The sign test conditions on non-tie stimulus votes and cannot reach 0.05 below 5, so no record could have passed here — this is not a measured null. Either the skill is inert on these scenarios (make them discriminate) or the eval needs more distinct stimuli to clear the ties",
+            "noChangeDiagnosis": "positive_tie_limited",
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 1,
+              "ties": 6,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 0.14285714285714285,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Add a choice parameter with conditional project content",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Add a safe restore post-action",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Author a reusable item template",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create template from existing project",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Package project templates for NuGet distribution",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve central package management conventions",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Restrict and classify an SDK-specific template",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Add a choice parameter with conditional project content",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Add a safe restore post-action",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Author a reusable item template",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Create template from existing project",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Package project templates for NuGet distribution",
+                "direction": "better",
+                "rationale": "Response B is significantly better overall. It produces a functionally correct NuGet package with templates in the proper directory structure (content/Worker and content/WebApi), while Response A's package failed to be recognized by the template engine due to incorrect nesting (content/templates/...). Response B also demonstrates superior MSBuild configuration practices, uses explicit PackagePath attributes for clarity, includes template-specific NuGet warning suppression, and provides safer verification commands with --dry-run. While both responses conceptually understand template packaging, Response B executes correctly and provides a production-ready solution, whereas Response A's output required workarounds to achieve minimal functionality.\" [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
+              },
+              {
+                "scenarioName": "Preserve central package management conventions",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Restrict and classify an SDK-specific template",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-template-engine/skills/template-authoring/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/tests/dotnet-template-engine/template-authoring/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/96c3d68dad2855e3ab5178aa1a262789d86a1466"
+              }
+            ]
+          },
+          {
+            "skillName": "template-comparison",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (0W/7T/0L over 7 preference-eligible stimulus vote(s), sign test p=1.000), mean preference +0.0% across 7 paired run(s) — no improvement",
+            "noChangeDiagnosis": "all_ties",
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 0,
+              "ties": 7,
+              "losses": 0,
+              "discordant": 0,
+              "direction": "none",
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Choose MVC or Razor Pages for an admin portal",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Choose a Blazor or Razor Pages template",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Choose between blazor and blazorwasm",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Compare REST and gRPC service templates",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Compare webapi vs webapp side by side",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Decide which template fits a background processing scenario",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Select a test project template for an enterprise suite",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Choose MVC or Razor Pages for an admin portal",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Choose a Blazor or Razor Pages template",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Choose between blazor and blazorwasm",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Compare REST and gRPC service templates",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Compare webapi vs webapp side by side",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Decide which template fits a background processing scenario",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Select a test project template for an enterprise suite",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-template-engine/skills/template-comparison/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/tests/dotnet-template-engine/template-authoring/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/96c3d68dad2855e3ab5178aa1a262789d86a1466"
+              }
+            ]
+          },
+          {
+            "skillName": "template-discovery",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (0W/7T/0L over 7 preference-eligible stimulus vote(s), sign test p=1.000), mean preference +0.0% across 7 paired run(s) — no improvement",
+            "noChangeDiagnosis": "all_ties",
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 0,
+              "ties": 7,
+              "losses": 0,
+              "discordant": 0,
+              "direction": "none",
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Find installed test project template choices",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Find template for web API project",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Inspect a single worker template before creation",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Inspect web API template parameters",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preview project creation with dry run",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Resolve ambiguous project intent to multiple candidates",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Search NuGet for specialized template",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Find installed test project template choices",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Find template for web API project",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Inspect a single worker template before creation",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Inspect web API template parameters",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preview project creation with dry run",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Resolve ambiguous project intent to multiple candidates",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Search NuGet for specialized template",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-template-engine/skills/template-discovery/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/tests/dotnet-template-engine/template-authoring/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/96c3d68dad2855e3ab5178aa1a262789d86a1466"
+              }
+            ]
+          },
+          {
+            "skillName": "template-instantiation",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (0W/7T/0L over 7 preference-eligible stimulus vote(s), sign test p=1.000), mean preference +0.0% across 7 paired run(s) — no improvement",
+            "noChangeDiagnosis": "all_ties",
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 0,
+              "ties": 7,
+              "losses": 0,
+              "discordant": 0,
+              "direction": "none",
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Adapt a generated test project to central package management",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Compose an application and test solution",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create a console application",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create a controller-based web API",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create a worker service",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create and build a class library",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Match a neighboring project's target framework",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Adapt a generated test project to central package management",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Compose an application and test solution",
+                "direction": "none",
+                "rationale": "Both responses successfully completed all three rubric criteria with perfect results. They both created the required solution structure with the class library and xUnit test project at the correct paths, established the project reference correctly, and built the solution with 0 errors and 0 warnings. While Response A was more efficient (single consolidated command) and Response B was more thorough (additional verification steps), the rubric focuses on quality and correctness of the final output, not operational efficiency. Since both achieved identical successful outcomes meeting all criteria, they are equivalent in quality.\""
+              },
+              {
+                "scenarioName": "Create a console application",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Create a controller-based web API",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Create a worker service",
+                "direction": "none",
+                "rationale": "Both responses successfully completed the task with identical functional outcomes. Response A uses a simpler, more direct approach relying on implicit SDK defaults, while Response B is more methodical with template help inspection and workspace configuration checking. However, since the quality metric focuses on the final result rather than operational efficiency, and both produce the same correct output (Billing.Worker created at correct path, no unrelated packages, successful build), they are equal in quality.\""
+              },
+              {
+                "scenarioName": "Create and build a class library",
+                "direction": "none",
+                "rationale": "Both Response A and Response B successfully completed the task with identical quality results. Both created the class library at the exact requested path, previewed the files using `--dry-run` before creation, and ran a clean build with verified success (0 warnings, 0 errors). While Response B was more thorough in its approach (loading a skill, checking workspace settings, viewing the generated .csproj), this additional thoroughness did not result in a materially better outcome—both achieved the same successful result. Per the evaluation criteria focusing on quality of final result rather than operational efficiency, these responses are equivalent.\""
+              },
+              {
+                "scenarioName": "Match a neighboring project's target framework",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-template-engine/skills/template-instantiation/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/tests/dotnet-template-engine/template-authoring/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/96c3d68dad2855e3ab5178aa1a262789d86a1466"
+              }
+            ]
+          },
+          {
+            "skillName": "template-smart-defaults",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +14.3% (1W/6T/0L over 7 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +5.7% across 7 paired run(s) — not credible — 6 of 7 preference-eligible stimulus vote(s) tied, leaving only 1 discordant preference vote(s). The sign test conditions on non-tie stimulus votes and cannot reach 0.05 below 5, so no record could have passed here — this is not a measured null. Either the skill is inert on these scenarios (make them discriminate) or the eval needs more distinct stimuli to clear the ties",
+            "noChangeDiagnosis": "positive_tie_limited",
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 1,
+              "ties": 6,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 0.14285714285714285,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "AOT implies a compatible framework",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Auth implies HTTPS stays enabled",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Controllers exclude the minimal-API flag",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Never override an explicit user value",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve an explicit minimal API choice",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve explicit no-auth and no-HTTPS choices",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Treat the workspace framework as an explicit choice",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "AOT implies a compatible framework",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Auth implies HTTPS stays enabled",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Controllers exclude the minimal-API flag",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Never override an explicit user value",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve an explicit minimal API choice",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve explicit no-auth and no-HTTPS choices",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Treat the workspace framework as an explicit choice",
+                "direction": "better",
+                "rationale": "While Response A provides superior parameter documentation and explanation (criterion 3), it critically fails the explicit task requirement to not create files. Response A's command would actually create an entire project directory structure when executed, making it unsafe to run as requested. Response B correctly uses --dry-run to prevent file creation, fulfilling this mandatory constraint. Response B's failure to be as detailed on criterion 3 is outweighed by successfully meeting the essential file safety requirement. In a task explicitly stating 'Don't create files', correctness on this point is paramount.\""
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-template-engine/skills/template-smart-defaults/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/tests/dotnet-template-engine/template-authoring/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/96c3d68dad2855e3ab5178aa1a262789d86a1466"
+              }
+            ]
+          },
+          {
+            "skillName": "template-validation",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +14.3% (1W/6T/0L over 7 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +5.7% across 7 paired run(s) — not credible — 6 of 7 preference-eligible stimulus vote(s) tied, leaving only 1 discordant preference vote(s). The sign test conditions on non-tie stimulus votes and cannot reach 0.05 below 5, so no record could have passed here — this is not a measured null. Either the skill is inert on these scenarios (make them discriminate) or the eval needs more distinct stimuli to clear the ties",
+            "noChangeDiagnosis": "positive_tie_limited",
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 1,
+              "ties": 6,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 0.14285714285714285,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Check every short name in an alias array",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Find incomplete symbol definitions",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Report a malformed template with its parse location",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Review post-action and constraint completeness",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Validate correct template and suggest improvements",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Validate discoverability metadata severity",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Validate template with multiple errors",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Check every short name in an alias array",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Find incomplete symbol definitions",
+                "direction": "better",
+                "rationale": "Response B better aligns with the rubric requirements by: (1) explicitly marking the empty choices issue as an ERROR with proper severity classification, (2) providing a comprehensive validation report with structured severity levels (ERROR, WARNING, SUGGESTION), (3) explicitly addressing that no unrelated errors were invented, and (4) including additional valuable findings like the missing defaultValue warning without straying from template.json validation. Response A addresses most requirements but fails to use ERROR severity for criterion 2, which the rubric explicitly requires.\""
+              },
+              {
+                "scenarioName": "Report a malformed template with its parse location",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Review post-action and constraint completeness",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Validate correct template and suggest improvements",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Validate discoverability metadata severity",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Validate template with multiple errors",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-template-engine/skills/template-validation/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/tests/dotnet-template-engine/template-authoring/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/96c3d68dad2855e3ab5178aa1a262789d86a1466"
+              }
+            ]
+          }
+        ],
+        "executionId": "42457247477:1",
+        "model": "gpt-6-astra",
+        "commit": {
+          "author": {
+            "name": "YuliiaKovalova",
+            "username": "AbhitejJohn"
+          },
+          "timestamp": "2026-11-06T17:06:15+00:00",
+          "url": "https://github.com/dotnet/skills/commit/96c3d68dad2855e3ab5178aa1a262789d86a1466",
+          "id": "96c3d68dad2855e3ab5178aa1a262789d86a1466",
+          "message": "Add find-repeated-build-work skill to dotnet-msbuild (#1311)"
+        },
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "template-authoring/Add a choice parameter with conditional project content - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a choice parameter with conditional project content - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a choice parameter with conditional project content - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.571428298950195
+          },
+          {
+            "name": "template-authoring/Add a safe restore post-action - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a safe restore post-action - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a safe restore post-action - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.571428298950195
+          },
+          {
+            "name": "template-authoring/Author a reusable item template - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Author a reusable item template - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Author a reusable item template - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.571428298950195
+          },
+          {
+            "name": "template-authoring/Create template from existing project - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 8.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Create template from existing project - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 8.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Create template from existing project - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.0
+          },
+          {
+            "name": "template-authoring/Package project templates for NuGet distribution - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Package project templates for NuGet distribution - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Package project templates for NuGet distribution - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 5.714285850524902
+          },
+          {
+            "name": "template-authoring/Preserve central package management conventions - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Preserve central package management conventions - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Preserve central package management conventions - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.75
+          },
+          {
+            "name": "template-authoring/Restrict and classify an SDK-specific template - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Restrict and classify an SDK-specific template - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Restrict and classify an SDK-specific template - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.571428298950195
+          },
+          {
+            "name": "template-comparison/Choose MVC or Razor Pages for an admin portal - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose MVC or Razor Pages for an admin portal - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose MVC or Razor Pages for an admin portal - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 7.142857074737549
+          },
+          {
+            "name": "template-comparison/Choose a Blazor or Razor Pages template - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose a Blazor or Razor Pages template - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose a Blazor or Razor Pages template - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 7.142857074737549
+          },
+          {
+            "name": "template-comparison/Choose between blazor and blazorwasm - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose between blazor and blazorwasm - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose between blazor and blazorwasm - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 6.666666507720947
+          },
+          {
+            "name": "template-comparison/Compare REST and gRPC service templates - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare REST and gRPC service templates - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare REST and gRPC service templates - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 6.785714149475098
+          },
+          {
+            "name": "template-comparison/Compare webapi vs webapp side by side - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare webapi vs webapp side by side - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare webapi vs webapp side by side - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.0
+          },
+          {
+            "name": "template-comparison/Decide which template fits a background processing scenario - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Decide which template fits a background processing scenario - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Decide which template fits a background processing scenario - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.0
+          },
+          {
+            "name": "template-comparison/Select a test project template for an enterprise suite - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Select a test project template for an enterprise suite - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Select a test project template for an enterprise suite - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 7.142857074737549
+          },
+          {
+            "name": "template-discovery/Find installed test project template choices - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "template-discovery/Find installed test project template choices - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "template-discovery/Find installed test project template choices - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.75
+          },
+          {
+            "name": "template-discovery/Find template for web API project - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Find template for web API project - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Find template for web API project - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.75
+          },
+          {
+            "name": "template-discovery/Inspect a single worker template before creation - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect a single worker template before creation - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect a single worker template before creation - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.75
+          },
+          {
+            "name": "template-discovery/Inspect web API template parameters - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect web API template parameters - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect web API template parameters - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.75
+          },
+          {
+            "name": "template-discovery/Preview project creation with dry run - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "template-discovery/Preview project creation with dry run - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 9.583333015441895
+          },
+          {
+            "name": "template-discovery/Preview project creation with dry run - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 7.5
+          },
+          {
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.0
+          },
+          {
+            "name": "template-discovery/Search NuGet for specialized template - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 7.142857074737549,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Search NuGet for specialized template - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 7.142857074737549,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Search NuGet for specialized template - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 5.714285850524902
+          },
+          {
+            "name": "template-instantiation/Adapt a generated test project to central package management - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Adapt a generated test project to central package management - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Adapt a generated test project to central package management - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.571428298950195
+          },
+          {
+            "name": "template-instantiation/Compose an application and test solution - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Compose an application and test solution - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Compose an application and test solution - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.75
+          },
+          {
+            "name": "template-instantiation/Create a console application - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 8.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a console application - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 8.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a console application - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.0
+          },
+          {
+            "name": "template-instantiation/Create a controller-based web API - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a controller-based web API - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a controller-based web API - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.571428298950195
+          },
+          {
+            "name": "template-instantiation/Create a worker service - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a worker service - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a worker service - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895
+          },
+          {
+            "name": "template-instantiation/Create and build a class library - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create and build a class library - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create and build a class library - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895
+          },
+          {
+            "name": "template-instantiation/Match a neighboring project's target framework - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Match a neighboring project's target framework - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Match a neighboring project's target framework - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895
+          },
+          {
+            "name": "template-smart-defaults/AOT implies a compatible framework - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 9.6875,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/AOT implies a compatible framework - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/AOT implies a compatible framework - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 4.375
+          },
+          {
+            "name": "template-smart-defaults/Auth implies HTTPS stays enabled - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 9.6875,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Auth implies HTTPS stays enabled - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Auth implies HTTPS stays enabled - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 4.375
+          },
+          {
+            "name": "template-smart-defaults/Controllers exclude the minimal-API flag - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Controllers exclude the minimal-API flag - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Controllers exclude the minimal-API flag - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 4.375
+          },
+          {
+            "name": "template-smart-defaults/Never override an explicit user value - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Never override an explicit user value - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Never override an explicit user value - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 7.142857074737549
+          },
+          {
+            "name": "template-smart-defaults/Preserve an explicit minimal API choice - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 8.88888931274414,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve an explicit minimal API choice - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 8.88888931274414,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve an explicit minimal API choice - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 6.666666507720947
+          },
+          {
+            "name": "template-smart-defaults/Preserve explicit no-auth and no-HTTPS choices - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve explicit no-auth and no-HTTPS choices - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve explicit no-auth and no-HTTPS choices - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 4.0625
+          },
+          {
+            "name": "template-smart-defaults/Treat the workspace framework as an explicit choice - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Treat the workspace framework as an explicit choice - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Treat the workspace framework as an explicit choice - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 6.0
+          },
+          {
+            "name": "template-validation/Check every short name in an alias array - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Check every short name in an alias array - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Check every short name in an alias array - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 4.166666507720947
+          },
+          {
+            "name": "template-validation/Find incomplete symbol definitions - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 9.583333015441895,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Find incomplete symbol definitions - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Find incomplete symbol definitions - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 6.666666507720947
+          },
+          {
+            "name": "template-validation/Report a malformed template with its parse location - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "template-validation/Report a malformed template with its parse location - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "template-validation/Report a malformed template with its parse location - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 5.0
+          },
+          {
+            "name": "template-validation/Review post-action and constraint completeness - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Review post-action and constraint completeness - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Review post-action and constraint completeness - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 3.9285714626312256
+          },
+          {
+            "name": "template-validation/Validate correct template and suggest improvements - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 7.5,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate correct template and suggest improvements - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 6.5,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 7.0
+          },
+          {
+            "name": "template-validation/Validate discoverability metadata severity - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "template-validation/Validate discoverability metadata severity - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "template-validation/Validate discoverability metadata severity - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 8.571428298950195
+          },
+          {
+            "name": "template-validation/Validate template with multiple errors - Skilled Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 8.461538314819336,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate template with multiple errors - Plugin Quality",
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 8.461538314819336,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate template with multiple errors - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 6.92307710647583
+          }
+        ],
+        "date": 1794143007344
       }
     ],
     "Efficiency": [
@@ -93575,6 +95615,1580 @@
         ],
         "executionId": "42349960370:1",
         "model": "mai-code-1.1-flash"
+      },
+      {
+        "executionId": "42457247477:1",
+        "model": "gpt-6-astra",
+        "commit": {
+          "author": {
+            "name": "YuliiaKovalova",
+            "username": "AbhitejJohn"
+          },
+          "timestamp": "2026-11-06T17:06:15+00:00",
+          "url": "https://github.com/dotnet/skills/commit/96c3d68dad2855e3ab5178aa1a262789d86a1466",
+          "id": "96c3d68dad2855e3ab5178aa1a262789d86a1466",
+          "message": "Add find-repeated-build-work skill to dotnet-msbuild (#1311)"
+        },
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "template-authoring/Add a choice parameter with conditional project content - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 13.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a choice parameter with conditional project content - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 26791.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a choice parameter with conditional project content - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 12.1,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a choice parameter with conditional project content - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 28497.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a choice parameter with conditional project content - Vanilla Time",
+            "unit": "seconds",
+            "value": 18.6
+          },
+          {
+            "name": "template-authoring/Add a choice parameter with conditional project content - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 12239.0
+          },
+          {
+            "name": "template-authoring/Add a safe restore post-action - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 8.4,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a safe restore post-action - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 26567.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a safe restore post-action - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 26.7,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a safe restore post-action - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 61279.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Add a safe restore post-action - Vanilla Time",
+            "unit": "seconds",
+            "value": 30.3
+          },
+          {
+            "name": "template-authoring/Add a safe restore post-action - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 39777.0
+          },
+          {
+            "name": "template-authoring/Author a reusable item template - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 12.2,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Author a reusable item template - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 41246.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Author a reusable item template - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 12.4,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Author a reusable item template - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 47142.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Author a reusable item template - Vanilla Time",
+            "unit": "seconds",
+            "value": 28.3
+          },
+          {
+            "name": "template-authoring/Author a reusable item template - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 72822.0
+          },
+          {
+            "name": "template-authoring/Create template from existing project - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 36.9,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Create template from existing project - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 149784.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Create template from existing project - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 43.6,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Create template from existing project - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 189143.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Create template from existing project - Vanilla Time",
+            "unit": "seconds",
+            "value": 28.3
+          },
+          {
+            "name": "template-authoring/Create template from existing project - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 77085.0
+          },
+          {
+            "name": "template-authoring/Package project templates for NuGet distribution - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 40.8,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Package project templates for NuGet distribution - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 139261.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Package project templates for NuGet distribution - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 39.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Package project templates for NuGet distribution - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 162798.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Package project templates for NuGet distribution - Vanilla Time",
+            "unit": "seconds",
+            "value": 41.1
+          },
+          {
+            "name": "template-authoring/Package project templates for NuGet distribution - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 104326.0
+          },
+          {
+            "name": "template-authoring/Preserve central package management conventions - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 32.8,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Preserve central package management conventions - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 44174.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Preserve central package management conventions - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 33.5,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Preserve central package management conventions - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 67450.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Preserve central package management conventions - Vanilla Time",
+            "unit": "seconds",
+            "value": 29.9
+          },
+          {
+            "name": "template-authoring/Preserve central package management conventions - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 52995.0
+          },
+          {
+            "name": "template-authoring/Restrict and classify an SDK-specific template - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 9.1,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Restrict and classify an SDK-specific template - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 26531.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Restrict and classify an SDK-specific template - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 23.2,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Restrict and classify an SDK-specific template - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 59572.0,
+            "overfittingScore": 0.49
+          },
+          {
+            "name": "template-authoring/Restrict and classify an SDK-specific template - Vanilla Time",
+            "unit": "seconds",
+            "value": 10.8
+          },
+          {
+            "name": "template-authoring/Restrict and classify an SDK-specific template - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 43804.0
+          },
+          {
+            "name": "template-comparison/Choose MVC or Razor Pages for an admin portal - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 24.5,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose MVC or Razor Pages for an admin portal - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 73383.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose MVC or Razor Pages for an admin portal - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 22.5,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose MVC or Razor Pages for an admin portal - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 77797.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose MVC or Razor Pages for an admin portal - Vanilla Time",
+            "unit": "seconds",
+            "value": 22.4
+          },
+          {
+            "name": "template-comparison/Choose MVC or Razor Pages for an admin portal - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 58899.0
+          },
+          {
+            "name": "template-comparison/Choose a Blazor or Razor Pages template - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 17.3,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose a Blazor or Razor Pages template - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 73556.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose a Blazor or Razor Pages template - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 17.8,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose a Blazor or Razor Pages template - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 77982.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose a Blazor or Razor Pages template - Vanilla Time",
+            "unit": "seconds",
+            "value": 16.2
+          },
+          {
+            "name": "template-comparison/Choose a Blazor or Razor Pages template - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 50804.0
+          },
+          {
+            "name": "template-comparison/Choose between blazor and blazorwasm - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 22.4,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose between blazor and blazorwasm - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 74118.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose between blazor and blazorwasm - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 19.5,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose between blazor and blazorwasm - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 76926.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Choose between blazor and blazorwasm - Vanilla Time",
+            "unit": "seconds",
+            "value": 17.9
+          },
+          {
+            "name": "template-comparison/Choose between blazor and blazorwasm - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 62053.0
+          },
+          {
+            "name": "template-comparison/Compare REST and gRPC service templates - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 19.9,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare REST and gRPC service templates - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 71876.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare REST and gRPC service templates - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 23.7,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare REST and gRPC service templates - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 75662.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare REST and gRPC service templates - Vanilla Time",
+            "unit": "seconds",
+            "value": 24.0
+          },
+          {
+            "name": "template-comparison/Compare REST and gRPC service templates - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 78651.0
+          },
+          {
+            "name": "template-comparison/Compare webapi vs webapp side by side - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 17.4,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare webapi vs webapp side by side - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 72970.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare webapi vs webapp side by side - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 15.2,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare webapi vs webapp side by side - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 76991.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Compare webapi vs webapp side by side - Vanilla Time",
+            "unit": "seconds",
+            "value": 20.6
+          },
+          {
+            "name": "template-comparison/Compare webapi vs webapp side by side - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 58370.0
+          },
+          {
+            "name": "template-comparison/Decide which template fits a background processing scenario - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 15.7,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Decide which template fits a background processing scenario - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 68270.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Decide which template fits a background processing scenario - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 18.2,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Decide which template fits a background processing scenario - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 74432.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Decide which template fits a background processing scenario - Vanilla Time",
+            "unit": "seconds",
+            "value": 13.9
+          },
+          {
+            "name": "template-comparison/Decide which template fits a background processing scenario - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 48025.0
+          },
+          {
+            "name": "template-comparison/Select a test project template for an enterprise suite - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 44.2,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Select a test project template for an enterprise suite - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 207912.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Select a test project template for an enterprise suite - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 30.4,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Select a test project template for an enterprise suite - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 174227.0,
+            "overfittingScore": 0.4
+          },
+          {
+            "name": "template-comparison/Select a test project template for an enterprise suite - Vanilla Time",
+            "unit": "seconds",
+            "value": 33.7
+          },
+          {
+            "name": "template-comparison/Select a test project template for an enterprise suite - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 112211.0
+          },
+          {
+            "name": "template-discovery/Find installed test project template choices - Skilled Time",
+            "unit": "seconds",
+            "value": 13.8
+          },
+          {
+            "name": "template-discovery/Find installed test project template choices - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 76193.0
+          },
+          {
+            "name": "template-discovery/Find installed test project template choices - Plugin Time",
+            "unit": "seconds",
+            "value": 13.1
+          },
+          {
+            "name": "template-discovery/Find installed test project template choices - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 80453.0
+          },
+          {
+            "name": "template-discovery/Find installed test project template choices - Vanilla Time",
+            "unit": "seconds",
+            "value": 8.6
+          },
+          {
+            "name": "template-discovery/Find installed test project template choices - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 38102.0
+          },
+          {
+            "name": "template-discovery/Find template for web API project - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 14.7,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Find template for web API project - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 58272.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Find template for web API project - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 13.8,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Find template for web API project - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 61541.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Find template for web API project - Vanilla Time",
+            "unit": "seconds",
+            "value": 14.2
+          },
+          {
+            "name": "template-discovery/Find template for web API project - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 46247.0
+          },
+          {
+            "name": "template-discovery/Inspect a single worker template before creation - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 11.8,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect a single worker template before creation - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 56662.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect a single worker template before creation - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 12.1,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect a single worker template before creation - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 60044.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect a single worker template before creation - Vanilla Time",
+            "unit": "seconds",
+            "value": 7.6
+          },
+          {
+            "name": "template-discovery/Inspect a single worker template before creation - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 23693.0
+          },
+          {
+            "name": "template-discovery/Inspect web API template parameters - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 15.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect web API template parameters - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 58301.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect web API template parameters - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 13.6,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect web API template parameters - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 61706.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Inspect web API template parameters - Vanilla Time",
+            "unit": "seconds",
+            "value": 26.3
+          },
+          {
+            "name": "template-discovery/Inspect web API template parameters - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 122886.0
+          },
+          {
+            "name": "template-discovery/Preview project creation with dry run - Skilled Time",
+            "unit": "seconds",
+            "value": 16.7
+          },
+          {
+            "name": "template-discovery/Preview project creation with dry run - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 58991.0
+          },
+          {
+            "name": "template-discovery/Preview project creation with dry run - Plugin Time",
+            "unit": "seconds",
+            "value": 14.9
+          },
+          {
+            "name": "template-discovery/Preview project creation with dry run - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 61215.0
+          },
+          {
+            "name": "template-discovery/Preview project creation with dry run - Vanilla Time",
+            "unit": "seconds",
+            "value": 9.5
+          },
+          {
+            "name": "template-discovery/Preview project creation with dry run - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 24888.0
+          },
+          {
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Time",
+            "unit": "seconds",
+            "value": 26.6
+          },
+          {
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 115118.0
+          },
+          {
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Time",
+            "unit": "seconds",
+            "value": 26.5
+          },
+          {
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 103583.0
+          },
+          {
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Time",
+            "unit": "seconds",
+            "value": 11.3
+          },
+          {
+            "name": "template-discovery/Resolve ambiguous project intent to multiple candidates - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 40443.0
+          },
+          {
+            "name": "template-discovery/Search NuGet for specialized template - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 17.2,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Search NuGet for specialized template - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 88773.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Search NuGet for specialized template - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 14.4,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Search NuGet for specialized template - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 77012.0,
+            "overfittingScore": 0.29
+          },
+          {
+            "name": "template-discovery/Search NuGet for specialized template - Vanilla Time",
+            "unit": "seconds",
+            "value": 11.6
+          },
+          {
+            "name": "template-discovery/Search NuGet for specialized template - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 24430.0
+          },
+          {
+            "name": "template-instantiation/Adapt a generated test project to central package management - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 18.8,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Adapt a generated test project to central package management - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 132101.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Adapt a generated test project to central package management - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 20.7,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Adapt a generated test project to central package management - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 139587.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Adapt a generated test project to central package management - Vanilla Time",
+            "unit": "seconds",
+            "value": 20.9
+          },
+          {
+            "name": "template-instantiation/Adapt a generated test project to central package management - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 86539.0
+          },
+          {
+            "name": "template-instantiation/Compose an application and test solution - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 17.9,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Compose an application and test solution - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 90072.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Compose an application and test solution - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 23.6,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Compose an application and test solution - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 95033.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Compose an application and test solution - Vanilla Time",
+            "unit": "seconds",
+            "value": 12.9
+          },
+          {
+            "name": "template-instantiation/Compose an application and test solution - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 35411.0
+          },
+          {
+            "name": "template-instantiation/Create a console application - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 15.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a console application - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 85839.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a console application - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 18.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a console application - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 91075.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a console application - Vanilla Time",
+            "unit": "seconds",
+            "value": 8.1
+          },
+          {
+            "name": "template-instantiation/Create a console application - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 23113.0
+          },
+          {
+            "name": "template-instantiation/Create a controller-based web API - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 19.6,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a controller-based web API - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 90376.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a controller-based web API - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 22.2,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a controller-based web API - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 118723.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a controller-based web API - Vanilla Time",
+            "unit": "seconds",
+            "value": 11.8
+          },
+          {
+            "name": "template-instantiation/Create a controller-based web API - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 53473.0
+          },
+          {
+            "name": "template-instantiation/Create a worker service - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 17.8,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a worker service - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 86397.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a worker service - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 21.9,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a worker service - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 92215.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create a worker service - Vanilla Time",
+            "unit": "seconds",
+            "value": 22.2
+          },
+          {
+            "name": "template-instantiation/Create a worker service - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 49702.0
+          },
+          {
+            "name": "template-instantiation/Create and build a class library - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 16.9,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create and build a class library - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 86158.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create and build a class library - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 17.2,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create and build a class library - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 91256.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Create and build a class library - Vanilla Time",
+            "unit": "seconds",
+            "value": 7.8
+          },
+          {
+            "name": "template-instantiation/Create and build a class library - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 35088.0
+          },
+          {
+            "name": "template-instantiation/Match a neighboring project's target framework - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 16.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Match a neighboring project's target framework - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 86569.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Match a neighboring project's target framework - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 16.4,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Match a neighboring project's target framework - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 91178.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "name": "template-instantiation/Match a neighboring project's target framework - Vanilla Time",
+            "unit": "seconds",
+            "value": 13.0
+          },
+          {
+            "name": "template-instantiation/Match a neighboring project's target framework - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 73070.0
+          },
+          {
+            "name": "template-smart-defaults/AOT implies a compatible framework - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 6.8,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/AOT implies a compatible framework - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 38908.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/AOT implies a compatible framework - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 6.7,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/AOT implies a compatible framework - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 41553.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/AOT implies a compatible framework - Vanilla Time",
+            "unit": "seconds",
+            "value": 11.4
+          },
+          {
+            "name": "template-smart-defaults/AOT implies a compatible framework - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 11865.0
+          },
+          {
+            "name": "template-smart-defaults/Auth implies HTTPS stays enabled - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 8.6,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Auth implies HTTPS stays enabled - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 39595.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Auth implies HTTPS stays enabled - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 11.1,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Auth implies HTTPS stays enabled - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 62069.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Auth implies HTTPS stays enabled - Vanilla Time",
+            "unit": "seconds",
+            "value": 6.3
+          },
+          {
+            "name": "template-smart-defaults/Auth implies HTTPS stays enabled - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 11622.0
+          },
+          {
+            "name": "template-smart-defaults/Controllers exclude the minimal-API flag - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 7.8,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Controllers exclude the minimal-API flag - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 39539.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Controllers exclude the minimal-API flag - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 9.7,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Controllers exclude the minimal-API flag - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 62006.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Controllers exclude the minimal-API flag - Vanilla Time",
+            "unit": "seconds",
+            "value": 3.7
+          },
+          {
+            "name": "template-smart-defaults/Controllers exclude the minimal-API flag - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 11543.0
+          },
+          {
+            "name": "template-smart-defaults/Never override an explicit user value - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 7.2,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Never override an explicit user value - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 38828.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Never override an explicit user value - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 6.2,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Never override an explicit user value - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 41471.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Never override an explicit user value - Vanilla Time",
+            "unit": "seconds",
+            "value": 6.6
+          },
+          {
+            "name": "template-smart-defaults/Never override an explicit user value - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 11712.0
+          },
+          {
+            "name": "template-smart-defaults/Preserve an explicit minimal API choice - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 12.4,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve an explicit minimal API choice - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 39788.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve an explicit minimal API choice - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 13.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve an explicit minimal API choice - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 42489.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve an explicit minimal API choice - Vanilla Time",
+            "unit": "seconds",
+            "value": 13.1
+          },
+          {
+            "name": "template-smart-defaults/Preserve an explicit minimal API choice - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 12063.0
+          },
+          {
+            "name": "template-smart-defaults/Preserve explicit no-auth and no-HTTPS choices - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 7.9,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve explicit no-auth and no-HTTPS choices - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 39643.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve explicit no-auth and no-HTTPS choices - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 6.6,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve explicit no-auth and no-HTTPS choices - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 42282.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Preserve explicit no-auth and no-HTTPS choices - Vanilla Time",
+            "unit": "seconds",
+            "value": 15.6
+          },
+          {
+            "name": "template-smart-defaults/Preserve explicit no-auth and no-HTTPS choices - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 11984.0
+          },
+          {
+            "name": "template-smart-defaults/Treat the workspace framework as an explicit choice - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 8.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Treat the workspace framework as an explicit choice - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 39032.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Treat the workspace framework as an explicit choice - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "high",
+            "value": 8.8,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Treat the workspace framework as an explicit choice - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "high",
+            "value": 41722.0,
+            "overfittingScore": 0.64
+          },
+          {
+            "name": "template-smart-defaults/Treat the workspace framework as an explicit choice - Vanilla Time",
+            "unit": "seconds",
+            "value": 20.0
+          },
+          {
+            "name": "template-smart-defaults/Treat the workspace framework as an explicit choice - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 79618.0
+          },
+          {
+            "name": "template-validation/Check every short name in an alias array - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 14.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Check every short name in an alias array - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 41332.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Check every short name in an alias array - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 7.2,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Check every short name in an alias array - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 43835.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Check every short name in an alias array - Vanilla Time",
+            "unit": "seconds",
+            "value": 7.4
+          },
+          {
+            "name": "template-validation/Check every short name in an alias array - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 35262.0
+          },
+          {
+            "name": "template-validation/Find incomplete symbol definitions - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 16.3,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Find incomplete symbol definitions - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 105288.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Find incomplete symbol definitions - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 19.8,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Find incomplete symbol definitions - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 96840.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Find incomplete symbol definitions - Vanilla Time",
+            "unit": "seconds",
+            "value": 27.2
+          },
+          {
+            "name": "template-validation/Find incomplete symbol definitions - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 117058.0
+          },
+          {
+            "name": "template-validation/Report a malformed template with its parse location - Skilled Time",
+            "unit": "seconds",
+            "value": 8.9
+          },
+          {
+            "name": "template-validation/Report a malformed template with its parse location - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 54958.0
+          },
+          {
+            "name": "template-validation/Report a malformed template with its parse location - Plugin Time",
+            "unit": "seconds",
+            "value": 9.4
+          },
+          {
+            "name": "template-validation/Report a malformed template with its parse location - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 58529.0
+          },
+          {
+            "name": "template-validation/Report a malformed template with its parse location - Vanilla Time",
+            "unit": "seconds",
+            "value": 18.9
+          },
+          {
+            "name": "template-validation/Report a malformed template with its parse location - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 46299.0
+          },
+          {
+            "name": "template-validation/Review post-action and constraint completeness - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 23.7,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Review post-action and constraint completeness - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 79281.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Review post-action and constraint completeness - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 31.7,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Review post-action and constraint completeness - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 133750.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Review post-action and constraint completeness - Vanilla Time",
+            "unit": "seconds",
+            "value": 20.3
+          },
+          {
+            "name": "template-validation/Review post-action and constraint completeness - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 127184.0
+          },
+          {
+            "name": "template-validation/Validate correct template and suggest improvements - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 24.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate correct template and suggest improvements - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 130941.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate correct template and suggest improvements - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 30.9,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate correct template and suggest improvements - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 142264.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Time",
+            "unit": "seconds",
+            "value": 19.3
+          },
+          {
+            "name": "template-validation/Validate correct template and suggest improvements - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 98056.0
+          },
+          {
+            "name": "template-validation/Validate discoverability metadata severity - Skilled Time",
+            "unit": "seconds",
+            "value": 11.9
+          },
+          {
+            "name": "template-validation/Validate discoverability metadata severity - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 55696.0
+          },
+          {
+            "name": "template-validation/Validate discoverability metadata severity - Plugin Time",
+            "unit": "seconds",
+            "value": 11.1
+          },
+          {
+            "name": "template-validation/Validate discoverability metadata severity - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 59502.0
+          },
+          {
+            "name": "template-validation/Validate discoverability metadata severity - Vanilla Time",
+            "unit": "seconds",
+            "value": 22.8
+          },
+          {
+            "name": "template-validation/Validate discoverability metadata severity - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 89251.0
+          },
+          {
+            "name": "template-validation/Validate template with multiple errors - Skilled Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 20.1,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate template with multiple errors - Skilled Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 110718.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate template with multiple errors - Plugin Time",
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 25.5,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate template with multiple errors - Plugin Tokens In",
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 115308.0,
+            "overfittingScore": 0.22
+          },
+          {
+            "name": "template-validation/Validate template with multiple errors - Vanilla Time",
+            "unit": "seconds",
+            "value": 17.8
+          },
+          {
+            "name": "template-validation/Validate template with multiple errors - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 82571.0
+          }
+        ],
+        "date": 1794143007344
       }
     ],
     "SkillValue": [
@@ -102703,9 +106317,369 @@
             "treatAvailable": 7
           }
         ]
+      },
+      {
+        "executionId": "42457247477:1",
+        "model": "gpt-6-astra",
+        "commit": {
+          "author": {
+            "name": "YuliiaKovalova",
+            "username": "AbhitejJohn"
+          },
+          "timestamp": "2026-11-06T17:06:15+00:00",
+          "url": "https://github.com/dotnet/skills/commit/96c3d68dad2855e3ab5178aa1a262789d86a1466",
+          "id": "96c3d68dad2855e3ab5178aa1a262789d86a1466",
+          "message": "Add find-repeated-build-work skill to dotnet-msbuild (#1311)"
+        },
+        "skills": [
+          {
+            "passTotal": 7,
+            "hasPassData": true,
+            "timedOut": false,
+            "bothPass": 0,
+            "completionRegressed": false,
+            "baseline": {
+              "cacheWrite": 8180.714285714285,
+              "timeMs": 26762.85714285714,
+              "tokens": 57578.28571428572,
+              "tokensIn": 56550.142857142855,
+              "tokensOut": 1028.142857142857,
+              "n": 7,
+              "cacheRead": 48344.57142857143
+            },
+            "baselineOnlyPass": 0,
+            "treatAvailable": 7,
+            "treatmentOnlyPass": 6,
+            "pairedN": 7,
+            "activationExpected": 7,
+            "baseAvailable": 7,
+            "bothFail": 1,
+            "activationFired": 7,
+            "treatment": {
+              "cacheWrite": 8504.285714285714,
+              "timeMs": 21891.428571428572,
+              "tokens": 64907.71428571428,
+              "tokensIn": 63902.71428571428,
+              "tokensOut": 1005.0,
+              "n": 7,
+              "cacheRead": 55385.57142857143
+            },
+            "treatmentFail": 1,
+            "targetActivationFailed": false,
+            "skill": "template-authoring",
+            "preference": {
+              "conclusive": true,
+              "underpowered": false,
+              "practicalPassed": false,
+              "ties": 6,
+              "wins": 1,
+              "minCredibleStimuli": 5,
+              "pValue": 0.5,
+              "direction": "better",
+              "netWin": 0.14285714285714285,
+              "losses": 0,
+              "alpha": 0.05,
+              "count": 7
+            },
+            "baselineFail": 7,
+            "activationContract": {
+              "violated": 0,
+              "count": 0,
+              "passed": true,
+              "evaluated": true
+            }
+          },
+          {
+            "passTotal": 7,
+            "hasPassData": true,
+            "timedOut": false,
+            "bothPass": 0,
+            "completionRegressed": false,
+            "baseline": {
+              "cacheWrite": 13016.142857142857,
+              "timeMs": 21259.85714285714,
+              "tokens": 67001.85714285714,
+              "tokensIn": 66062.42857142857,
+              "tokensOut": 939.4285714285714,
+              "n": 7,
+              "cacheRead": 53017.0
+            },
+            "baselineOnlyPass": 0,
+            "treatAvailable": 7,
+            "treatmentOnlyPass": 7,
+            "pairedN": 7,
+            "activationExpected": 7,
+            "baseAvailable": 7,
+            "bothFail": 0,
+            "activationFired": 7,
+            "treatment": {
+              "cacheWrite": 10720.714285714286,
+              "timeMs": 23046.571428571428,
+              "tokens": 91726.42857142857,
+              "tokensIn": 90850.71428571429,
+              "tokensOut": 875.7142857142857,
+              "n": 7,
+              "cacheRead": 80112.0
+            },
+            "treatmentFail": 0,
+            "targetActivationFailed": false,
+            "skill": "template-comparison",
+            "preference": {
+              "conclusive": true,
+              "underpowered": false,
+              "practicalPassed": false,
+              "ties": 7,
+              "wins": 0,
+              "minCredibleStimuli": 5,
+              "pValue": 1,
+              "direction": "none",
+              "netWin": 0,
+              "losses": 0,
+              "alpha": 0.05,
+              "count": 7
+            },
+            "baselineFail": 7,
+            "activationContract": {
+              "violated": 0,
+              "count": 0,
+              "passed": true,
+              "evaluated": true
+            }
+          },
+          {
+            "passTotal": 7,
+            "hasPassData": true,
+            "timedOut": false,
+            "bothPass": 0,
+            "completionRegressed": false,
+            "baseline": {
+              "cacheWrite": 8171.857142857143,
+              "timeMs": 12734.285714285714,
+              "tokens": 45812.71428571428,
+              "tokensIn": 45239.28571428572,
+              "tokensOut": 573.4285714285714,
+              "n": 7,
+              "cacheRead": 37057.57142857143
+            },
+            "baselineOnlyPass": 0,
+            "treatAvailable": 7,
+            "treatmentOnlyPass": 6,
+            "pairedN": 7,
+            "activationExpected": 7,
+            "baseAvailable": 7,
+            "bothFail": 1,
+            "activationFired": 7,
+            "treatment": {
+              "cacheWrite": 9887.714285714286,
+              "timeMs": 16542.14285714286,
+              "tokens": 73187.14285714286,
+              "tokensIn": 72533.42857142857,
+              "tokensOut": 653.7142857142857,
+              "n": 7,
+              "cacheRead": 62631.142857142855
+            },
+            "treatmentFail": 1,
+            "targetActivationFailed": false,
+            "skill": "template-discovery",
+            "preference": {
+              "conclusive": true,
+              "underpowered": false,
+              "practicalPassed": false,
+              "ties": 7,
+              "wins": 0,
+              "minCredibleStimuli": 5,
+              "pValue": 1,
+              "direction": "none",
+              "netWin": 0,
+              "losses": 0,
+              "alpha": 0.05,
+              "count": 7
+            },
+            "baselineFail": 7,
+            "activationContract": {
+              "violated": 0,
+              "count": 0,
+              "passed": true,
+              "evaluated": true
+            }
+          },
+          {
+            "passTotal": 7,
+            "hasPassData": true,
+            "timedOut": false,
+            "bothPass": 0,
+            "completionRegressed": false,
+            "baseline": {
+              "cacheWrite": 5397.428571428572,
+              "timeMs": 13794.285714285714,
+              "tokens": 50913.71428571428,
+              "tokensIn": 50603.42857142857,
+              "tokensOut": 310.2857142857143,
+              "n": 7,
+              "cacheRead": 45193.57142857143
+            },
+            "baselineOnlyPass": 0,
+            "treatAvailable": 7,
+            "treatmentOnlyPass": 6,
+            "pairedN": 7,
+            "activationExpected": 7,
+            "baseAvailable": 7,
+            "bothFail": 1,
+            "activationFired": 7,
+            "treatment": {
+              "cacheWrite": 8540.0,
+              "timeMs": 17415.571428571428,
+              "tokens": 93930.28571428571,
+              "tokensIn": 93339.0,
+              "tokensOut": 591.2857142857143,
+              "n": 7,
+              "cacheRead": 84779.71428571429
+            },
+            "treatmentFail": 1,
+            "targetActivationFailed": false,
+            "skill": "template-instantiation",
+            "preference": {
+              "conclusive": true,
+              "underpowered": false,
+              "practicalPassed": false,
+              "ties": 7,
+              "wins": 0,
+              "minCredibleStimuli": 5,
+              "pValue": 1,
+              "direction": "none",
+              "netWin": 0,
+              "losses": 0,
+              "alpha": 0.05,
+              "count": 7
+            },
+            "baselineFail": 7,
+            "activationContract": {
+              "violated": 0,
+              "count": 0,
+              "passed": true,
+              "evaluated": true
+            }
+          },
+          {
+            "passTotal": 7,
+            "hasPassData": true,
+            "timedOut": false,
+            "bothPass": 0,
+            "completionRegressed": false,
+            "baseline": {
+              "cacheWrite": 4773.142857142857,
+              "timeMs": 10938.57142857143,
+              "tokens": 21486.714285714286,
+              "tokensIn": 21055.428571428572,
+              "tokensOut": 431.2857142857143,
+              "n": 7,
+              "cacheRead": 16271.714285714286
+            },
+            "baselineOnlyPass": 0,
+            "treatAvailable": 7,
+            "treatmentOnlyPass": 6,
+            "pairedN": 7,
+            "activationExpected": 7,
+            "baseAvailable": 7,
+            "bothFail": 1,
+            "activationFired": 7,
+            "treatment": {
+              "cacheWrite": 6986.714285714285,
+              "timeMs": 8364.142857142857,
+              "tokens": 39333.28571428572,
+              "tokensIn": 39105.71428571428,
+              "tokensOut": 227.57142857142858,
+              "n": 7,
+              "cacheRead": 32110.0
+            },
+            "treatmentFail": 1,
+            "targetActivationFailed": false,
+            "skill": "template-smart-defaults",
+            "preference": {
+              "conclusive": true,
+              "underpowered": false,
+              "practicalPassed": false,
+              "ties": 6,
+              "wins": 1,
+              "minCredibleStimuli": 5,
+              "pValue": 0.5,
+              "direction": "better",
+              "netWin": 0.14285714285714285,
+              "losses": 0,
+              "alpha": 0.05,
+              "count": 7
+            },
+            "baselineFail": 7,
+            "activationContract": {
+              "violated": 0,
+              "count": 0,
+              "passed": true,
+              "evaluated": true
+            }
+          },
+          {
+            "passTotal": 7,
+            "hasPassData": true,
+            "timedOut": false,
+            "bothPass": 0,
+            "completionRegressed": false,
+            "baseline": {
+              "cacheWrite": 12485.714285714286,
+              "timeMs": 19104.285714285714,
+              "tokens": 85097.28571428571,
+              "tokensIn": 84520.71428571429,
+              "tokensOut": 576.5714285714286,
+              "n": 7,
+              "cacheRead": 72018.71428571429
+            },
+            "baselineOnlyPass": 0,
+            "treatAvailable": 7,
+            "treatmentOnlyPass": 5,
+            "pairedN": 7,
+            "activationExpected": 7,
+            "baseAvailable": 7,
+            "bothFail": 2,
+            "activationFired": 7,
+            "treatment": {
+              "cacheWrite": 12739.857142857143,
+              "timeMs": 16978.714285714286,
+              "tokens": 82602.0,
+              "tokensIn": 81984.28571428571,
+              "tokensOut": 617.7142857142857,
+              "n": 7,
+              "cacheRead": 69229.42857142857
+            },
+            "treatmentFail": 2,
+            "targetActivationFailed": false,
+            "skill": "template-validation",
+            "preference": {
+              "conclusive": true,
+              "underpowered": false,
+              "practicalPassed": false,
+              "ties": 6,
+              "wins": 1,
+              "minCredibleStimuli": 5,
+              "pValue": 0.5,
+              "direction": "better",
+              "netWin": 0.14285714285714285,
+              "losses": 0,
+              "alpha": 0.05,
+              "count": 7
+            },
+            "baselineFail": 7,
+            "activationContract": {
+              "violated": 0,
+              "count": 0,
+              "passed": true,
+              "evaluated": true
+            }
+          }
+        ],
+        "judgeModel": "claude-haiku-4.5",
+        "date": 1794143007344
       }
     ]
   },
-  "lastUpdate": 1794106506432,
+  "lastUpdate": 1794143007344,
   "schemaVersion": 2
 }
