@@ -66,6 +66,6 @@ short s = (short)big;       // .NET 10: 42      .NET 11: 32767
 ushort u = (ushort)negative; // .NET 10: 65494   .NET 11: 0
 ```
 
-**Fix:** Clamp or validate values explicitly where out-of-range input is possible, such as indexes, offsets, and pixel or audio sample math. `unchecked((ushort)(int)x)` matches the previous two-step conversion. There is no compatibility switch.
+**Fix:** Clamp or validate values explicitly where out-of-range input is possible, such as indexes, offsets, and pixel or audio sample math. `unchecked((ushort)(int)x)` matches the previous two-step conversion, and `double.ConvertToIntegerNative<T>` gives platform-native behavior; neither is guaranteed to reproduce every old result. There is no compatibility switch.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/jit/11/fp-to-small-integer

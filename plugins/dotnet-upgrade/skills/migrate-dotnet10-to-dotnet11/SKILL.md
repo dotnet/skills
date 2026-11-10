@@ -11,7 +11,7 @@ description: >
   Dockerfiles for .NET 11.
   DO NOT USE FOR: .NET Framework migrations, upgrading from .NET 9 or earlier,
   greenfield .NET 11 projects, or cosmetic modernization unrelated to the upgrade.
-  Covers breaking changes documented for the .NET 11 GA release (SDK 11.0.100).
+  Covers the common breaking changes documented for the .NET 11 GA release (SDK 11.0.100).
 license: MIT
 ---
 
@@ -19,7 +19,7 @@ license: MIT
 
 Migrate a .NET 10 project or solution to .NET 11, systematically resolving all breaking changes. The outcome is a project targeting `net11.0` that builds cleanly, passes tests, and accounts for every behavioral, source-incompatible, and binary-incompatible change introduced in .NET 11.
 
-> **Note:** This skill covers breaking changes documented for the .NET 11 GA release. The Learn breaking-change lists are not exhaustive, so also review new build warnings and run the application's tests.
+> **Note:** This skill covers the common breaking changes documented for the .NET 11 GA release, not every Learn entry (for example, .NET MAUI changes are not included). Also review new build warnings and run the application's tests.
 
 ## When to Use
 
@@ -68,11 +68,10 @@ Migrate a .NET 10 project or solution to .NET 11, systematically resolving all b
    - **EF Core SQL Server with Entra ID auth** → SqlClient 7.0 auth dependency changes
    - **NativeAOT native libraries on Unix** → Output filename prefix changed
    - **`double`/`float` to `decimal` conversions or `Math.Round(value, digits)`** (money, quantities, rates) → Conversion and rounding results changed at run time
-   - **Explicit `PackageReference` to `Microsoft.Extensions.*.Abstractions`, `Options`, or `Primitives`** → NU1510 (now part of the shared framework)
-   - **`IAsyncValidateOptions<T>` or `[OptionsValidator]`** → Options validation changes
+   - **Explicit `PackageReference` to one of the nine `Microsoft.Extensions` packages now in the shared framework** (listed in the core libraries reference) → NU1510
    - **Blazor forms (`EditForm`, `EditContext`)** → `EditContext.Validate()` obsolete; hidden `.validation-message` placeholders in static SSR
    - **Third-party Blazor component libraries** → Check for .NET 11 builds; removed obsolete Blazor APIs break older binaries at run time
-   - **Form POST endpoints** (Blazor SSR, Minimal APIs binding forms, MVC with antiforgery), especially behind a reverse proxy or posted to from another origin → Automatic CSRF protection
+   - **Form POST endpoints** (Blazor SSR, Minimal APIs binding forms, MVC with antiforgery), especially when removing `app.UseAntiforgery()` or accepting cross-origin form posts → Automatic CSRF protection
 4. Record which reference documents are relevant (see the reference loading table in Step 3).
 5. Do a **clean build** (`dotnet build --no-incremental` or delete `bin`/`obj`) on the current `net10.0` target to establish a clean baseline. Record any pre-existing warnings.
 
@@ -110,11 +109,11 @@ Load reference documents based on the project's technology areas:
 
 **Check these first.** They are the most common new warnings in .NET 11 and fail builds that use `TreatWarningsAsErrors`:
 
-- **`EditContext.Validate()` is obsolete (CS0618):** Replace it with `await editContext.ValidateAsync()` and make the callers async. Expect the change to spread upward through form components. A `Task<bool>` is never `false`, so rewrite checks like `editContext?.Validate() is false` instead of only swapping the method name. Avoid turning synchronous `OnFieldChanged` handlers into `async void`. See `references/aspnetcore-dotnet10to11.md`.
-- **Blazor analyzers BL0011 to BL0016:** New warnings, enabled by default. Before removing a `StateHasChanged()` call flagged by BL0012, check every caller of that method: calls from `OnAfterRenderAsync`, a component reference, a timer, or a `[JSInvokable]` callback may still need the render. For BL0016, any enclosing try/catch counts as a guard, and a shared extension method that catches `JSDisconnectedException` avoids per-call pragmas.
+- **`EditContext.Validate()` is obsolete (CS0618):** Replace it with `await editContext.ValidateAsync()` and make the callers async; the change spreads upward through form components. A `Task<bool>` is never `false`, so rewrite checks like `editContext?.Validate() is false` rather than only swapping the method name. See `references/aspnetcore-dotnet10to11.md`.
+- **Blazor analyzers BL0011 to BL0016:** New warnings, enabled by default. BL0012 ignores other callers of the flagged method, so check every caller before removing a `StateHasChanged()` call. See the ASP.NET Core reference for BL0016 guard rules.
 - **NU1510:** Explicit `PackageReference` items for the nine `Microsoft.Extensions` packages that moved into the shared framework (such as `Microsoft.Extensions.Logging.Abstractions` and `Microsoft.Extensions.Options`). Remove them in projects that target only `net11.0`.
 - **Removed obsolete Blazor and MVC APIs:** `WebEventCallbackFactoryEventArgsExtensions`, `RemoteBrowserFileStreamOptions`, `SetCompatibilityVersion`, and others no longer exist. Use the replacements in the ASP.NET Core reference.
-- **New obsoletions SYSLIB0064 and SYSLIB0066:** `RSACryptoServiceProvider.Encrypt/Decrypt(byte[], bool)` and `IStartupValidator`.
+- **New obsoletions SYSLIB0064, SYSLIB0065, and SYSLIB0066:** `RSACryptoServiceProvider.Encrypt/Decrypt(byte[], bool)`, the `AsnEncodedData.RawData` setter, and `IStartupValidator`.
 - **Test projects using `Newtonsoft.Json`:** `Microsoft.NET.Test.Sdk` no longer brings it in transitively. Add an explicit `PackageReference`.
 
 Then work through the remaining build errors systematically. Common patterns:
@@ -147,11 +146,9 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 **Check these first.** They produce no build warning and only show at run time:
 
-- **Decimal and BigInteger floating-point conversions are correctly rounded:** `(decimal)1.23` (a `double`) was `1.23` in .NET 10 and is `1.229999999999999982236431606` in .NET 11. The same applies to `Convert.ToDecimal(double)`, `new decimal(double)`, and the `float` overloads. Search for these on `double`/`float` inputs, especially in money code and validation of decimal places. Use `m` literals in code and test data. Where the old result is required, round to 15 significant digits (7 for `float`) before converting, for example by formatting with `"G15"` and parsing back. Review `Math.Round(value, digits)` and `MathF.Round` in the same pass: they now return correctly rounded results (`Math.Round(655.925, 2, MidpointRounding.AwayFromZero)` is now `655.92`). See `references/core-libraries-dotnet10to11.md`.
-- **Automatic cross-origin CSRF protection (ASP.NET Core):** `WebApplication.CreateBuilder` now adds middleware that checks `Sec-Fetch-Site` and `Origin` on endpoints with antiforgery metadata (Blazor SSR, Minimal APIs that bind forms, MVC actions with `[ValidateAntiForgeryToken]`). A cross-origin form post now returns `400 Bad Request`. Allow legitimate callers with a CORS policy that includes `.AllowCredentials()`, or opt out per endpoint only where the endpoint isn't CSRF-vulnerable. Smoke-test every form POST through the real reverse proxy or load balancer. See `references/aspnetcore-dotnet10to11.md`.
+- **Decimal and BigInteger floating-point conversions are correctly rounded:** `(decimal)1.23` (a `double`) was `1.23` in .NET 10 and is `1.229999999999999982236431606` in .NET 11. Search for `(decimal)` casts, `Convert.ToDecimal(`, and `new decimal(` on `double`/`float` inputs, especially in money code and decimal-place validation. Use `m` literals in code and test data, or round to 15 significant digits where the old result is required. Review `Math.Round(value, digits)` in the same pass: it now returns correctly rounded results. See `references/core-libraries-dotnet10to11.md`.
 - **Third-party Blazor component libraries:** libraries compiled against an earlier ASP.NET Core that still call removed obsolete Blazor APIs throw `TypeLoadException` or `MissingMethodException` when they render. Upgrade them to .NET 11 versions and run UI or render tests.
 - **Hidden `.validation-message` placeholders (Blazor static SSR):** a valid field now renders an empty `.validation-message` element with the `hidden` attribute. Scripts, CSS, and UI tests that treat its presence as "invalid" must use `.validation-message:not([hidden])`.
-- **`IHost.RunAsync` throws when a `BackgroundService` fails:** combined with item 10 below, a failing background service now stops the host and makes `RunAsync` fail, typically with a non-zero exit code.
 
 1. **DeflateStream/GZipStream empty payload** — Now writes headers and footers even for empty payloads. If your code checks for zero-length output, update the check.
 
@@ -189,17 +186,9 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 18. **NativeAOT Unix native library `lib` prefix** — Output filenames now include `lib` prefix on Linux/macOS (e.g., `libMyLib.so`).
 
-19. **Floating-point to small integer conversions saturate:** unchecked `(byte)`, `(short)`, `(ushort)`, `(sbyte)`, and `(char)` casts from `float`/`double` now clamp to the target range, and `NaN` becomes `0`.
+19. **Automatic cross-origin CSRF protection (ASP.NET Core):** `WebApplication.CreateBuilder` adds middleware that checks `Sec-Fetch-Site` and `Origin` on form-handling endpoints. Apps that run `app.UseAntiforgery()` keep their .NET 10 behavior. Without token validation (for example after removing `UseAntiforgery()`), cross-origin form posts return `400 Bad Request`; allow legitimate callers with a CORS policy that calls `.AllowCredentials()`.
 
-20. **Options and configuration:** synchronous access to options that have only async validators throws `OptionsValidationException`; empty strings in chained configuration now override earlier providers; DI scope disposal disposes every service and can throw `AggregateException`.
-
-21. **Named mutexes on Unix default to user scope:** processes running as different users no longer share a named mutex.
-
-22. **OpenAPI and HTTP:** all `[ProducesResponseType]` entries for a status code now appear in the OpenAPI document (generators that key by status code can fail on duplicates); Kestrel rejects HTTP/2 and HTTP/3 requests with connection-specific headers; OpenTelemetry HTTP tags are emitted by default.
-
-23. **Certificate chains on Linux:** AIA downloads are limited to two per chain build. Supply intermediates through `X509ChainPolicy.ExtraStore` or the certificate store.
-
-24. **NuGet restore:** restore no longer falls back to a higher version found only in the global packages folder; it may pick a different version or fail with NU1102.
+20. **Also review** (details in the references): saturating floating-point to small integer casts, `IHost.RunAsync` failing when a `BackgroundService` fails, empty strings in chained configuration, DI disposal `AggregateException`, Unix named mutex scope, OpenAPI multiple response types per status code, stricter Kestrel HTTP/2 and HTTP/3 header rules, OpenTelemetry HTTP tags, the Linux AIA fetch limit, and NuGet restore no longer using higher versions from the global packages folder.
 
 ### Step 5: Update infrastructure
 
@@ -249,7 +238,7 @@ These changes compile successfully but alter runtime behavior. Review each one a
    - EF Core SQL Server with Entra ID authentication
    - NativeAOT output filenames on Unix
    - Money and quantity calculations that convert `double` to `decimal` or use `Math.Round(value, digits)`
-   - Every form POST (including cross-origin posts and requests through a reverse proxy) for `400 Bad Request` from CSRF protection
+   - Form POSTs (cross-origin posts, and requests through a reverse proxy) if token-based antiforgery is not used
    - Blazor forms validation (`ValidateAsync`), validation message styling and scripts, and third-party component libraries
 5. Review the diff and ensure no unintended behavioral changes were introduced
 

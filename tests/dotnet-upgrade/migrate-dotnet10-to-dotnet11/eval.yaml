@@ -418,29 +418,31 @@ stimuli:
         OnAfterRenderAsync path; recommends checking every caller before removing it
       - Explains BL0016 is satisfied by an enclosing try/catch (or a shared helper that catches
         JSDisconnectedException), not by changing the call
-  - name: Cross-origin form posts return 400 after upgrade
+  - name: Removing token antiforgery after the .NET 11 upgrade
     tags: {capability: automatic-csrf-protection, risk: rejected-form-posts, journey: migrate-web-app}
     prompt: >
-      After upgrading our ASP.NET Core app from .NET 10 to .NET 11, a login form hosted on a
-      different origin that posts to our Minimal API endpoint (it binds [FromForm] data) now gets
-      400 Bad Request. Same-site requests work. The app runs behind a reverse proxy. We didn't
-      change any antiforgery code. What changed and how do we fix it safely?
+      We upgraded our ASP.NET Core app (built with WebApplication.CreateBuilder) from .NET 10 to
+      .NET 11. It calls AddAntiforgery() and app.UseAntiforgery(), and has a Minimal API endpoint
+      that binds [FromForm] data. A partner site on a different origin posts a form to that endpoint
+      with a valid antiforgery token, and that works today. We read that .NET 11 has built-in CSRF
+      protection, so we want to remove AddAntiforgery() and UseAntiforgery(). What will change, and
+      what do we need to do so the partner form keeps working?
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (CSRF|Sec-Fetch-Site|Origin|antiforgery)
+          pattern: (Sec-Fetch-Site|Origin)
       - type: output-matches
         config:
-          pattern: (CORS|AllowCredentials|DisableAntiforgery)
+          pattern: (CORS|AllowCredentials)
       - type: prompt
     rubric:
-      - Explains that .NET 11 adds automatic cross-origin CSRF protection middleware via WebApplication.CreateBuilder
-        that checks Sec-Fetch-Site and Origin on form-binding endpoints and rejects cross-origin form posts with 400
-      - Recommends allowing the legitimate origin with a CORS policy that calls AllowCredentials, rather than disabling
-        protection globally
-      - Mentions per-endpoint opt-out only for endpoints that are not CSRF-vulnerable
-      - Advises checking forwarded headers and smoke-testing form posts through the reverse proxy
+      - Explains that .NET 11 adds automatic CSRF protection middleware that checks Sec-Fetch-Site and Origin on
+        form-binding endpoints, and that while UseAntiforgery runs the token result takes precedence
+      - Warns that after removing token-based antiforgery the cross-origin partner post will be rejected with 400
+      - Recommends a CORS policy for the partner origin that calls AllowCredentials, rather than disabling
+        CSRF protection globally
+      - Mentions reasons to keep token-based antiforgery, such as browsers that do not send Sec-Fetch-Site
   - name: NU1510 and test project Newtonsoft.Json after upgrade
     tags: {capability: shared-framework-packages-vstest, risk: restore-and-compile-failure, journey: fix-build-warnings}
     prompt: |

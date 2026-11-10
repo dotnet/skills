@@ -35,7 +35,7 @@ if (await editContext.ValidateAsync())
 **Fix:** Replace `Validate()` with `await ValidateAsync()` and make the calling method async. The change tends to spread upward through form components, dialogs, and multi-step forms, so plan for it. Watch for these patterns:
 
 - **Null-conditional checks:** `editContext?.Validate() is false` cannot simply become `editContext?.ValidateAsync() is false`, because a `Task<bool>` is never `false`. Rewrite it as `editContext is not null && !await editContext.ValidateAsync()`.
-- **Event handlers:** a synchronous `EditContext.OnFieldChanged` handler that calls `Validate()` would have to become `async void`. Prefer to move validation into an async method that the component awaits, for example from the submit path.
+- **Event handlers:** a synchronous `EditContext.OnFieldChanged` handler that calls `Validate()` would have to become `async void`. Validate the whole form from the submit path instead. Where per-field validation is needed while the user types, call `ValidateAsync()` from the input's own async event handler (for example `@onchange` or `@bind:after`), which the component awaits.
 - **Custom validators:** subscribe to `OnValidationRequested` and register async work with `ValidationRequestedEventArgs.AddAsyncValidator(...)`. `ValidationRequestedEventArgs.IsAsync` is `false` when the caller used `Validate()`.
 
 Sources: https://github.com/dotnet/aspnetcore/pull/67662, https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.components.forms.editcontext.validate?view=aspnetcore-11.0
@@ -73,11 +73,11 @@ Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/mvc-co
 
 **Impact: Low.** The `Microsoft.AspNetCore.ConcurrencyLimiter` package (obsolete since ASP.NET Core 8, ASP0025) has no 11.x version. `UseConcurrencyLimiter`, `AddQueuePolicy`, and `AddStackPolicy` are gone, and restoring the package at version 11 fails.
 
-**Fix:** Migrate to the rate limiting middleware: `AddRateLimiter(o => o.AddConcurrencyLimiter("policy", ...))`, `app.UseRateLimiter()`, and `.RequireRateLimiting("policy")`.
+**Fix:** Migrate to the rate limiting middleware (the 9.x and 10.x packages still restore and can be used while targeting `net11.0` as an interim step): `AddRateLimiter(o => o.AddConcurrencyLimiter("policy", ...))`, `app.UseRateLimiter()`, and `.RequireRateLimiting("policy")`.
 
 Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/concurrencylimiter-removed
 
-### New Blazor analyzers BL0011 to BL0016 (Preview 7)
+### New Blazor analyzers BL0011 to BL0016
 
 **Impact: Medium (for projects using `TreatWarningsAsErrors`).** New Blazor analyzers are enabled as warnings by default. There are no Learn pages for them yet; the behavior below comes from the analyzer source in `src/Components/Analyzers` in dotnet/aspnetcore.
 
@@ -102,20 +102,23 @@ Sources: https://github.com/dotnet/aspnetcore/pull/67176, https://github.com/dot
 
 ### Automatic cross-origin CSRF protection middleware
 
-**Impact: High (for apps with forms, especially behind reverse proxies or with cross-origin form posts).** Apps built with `WebApplication.CreateBuilder` now get a CSRF protection middleware by default. It inspects the `Sec-Fetch-Site` and `Origin` headers on unsafe requests (not `GET`, `HEAD`, `OPTIONS`, `TRACE`) and records a verdict for endpoints with antiforgery metadata that requires validation:
+**Impact: Low–Medium.** For most apps no code change is required, but the request pipeline changes. Apps built with `WebApplication.CreateBuilder` now get a CSRF protection middleware by default. It inspects the `Sec-Fetch-Site` and `Origin` headers on unsafe requests (not `GET`, `HEAD`, `OPTIONS`, `TRACE`) and records a verdict for endpoints with antiforgery metadata that requires validation:
 
 - Blazor static SSR endpoints
 - Minimal API endpoints that bind form data
 - MVC actions with `[ValidateAntiForgeryToken]` or `[AutoValidateAntiforgeryToken]`
 
-JSON-bound endpoints are not affected. A cross-origin form post to an affected endpoint now returns `400 Bad Request`. The rules, in order: `Sec-Fetch-Site: same-origin` or `none` passes; an origin trusted by the endpoint's CORS policy passes only if that policy also calls `.AllowCredentials()` (`AllowAnyOrigin` is not honored); `cross-site` or `same-site` is otherwise denied; without `Sec-Fetch-Site`, `Origin` must match the request's scheme, host, and port; a request with neither header passes. If `app.UseAntiforgery()` runs, the token-based result takes precedence.
+JSON-bound endpoints are not affected. When the verdict is invalid, those endpoints return `400 Bad Request`. The rules, in order: `Sec-Fetch-Site: same-origin` or `none` passes; an origin trusted by the endpoint's CORS policy passes only if that policy also calls `.AllowCredentials()` (`AllowAnyOrigin` is not honored); `cross-site` or `same-site` is otherwise denied; without `Sec-Fetch-Site`, `Origin` must match the request's scheme, host, and port; a request with neither header passes.
+
+If the pipeline runs `app.UseAntiforgery()`, the token-based result takes precedence and the app keeps its .NET 10 behavior. The header checks decide the outcome when token validation does not run, for example after removing `app.UseAntiforgery()` and `AddAntiforgery()` as the migration guide suggests, or in Blazor SSR apps that don't run the token middleware (see the next entry).
 
 **Fix:**
+- **Before removing token-based antiforgery:** keep `app.UseAntiforgery()` if browsers that don't send `Sec-Fetch-Site` must be supported, if the app uses `IAntiforgeryAdditionalDataProvider`, or if compliance requires a separate layer.
 - **Legitimate cross-origin form posts:** add a CORS policy for the caller's origin with `.AllowCredentials()`, and apply it to the endpoint (`[EnableCors("policy")]`, `.RequireCors("policy")`, or the default policy).
 - **Endpoints that are not CSRF-vulnerable** (non-browser clients, bearer-token authentication): opt out per endpoint with `.DisableAntiforgery()` (Minimal APIs), `[IgnoreAntiforgeryToken]` (MVC), or `@attribute [RequireAntiforgeryToken(false)]` (Blazor SSR page).
 - **Custom allow lists:** register your own `ICsrfProtection` implementation.
 - **Global opt-out (escape hatch):** set the configuration key `DisableCsrfProtection` to `true` (for example `ASPNETCORE_DisableCsrfProtection=true`). Prefer per-endpoint opt-outs.
-- **Reverse proxies:** the `Origin` comparison uses the request's scheme, host, and port as the app sees them. Make sure forwarded headers are processed (`UseForwardedHeaders` with the proxy trusted) so the app sees the public scheme and host. Smoke-test every form POST (login, logout, file upload, payment or SSO callbacks that post back) through the real proxy or load balancer, not only against Kestrel directly.
+- **Reverse proxies:** when a request has no `Sec-Fetch-Site` header, the `Origin` fallback compares against the scheme and host the app sees. If a proxy terminates TLS or rewrites the host, process forwarded headers (`UseForwardedHeaders`) so they match the public URL. Smoke-test form POSTs through the real proxy.
 
 Sources: https://learn.microsoft.com/en-us/aspnet/core/migration/100-to-110, https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery
 

@@ -2,6 +2,16 @@
 
 These breaking changes affect projects using cryptography APIs. Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/11
 
+## Obsoleted APIs
+
+### AsnEncodedData.RawData setter obsoleted (SYSLIB0065) (Preview 6)
+
+**Impact: Low (High for projects using `TreatWarningsAsErrors` that set `RawData`).** Setting `AsnEncodedData.RawData` now produces warning SYSLIB0065.
+
+**Fix:** Use the constructor of the appropriate type to decode the data, or use `AsnEncodedData.CopyFrom(AsnEncodedData)` for mutable scenarios.
+
+Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/cryptography/11/obsolete-apis
+
 ## Behavioral Changes
 
 ### DSA removed from macOS

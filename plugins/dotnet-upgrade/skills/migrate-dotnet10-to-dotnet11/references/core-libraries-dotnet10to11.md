@@ -23,7 +23,7 @@ Source: https://github.com/dotnet/runtime/pull/120328
 
 ### API obsoletions with custom diagnostic IDs (SYSLIB0064, SYSLIB0066)
 
-**Impact: Medium (for projects using `TreatWarningsAsErrors`).** Two new obsoletion warnings:
+**Impact: Medium (for projects using `TreatWarningsAsErrors`).** Two new obsoletion warnings (see also SYSLIB0065 in the cryptography reference):
 
 - **SYSLIB0064:** `RSACryptoServiceProvider.Encrypt(byte[], bool)` and `Decrypt(byte[], bool)`. Use the overloads that take `RSAEncryptionPadding`.
 - **SYSLIB0066:** `IStartupValidator`. Use `IAsyncStartupValidator`, and don't register one implementation under both interfaces.
@@ -45,10 +45,18 @@ decimal converted = (decimal)value;
 
 Affected APIs include `(decimal)` casts from `float`/`double`, `new decimal(double)`, `new decimal(float)`, `Convert.ToDecimal(double)`, `Convert.ToDecimal(float)`, `(double)`/`(float)` casts from `decimal`, `Decimal.CreateChecked/Saturating/Truncating`, `BigInteger` to `double`/`float`/`Half`/`BFloat16`, and the equivalent `IConvertible` and generic math paths. Code that checks the number of decimal places, compares against decimal literals, formats amounts, or stores expected values in tests can change behavior.
 
+When such a conversion is a compile-time constant, a compiler from the .NET 11 SDK can embed the new result in the assembly, whatever the target framework. Projects that still target `net10.0` but build with the .NET 11 SDK can therefore see the new values too.
+
 **Fix:**
 - Search for `(decimal)` casts, `Convert.ToDecimal(`, and `new decimal(` applied to `double` or `float` values (including boxed values passed to `Convert`).
 - Use `m` literals for values that are meant to be decimal (`123.4567m`, not `(decimal)123.4567`), including in test data.
-- Where the previous result is required, round to 15 significant digits for a `double` source (7 for `float`) before converting, for example by formatting with `"G15"` and parsing back with `decimal.Parse(..., CultureInfo.InvariantCulture)`.
+- Where the previous result is required, round to 15 significant digits for a `double` source (7 for `float`) before converting. Format with `"G15"` (`"G7"`) and parse back, allowing exponent notation:
+
+  ```csharp
+  static decimal ToDecimalLikeNet10(double value) =>
+      decimal.Parse(value.ToString("G15", CultureInfo.InvariantCulture),
+                    NumberStyles.Float, CultureInfo.InvariantCulture);
+  ```
 - Update tests and serialized expected values that encoded the old result. There is no compatibility switch.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/decimal-biginteger-floating-point-conversions
@@ -95,7 +103,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 
 ### Named mutexes default to user scope on Unix (RC 2)
 
-**Impact: Low–Medium (Unix only).** Named mutexes are now scoped to the current user by default on Unix, and their backing files move to `$TMPDIR`, then `$XDG_RUNTIME_DIR`, then the user database home directory. Processes running as different users no longer share a named mutex. Containers running with a UID that has no user database entry can fail.
+**Impact: Low–Medium (Unix only).** This change also ships in servicing updates (.NET 10.0.13, 9.0.21, and 8.0.32), so a patched .NET 10 app may already have it. Named mutexes are now scoped to the current user by default on Unix, and their backing files move to `$TMPDIR`, then `$XDG_RUNTIME_DIR`, then the user database home directory. Processes running as different users no longer share a named mutex. Containers running with a UID that has no user database entry can fail.
 
 **Fix:** To share a mutex across users, pass `NamedWaitHandleOptions.None` to a `Mutex` constructor that takes `NamedWaitHandleOptions`, or set the runtimeconfig option `System.Threading.Mutex.UnsafeDefaultMutexScopeGlobal` to `true`. In containers without a user database entry, set `XDG_RUNTIME_DIR`.
 
@@ -233,14 +241,6 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/1
 **Fix:** If the process must still exit with code 0, wrap `await host.RunAsync()` in try/catch. See also the BackgroundService entry above.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/11/ihost-runasync-stopasync-throw-backgroundservice-failure
-
-### Synchronous access to async-validated options throws (RC 1)
-
-**Impact: Medium (if using `IAsyncValidateOptions<T>`).** `IAsyncValidateOptions<TOptions>` now derives from `IValidateOptions<TOptions>` and is no longer contravariant. When options have only async validators, synchronous access (`IOptions<T>.Value`, `IOptionsMonitor<T>.CurrentValue`, `IOptionsSnapshot<T>.Value`, `IOptionsFactory<T>.Create`) throws `OptionsValidationException`.
-
-**Fix:** Call `ValidateOnStart()` and complete host startup before synchronous access. Keep at least one synchronous validator for `IOptionsSnapshot<T>` and `IOptionsMonitor<T>` reload paths. Direct implementers must add `Validate(string? name, TOptions options)`.
-
-Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/11/async-options-validation-sync-access
 
 ### Options validation generator reports SYSLIB1205 for explicit Validate implementations (RC 1)
 
