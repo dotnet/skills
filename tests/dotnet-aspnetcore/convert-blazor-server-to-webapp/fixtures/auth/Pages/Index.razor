@@ -1,0 +1,6 @@
+@page "/"
+
+<AuthorizeView>
+    <Authorized>Hello, @context.User.Identity?.Name</Authorized>
+    <NotAuthorized>Please sign in.</NotAuthorized>
+</AuthorizeView>

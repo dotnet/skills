@@ -7,10 +7,13 @@
 > document describes the raw `skill-validator evaluate` output retained under
 > `_agent-evaluation/` for custom-agent diagnosis and for historical results.
 >
-> The current Vally workflow makes one targeted recovery attempt for executor
-> `session.idle` timeouts before adaptation. See
-> `executor-retry-summary.json` in the result artifact and the current guide for
-> the bounded retry and fail-closed rules.
+> The current Vally workflow makes up to two targeted retry passes before
+> adaptation when a required baseline or isolated-skilled record has an exact
+> Vally stimulus wall-clock timeout, a `session.idle` timeout, or the Copilot
+> SDK `Session disconnected while waiting for a response` error. See
+> `executor-retry-summary.json` and the raw record's `executorRetry` field in
+> the result artifact for recovery evidence, and the current guide for the
+> bounded retry and fail-closed rules.
 > Native-agent `RunMetrics.errorCount` is diagnostic and may include recovered
 > tool-call failures. Adaptation invalidates a scenario only for terminal
 > evidence: an explicit execution error, a missing or timed-out required arm, a
@@ -47,6 +50,18 @@ behavior against the corrected executor.
 > quota exhaustion and for the paired heading and token-environment lines in
 > the Copilot CLI's no-authentication setup block. Unrelated service and
 > configuration failures remain terminal.
+
+> Before token selection or evaluation starts, the workflow serially warms up
+> first-use state for every .NET SDK installed on the runner. This prevents
+> parallel fixture setup from racing in the .NET CLI's first-use
+> `NuGet-Migrations` initialization. `dotnet --list-sdks` returning no versions
+> fails the job with `dotnet --list-sdks reported no installed SDKs`. A warm-up
+> that does not create the SDK-specific sentinel fails with
+> `First-use sentinel missing for .NET SDK <version> after warm-up`. Both are
+> evaluation-infrastructure failures that occur before model sessions and
+> result artifacts exist; do not classify them as skill regressions. Diagnose
+> the runner's SDK installation or .NET CLI first-use state, then rerun the
+> evaluation without changing the skill.
 
 > PR session replay publishing is auxiliary. A missing or invalid
 > `SKILLS_DATA_TOKEN`, or one that cannot authenticate for a non-mutating

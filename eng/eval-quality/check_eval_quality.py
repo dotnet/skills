@@ -727,27 +727,51 @@ def check_symlink_containment(path: str, root: str) -> None:
     validate(path)
 
 
+FIXTURE_ENVIRONMENT_KEYS = ("environment", "agent_environment", "grading_environment")
+
+
+def agent_environment(scope: dict):
+    """Return the environment an agent receives; Vally treats `agent_environment`
+    as the preferred name for `environment`."""
+    return scope.get("agent_environment") or scope.get("environment")
+
+
+def environment_file_entries(environment) -> list:
+    if not isinstance(environment, dict):
+        return []
+    entries = environment.get("files") or []
+    return entries if isinstance(entries, list) else []
+
+
+def agent_environment_files(scope: dict) -> list:
+    return environment_file_entries(agent_environment(scope))
+
+
 def check_fixtures(spec: str, doc: dict, tracked: set[str]) -> None:
     base = os.path.dirname(spec)
-    fixture_groups = [("suite", doc.get("environment"))]
-    fixture_groups.extend(
-        (f"stimulus {stim.get('name')!r}", stim.get("environment"))
-        for stim in doc.get("stimuli") or []
-    )
-    for owner, environment in fixture_groups:
+    scopes = [("suite", doc)]
+    scopes.extend(
+        (f"stimulus {stim.get('name')!r}", stim) for stim in doc.get("stimuli") or [])
+    fixture_groups = [
+        (owner, key, scope.get(key))
+        for owner, scope in scopes
+        for key in FIXTURE_ENVIRONMENT_KEYS
+    ]
+    for owner, key, environment in fixture_groups:
+        where = owner if key == "environment" else f"{owner} {key}"
         for entry in (environment or {}).get("files") or []:
             src = entry.get("src")
             dest = entry.get("dest")
             if not isinstance(dest, str) or not dest.strip():
                 errors.append(
-                    f"{spec}: {owner} environment.files mapping requires "
+                    f"{spec}: {owner} {key}.files mapping requires "
                     "a non-empty string dest")
                 continue
             try:
                 path_within(base, dest)
             except ValueError as exc:
                 errors.append(
-                    f"{spec}: {owner} has unsafe fixture dest {dest!r}: {exc}")
+                    f"{spec}: {where} has unsafe fixture dest {dest!r}: {exc}")
                 continue
             if not src:
                 continue
@@ -756,30 +780,48 @@ def check_fixtures(spec: str, doc: dict, tracked: set[str]) -> None:
                 check_symlink_containment(resolved, fixture_containment_root(resolved, base))
             except (OSError, ValueError) as exc:
                 errors.append(
-                    f"{spec}: {owner} has unsafe fixture src {src!r}: {exc}")
+                    f"{spec}: {where} has unsafe fixture src {src!r}: {exc}")
                 continue
             if not os.path.exists(resolved):
-                errors.append(f"{spec}: {owner} references missing fixture {src}")
+                errors.append(f"{spec}: {where} references missing fixture {src}")
                 continue
             fixture_files = files_under(resolved)
             if (os.path.isdir(resolved)
                     and not any(os.path.isfile(f) and not os.path.islink(f)
                                 for f in fixture_files)):
                 errors.append(
-                    f"{spec}: {owner} references fixture directory {src!r} "
+                    f"{spec}: {where} references fixture directory {src!r} "
                     "without materializable tracked content; git does not preserve "
                     "empty directories or empty symlink targets")
                 continue
             untracked = [f for f in fixture_files if f not in tracked]
             if untracked:
                 errors.append(
-                    f"{spec}: {owner} references fixture files not tracked by git "
+                    f"{spec}: {where} references fixture files not tracked by git "
                     f"(they will not exist in CI): {untracked[:3]}")
 
 
 def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
     base = os.path.dirname(spec)
+    suite_environment = agent_environment(doc)
+    suite_destinations = {
+        entry["dest"]
+        for entry in environment_file_entries(suite_environment)
+        if isinstance(entry, dict) and isinstance(entry.get("dest"), str)
+    }
     for stim in doc.get("stimuli") or []:
+        duplicates = sorted(
+            entry["dest"]
+            for entry in agent_environment_files(stim)
+            if isinstance(entry, dict)
+            and isinstance(entry.get("dest"), str)
+            and entry["dest"] in suite_destinations
+        )
+        if duplicates and not os.path.basename(base).startswith("agent."):
+            errors.append(
+                f"{spec}: '{stim.get('name')}' redeclares suite environment file "
+                f"destination(s) {duplicates}; Vally rejects duplicate file entries "
+                "and loads none of the eval's stimuli")
         grader_types = {g.get("type") for g in (stim.get("graders") or [])
                         if isinstance(g, dict)}
         if (stim.get("golden_patch")
@@ -790,8 +832,9 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
                 "but no golden_trajectory to provide the reference response")
         if (stim.get("golden_trajectory")
                 and not stim.get("golden_patch")
-                and (stim.get("environment") or {}).get("files")
-                and stimulus_requires_patch(spec, stim)):
+                and (environment_file_entries(suite_environment)
+                     or agent_environment_files(stim))
+                and stimulus_requires_patch(spec, stim, suite_environment)):
             missing_workspace_change_references.append(
                 f"{spec}: {stim.get('name')!r}")
 
@@ -807,7 +850,9 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
                         oversized_inline_references.append(
                             f"{spec}: {stim.get('name')!r}")
                 elif isinstance(reference["inline"], str):
-                    check_patch_applies(spec, stim, patch_text=reference["inline"])
+                    check_patch_applies(
+                        spec, stim, patch_text=reference["inline"],
+                        suite_environment=suite_environment)
                 continue
             if not reference.get("path"):
                 continue
@@ -851,7 +896,8 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
                     nested_response_references.append(
                         f"{spec}: {stim.get('name')!r} -> {source}")
             elif key == "golden_patch":
-                check_patch_applies(spec, stim, resolved)
+                check_patch_applies(
+                    spec, stim, resolved, suite_environment=suite_environment)
 
 
 def sanitize_image_ref(reference: str) -> str:
@@ -1350,9 +1396,17 @@ def check_required_vally_inputs(spec: str, doc: dict) -> None:
                 "lowercase kebab-case")
 
 
-def materialize_declared_files(spec: str, stim: dict, workspace: str) -> None:
-    """Copy fixture inputs to the same destination layout used by Vally."""
-    entries = (stim.get("environment") or {}).get("files") or []
+def materialize_declared_files(
+        spec: str, stim: dict, workspace: str, suite_environment=None) -> None:
+    """Copy fixture inputs to the same destination layout used by Vally.
+
+    Vally merges suite-level `environment.files` into every stimulus workspace,
+    so suite entries are materialized before the stimulus's own entries.
+    """
+    entries = (
+        environment_file_entries(suite_environment)
+        + agent_environment_files(stim)
+    )
     base = os.path.dirname(spec)
     for entry in entries:
         source = repository_source_path(base, entry["src"])
@@ -1435,7 +1489,8 @@ def grader_passes_on_fixture(grader: dict, workspace: str) -> bool | None:
     return negate
 
 
-def stimulus_requires_patch(spec: str, stim: dict) -> bool:
+def stimulus_requires_patch(
+        spec: str, stim: dict, suite_environment=None) -> bool:
     """Return whether the expected workspace differs from the declared fixture."""
     graders = stim.get("graders") or []
     for grader in graders:
@@ -1452,7 +1507,7 @@ def stimulus_requires_patch(spec: str, stim: dict) -> bool:
 
     try:
         with tempfile.TemporaryDirectory(prefix="eval-fixture-baseline-") as workspace:
-            materialize_declared_files(spec, stim, workspace)
+            materialize_declared_files(spec, stim, workspace, suite_environment)
             return any(
                 grader_passes_on_fixture(grader, workspace) is not True
                 for grader in file_graders
@@ -1463,15 +1518,18 @@ def stimulus_requires_patch(spec: str, stim: dict) -> bool:
 
 def check_patch_applies(
         spec: str, stim: dict, patch: str | None = None,
-        *, patch_text: str | None = None) -> None:
+        *, patch_text: str | None = None, suite_environment=None) -> None:
     """Materialize declared fixture inputs and prove the golden patch applies."""
-    entries = (stim.get("environment") or {}).get("files") or []
+    entries = (
+        environment_file_entries(suite_environment)
+        + agent_environment_files(stim)
+    )
     if not entries:
         return  # Command-generated workspaces cannot be reconstructed statically.
 
     try:
         with tempfile.TemporaryDirectory(prefix="eval-golden-patch-") as workspace:
-            materialize_declared_files(spec, stim, workspace)
+            materialize_declared_files(spec, stim, workspace, suite_environment)
             subprocess.run(
                 ["git", "init", "-q"], cwd=workspace, capture_output=True,
                 text=True, check=True)

@@ -1,0 +1,27 @@
+diff --git a/git-stamp/Directory.Build.targets b/git-stamp/Directory.Build.targets
+index 809f5ff..299fb2d 100644
+--- a/git-stamp/Directory.Build.targets
++++ b/git-stamp/Directory.Build.targets
+@@ -1,7 +1,9 @@
+ <Project>
+-  <!-- Stamps the short commit id into the informational version of every assembly. -->
++  <!-- Stamps the short commit id into the informational version of every assembly.
++       build.sh computes it once and passes -p:GitCommit; the Exec only runs when it is missing,
++       for example in a single-project or IDE build. -->
+   <Target Name="StampGitCommit" BeforeTargets="GetAssemblyAttributes">
+-    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low">
++    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" Condition="'$(GitCommit)' == ''">
+       <Output TaskParameter="ConsoleOutput" PropertyName="GitCommit" />
+     </Exec>
+     <PropertyGroup>
+diff --git a/git-stamp/build.sh b/git-stamp/build.sh
+index 63ec76f..d93299e 100644
+--- a/git-stamp/build.sh
++++ b/git-stamp/build.sh
+@@ -1,4 +1,5 @@
+ #!/usr/bin/env bash
+ set -euo pipefail
+ 
+-dotnet build Contoso.slnx -c Release -m
++commit="$(git rev-parse --short HEAD)"
++dotnet build Contoso.slnx -c Release -m -p:GitCommit="$commit"

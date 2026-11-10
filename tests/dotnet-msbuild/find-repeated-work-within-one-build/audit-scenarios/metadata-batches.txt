@@ -1,0 +1,18 @@
+Invocation: dotnet msbuild Models.csproj -m:8
+Task Performance Summary: Exec 72000 ms, 120 calls.
+All Exec calls run serially in GenerateModels.
+60 Model items have Namespace=Contoso.Public, 60 have Namespace=Contoso.Internal.
+
+<Target Name="GenerateModels" BeforeTargets="CoreCompile"
+        Inputs="@(Model)" Outputs="@(Model->'obj/%(Filename).g.cs')">
+  <Exec Command="modelgen --input &quot;%(Model.FullPath)&quot; --namespace &quot;%(Model.Namespace)&quot; --output-dir obj" />
+  <ItemGroup><Compile Include="@(Model->'obj/%(Filename).g.cs')" /></ItemGroup>
+</Target>
+
+modelgen command contract:
+--input-list PATH is an alternative to --input PATH.
+The UTF-8 list contains one input path per line; --output-dir is unchanged.
+--namespace applies to every input in that invocation, not to individual lines.
+All input stems are unique. Content is deterministic for (input bytes, namespace).
+Startup is 500 ms per process; schema processing is 100 ms per input.
+Both namespaces and all 120 outputs are required. No critical-path timeline exists.
