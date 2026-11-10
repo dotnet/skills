@@ -71,6 +71,9 @@ class JudgeReplayTests(unittest.TestCase):
         self.assertIn("judge-replay.py replay", source)
         self.assertIn("judge-replay.py download-source", source)
         self.assertIn('--artifact-id "$SOURCE_ID"', source)
+        self.assertIn('--toolchain-sha "${{ github.workflow_sha }}"', source)
+        self.assertIn('for judge in "$ORIGINAL_JUDGE" "$CANDIDATE_JUDGE"', source)
+        self.assertIn("No single configured Copilot credential passed both judge", source)
         self.assertNotIn('gh run download "$SOURCE_RUN"', source)
         self.assertNotIn("--source-sha", source)
         producer = yaml.safe_load(
@@ -238,19 +241,19 @@ class JudgeReplayTests(unittest.TestCase):
         new = {("example", "case", 0): {"winner": "treatment", "errored": False}}
         comparison = replay.compare(old, new)
         self.assertEqual(comparison["counts"]["direct_reversals"], 1)
-        self.assertEqual(comparison["counts"]["old_check_alignment"], 1)
-        self.assertEqual(comparison["counts"]["new_check_alignment"], 0)
+        self.assertEqual(comparison["counts"]["original_check_alignment"], 1)
+        self.assertEqual(comparison["counts"]["candidate_check_alignment"], 0)
         with self.assertRaisesRegex(ValueError, "Trial keys differ"):
             replay.compare(old, {("example", "case", 1): new[("example", "case", 0)]})
         new[("example", "case", 0)]["errored"] = True
-        self.assertEqual(replay.compare(old, new)["counts"]["new_errors"], 1)
+        self.assertEqual(replay.compare(old, new)["counts"]["candidate_errors"], 1)
         self.assertEqual(replay.compare(old, new)["counts"]["direct_reversals"], 0)
         new[("example", "case", 0)] = {"winner": None, "errored": False}
-        with self.assertRaisesRegex(ValueError, "Missing or invalid candidate winner"):
+        with self.assertRaisesRegex(ValueError, "Missing or invalid current candidate winner"):
             replay.compare(old, new)
         new[("example", "case", 0)] = {"winner": "baseline", "errored": False}
         old[("example", "case", 0)]["winner"] = "unknown"
-        with self.assertRaisesRegex(ValueError, "Missing or invalid original winner"):
+        with self.assertRaisesRegex(ValueError, "Missing or invalid current original winner"):
             replay.compare(old, new)
 
     def test_stable_trial_indices_survive_array_reordering(self):
@@ -599,7 +602,8 @@ class JudgeReplayTests(unittest.TestCase):
             source, output = root / "source", root / "output"
             original = source / "dotnet" / "example"
             original.mkdir(parents=True)
-            (original / "results.json").write_text(json.dumps(result("claude-haiku-4.5")))
+            (original / "results.json").write_text(json.dumps(
+                result("claude-haiku-4.5", winner=None)))
             (source / "source-commit.json").write_text(json.dumps({"source_sha": "a" * 40}))
             experiment = source / "_experiment" / "timestamp"
             (experiment / "baseline").mkdir(parents=True)
@@ -609,6 +613,7 @@ class JudgeReplayTests(unittest.TestCase):
             args = SimpleNamespace(source=source, output=output, original_judge="claude-haiku-4.5",
                                    candidate_judge="claude-haiku-5.5", repo_root=str(root),
                                    adapter="adapt.mjs", validator="skill-validator",
+                                   toolchain_sha="b" * 40,
                                    run_id="123", artifact_id="456",
                                    artifact_name="vally-results-dotnet")
 
@@ -621,12 +626,14 @@ class JudgeReplayTests(unittest.TestCase):
                                  {"tests/dotnet/example/eval.yaml": {"case": True}})
                 self.assertEqual(argv[argv.index("--plugin-variant") + 1],
                                  "__judge_only_no_plugin__")
-                candidate = output / "candidate"
-                path = candidate / "dotnet" / "example"
+                judge = argv[argv.index("--judge-model") + 1]
+                target = Path(argv[argv.index("--output-root") + 1])
+                path = target / "dotnet" / "example"
                 path.mkdir(parents=True)
                 (path / "results.json").write_text(json.dumps(
-                    result("claude-haiku-5.5", winner="treatment")))
-                (candidate / "adapter-summary.json").write_text(json.dumps({
+                    result(judge, winner="baseline" if judge == "claude-haiku-4.5"
+                           else "treatment")))
+                (target / "adapter-summary.json").write_text(json.dumps({
                     "expectedEvalCount": 1, "writtenResultCount": 1,
                     "missingEvalCount": 0, "unexpectedEvalCount": 0,
                     "measurementInvalidEvalCount": 0,
@@ -634,10 +641,51 @@ class JudgeReplayTests(unittest.TestCase):
 
             with patch.object(replay, "command", side_effect=fake_command) as called:
                 replay.run_replay(args)
-            self.assertEqual(called.call_count, 1)
+            self.assertEqual(called.call_count, 2)
             report = json.loads((output / "comparison.json").read_text())
             self.assertEqual(report["counts"]["direct_reversals"], 1)
             self.assertEqual(report["provenance"]["source_sha"], "a" * 40)
+            self.assertEqual(report["provenance"]["comparison_basis"],
+                             "paired_current_toolchain")
+            self.assertFalse(report["provenance"]["historical_recorded"]["authoritative"])
+            self.assertIsNone(report["cases"][0]["historical_recorded"]["winner"])
+
+    def test_vally_replay_rejects_executor_evidence_drift(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
+            root = Path(temporary)
+            source, output = root / "source", root / "output"
+            original = source / "dotnet" / "example"
+            original.mkdir(parents=True)
+            (original / "results.json").write_text(json.dumps(result("historical-judge")))
+            (source / "source-commit.json").write_text(json.dumps({"source_sha": "a" * 40}))
+            experiment = source / "_experiment" / "timestamp"
+            experiment.mkdir(parents=True)
+            evidence = experiment / "executor-evidence.jsonl"
+            evidence.write_text("{}\n")
+            args = SimpleNamespace(
+                source=source, output=output, original_judge="claude-haiku-4.5",
+                candidate_judge="claude-haiku-5.5", repo_root=str(root),
+                adapter="adapt.mjs", validator="skill-validator", toolchain_sha="b" * 40,
+                run_id="123", artifact_id="456", artifact_name="vally-results-dotnet")
+
+            def fake_command(*argv, **_kwargs):
+                judge = argv[argv.index("--judge-model") + 1]
+                target = Path(argv[argv.index("--output-root") + 1])
+                path = target / "dotnet" / "example"
+                path.mkdir(parents=True)
+                (path / "results.json").write_text(json.dumps(result(judge)))
+                (target / "adapter-summary.json").write_text(json.dumps({
+                    "expectedEvalCount": 1, "writtenResultCount": 1,
+                    "missingEvalCount": 0, "unexpectedEvalCount": 0,
+                    "measurementInvalidEvalCount": 0,
+                }))
+                evidence.write_text('{"changed":true}\n')
+
+            with patch.object(replay, "command", side_effect=fake_command) as called:
+                with self.assertRaisesRegex(ValueError, "executor evidence changed"):
+                    replay.run_replay(args)
+            self.assertEqual(called.call_count, 1)
+            self.assertFalse((output / "comparison.json").exists())
 
     def test_replay_rejects_candidate_activation_drift(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
@@ -648,18 +696,22 @@ class JudgeReplayTests(unittest.TestCase):
             (original / "results.json").write_text(json.dumps(result("claude-haiku-4.5")))
             experiment = source / "_experiment" / "run"
             experiment.mkdir(parents=True)
+            (experiment / "executor-evidence.jsonl").write_text("{}\n")
             (source / "source-commit.json").write_text(json.dumps({"source_sha": "a" * 40}))
             args = SimpleNamespace(source=source, output=output, original_judge="claude-haiku-4.5",
                                    candidate_judge="claude-haiku-5.5", repo_root=str(root),
                                    adapter="adapt.mjs", validator="skill-validator",
+                                   toolchain_sha="b" * 40,
                                    run_id="123", artifact_id="456", artifact_name="vally-results-dotnet")
 
-            def fake_command(*_argv, **_kwargs):
-                target = output / "candidate" / "dotnet" / "example"
+            def fake_command(*argv, **_kwargs):
+                judge = argv[argv.index("--judge-model") + 1]
+                root_output = Path(argv[argv.index("--output-root") + 1])
+                target = root_output / "dotnet" / "example"
                 target.mkdir(parents=True)
                 (target / "results.json").write_text(json.dumps(
-                    result("claude-haiku-5.5", activation=False)))
-                (output / "candidate" / "adapter-summary.json").write_text(json.dumps({
+                    result(judge, activation=judge == "claude-haiku-4.5")))
+                (root_output / "adapter-summary.json").write_text(json.dumps({
                     "expectedEvalCount": 1, "writtenResultCount": 1,
                     "missingEvalCount": 0, "unexpectedEvalCount": 0,
                     "measurementInvalidEvalCount": 0,
@@ -682,8 +734,14 @@ class JudgeReplayTests(unittest.TestCase):
                 with self.subTest(winner=winner, magnitude=magnitude):
                     self.assert_native_rejudge(winner, magnitude, "tie")
 
+    def test_native_rejudge_rejects_activation_drift(self):
+        self.assert_native_rejudge(
+            "skill", 1, "treatment", candidate_activation=False,
+            expected_error="activation contract differs")
+
     def assert_native_rejudge(self, winner, magnitude, expected_winner,
-                              recovered_scenarios=None):
+                              recovered_scenarios=None, candidate_activation=True,
+                              expected_error=None):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
             root = Path(temporary)
             source, output = root / "source", root / "output"
@@ -704,6 +762,7 @@ class JudgeReplayTests(unittest.TestCase):
             args = SimpleNamespace(source=source, output=output, original_judge="claude-haiku-4.5",
                                    candidate_judge="claude-haiku-5.5", repo_root=str(root),
                                    adapter="adapt.mjs", validator="skill-validator",
+                                   toolchain_sha="b" * 40,
                                    run_id="123", artifact_id="456",
                                    artifact_name="vally-results-dotnet")
 
@@ -713,11 +772,16 @@ class JudgeReplayTests(unittest.TestCase):
                 self.assertEqual(kwargs["env"]["GITHUB_TOKEN"], "copilot-pat")
                 target = Path(argv[3])
                 self.assertEqual((target / "sessions.db").read_bytes(), b"original sessions")
+                judge = argv[argv.index("--judge-model") + 1]
                 (target / "results.json").write_text(json.dumps({
-                    "judgeModel": "claude-haiku-5.5", "model": "gpt-5.6-luna",
+                    "judgeModel": judge, "model": "gpt-5.6-luna",
                     "verdicts": [{"skillName": "testability-migration", "scenarios": [{
-                        "scenarioName": "case", "pairwiseResult": {
-                            "overallWinner": winner, "overallMagnitude": magnitude,
+                        "scenarioName": "case",
+                        "expectActivation": (True if judge == "claude-haiku-4.5"
+                                             else candidate_activation),
+                        "pairwiseResult": {
+                            "overallWinner": "baseline" if judge == "claude-haiku-4.5" else winner,
+                            "overallMagnitude": 1 if judge == "claude-haiku-4.5" else magnitude,
                             "overallReasoning": "Candidate judgment",
                         },
                     }]}],
@@ -726,13 +790,20 @@ class JudgeReplayTests(unittest.TestCase):
             with patch.dict(replay.os.environ, {"GH_TOKEN": "installation-token",
                                                 "GITHUB_TOKEN": "copilot-pat"}):
                 with patch.object(replay, "command", side_effect=fake_command):
-                    replay.run_replay(args)
+                    if expected_error:
+                        with self.assertRaisesRegex(ValueError, expected_error):
+                            replay.run_replay(args)
+                    else:
+                        replay.run_replay(args)
             self.assertEqual(database.read_bytes(), b"original sessions")
+            if expected_error:
+                self.assertFalse((output / "comparison.json").exists())
+                return
             report = json.loads((output / "comparison.json").read_text())
             self.assertEqual(report["counts"]["direct_reversals"],
                              int(expected_winner == "treatment"))
             self.assertEqual(report["counts"]["tie_shifts"], int(expected_winner == "tie"))
-            self.assertEqual(report["cases"][0]["candidate"]["winner"], expected_winner)
+            self.assertEqual(report["cases"][0]["current_candidate"]["winner"], expected_winner)
             self.assertEqual(report["cases"][0]["skill"], "agent.testability-migration")
 
     def test_native_rejudge_missing_results_reports_validator_failure(self):
@@ -750,13 +821,15 @@ class JudgeReplayTests(unittest.TestCase):
             args = SimpleNamespace(source=source, output=output, original_judge="claude-haiku-4.5",
                                    candidate_judge="claude-haiku-5.5", repo_root=str(root),
                                    adapter="adapt.mjs", validator="skill-validator",
+                                   toolchain_sha="b" * 40,
                                    run_id="123", artifact_id="456",
                                    artifact_name="vally-results-dotnet")
 
             with patch.dict(replay.os.environ, {"GH_TOKEN": "installation-token",
                                                 "GITHUB_TOKEN": "copilot-pat"}):
                 with patch.object(replay, "command", return_value=SimpleNamespace(returncode=1)):
-                    with self.assertRaisesRegex(ValueError, "Native rejudge produced no results.json"):
+                    with self.assertRaisesRegex(
+                            ValueError, "current-original native rejudge produced no results.json"):
                         replay.run_replay(args)
             self.assertEqual(database.read_bytes(), b"original sessions")
             self.assertFalse((output / "comparison.json").exists())
@@ -778,6 +851,7 @@ class JudgeReplayTests(unittest.TestCase):
                                    original_judge="claude-haiku-4.5",
                                    candidate_judge="claude-haiku-4.5", repo_root=str(root),
                                    adapter="adapt.mjs", validator="skill-validator",
+                                   toolchain_sha="b" * 40,
                                    run_id="123", artifact_id="456",
                                    artifact_name="vally-results-dotnet")
 
@@ -816,7 +890,8 @@ class JudgeReplayTests(unittest.TestCase):
                                            original_judge="claude-haiku-4.5",
                                            candidate_judge="claude-haiku-5.5",
                                            repo_root=str(root), adapter="adapt.mjs",
-                                           validator="skill-validator", run_id="123",
+                                           validator="skill-validator", toolchain_sha="b" * 40,
+                                           run_id="123",
                                            artifact_id="456",
                                            artifact_name="vally-results-dotnet")
 

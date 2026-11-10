@@ -99,12 +99,12 @@ on:
         required: false
         default: gpt-
       rejudge_original:
-        description: "Judge only: recorded judge in the saved source artifacts."
+        description: "Judge only: current original judge regenerated from saved executor evidence."
         type: string
         required: false
         default: claude-haiku-4.5
       rejudge_candidate:
-        description: "Judge only: candidate judge for the saved-output replay."
+        description: "Judge only: current candidate judge regenerated from the same saved executor evidence."
         type: string
         required: false
         default: claude-haiku-5.5

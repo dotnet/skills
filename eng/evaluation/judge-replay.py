@@ -179,6 +179,19 @@ def load(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def tree_digest(root):
+    digest = hashlib.sha256()
+    files = sorted(path for path in root.rglob("*") if path.is_file())
+    if not files:
+        raise ValueError(f"Executor evidence is empty: {root}")
+    for path in files:
+        relative = path.relative_to(root).as_posix().encode()
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
+
+
 def result_files(root):
     return sorted(p for p in root.glob("**/results.json")
                   if "_experiment" not in p.parts and "_agent-evaluation" not in p.parts
@@ -258,6 +271,18 @@ def scenario_trials(root, judge, model=None, *, legacy_root=None):
     return cases, model, files
 
 
+def recorded_trials(root):
+    files = result_files(root)
+    if not files:
+        raise ValueError(f"No recorded results.json files under {root}")
+    judges = {load(path).get("judgeModel") for path in files}
+    if len(judges) != 1 or not isinstance(next(iter(judges)), str):
+        raise ValueError("Recorded results do not have one unambiguous historical judge")
+    judge = judges.pop()
+    cases, model, files = scenario_trials(root, judge, legacy_root=root)
+    return cases, model, files, judge
+
+
 def activation_contract(files):
     contracts = {}
     for path in files:
@@ -280,6 +305,25 @@ def activation_contract(files):
             raise ValueError(f"No saved activation expectations: {eval_file}")
         contracts[eval_file] = scenarios
     return contracts
+
+
+def activation_slots(files):
+    slots = {}
+    for path in files:
+        data = load(path)
+        for verdict in data["verdicts"]:
+            skill = verdict["skillName"]
+            for scenario in verdict["scenarios"]:
+                name = scenario.get("scenarioName")
+                expected = scenario.get("expectActivation")
+                key = (skill, name)
+                if (not isinstance(skill, str) or not skill or not isinstance(name, str) or not name
+                        or type(expected) is not bool or key in slots):
+                    raise ValueError(f"Absent or ambiguous activation slot: {key}")
+                slots[key] = expected
+    if not slots:
+        raise ValueError("No saved activation slots")
+    return slots
 
 
 def unique_upload_job(matched_jobs):
@@ -459,30 +503,31 @@ def download_source(run_id, artifact_id, artifact_name, output):
     print(f"Downloaded exactly source artifact ID {artifact_id} ({artifact_name}) from run {run_id}")
 
 
-def compare(old, new):
-    if old.keys() != new.keys():
-        missing = sorted(old.keys() - new.keys())
-        extra = sorted(new.keys() - old.keys())
+def compare(original, candidate):
+    if original.keys() != candidate.keys():
+        missing = sorted(original.keys() - candidate.keys())
+        extra = sorted(candidate.keys() - original.keys())
         raise ValueError(f"Trial keys differ: {len(missing)} missing, {len(extra)} extra; "
                          f"first missing={missing[:1]}, extra={extra[:1]}")
-    counts = dict(matched=len(old), agreement=0, direct_reversals=0, tie_shifts=0,
-                  old_errors=0, new_errors=0, differing_checks=0,
-                  old_check_alignment=0, new_check_alignment=0)
+    counts = dict(matched=len(original), agreement=0, direct_reversals=0, tie_shifts=0,
+                  original_errors=0, candidate_errors=0, differing_checks=0,
+                  original_check_alignment=0, candidate_check_alignment=0)
     cases = []
-    for key in sorted(old):
-        previous, candidate = old[key], new[key]
-        old_error = bool(previous.get("errored"))
-        new_error = bool(candidate.get("errored"))
+    for key in sorted(original):
+        previous, current = original[key], candidate[key]
+        original_error = bool(previous.get("errored"))
+        candidate_error = bool(current.get("errored"))
         for label, verdict, errored in (
-                ("original", previous, old_error), ("candidate", candidate, new_error)):
+                ("current original", previous, original_error),
+                ("current candidate", current, candidate_error)):
             if not errored and verdict.get("winner") not in ("baseline", "treatment", "tie"):
                 raise ValueError(f"Missing or invalid {label} winner: {key}")
-        if old_error:
-            counts["old_errors"] += 1
-        if new_error:
-            counts["new_errors"] += 1
-        if not old_error and not new_error:
-            ow, nw = previous["winner"], candidate["winner"]
+        if original_error:
+            counts["original_errors"] += 1
+        if candidate_error:
+            counts["candidate_errors"] += 1
+        if not original_error and not candidate_error:
+            ow, nw = previous["winner"], current["winner"]
             if ow == nw:
                 counts["agreement"] += 1
             elif "tie" in (ow, nw):
@@ -494,10 +539,10 @@ def compare(old, new):
                     and previous["baselinePassed"] != previous["treatmentPassed"]):
                 counts["differing_checks"] += 1
                 expected = "treatment" if previous["treatmentPassed"] else "baseline"
-                counts["old_check_alignment"] += ow == expected
-                counts["new_check_alignment"] += nw == expected
+                counts["original_check_alignment"] += ow == expected
+                counts["candidate_check_alignment"] += nw == expected
         cases.append({"skill": key[0], "scenario": key[1], "trial": key[2],
-                      "old": previous, "candidate": candidate})
+                      "current_original": previous, "current_candidate": current})
     return {"counts": counts, "cases": cases}
 
 
@@ -516,6 +561,89 @@ def validate_native_retry_provenance(source):
         raise ValueError("Native replay does not support recovered timeout scenarios")
 
 
+def validate_adapter_output(root, expected_count, judge, model, contracts, role):
+    summary_path = root / "adapter-summary.json"
+    if not summary_path.is_file():
+        raise ValueError(f"{role} adapter produced no adapter-summary.json")
+    summary = load(summary_path)
+    if (summary.get("expectedEvalCount") != expected_count
+            or summary.get("writtenResultCount") != expected_count
+            or summary.get("missingEvalCount") or summary.get("unexpectedEvalCount")
+            or summary.get("measurementInvalidEvalCount")):
+        raise ValueError(f"{role} adapter accounting is invalid: {summary}")
+    cases, replay_model, files = scenario_trials(root, judge, model)
+    if activation_contract(files) != contracts:
+        raise ValueError(f"{role} activation contract differs from recorded evidence")
+    return cases, replay_model
+
+
+def run_vally_leg(args, experiment, output, manifest, contract_path, contracts, model, judge, role):
+    target = output / role
+    if target.exists():
+        raise ValueError(f"{role} output already exists")
+    command("node", args.adapter, "--experiment-dir", str(experiment),
+            "--output-root", str(target), "--repo-root", args.repo_root,
+            "--expected-evals", str(manifest), "--model", model,
+            "--replay-activation-contract", str(contract_path),
+            "--judge-model", judge, "--vally", "vally",
+            "--plugin-variant", "__judge_only_no_plugin__")
+    return validate_adapter_output(target, len(contracts), judge, model, contracts, role)
+
+
+def native_cases(path, judge, model, original_skills, expected_activations):
+    data = load(path)
+    if data.get("judgeModel") != judge or data.get("model") != model:
+        raise ValueError("Native rejudge returned unexpected model or judge")
+    cases = {}
+    observed_activations = {}
+    for verdict in data["verdicts"]:
+        skill = verdict["skillName"]
+        if skill not in original_skills and f"agent.{skill}" in original_skills:
+            skill = f"agent.{skill}"
+        for scenario in verdict["scenarios"]:
+            activation_key = (skill, scenario.get("scenarioName"))
+            expected_activation = scenario.get("expectActivation")
+            if type(expected_activation) is not bool or activation_key in observed_activations:
+                raise ValueError(f"Missing or ambiguous native activation expectation: {activation_key}")
+            observed_activations[activation_key] = expected_activation
+            result = scenario.get("pairwiseResult")
+            winner = result.get("overallWinner") if result else None
+            if winner == "skill":
+                winner = "treatment"
+            if winner not in ("baseline", "treatment", "tie"):
+                raise ValueError(f"Missing or invalid native judgment: {scenario['scenarioName']}")
+            magnitude = result.get("overallMagnitude")
+            if magnitude == 2 or str(magnitude).lower() == "equal":
+                winner = "tie"
+            key = (skill, scenario["scenarioName"], 0)
+            if key in cases:
+                raise ValueError(f"Duplicate native scenario: {key}")
+            cases[key] = {"winner": winner, "errored": False,
+                          "evidence": result.get("overallReasoning")}
+    if observed_activations != expected_activations:
+        raise ValueError("Native rejudge activation contract differs from recorded evidence")
+    return cases
+
+
+def run_native_leg(args, source_dir, output, judge, model, original_skills,
+                   expected_activations, role):
+    target = output / role
+    if target.exists():
+        raise ValueError(f"{role} output already exists")
+    shutil.copytree(source_dir, target)
+    (target / "results.json").unlink(missing_ok=True)
+    validator_env = os.environ.copy()
+    validator_env["GH_TOKEN"] = validator_env["GITHUB_TOKEN"]
+    command(args.validator, "evaluate", "rejudge", str(target),
+            "--judge-model", judge, "--judge-mode", "pairwise",
+            "--judge-timeout", "300", env=validator_env, allowed=(0, 1))
+    result_path = target / "results.json"
+    if not result_path.is_file():
+        raise ValueError(f"{role} native rejudge produced no results.json; inspect validator errors")
+    return native_cases(
+        result_path, judge, model, original_skills, expected_activations), model
+
+
 def run_replay(args):
     source, output = Path(args.source).resolve(), Path(args.output).resolve()
     if not source.is_dir() or output.is_relative_to(source):
@@ -523,10 +651,12 @@ def run_replay(args):
     assert_tree(source)
     source_sha = source_commit(source, run_id=args.run_id, artifact_id=args.artifact_id,
                                artifact_name=args.artifact_name)
-    old, model, original_files = scenario_trials(source, args.original_judge, legacy_root=source)
-    if not old:
-        raise ValueError("No original judged trials to replay")
-    contracts = activation_contract(original_files)
+    if not SHA.fullmatch(args.toolchain_sha):
+        raise ValueError("Current toolchain SHA must be a full commit SHA")
+    historical, model, recorded_files, historical_judge = recorded_trials(source)
+    if not historical:
+        raise ValueError("No recorded judged trials to replay")
+    contracts = activation_contract(recorded_files)
     output.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
     experiment = list((source / "_experiment").glob("*")) if (source / "_experiment").exists() else []
@@ -537,76 +667,59 @@ def run_replay(args):
         manifest.write_text("\n".join(expected) + "\n", encoding="utf-8")
         contract_path = output / "activation-contract.json"
         contract_path.write_text(json.dumps(contracts, sort_keys=True), encoding="utf-8")
-        command("node", args.adapter, "--experiment-dir", str(experiment[0]),
-                "--output-root", str(output / "candidate"), "--repo-root", args.repo_root,
-                "--expected-evals", str(manifest), "--model", model,
-                "--replay-activation-contract", str(contract_path),
-                "--judge-model", args.candidate_judge, "--vally", "vally",
-                "--plugin-variant", "__judge_only_no_plugin__")
-        summary = load(output / "candidate" / "adapter-summary.json")
-        if (summary["expectedEvalCount"] != len(expected)
-                or summary["writtenResultCount"] != len(expected)
-                or summary["missingEvalCount"] or summary["unexpectedEvalCount"]
-                or summary["measurementInvalidEvalCount"]):
-            raise ValueError(f"Candidate adapter accounting is invalid: {summary}")
-        new, new_model, new_files = scenario_trials(output / "candidate", args.candidate_judge, model)
-        if activation_contract(new_files) != contracts:
-            raise ValueError("Candidate activation contract differs from original evidence")
+        executor_digest = tree_digest(experiment[0])
+        current_original, original_model = run_vally_leg(
+            args, experiment[0], output, manifest, contract_path, contracts, model,
+            args.original_judge, "current-original")
+        if tree_digest(experiment[0]) != executor_digest:
+            raise ValueError("Saved Vally executor evidence changed during original rejudge")
+        current_candidate, candidate_model = run_vally_leg(
+            args, experiment[0], output, manifest, contract_path, contracts, model,
+            args.candidate_judge, "current-candidate")
+        if tree_digest(experiment[0]) != executor_digest:
+            raise ValueError("Saved Vally executor evidence changed during candidate rejudge")
     elif len(native) == 1 and not experiment:
         validate_native_retry_provenance(source)
-        target = output / "native-rejudge"
-        shutil.copytree(native[0].parent, target)
-        (target / "results.json").unlink(missing_ok=True)
-        original_hash = hashlib.sha256(native[0].read_bytes()).hexdigest()
-        validator_env = os.environ.copy()
-        validator_env["GH_TOKEN"] = validator_env["GITHUB_TOKEN"]
-        command(args.validator, "evaluate", "rejudge", str(target),
-                "--judge-model", args.candidate_judge, "--judge-mode", "pairwise",
-                "--judge-timeout", "300", env=validator_env, allowed=(0, 1))
-        if hashlib.sha256(native[0].read_bytes()).hexdigest() != original_hash:
-            raise ValueError("Original native session database changed")
-        if not (target / "results.json").is_file():
-            raise ValueError("Native rejudge produced no results.json; inspect validator errors")
-        data = load(target / "results.json")
-        if data.get("judgeModel") != args.candidate_judge or data.get("model") != model:
-            raise ValueError("Native rejudge returned unexpected model or judge")
-        new = {}
-        original_skills = {key[0] for key in old}
-        for verdict in data["verdicts"]:
-            skill = verdict["skillName"]
-            if skill not in original_skills and f"agent.{skill}" in original_skills:
-                skill = f"agent.{skill}"
-            for scenario in verdict["scenarios"]:
-                result = scenario.get("pairwiseResult")
-                winner = result.get("overallWinner") if result else None
-                if winner == "skill":
-                    winner = "treatment"
-                if winner not in ("baseline", "treatment", "tie"):
-                    raise ValueError(f"Missing or invalid native judgment: {scenario['scenarioName']}")
-                magnitude = result.get("overallMagnitude")
-                if magnitude == 2 or str(magnitude).lower() == "equal":
-                    winner = "tie"
-                key = (skill, scenario["scenarioName"], 0)
-                if key in new:
-                    raise ValueError(f"Duplicate native scenario: {key}")
-                new[key] = {"winner": winner, "errored": False,
-                            "evidence": result.get("overallReasoning")}
-        new_model = model
+        executor_digest = tree_digest(native[0].parent)
+        original_skills = {key[0] for key in historical}
+        expected_activations = activation_slots(recorded_files)
+        current_original, original_model = run_native_leg(
+            args, native[0].parent, output, args.original_judge, model,
+            original_skills, expected_activations, "current-original")
+        if tree_digest(native[0].parent) != executor_digest:
+            raise ValueError("Saved native executor evidence changed during original rejudge")
+        current_candidate, candidate_model = run_native_leg(
+            args, native[0].parent, output, args.candidate_judge, model,
+            original_skills, expected_activations, "current-candidate")
+        if tree_digest(native[0].parent) != executor_digest:
+            raise ValueError("Saved native executor evidence changed during candidate rejudge")
     else:
         raise ValueError("Artifact must contain exactly one Vally experiment or native session group")
-    if new_model != model:
+    if original_model != model or candidate_model != model:
         raise ValueError("Executor model changed during replay")
-    report = compare(old, new)
+    report = compare(current_original, current_candidate)
+    if historical.keys() != current_original.keys():
+        raise ValueError("Current-toolchain trial keys differ from recorded executor slots")
+    for case in report["cases"]:
+        key = (case["skill"], case["scenario"], case["trial"])
+        case["historical_recorded"] = historical[key]
     report["provenance"] = {"run_id": args.run_id, "artifact_id": args.artifact_id,
                             "artifact_name": args.artifact_name, "source_sha": source_sha,
-                            "executor": model, "original_judge": args.original_judge,
-                            "candidate_judge": args.candidate_judge,
-                            "source_trials": len(old)}
+                            "executor": model, "toolchain_sha": args.toolchain_sha,
+                            "comparison_basis": "paired_current_toolchain",
+                            "current_original_judge": args.original_judge,
+                            "current_candidate_judge": args.candidate_judge,
+                            "source_trials": len(historical),
+                            "historical_recorded": {
+                                "authoritative": False,
+                                "judge": historical_judge,
+                                "trial_count": len(historical),
+                            }}
     report["replay_wall_seconds"] = round(time.monotonic() - start, 2)
     (output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"provenance": report["provenance"], "counts": report["counts"]}))
-    if report["counts"]["new_errors"]:
-        raise ValueError("Candidate has errored judgment slots; see comparison.json")
+    if report["counts"]["original_errors"] or report["counts"]["candidate_errors"]:
+        raise ValueError("Current-toolchain comparison has errored judgment slots; see comparison.json")
 
 
 def aggregate(root, expected):
@@ -636,7 +749,7 @@ def main():
         dl.add_argument("--" + name, required=True)
     r = commands.add_parser("replay")
     for name in ("source", "output", "run-id", "artifact-id", "artifact-name",
-                 "repo-root", "adapter", "validator"):
+                 "repo-root", "adapter", "validator", "toolchain-sha"):
         r.add_argument("--" + name, required=True)
     r.add_argument("--original-judge", default="claude-haiku-4.5")
     r.add_argument("--candidate-judge", default="claude-haiku-5.5")

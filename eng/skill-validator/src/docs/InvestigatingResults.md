@@ -81,13 +81,17 @@ set to completed evaluation run IDs, and optionally set `rejudge_artifact`
 to an exact artifact-name **filter** for a small pilot. Retried runs may contain
 more than one artifact with that name; each matching artifact ID gets its own
 leg and is downloaded and reported by ID. The separate replay path runs
-no executors: it rejudges a **copy** of saved native sessions, preserves the
-original judged result, and uploads candidate verdicts, trial evidence, and
-source provenance in `judge-replay-*`. Leave the artifact name blank to cover
+no executors. It regenerates both the current-original and current-candidate
+judgments from separate copies of the same saved native sessions, using one
+current workflow toolchain and one credential that passed availability probes
+for both judges. It uploads both fresh verdict sets, paired trial evidence, and
+source and toolchain provenance in `judge-replay-*`. The recorded historical
+judgment is retained only as explicitly non-authoritative context. Leave the
+artifact name blank to cover
 all matching artifacts from the selected runs with the default `gpt-` executor
 suffix; set `rejudge_executor_prefix` to select a different family. `rejudge_original` and
-`rejudge_candidate` select the two judges. Missing or invalid judgments fail
-the comparison. A previous errored judgment is reported separately, not
+`rejudge_candidate` select the two current-toolchain judges. Missing or invalid judgments fail
+the comparison. An errored current-toolchain judgment is reported separately, not
 counted as a tie. Pass-check alignment is diagnostic, not accuracy ground
 truth; replay does not alter the authoritative evaluation gate or dashboard.
 
@@ -123,9 +127,9 @@ results adapter.
 Native artifacts with recovered timeout scenarios are not replayable because
 their authoritative verdict can combine the original sessions with separately
 archived retry sessions. Replay also rejects a timeout-retry archive without
-its `agent-timeout-retry-summary.json`. Before native rejudge starts, it removes
-any copied `results.json`, so only fresh validator output can become the
-candidate judgment.
+its `agent-timeout-retry-summary.json`. Before each native rejudge starts, it
+removes any copied `results.json`, so neither current-toolchain leg can accept a
+stale historical judgment.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup

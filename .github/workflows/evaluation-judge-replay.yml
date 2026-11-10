@@ -160,8 +160,9 @@ jobs:
           python eng/evaluation/judge-replay.py download-source \
             --run-id "$SOURCE_RUN" --artifact-id "$SOURCE_ID" \
             --artifact-name "$SOURCE_ARTIFACT" --output "$RUNNER_TEMP/judge-source"
-      - name: Select a healthy judge credential
+      - name: Select one credential healthy for both judges
         env:
+          ORIGINAL_JUDGE: ${{ inputs.original_judge }}
           CANDIDATE_JUDGE: ${{ inputs.candidate_judge }}
           COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
           COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
@@ -187,20 +188,28 @@ jobs:
           done
           for i in $(seq 0 9); do unset "COPILOT_PAT_$i"; done
           for candidate in "${candidates[@]}"; do
-            if (cd "$RUNNER_TEMP" && COPILOT_HOME="$RUNNER_TEMP/judge-home" \
-              COPILOT_GITHUB_TOKEN="$candidate" timeout 60s copilot \
-                --prompt "Reply with exactly OK." --available-tools="" \
-                --no-bash-env --no-custom-instructions --no-experimental \
-                --model "$CANDIDATE_JUDGE" --output-format=json --silent \
-                >"$RUNNER_TEMP/judge-probe.log" 2>&1); then
+            healthy=true
+            for judge in "$ORIGINAL_JUDGE" "$CANDIDATE_JUDGE"; do
+              probe_name="${judge//[^A-Za-z0-9._-]/_}"
+              if ! (cd "$RUNNER_TEMP" && COPILOT_HOME="$RUNNER_TEMP/judge-home" \
+                COPILOT_GITHUB_TOKEN="$candidate" timeout 60s copilot \
+                  --prompt "Reply with exactly OK." --available-tools="" \
+                  --no-bash-env --no-custom-instructions --no-experimental \
+                  --model "$judge" --output-format=json --silent \
+                  >"$RUNNER_TEMP/judge-probe-$probe_name.log" 2>&1); then
+                healthy=false
+                break
+              fi
+            done
+            if [ "$healthy" = true ]; then
               printf '%s' "$candidate" > "$RUNNER_TEMP/judge-token"
               chmod 600 "$RUNNER_TEMP/judge-token"
               exit 0
             fi
           done
-          echo "::error::No configured Copilot credential passed the candidate judge availability probe"
+          echo "::error::No single configured Copilot credential passed both judge availability probes"
           exit 1
-      - name: Rejudge saved evidence and compare
+      - name: Rejudge saved evidence twice and compare
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN: ${{ matrix.entry.run_id }}
@@ -220,8 +229,9 @@ jobs:
             --repo-root "$GITHUB_WORKSPACE" \
             --adapter "$GITHUB_WORKSPACE/eng/vally-adapter/adapt.mjs" \
             --validator "$RUNNER_TEMP/judge-validator/bin/skill-validator" \
+            --toolchain-sha "${{ github.workflow_sha }}" \
             --original-judge "$ORIGINAL_JUDGE" --candidate-judge "$CANDIDATE_JUDGE"
-      - name: Upload separate candidate evidence
+      - name: Upload paired current-toolchain evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
