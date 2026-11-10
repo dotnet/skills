@@ -56,6 +56,7 @@ jobs:
           script: |
             const marker = '<!-- eval-infra-full-eval-required -->';
             const exactPaths = new Set([
+              'eng/evaluation/change-classification.ps1',
               'eng/evaluation/find-targets.ps1',
               'eng/evaluation/nuget.config',
               'eng/evaluation/path-safety.ps1',

@@ -2782,6 +2782,7 @@ esac
             "eng/evaluation-tools/",
             "eng/evaluation/nuget.config",
             "eng/vally-adapter/",
+            "eng/evaluation/change-classification.ps1",
             "eng/evaluation/find-targets.ps1",
             "eng/evaluation/path-safety.ps1",
             "eng/evaluation/workflow-targets.ps1",
