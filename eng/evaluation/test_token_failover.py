@@ -33,20 +33,85 @@ GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
 HEALTH_PAGE_SIZE = 5
 HEALTH_MAX_PAGES = 100
-HEALTH_SCOPE_ORDER = (
-    "P1-evaluation",
-    "P5",
-    "P6",
-    "P1-other",
-    "P2",
-    "P3",
-    "P4",
-    "U1",
-    "U2",
+HEALTH_SOURCE_CONTRACT = (
+    "`actions_list` with `perPage: 5` and explicit `page` values starting at `1`.",
+    "Stop after 100 total pages for one observation scope.",
+    "Complete `P1-evaluation`, P5, and P6 with `resource_id=evaluation.yml`.",
+    "Then collect `P1-other`, P2-P4, U1, and U2 while capacity remains.",
+    "`method: list_workflow_jobs` with `perPage: 5`",
+    "An unavailable `P1-other` inventory must not carry forward an absent "
+    "`pipeline:evaluation:{job}:{step}:{conclusion}` finding after "
+    "`P1-evaluation` completed.",
+)
+HEALTH_SHARED_CONTRACT = (
+    "`pipeline:evaluation:{job}:{step}:{conclusion}` | P1-evaluation",
+    "Other `pipeline:{workflow}:{job}:{step}:{conclusion}` | P1-other",
+    "Continue until a page contains fewer than 5 entries or its oldest "
+    "`created_at` reaches the requested cutoff",
+    "Stop after 100 total pages for one observation scope.",
+    "Collect P1-evaluation, P5, and P6 before repository-wide warnings and metrics",
+    "Never mark a scope unavailable only because page 1 is full",
+    "carry_forward_unchanged",
+    "do not increment their occurrences",
 )
 
 
-def collect_health_pages(
+def normalized_markdown(text: str) -> str:
+    return " ".join(text.split())
+
+
+def assert_health_production_contract(
+    source: str,
+    shared: str,
+    locks: dict[str, str],
+) -> None:
+    normalized_source = normalized_markdown(source)
+    normalized_shared = normalized_markdown(shared)
+    for clause in HEALTH_SOURCE_CONTRACT:
+        if clause not in normalized_source:
+            raise AssertionError(f"Missing health source contract: {clause}")
+    for clause in HEALTH_SHARED_CONTRACT:
+        if clause not in normalized_shared:
+            raise AssertionError(f"Missing shared health contract: {clause}")
+    critical_index = normalized_source.index(
+        "Complete `P1-evaluation`, P5, and P6"
+    )
+    remaining_index = normalized_source.index(
+        "Then collect `P1-other`, P2-P4, U1, and U2"
+    )
+    if critical_index >= remaining_index:
+        raise AssertionError(
+            "Health source does not collect evaluation-critical scopes first"
+        )
+    if "perPage: 100" in normalized_source or "perPage: 100" in normalized_shared:
+        raise AssertionError("Health contract contains an unsafe 100-item page")
+
+    required_imports = {
+        "devops-health-check.lock.yml": (
+            "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+            "{{#runtime-import .github/workflows/devops-health-check.md}}",
+        ),
+        "devops-health-groom.lock.yml": (
+            "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+            "{{#runtime-import .github/workflows/devops-health-groom.md}}",
+        ),
+        "devops-health-investigate.lock.yml": (
+            "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+            "{{#runtime-import .github/workflows/devops-health-investigate.md}}",
+        ),
+    }
+    for lock_name, imports in required_imports.items():
+        lock = locks[lock_name]
+        if '"compiler_version":"v0.89.22"' not in lock:
+            raise AssertionError(f"{lock_name} was not compiled with v0.89.22")
+        for runtime_import in imports:
+            if runtime_import not in lock:
+                raise AssertionError(
+                    f"{lock_name} is missing runtime import: {runtime_import}"
+                )
+
+
+def reference_collect_health_pages(
     pages: list[list[dict[str, object]]],
     *,
     cutoff: str | None = None,
@@ -67,7 +132,7 @@ def collect_health_pages(
     return list(collected.values()), len(pages) < HEALTH_MAX_PAGES
 
 
-def health_scope(fingerprint: str) -> str:
+def reference_health_scope(fingerprint: str) -> str:
     if fingerprint.startswith("pipeline:evaluation:failure-rate:"):
         return "P5"
     if fingerprint.startswith("pipeline:evaluation:schedule-cancellation:"):
@@ -84,7 +149,7 @@ def health_scope(fingerprint: str) -> str:
     raise AssertionError(f"Unsupported test fingerprint: {fingerprint}")
 
 
-def diff_health_findings(
+def reference_diff_health_findings(
     previous: list[dict[str, object]],
     observed: list[dict[str, object]],
     unavailable_scopes: set[str],
@@ -104,7 +169,7 @@ def diff_health_findings(
     for fingerprint, finding in previous_by_fingerprint.items():
         if (
             fingerprint not in current_by_fingerprint
-            and health_scope(fingerprint) in unavailable_scopes
+            and reference_health_scope(fingerprint) in unavailable_scopes
         ):
             current_by_fingerprint[fingerprint] = dict(finding)
             carried_fingerprints.add(fingerprint)
@@ -272,6 +337,10 @@ def run_health_publisher(
     current_body: str,
     *,
     replacement_state: dict[str, object] | None = None,
+    dispatches: list[dict[str, object]] | None = None,
+    investigation_rows: list[dict[str, object]] | None = None,
+    fail_update_call: int | None = None,
+    capture_fatal_error: bool = False,
 ) -> dict[str, object]:
     node = shutil.which("node")
     if not node:
@@ -317,8 +386,22 @@ def run_health_publisher(
                                 )
                                 + "\n```"
                             ),
-                            "investigation_rows_json": "```json\n[]\n```",
-                            "dispatches_json": "```json\n[]\n```",
+                            "investigation_rows_json": (
+                                "```json\n"
+                                + json.dumps(
+                                    investigation_rows or [],
+                                    separators=(",", ":"),
+                                )
+                                + "\n```"
+                            ),
+                            "dispatches_json": (
+                                "```json\n"
+                                + json.dumps(
+                                    dispatches or [],
+                                    separators=(",", ":"),
+                                )
+                                + "\n```"
+                            ),
                         }
                     ]
                 }
@@ -331,6 +414,7 @@ const fs = require("fs");
 const errors = [];
 const calls = [];
 let dashboardBody = {json.dumps(current_body)};
+let updateCount = 0;
 const core = {{
   setFailed: message => errors.push(String(message)),
   info: () => {{}}
@@ -355,6 +439,13 @@ const github = {{
         }}
       }}),
       update: async args => {{
+        updateCount += 1;
+        if (
+          {json.dumps(fail_update_call)} !== null &&
+          updateCount === {json.dumps(fail_update_call)}
+        ) {{
+          throw new Error("simulated persistence failure");
+        }}
         dashboardBody = args.body;
         calls.push({{ type: "update", body: args.body }});
         return {{ data: {{}} }};
@@ -389,6 +480,15 @@ const github = {{
 }})().then(
   () => console.log(JSON.stringify({{ errors, calls, dashboardBody }})),
   error => {{
+    if ({json.dumps(capture_fatal_error)}) {{
+      console.log(JSON.stringify({{
+        errors,
+        calls,
+        dashboardBody,
+        fatalError: String(error.message || error)
+      }}));
+      return;
+    }}
     console.error(error);
     process.exitCode = 1;
   }}
@@ -614,6 +714,115 @@ def generated_safe_output_configs(workflow: object) -> list[dict[str, object]]:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_health_production_contract_is_present_in_sources_and_locks(
+        self,
+    ) -> None:
+        workflows = REPO_ROOT / ".github" / "workflows"
+        assert_health_production_contract(
+            (workflows / "devops-health-check.md").read_text(encoding="utf-8"),
+            (
+                REPO_ROOT / ".github" / "aw" / "shared"
+                / "devops-health.lock.md"
+            ).read_text(encoding="utf-8"),
+            {
+                name: (workflows / name).read_text(encoding="utf-8")
+                for name in (
+                    "devops-health-check.lock.yml",
+                    "devops-health-groom.lock.yml",
+                    "devops-health-investigate.lock.yml",
+                )
+            },
+        )
+
+    def test_health_production_contract_rejects_each_required_clause_mutation(
+        self,
+    ) -> None:
+        workflows = REPO_ROOT / ".github" / "workflows"
+        source = (workflows / "devops-health-check.md").read_text(
+            encoding="utf-8"
+        )
+        shared = (
+            REPO_ROOT / ".github" / "aw" / "shared" / "devops-health.lock.md"
+        ).read_text(encoding="utf-8")
+        locks = {
+            name: (workflows / name).read_text(encoding="utf-8")
+            for name in (
+                "devops-health-check.lock.yml",
+                "devops-health-groom.lock.yml",
+                "devops-health-investigate.lock.yml",
+            )
+        }
+
+        for clause in HEALTH_SOURCE_CONTRACT:
+            with self.subTest(source_clause=clause):
+                mutated = normalized_markdown(source).replace(clause, "MUTATED", 1)
+                with self.assertRaisesRegex(
+                    AssertionError,
+                    "Missing health source contract",
+                ):
+                    assert_health_production_contract(mutated, shared, locks)
+        for clause in HEALTH_SHARED_CONTRACT:
+            with self.subTest(shared_clause=clause):
+                mutated = normalized_markdown(shared).replace(clause, "MUTATED", 1)
+                with self.assertRaisesRegex(
+                    AssertionError,
+                    "Missing shared health contract",
+                ):
+                    assert_health_production_contract(source, mutated, locks)
+
+        runtime_imports = {
+            "devops-health-check.lock.yml": (
+                "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+                "{{#runtime-import .github/workflows/"
+                "devops-health-check.md}}",
+            ),
+            "devops-health-groom.lock.yml": (
+                "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+                "{{#runtime-import .github/workflows/"
+                "devops-health-groom.md}}",
+            ),
+            "devops-health-investigate.lock.yml": (
+                "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+                "{{#runtime-import .github/workflows/"
+                "devops-health-investigate.md}}",
+            ),
+        }
+        for lock_name, imports in runtime_imports.items():
+            for runtime_import in imports:
+                with self.subTest(lock=lock_name, runtime_import=runtime_import):
+                    self.assertEqual(locks[lock_name].count(runtime_import), 1)
+                    mutated_locks = dict(locks)
+                    mutated_locks[lock_name] = locks[lock_name].replace(
+                        runtime_import,
+                        "MUTATED",
+                        1,
+                    )
+                    with self.assertRaisesRegex(
+                        AssertionError,
+                        "missing runtime import",
+                    ):
+                        assert_health_production_contract(
+                            source,
+                            shared,
+                            mutated_locks,
+                        )
+            with self.subTest(lock=lock_name, compiler_version=True):
+                mutated_locks = dict(locks)
+                mutated_locks[lock_name] = locks[lock_name].replace(
+                    '"compiler_version":"v0.89.22"',
+                    '"compiler_version":"MUTATED"',
+                    1,
+                )
+                with self.assertRaisesRegex(
+                    AssertionError,
+                    "was not compiled with v0.89.22",
+                ):
+                    assert_health_production_contract(
+                        source,
+                        shared,
+                        mutated_locks,
+                    )
+
     def test_health_pagination_covers_observed_run_and_job_counts(self) -> None:
         run_pages = [
             [
@@ -626,7 +835,7 @@ class TokenFailoverTests(unittest.TestCase):
                 {"id": 7, "created_at": "2026-11-09T03:00:00Z"},
             ],
         ]
-        runs, runs_complete = collect_health_pages(run_pages)
+        runs, runs_complete = reference_collect_health_pages(run_pages)
         self.assertTrue(runs_complete)
         self.assertEqual({int(run["id"]) for run in runs}, set(range(1, 8)))
 
@@ -638,7 +847,7 @@ class TokenFailoverTests(unittest.TestCase):
             jobs[index : index + HEALTH_PAGE_SIZE]
             for index in range(0, len(jobs), HEALTH_PAGE_SIZE)
         ]
-        collected_jobs, jobs_complete = collect_health_pages(job_pages)
+        collected_jobs, jobs_complete = reference_collect_health_pages(job_pages)
         self.assertTrue(jobs_complete)
         self.assertEqual(len(collected_jobs), 96)
         self.assertEqual(len(job_pages), 20)
@@ -654,27 +863,41 @@ class TokenFailoverTests(unittest.TestCase):
             ]
             for page in range(HEALTH_MAX_PAGES)
         ]
-        collected, complete = collect_health_pages(full_pages)
+        collected, complete = reference_collect_health_pages(full_pages)
         self.assertFalse(complete)
         self.assertEqual(len(collected), HEALTH_PAGE_SIZE * HEALTH_MAX_PAGES)
 
         bounded_pages = [*full_pages[:-1], full_pages[-1][:-1]]
-        collected, complete = collect_health_pages(bounded_pages)
+        collected, complete = reference_collect_health_pages(bounded_pages)
         self.assertTrue(complete)
         self.assertEqual(
             len(collected),
             HEALTH_PAGE_SIZE * HEALTH_MAX_PAGES - 1,
         )
 
-    def test_health_scope_order_prioritizes_current_critical_evidence(self) -> None:
-        self.assertEqual(
-            HEALTH_SCOPE_ORDER[:3],
-            ("P1-evaluation", "P5", "P6"),
+    def test_health_pagination_stops_after_reaching_cutoff(self) -> None:
+        pages = [
+            [
+                {
+                    "id": index,
+                    "created_at": f"2026-11-10T0{index}:00:00Z",
+                }
+                for index in range(5, 0, -1)
+            ],
+            [
+                {
+                    "id": index,
+                    "created_at": f"2026-11-09T0{index}:00:00Z",
+                }
+                for index in range(5, 0, -1)
+            ],
+        ]
+        collected, complete = reference_collect_health_pages(
+            pages,
+            cutoff="2026-11-10T02:00:00Z",
         )
-        self.assertGreater(
-            HEALTH_SCOPE_ORDER.index("P1-other"),
-            HEALTH_SCOPE_ORDER.index("P6"),
-        )
+        self.assertTrue(complete)
+        self.assertEqual(len(collected), 5)
 
     def test_health_diff_replaces_stale_evaluation_identity(self) -> None:
         stale = {
@@ -693,7 +916,7 @@ class TokenFailoverTests(unittest.TestCase):
             "first_seen": "2026-11-10",
             "occurrences": 99,
         }
-        result = diff_health_findings(
+        result = reference_diff_health_findings(
             [stale],
             [current],
             {"P1-other"},
@@ -724,7 +947,7 @@ class TokenFailoverTests(unittest.TestCase):
             "first_seen": "2026-11-08",
             "occurrences": 4,
         }
-        result = diff_health_findings(
+        result = reference_diff_health_findings(
             [observed_prior, carried_prior],
             [dict(observed_prior)],
             {"P1-other"},
@@ -750,7 +973,11 @@ class TokenFailoverTests(unittest.TestCase):
             "first_seen": "2026-10-18",
             "occurrences": 1,
         }
-        result = diff_health_findings([prior], [], {"P1-evaluation"})
+        result = reference_diff_health_findings(
+            [prior],
+            [],
+            {"P1-evaluation"},
+        )
         self.assertEqual(result["resolved"], [])
         self.assertEqual(result["existing"][0]["occurrences"], 1)
         self.assertFalse(result["existing"][0]["was_observed"])
@@ -768,7 +995,7 @@ class TokenFailoverTests(unittest.TestCase):
             "first_seen": "2026-11-10",
             "occurrences": 1,
         }
-        result = diff_health_findings(
+        result = reference_diff_health_findings(
             [prior],
             [current, dict(current)],
             set(),
@@ -779,6 +1006,277 @@ class TokenFailoverTests(unittest.TestCase):
             result["new"][0]["fingerprint"],
             "pipeline:evaluation:failure-rate:critical",
         )
+
+    def test_reference_state_transition_is_compatible_with_real_publisher(
+        self,
+    ) -> None:
+        stale_evaluation = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-old:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-10-18",
+            "occurrences": 1,
+            "severity": "critical",
+            "title": "Stale evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/39012752904",
+        }
+        unavailable_other = {
+            "category": "pipeline",
+            "fingerprint": "pipeline:build:compile:run-tests:failure",
+            "first_seen": "2026-11-09",
+            "occurrences": 2,
+            "severity": "warning",
+            "title": "Build failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42570000000",
+        }
+        current_evaluation = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 99,
+            "severity": "critical",
+            "title": "Current evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42593360206",
+        }
+        transition = reference_diff_health_findings(
+            [stale_evaluation, unavailable_other],
+            [current_evaluation],
+            {"P1-other"},
+        )
+        next_findings = [
+            {
+                key: value
+                for key, value in finding.items()
+                if key != "was_observed"
+            }
+            for finding in [*transition["new"], *transition["existing"]]
+        ]
+        carried = next(
+            finding
+            for finding in next_findings
+            if finding["fingerprint"] == unavailable_other["fingerprint"]
+        )
+        self.assertEqual(carried["first_seen"], unavailable_other["first_seen"])
+        self.assertEqual(carried["occurrences"], unavailable_other["occurrences"])
+        previous_state = (
+            "<!-- devops-health-state:v1\n"
+            + json.dumps(
+                {
+                    "active_findings": [
+                        stale_evaluation,
+                        unavailable_other,
+                    ],
+                    "history": [],
+                },
+                separators=(",", ":"),
+            )
+            + "\n-->"
+        )
+        published = run_health_publisher(
+            self,
+            previous_state,
+            replacement_state={
+                "active_findings": next_findings,
+                "history": [],
+            },
+        )
+        self.assertEqual(published["errors"], [])
+        self.assertEqual(
+            [call["type"] for call in published["calls"]],
+            ["update", "update", "comment"],
+        )
+        self.assertNotIn(stale_evaluation["fingerprint"], published["dashboardBody"])
+        self.assertIn(current_evaluation["fingerprint"], published["dashboardBody"])
+        self.assertIn(unavailable_other["fingerprint"], published["dashboardBody"])
+
+    def test_health_publisher_dispatches_only_matching_persisted_outbox(
+        self,
+    ) -> None:
+        finding = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 1,
+            "severity": "critical",
+            "title": "Current evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42593360206",
+        }
+        correlation = "hc-2026-11-10-123-1"
+        row = {
+            "fingerprint": finding["fingerprint"],
+            "status": "dispatching",
+            "correlation_id": correlation,
+            "result_summary": "",
+            "result_url": "",
+        }
+        dispatch = {
+            "correlation_id": correlation,
+            "finding_id": finding["fingerprint"],
+            "finding_severity": finding["severity"],
+            "finding_title": finding["title"],
+            "finding_type": finding["category"],
+            "health_issue_number": "695",
+            "resource_url": finding["url"],
+        }
+        published = run_health_publisher(
+            self,
+            "",
+            replacement_state={
+                "active_findings": [finding],
+                "history": [],
+            },
+            investigation_rows=[row],
+            dispatches=[dispatch],
+        )
+        self.assertEqual(published["errors"], [])
+        self.assertEqual(
+            [call["type"] for call in published["calls"]],
+            ["update", "dispatch", "update", "comment"],
+        )
+        self.assertIn("⏳ Dispatch pending", published["calls"][0]["body"])
+        self.assertIn("🔄 Dispatched", published["calls"][2]["body"])
+        self.assertEqual(
+            published["calls"][1]["inputs"]["finding_id"],
+            finding["fingerprint"],
+        )
+
+        stale_dispatch = {
+            **dispatch,
+            "finding_id": (
+                "pipeline:evaluation:evaluate-stale:"
+                "run-vally-evaluations:failure"
+            ),
+            "finding_title": "Stale evaluation failure",
+            "resource_url": (
+                "https://github.com/dotnet/skills/actions/runs/39012752904"
+            ),
+        }
+        rejected = run_health_publisher(
+            self,
+            "",
+            replacement_state={
+                "active_findings": [finding],
+                "history": [],
+            },
+            investigation_rows=[row],
+            dispatches=[stale_dispatch],
+        )
+        self.assertEqual(
+            rejected["errors"],
+            ["A dispatch item does not match persisted dashboard state"],
+        )
+        self.assertEqual(rejected["calls"], [])
+
+    def test_health_publisher_stops_before_dispatch_when_persistence_fails(
+        self,
+    ) -> None:
+        finding = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 1,
+            "severity": "critical",
+            "title": "Current evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42593360206",
+        }
+        correlation = "hc-2026-11-10-123-1"
+        result = run_health_publisher(
+            self,
+            "",
+            replacement_state={
+                "active_findings": [finding],
+                "history": [],
+            },
+            investigation_rows=[
+                {
+                    "fingerprint": finding["fingerprint"],
+                    "status": "dispatching",
+                    "correlation_id": correlation,
+                    "result_summary": "",
+                    "result_url": "",
+                }
+            ],
+            dispatches=[
+                {
+                    "correlation_id": correlation,
+                    "finding_id": finding["fingerprint"],
+                    "finding_severity": finding["severity"],
+                    "finding_title": finding["title"],
+                    "finding_type": finding["category"],
+                    "health_issue_number": "695",
+                    "resource_url": finding["url"],
+                }
+            ],
+            fail_update_call=1,
+            capture_fatal_error=True,
+        )
+        self.assertEqual(result["fatalError"], "simulated persistence failure")
+        self.assertEqual(result["calls"], [])
+
+    def test_health_publisher_retains_outbox_when_final_update_fails(
+        self,
+    ) -> None:
+        finding = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 1,
+            "severity": "critical",
+            "title": "Current evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42593360206",
+        }
+        correlation = "hc-2026-11-10-123-1"
+        result = run_health_publisher(
+            self,
+            "",
+            replacement_state={
+                "active_findings": [finding],
+                "history": [],
+            },
+            investigation_rows=[
+                {
+                    "fingerprint": finding["fingerprint"],
+                    "status": "dispatching",
+                    "correlation_id": correlation,
+                    "result_summary": "",
+                    "result_url": "",
+                }
+            ],
+            dispatches=[
+                {
+                    "correlation_id": correlation,
+                    "finding_id": finding["fingerprint"],
+                    "finding_severity": finding["severity"],
+                    "finding_title": finding["title"],
+                    "finding_type": finding["category"],
+                    "health_issue_number": "695",
+                    "resource_url": finding["url"],
+                }
+            ],
+            fail_update_call=2,
+            capture_fatal_error=True,
+        )
+        self.assertEqual(result["fatalError"], "simulated persistence failure")
+        self.assertEqual(
+            [call["type"] for call in result["calls"]],
+            ["update", "dispatch"],
+        )
+        self.assertIn("⏳ Dispatch pending", result["dashboardBody"])
+        self.assertNotIn("🔄 Dispatched", result["dashboardBody"])
 
     def test_health_publisher_gates_legacy_rows_on_persisted_state(self) -> None:
         legacy_row = (
