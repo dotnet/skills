@@ -13,10 +13,10 @@ description: >
   for accidental commercial Syncfusion.Blazor installs or license prompts when
   the user intended the open-source Toolkit.
   DO NOT USE WHEN: the Toolkit is already installed and the question is about
-  component APIs or behavior such as grid columns, data binding, events, or
-  styling a specific component (use author-component); the user asks to create
-  a Blazor project (use create-blazor-project); the app is .NET MAUI Blazor
-  Hybrid; or asks only about commercial Syncfusion components.
+  component APIs or behavior, such as grid columns, data binding, or events
+  (use author-component); the user asks to create a Blazor project (use
+  create-blazor-project); the app is .NET MAUI Blazor Hybrid; or the user asks
+  only about commercial Syncfusion components with no Toolkit setup.
 ---
 
 # Install Syncfusion Blazor Toolkit

@@ -5,6 +5,10 @@ defaults:
   timeout: 10m
 stimuli:
   - name: Tag an untagged MSTest test suite
+    tags:
+      capability: tag-mstest-suite
+      risk: inconsistent-category-taxonomy
+      journey: classify-existing-tests
     prompt: I have an MSTest test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
       of the tests have any category attributes yet. Can you analyze each test and add appropriate category tags? I'd
       also like a summary of the distribution when you're done.
@@ -35,6 +39,10 @@ stimuli:
       - Produced a summary showing the count or distribution of tags across the test suite
       - Every test method received at least one positive or negative tag
   - name: Tag an untagged xUnit test suite
+    tags:
+      capability: tag-xunit-suite
+      risk: inconsistent-trait-taxonomy
+      journey: classify-existing-tests
     prompt: I have an xUnit test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
       of the tests have any trait attributes yet. Can you analyze each test and add appropriate category tags? I'd also
       like a summary of the distribution when you're done.
@@ -65,6 +73,10 @@ stimuli:
       - Produced a summary showing the count or distribution of tags across the test suite
       - Every test method received at least one positive or negative tag
   - name: Tag an untagged NUnit test suite
+    tags:
+      capability: tag-nunit-suite
+      risk: inconsistent-category-taxonomy
+      journey: classify-existing-tests
     prompt: I have an NUnit test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
       of the tests have any Category attributes yet. Can you analyze each test and add appropriate category tags? I'd
       also like a summary of the distribution when you're done.
@@ -95,6 +107,10 @@ stimuli:
       - Produced a summary showing the count or distribution of tags across the test suite
       - Every test method received at least one positive or negative tag
   - name: Audit test distribution without modifying files
+    tags:
+      capability: audit-tag-distribution
+      risk: unintended-test-mutation
+      journey: review-existing-taxonomy
     prompt: I want to understand the test coverage shape of my OrderService.Tests project. Can you classify what kind of
       behavior each existing test exercises, show me how the suite is distributed, and call out limit cases and the most
       business-critical paths? Don't modify any files — just give me the analysis.
@@ -131,6 +147,11 @@ stimuli:
         zero-count taxonomy rows
       - Did NOT modify or add any fixture file — analysis only
   - name: Decline request to write new tests
+    tags:
+      capability: decline-test-generation
+      risk: scope-hijack
+      journey: route-test-request
+      expect_activation: "false"
     prompt: I need to write unit tests for my PaymentGateway class. It handles credit card charges, refunds, and webhook
       processing. Can you help me write comprehensive MSTest tests?
     # Off-target request: this skill tags existing tests, it does not author
@@ -139,8 +160,6 @@ stimuli:
     # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
     # identical to the baseline arm, so the head-to-head score becomes pure
     # judge noise rather than a measurement.
-    tags:
-      expect_activation: "false"
     environment:
       files:
         - src: ./fixtures/decline-request-to-write-new-tests/PaymentGateway.cs
@@ -157,6 +176,10 @@ stimuli:
       - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
         test methods
   - name: Tag a partially-tagged MSTest suite without duplicating existing traits
+    tags:
+      capability: extend-partial-mstest-tags
+      risk: duplicate-test-categories
+      journey: normalize-existing-taxonomy
     prompt: My MSTest project at OrderService.Tests/ already has some tests tagged with [TestCategory] but most are still
       untagged. Can you fill in the missing category attributes for the untagged tests? Make sure you don't duplicate
       the tags that are already there. I'd like a summary at the end.
@@ -196,6 +219,10 @@ stimuli:
         configuration, flaky)
       - Produced a trait distribution summary covering all tests in the suite
   - name: Accurately classify NUnit tests with misleading method names
+    tags:
+      capability: classify-by-test-behavior
+      risk: name-based-misclassification
+      journey: classify-existing-tests
     prompt: I have an NUnit test project at TaskManager.Tests/ covering a TaskService class. The test method names aren't
       always descriptive of what's actually being tested. Can you analyze the test bodies and add the right Category
       attributes? Please provide a summary when done.
@@ -253,6 +280,10 @@ stimuli:
         running arbitrary tests
       - Reported successful validation and any discovered test count without claiming success after a failed command
   - name: Tag MSTest tests and verify the project still builds
+    tags:
+      capability: tag-and-validate-mstest-suite
+      risk: broken-test-project
+      journey: classify-and-verify-tests
     prompt: I need you to tag all the tests in my OrderService.Tests/ MSTest project with appropriate category attributes.
       After adding the tags, please verify the project still compiles by running dotnet build.
     environment:
@@ -288,6 +319,10 @@ stimuli:
   # Go has no attribute-based trait mechanism, so the skill must classify and
   # report rather than reach for a [TestCategory] equivalent that does not exist.
   - name: Classify Go tests where no trait attribute mechanism exists
+    tags:
+      capability: classify-go-tests-without-attributes
+      risk: invented-framework-mechanism
+      journey: report-cross-framework-taxonomy
     prompt: >
       Here is a small Go package with tests. I'd like to know how the suite
       divides by the kind of behavior each test exercises. Classify every test
@@ -328,12 +363,15 @@ stimuli:
         through naming, build tags, or testing.Short rather than attributes, or reported without proposing a
         mechanism at all
   - name: Stay dormant for line and branch coverage diagnosis
+    tags:
+      capability: preserve-coverage-analysis-routing
+      risk: test-tagging-hijack
+      journey: diagnose-coverage-gap
+      expect_activation: "false"
     prompt: |
       Our Cobertura report shows 88% line coverage but 52% branch coverage.
       PaymentService.Authorize has condition-coverage="50% (1/2)" on its fraud
       check. Explain what outcome is missing and what test would exercise it.
-    tags:
-      expect_activation: "false"
     graders:
       - type: prompt
     rubric:
@@ -341,12 +379,17 @@ stimuli:
       - Recommended a test that forces the opposite fraud-check outcome rather than classifying tests by category
       - Did not attempt test tagging or trait distribution work
   - name: Stay dormant for behavioral gap analysis
+    tags:
+      capability: preserve-gap-analysis-routing
+      risk: test-tagging-hijack
+      journey: diagnose-behavior-gap
+      expect_activation: "false"
     prompt: |
       My existing tests execute the null-check in CheckoutService.Submit.
       Determine whether they would still pass if that guard were removed, and
-      add a focused edge-case test if the bug would survive.
-    tags:
-      expect_activation: "false"
+      add a focused edge-case test if the bug would survive. No source or test
+      files are provided, so do not search for or modify files; explain what
+      evidence is required instead.
     graders:
       - type: prompt
     rubric:
@@ -354,12 +397,15 @@ stimuli:
       - Did not claim the guard-removal bug would survive or prescribe a concrete test without the missing evidence
       - Did not attempt test tagging or trait distribution work
   - name: Stay dormant for one-member CRAP analysis
+    tags:
+      capability: preserve-crap-analysis-routing
+      risk: test-tagging-hijack
+      journey: assess-method-risk
+      expect_activation: "false"
     prompt: |
       Calculate the CRAP score for CheckoutService.Submit only. Its cyclomatic
       complexity is 8 and its coverage is 50%. Tell me whether this one method
       is safe to refactor.
-    tags:
-      expect_activation: "false"
     graders:
       - type: prompt
     rubric:
