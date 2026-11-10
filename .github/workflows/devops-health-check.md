@@ -564,6 +564,15 @@ safe-outputs:
                 left.severity === right.severity &&
                 left.title === right.title &&
                 left.url === right.url;
+              const coalesceHistory = (previousHistory, candidateHistory) => {
+                const byDate = new Map();
+                for (const entry of [...previousHistory, ...candidateHistory]) {
+                  byDate.set(entry.date, entry);
+                }
+                return [...byDate.values()]
+                  .sort((left, right) => left.date.localeCompare(right.date))
+                  .slice(-14);
+              };
 
               const currentBody = dashboard.data.body || "";
               const currentStateMatches = [
@@ -574,6 +583,10 @@ safe-outputs:
               const currentStateTokenCount =
                 currentBody.split("<!-- devops-health-state:v1").length - 1;
               const hasPersistedState = currentStateMatches.length === 1;
+              let previousState = {
+                active_findings: [],
+                history: [],
+              };
               let previousStateFindings = new Map();
               if (currentStateTokenCount > 1) {
                 core.setFailed("Existing dashboard state marker is duplicated");
@@ -585,8 +598,9 @@ safe-outputs:
               }
               if (currentStateMatches.length === 1) {
                 try {
+                  previousState = JSON.parse(currentStateMatches[0][1]);
                   previousStateFindings = validateState(
-                    JSON.parse(currentStateMatches[0][1]),
+                    previousState,
                     "Existing dashboard state",
                     validRepositoryUrl
                   );
@@ -758,6 +772,21 @@ safe-outputs:
                 stateFindings = validateState(
                   state,
                   "Dashboard state",
+                  (url, category, finding) =>
+                    validResourceUrlForType(url, category) ||
+                    sameFinding(
+                      previousStateFindings.get(finding.fingerprint),
+                      finding
+                    ) ||
+                    legacyFindingInReport(finding)
+                );
+                state.history = coalesceHistory(
+                  previousState.history,
+                  state.history
+                );
+                stateFindings = validateState(
+                  state,
+                  "Coalesced dashboard state",
                   (url, category, finding) =>
                     validResourceUrlForType(url, category) ||
                     sameFinding(
@@ -1640,8 +1669,10 @@ After collecting all findings, perform the diff:
    - Replace `active_findings` with the current fingerprint set, including the
      bounded finding fields, occurrence counts, and first-seen dates defined in
      the imported knowledge.
-   - Append today's summary and metrics to `history`, then retain only the most
-     recent 14 entries.
+   - Replace every existing `history` entry with today's date with today's
+     summary and metrics. Append today's entry only when that date is absent,
+     preserve entries for different dates, then retain only the most recent 14
+     distinct dates.
    - Serialize the state as one compact JSON object inside the exact
      `devops-health-state:v1` marker in the replacement issue body.
    - Require each fingerprint to be at most 300 characters, each title at most

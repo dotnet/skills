@@ -49,6 +49,9 @@ HEALTH_SOURCE_CONTRACT = (
     "error provides a terminal condition.",
     "Record the page count and terminal condition for P5 and for each targeted "
     "fallback inventory",
+    "Replace every existing `history` entry with today's date with today's "
+    "summary and metrics.",
+    "preserve entries for different dates",
     "Then collect `P1-other`, P2-P4, U1, and U2 while capacity remains.",
     "`method: list_workflow_jobs` with `perPage: 5`",
     "An unavailable `P1-other` inventory must not carry forward an absent "
@@ -70,6 +73,9 @@ HEALTH_SHARED_CONTRACT = (
     "P5 is mandatory: skip lower-priority scopes rather than abandon P5",
     "Record the page count and terminal condition for P5 and each targeted "
     "fallback inventory",
+    "Keep at most one history entry per date",
+    "replace same-date entries with the latest summary",
+    "preserve different dates",
     "Never mark a scope unavailable only because page 1 is full",
     "carry_forward_unchanged",
     "do not increment their occurrences",
@@ -1159,6 +1165,66 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertNotIn(stale_evaluation["fingerprint"], published["dashboardBody"])
         self.assertIn(current_evaluation["fingerprint"], published["dashboardBody"])
         self.assertIn(unavailable_other["fingerprint"], published["dashboardBody"])
+
+    def test_health_publisher_coalesces_same_date_history(self) -> None:
+        def history_entry(
+            date: str,
+            *,
+            existing_count: int,
+        ) -> dict[str, object]:
+            return {
+                "date": date,
+                "new_count": 0,
+                "existing_count": existing_count,
+                "resolved_count": 0,
+                "by_severity": {
+                    "critical": existing_count,
+                    "warning": 0,
+                    "info": 0,
+                },
+                "metrics": {},
+            }
+
+        previous_history = [
+            history_entry("2026-10-14", existing_count=2),
+            history_entry("2026-10-15", existing_count=3),
+        ]
+        previous_state = (
+            "<!-- devops-health-state:v1\n"
+            + json.dumps(
+                {
+                    "active_findings": [],
+                    "history": previous_history,
+                },
+                separators=(",", ":"),
+            )
+            + "\n-->"
+        )
+        published = run_health_publisher(
+            self,
+            previous_state,
+            replacement_state={
+                "active_findings": [],
+                "history": [
+                    *previous_history,
+                    history_entry("2026-10-16", existing_count=4),
+                    history_entry("2026-10-15", existing_count=1),
+                ],
+            },
+        )
+        self.assertEqual(published["errors"], [])
+        state_match = re.search(
+            r"<!-- devops-health-state:v1\n(.*?)\n-->",
+            published["dashboardBody"],
+            re.DOTALL,
+        )
+        self.assertIsNotNone(state_match)
+        history = json.loads(state_match.group(1))["history"]
+        self.assertEqual(
+            [entry["date"] for entry in history],
+            ["2026-10-14", "2026-10-15", "2026-10-16"],
+        )
+        self.assertEqual(history[1]["existing_count"], 1)
 
     def test_health_publisher_dispatches_only_matching_persisted_outbox(
         self,

@@ -388,6 +388,9 @@ Do not create per-finding islands or HTML-comment row markers.
   a terminal condition
 - Record the page count and terminal condition for P5 and each targeted
   fallback inventory
+- Keep at most one history entry per date: replace same-date entries with the
+  latest summary, preserve different dates, and retain the most recent 14
+  distinct dates
 - Never mark a scope unavailable only because page 1 is full
 - Include at most two dispatch inputs in the single publication request
 
