@@ -470,3 +470,59 @@ stimuli:
         references raise NU1510; recommends removing them for net11.0-only projects
       - Explains that Microsoft.NET.Test.Sdk (VSTest) no longer brings in Newtonsoft.Json transitively; recommends
         adding an explicit PackageReference
+  - name: No-op for code already unaffected by the .NET 11 changes
+    tags: {capability: restraint-unaffected-code, risk: fabricated-migration-fix, journey: migrate-web-app}
+    prompt: |
+      I'm upgrading this .NET 10 ASP.NET Core Web API to .NET 11. I've already changed the
+      TargetFramework to net11.0, and the build is clean with no warnings. Here is the only
+      business logic:
+
+      ```csharp
+      public static class Pricing
+      {
+          public static decimal Total(decimal unitPrice, int quantity, decimal taxRate) =>
+              decimal.Round(unitPrice * quantity * (1 + taxRate), 2, MidpointRounding.AwayFromZero);
+      }
+
+      app.MapPost("/quotes", (QuoteRequest request) =>
+          Results.Ok(new { Total = Pricing.Total(request.UnitPrice, request.Quantity, 0.25m) }));
+
+      public record QuoteRequest(decimal UnitPrice, int Quantity);
+      ```
+
+      The endpoint takes JSON and the app has no forms, Blazor, or JS interop. Do I need to
+      change this code for .NET 11?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (no|not|don't|doesn't).{0,60}(change|changes|affected|needed|required)
+      - type: prompt
+    rubric:
+      - Concludes that this code needs no changes for the .NET 11 decimal conversion or Math.Round changes, because it
+        uses decimal values and decimal.Round rather than double to decimal conversions or Math.Round on double
+      - Recognizes that the automatic CSRF protection does not affect a JSON-bound endpoint
+      - Does not fabricate required fixes for Blazor, EditContext, analyzers, or antiforgery that the code does not use
+      - May suggest optional verification steps such as running tests, but does not present them as required code
+        changes
+  - name: Stay dormant for a .NET 9 to .NET 10 upgrade
+    tags:
+      expect_activation: "false"
+      capability: dormancy
+      risk: wrong-version-guidance
+      journey: migrate-older-version
+    prompt: >
+      I'm upgrading a .NET 9 ASP.NET Core app to .NET 10. I changed the TargetFramework from
+      net9.0 to net10.0 and updated the Microsoft packages to 10.0.x. What breaking changes
+      should I look for?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (\.NET 10|net10\.0)
+      - type: prompt
+    rubric:
+      - Answers in terms of the .NET 9 to .NET 10 upgrade
+      - The .NET 10 to .NET 11 migration skill stayed dormant and its references were not loaded
+      - Does not present .NET 11 breaking changes (such as the decimal conversion rounding, automatic CSRF protection,
+        or EditContext.Validate becoming obsolete) as things to fix for .NET 10
