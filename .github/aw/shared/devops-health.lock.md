@@ -371,6 +371,8 @@ Do not create per-finding islands or HTML-comment row markers.
 - Use `resource_id` when the check is scoped to one workflow or run
 - Continue until a page contains fewer than 5 entries or its oldest
   `created_at` reaches the requested cutoff
+- After a full page `N` that has not reached the cutoff, request `page: N+1`;
+  never skip a page or jump to the page limit
 - Process pages incrementally and deduplicate workflow runs and jobs by ID
 - Stop after 100 total pages for one observation scope. If the inventory does
   not reach the requested cutoff within that budget, mark only that scope

@@ -35,6 +35,8 @@ HEALTH_PAGE_SIZE = 5
 HEALTH_MAX_PAGES = 100
 HEALTH_SOURCE_CONTRACT = (
     "`actions_list` with `perPage: 5` and explicit `page` values starting at `1`.",
+    "After a full page `N` that has not reached the cutoff, the next request "
+    "must use `page: N+1`; never skip a page or jump to the 100-page limit.",
     "Stop after 100 total pages for one observation scope.",
     "Complete P5 first with `resource_id=evaluation.yml`.",
     "derive the `P1-evaluation` main-branch run set and the P6 main-branch "
@@ -63,6 +65,8 @@ HEALTH_SHARED_CONTRACT = (
     "Other `pipeline:{workflow}:{job}:{step}:{conclusion}` | P1-other",
     "Continue until a page contains fewer than 5 entries or its oldest "
     "`created_at` reaches the requested cutoff",
+    "After a full page `N` that has not reached the cutoff, request "
+    "`page: N+1`; never skip a page or jump to the page limit",
     "Stop after 100 total pages for one observation scope.",
     "Complete P5 first, then derive P1-evaluation and P6 run sets from the same "
     "deduplicated all-branch inventory",
@@ -150,9 +154,12 @@ def reference_collect_health_pages(
     pages: list[list[dict[str, object]]],
     *,
     cutoff: str | None = None,
+    requested_pages: list[int] | None = None,
 ) -> tuple[list[dict[str, object]], bool]:
     collected: dict[int, dict[str, object]] = {}
     for page_number, page in enumerate(pages[:HEALTH_MAX_PAGES], start=1):
+        if requested_pages is not None:
+            requested_pages.append(page_number)
         for item in page:
             collected.setdefault(int(item["id"]), item)
         reached_cutoff = bool(
@@ -970,6 +977,36 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertEqual(diff["existing"][0]["occurrences"], 2)
         self.assertFalse(diff["existing"][0]["was_observed"])
         self.assertEqual(diff["resolved"], [])
+
+    def test_health_p5_requests_page_five_after_four_full_pages(self) -> None:
+        pages = [
+            [
+                {
+                    "id": page * HEALTH_PAGE_SIZE + item,
+                    "created_at": "2026-11-10T20:00:00Z",
+                }
+                for item in range(HEALTH_PAGE_SIZE)
+            ]
+            for page in range(4)
+        ]
+        pages.append(
+            [
+                {
+                    "id": 4 * HEALTH_PAGE_SIZE,
+                    "created_at": "2026-11-09T20:00:00Z",
+                }
+            ]
+        )
+        requested_pages: list[int] = []
+        collected, complete = reference_collect_health_pages(
+            pages,
+            cutoff="2026-11-09T21:51:41Z",
+            requested_pages=requested_pages,
+        )
+
+        self.assertTrue(complete)
+        self.assertEqual(requested_pages, [1, 2, 3, 4, 5])
+        self.assertEqual(len(collected), 21)
 
     def test_health_diff_replaces_stale_evaluation_identity(self) -> None:
         stale = {

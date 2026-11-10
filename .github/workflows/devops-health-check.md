@@ -1351,7 +1351,9 @@ and continue until a page contains fewer than 5 entries or its oldest
 `created_at` reaches the check's cutoff. Stop after 100 total pages for one
 observation scope. If the inventory does not reach the cutoff within that
 budget, mark only that scope unavailable. A full first page is not evidence
-that pagination is unavailable. Do not rely on implicit MCP pagination.
+that pagination is unavailable. After a full page `N` that has not reached the
+cutoff, the next request must use `page: N+1`; never skip a page or jump to the
+100-page limit. Do not rely on implicit MCP pagination.
 
 Collect one critical evaluation run inventory before repository-wide warnings
 and metrics:
