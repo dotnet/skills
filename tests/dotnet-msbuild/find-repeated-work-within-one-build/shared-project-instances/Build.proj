@@ -1,0 +1,9 @@
+<Project DefaultTargets="BuildAll">
+  <ItemGroup>
+    <Component Include="Web\Web.csproj;Api\Api.csproj;Worker\Worker.csproj" />
+  </ItemGroup>
+
+  <Target Name="BuildAll">
+    <MSBuild Projects="@(Component)" Properties="ComponentName=%(Component.Filename)" BuildInParallel="true" />
+  </Target>
+</Project>

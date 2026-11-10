@@ -1,0 +1,15 @@
+<Project>
+  <ItemGroup>
+    <SchemaFile Include="schemas/**/*.json" />
+  </ItemGroup>
+
+  <Target Name="GenerateSchemaCode" BeforeTargets="CoreCompile"
+          Inputs="@(SchemaFile)"
+          Outputs="@(SchemaFile->'$(IntermediateOutputPath)gen/%(Filename).g.cs')">
+    <MakeDir Directories="$(IntermediateOutputPath)gen" />
+    <Exec Command="schemagen --input &quot;%(SchemaFile.FullPath)&quot; --output &quot;$(IntermediateOutputPath)gen/%(SchemaFile.Filename).g.cs&quot;" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)gen/*.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

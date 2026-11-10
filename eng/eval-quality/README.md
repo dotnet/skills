@@ -79,7 +79,9 @@ setup, which reads as a skill failure.
 ### 2. Referenced fixture cannot be materialized by git
 
 The fixture exists locally but is not in the index, so it will not exist on the
-CI runner.
+CI runner. The check covers every file mapping Vally stages: `environment.files`,
+its preferred alias `agent_environment.files`, and the grader-only
+`grading_environment.files`, at suite and stimulus scope.
 
 The same rule rejects empty fixture directories and untracked content reached
 through a tracked symlink. Git does not preserve an empty directory, and a
@@ -406,16 +408,17 @@ symlink, both the link and its contained target must be tracked.
 
 A patch can remain present and tracked after its fixture changes, but its
 preimage no longer exists. The gate materializes the suite-level
-`environment.files` mappings, then each stimulus's own mappings, in a scratch
-workspace (the same merge Vally performs) and runs `git apply --check`. A stale
-patch therefore fails before Vally tries to use a broken oracle. A stimulus
-whose files all come from the suite-level environment is checked the same way,
-and the same rule decides whether a state-changing stimulus needs a golden
-patch. Stimuli whose
-workspace is created only by commands are not checked because their preimage
-cannot be reconstructed statically. A stimulus must not redeclare a suite-level
-destination: Vally rejects the duplicate entry and loads none of the eval's
-stimuli, so the gate fails it too.
+`environment.files` (or `agent_environment.files`) mappings, then each stimulus's
+own mappings, in a scratch workspace (the same merge Vally performs) and runs
+`git apply --check`. A stale patch therefore fails before Vally tries to use a
+broken oracle. A stimulus whose files all come from the suite-level environment
+is checked the same way, and the same rule decides whether a state-changing
+stimulus needs a golden patch. Stimuli whose workspace is created only by
+commands are not checked because their preimage cannot be reconstructed
+statically. A stimulus must not redeclare a suite-level destination: Vally
+rejects the duplicate entry and loads none of the eval's stimuli, so the gate
+fails it too. Grader-only `grading_environment.files` are staged after the agent
+finishes, so they are not part of the patch preimage.
 
 Materialization is fail-closed. Each mapping-style `environment.files` entry
 must declare a non-empty string `dest`; otherwise Vally rejects the specification
@@ -521,8 +524,9 @@ rejects a complete rubric item copied into the response.
 
 ### 23. Environment fixture mapping has no destination
 
-Every mapping-style `environment.files` entry must declare a non-empty string
-`dest`, at both suite and stimulus scope. Vally rejects the entire eval before
+Every mapping-style `environment.files`, `agent_environment.files`, and
+`grading_environment.files` entry must declare a non-empty string `dest`, at both
+suite and stimulus scope. Vally rejects the entire eval before
 loading any stimuli when a destination is missing or empty, even if the source
 exists and is tracked.
 
