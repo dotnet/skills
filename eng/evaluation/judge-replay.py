@@ -612,6 +612,12 @@ def native_cases(path, judge, model, original_skills, expected_activations):
                 winner = "treatment"
             if winner not in ("baseline", "treatment", "tie"):
                 raise ValueError(f"Missing or invalid native judgment: {scenario['scenarioName']}")
+            baseline_passed = scenario.get("baseline", {}).get("metrics", {}).get("taskCompleted")
+            treatment_passed = scenario.get(
+                "skilledIsolated", {}).get("metrics", {}).get("taskCompleted")
+            if type(baseline_passed) is not bool or type(treatment_passed) is not bool:
+                raise ValueError(
+                    f"Missing or invalid native completion evidence: {scenario['scenarioName']}")
             magnitude = result.get("overallMagnitude")
             if magnitude == 2 or str(magnitude).lower() == "equal":
                 winner = "tie"
@@ -619,6 +625,8 @@ def native_cases(path, judge, model, original_skills, expected_activations):
             if key in cases:
                 raise ValueError(f"Duplicate native scenario: {key}")
             cases[key] = {"winner": winner, "errored": False,
+                          "baselinePassed": baseline_passed,
+                          "treatmentPassed": treatment_passed,
                           "evidence": result.get("overallReasoning")}
     if observed_activations != expected_activations:
         raise ValueError("Native rejudge activation contract differs from recorded evidence")

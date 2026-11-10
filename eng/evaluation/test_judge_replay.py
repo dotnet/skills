@@ -739,9 +739,14 @@ class JudgeReplayTests(unittest.TestCase):
             "skill", 1, "treatment", candidate_activation=False,
             expected_error="activation contract differs")
 
+    def test_native_rejudge_rejects_missing_completion_evidence(self):
+        self.assert_native_rejudge(
+            "skill", 1, "treatment", candidate_treatment_passed=None,
+            expected_error="completion evidence")
+
     def assert_native_rejudge(self, winner, magnitude, expected_winner,
                               recovered_scenarios=None, candidate_activation=True,
-                              expected_error=None):
+                              candidate_treatment_passed=False, expected_error=None):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
             root = Path(temporary)
             source, output = root / "source", root / "output"
@@ -779,6 +784,11 @@ class JudgeReplayTests(unittest.TestCase):
                         "scenarioName": "case",
                         "expectActivation": (True if judge == "claude-haiku-4.5"
                                              else candidate_activation),
+                        "baseline": {"metrics": {"taskCompleted": True}},
+                        "skilledIsolated": {"metrics": {
+                            "taskCompleted": (False if judge == "claude-haiku-4.5"
+                                              else candidate_treatment_passed),
+                        }},
                         "pairwiseResult": {
                             "overallWinner": "baseline" if judge == "claude-haiku-4.5" else winner,
                             "overallMagnitude": 1 if judge == "claude-haiku-4.5" else magnitude,
@@ -803,6 +813,15 @@ class JudgeReplayTests(unittest.TestCase):
             self.assertEqual(report["counts"]["direct_reversals"],
                              int(expected_winner == "treatment"))
             self.assertEqual(report["counts"]["tie_shifts"], int(expected_winner == "tie"))
+            self.assertEqual(report["counts"]["differing_checks"], 1)
+            self.assertEqual(report["counts"]["original_check_alignment"], 1)
+            self.assertEqual(
+                report["counts"]["candidate_check_alignment"],
+                int(expected_winner == "baseline"))
+            self.assertTrue(report["cases"][0]["current_original"]["baselinePassed"])
+            self.assertFalse(report["cases"][0]["current_original"]["treatmentPassed"])
+            self.assertTrue(report["cases"][0]["current_candidate"]["baselinePassed"])
+            self.assertFalse(report["cases"][0]["current_candidate"]["treatmentPassed"])
             self.assertEqual(report["cases"][0]["current_candidate"]["winner"], expected_winner)
             self.assertEqual(report["cases"][0]["skill"], "agent.testability-migration")
 
