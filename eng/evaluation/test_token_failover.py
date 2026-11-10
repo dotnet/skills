@@ -1448,21 +1448,18 @@ class TokenFailoverTests(unittest.TestCase):
             "Never mark a scope unavailable only because page 1 contains 100 entries",
             " ".join(shared_health.split()),
         )
+        self.assertIn("Bounded Actions pagination contract", health_check)
+        self.assertIn("`page` values starting at `1`", " ".join(health_check.split()))
         self.assertIn(
-            "Deterministic Actions pagination contract",
-            health_check,
-        )
-        self.assertIn("`page` values\nstarting at `1`", health_check)
-        self.assertIn(
-            "`method: list_workflow_runs`, `perPage: 100`",
+            "`actions_list` with `perPage: 5`",
             " ".join(health_check.split()),
         )
         self.assertIn(
-            "Do not send `workflow_runs_filter`",
+            "`P1-evaluation`; other step-failure fingerprints use `P1-other`",
             " ".join(health_check.split()),
         )
         self.assertIn(
-            "Filter locally to `branch=main`, `conclusion=failure`",
+            "`method: list_workflow_jobs` with `perPage: 5`",
             " ".join(health_check.split()),
         )
         self.assertIn(
@@ -1478,7 +1475,7 @@ class TokenFailoverTests(unittest.TestCase):
             " ".join(health_check.split()),
         )
         self.assertIn(
-            "does not expose the REST `created` filter",
+            "Use supported `workflow_runs_filter` values",
             " ".join(health_check.split()),
         )
         self.assertIn("Stop after 100 total pages", health_check)

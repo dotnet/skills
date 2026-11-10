@@ -1312,27 +1312,45 @@ findings. Retain the validated previous issue body in memory for Step 2.
 
 ### 1.1 Pipeline Health (P1–P6)
 
-**Deterministic Actions pagination contract:** For every P1-P6, U1, or U2
-workflow-run inventory, call `actions_list` with
-`method: list_workflow_runs`, `perPage: 100`, and explicit `page` values
-starting at `1`. Do not send `workflow_runs_filter`: GitHub limits filtered
-workflow-run searches to 1,000 results, and the pinned MCP tool does not expose
-the REST `created` filter needed to partition that cap safely. Use
-`resource_id` only when the check is scoped to one workflow. Filter branch,
-status, event, and cutoff locally after each unfiltered page. Process pages
-immediately, deduplicate runs by run ID, and continue until a page contains
-fewer than the requested 100 entries or its oldest `created_at` reaches the
-check's cutoff. Stop after 100 total pages for one observation scope. If the
-inventory does not reach the requested cutoff within that budget, mark only
-that scope unavailable. A full first page is not evidence that pagination is
-unavailable. Do not rely on implicit MCP pagination.
+**Bounded Actions pagination contract:** The pinned `actions_list` tool returns
+enough metadata that a 100-item response can exceed the agent response channel.
+For every P1-P6, U1, or U2 workflow-run or workflow-job inventory, call
+`actions_list` with `perPage: 5` and explicit `page` values starting at `1`.
+Use supported `workflow_runs_filter` values that match the check, then filter
+conclusion and cutoff locally. Process pages immediately, deduplicate by ID,
+and continue until a page contains fewer than 5 entries or its oldest
+`created_at` reaches the check's cutoff. Stop after 100 total pages for one
+observation scope. If the inventory does not reach the cutoff within that
+budget, mark only that scope unavailable. A full first page is not evidence
+that pagination is unavailable. Do not rely on implicit MCP pagination.
+
+Collect critical evaluation scopes before repository-wide warnings and metrics:
+
+1. Complete `P1-evaluation`, P5, and P6 with `resource_id=evaluation.yml`.
+2. For every failed evaluation run in P1, paginate
+   `method: list_workflow_jobs` with `perPage: 5`; do not request one large job
+   response.
+3. Then collect `P1-other`, P2-P4, U1, and U2 while capacity remains. Mark only
+   an incomplete lower-priority scope unavailable.
+
+For state resolution, evaluation step-failure fingerprints use
+`P1-evaluation`; other step-failure fingerprints use `P1-other`. Treat these as
+independent observation scopes even though the imported generic mapping calls
+both P1. An unavailable `P1-other` inventory must not carry forward an absent
+`pipeline:evaluation:{job}:{step}:{conclusion}` finding after `P1-evaluation`
+completed. These local response-bound and scope-partition rules override the
+imported 100-item and single-P1 guidance for this workflow.
 
 **P1 — Failed workflow runs on `main` in last 24h:**
 ```
-actions_list: method=list_workflow_runs, perPage=100, page={page}
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
+              page={page},
+              workflow_runs_filter={branch: main, status: completed}
 ```
-Filter locally to `branch=main`, `conclusion=failure`, and runs created within
-the last 24 hours. For each failed run:
+Complete this evaluation-scoped inventory first. Filter locally to
+`conclusion=failure` and runs created within the last 24 hours. Then attempt the
+non-evaluation repository inventory as `P1-other` with the same page size and
+cutoff rules. For each failed run:
 - Use paginated Actions job data for that run and inspect only failed job logs
   when needed to identify the failed step. P1 is complete only when both the
   run inventory and each included run's failed job/step identity are complete.
@@ -1345,7 +1363,8 @@ the last 24 hours. For each failed run:
 
 **P2 — Cancelled/timed-out runs in last 24h:**
 ```
-actions_list: method=list_workflow_runs, perPage=100, page={page}
+actions_list: method=list_workflow_runs, perPage=5, page={page},
+              workflow_runs_filter={branch: main, status: completed}
 ```
 - Filter locally to `branch=main`, `conclusion` in `cancelled` or `timed_out`,
   and the last 24 hours.
@@ -1359,7 +1378,9 @@ actions_list: method=list_workflow_runs, perPage=100, page={page}
 
 **P3 — Evaluation duration trend:**
 ```
-actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=100, page={page}
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
+              page={page},
+              workflow_runs_filter={branch: main, status: completed}
 ```
 Filter locally to `branch=main` and compute average run duration over the last
 14 days.
@@ -1369,7 +1390,8 @@ Filter locally to `branch=main` and compute average run duration over the last
 
 **P4 — Workflow failure rate (7-day rolling):**
 ```
-actions_list: method=list_workflow_runs, perPage=100, page={page}
+actions_list: method=list_workflow_runs, perPage=5, page={page},
+              workflow_runs_filter={branch: main, status: completed}
 ```
 Filter locally to `branch=main` and the last 7 days. Group by workflow name and
 compute success/failure ratio.
@@ -1377,7 +1399,8 @@ compute success/failure ratio.
 
 **P5 — Evaluation failure rate across all branches (last 24h):**
 ```
-actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=100, page={page}
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
+              page={page}, workflow_runs_filter={status: completed}
 ```
 Filter to runs created within the last 24 hours across all branches and event
 types (schedule, pull_request, workflow_dispatch). Apply the deterministic
@@ -1402,7 +1425,10 @@ Also include in the finding details:
 
 **P6 — Evaluation scheduled run cancellation rate (last 24h):**
 ```
-actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=100, page={page}
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
+              page={page},
+              workflow_runs_filter={branch: main, event: schedule,
+                                    status: completed}
 ```
 Filter locally to scheduled runs on `main` created within the last 24 hours.
 Compute:
