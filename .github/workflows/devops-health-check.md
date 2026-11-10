@@ -1335,11 +1335,10 @@ Collect critical evaluation scopes before repository-wide warnings and metrics:
 
 For state resolution, evaluation step-failure fingerprints use
 `P1-evaluation`; other step-failure fingerprints use `P1-other`. Treat these as
-independent observation scopes even though the imported generic mapping calls
-both P1. An unavailable `P1-other` inventory must not carry forward an absent
+independent observation scopes. An unavailable `P1-other` inventory must not
+carry forward an absent
 `pipeline:evaluation:{job}:{step}:{conclusion}` finding after `P1-evaluation`
-completed. These local response-bound and scope-partition rules override the
-imported 100-item and single-P1 guidance for this workflow.
+completed.
 
 **P1 — Failed workflow runs on `main` in last 24h:**
 ```
@@ -1403,7 +1402,7 @@ actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
               page={page}, workflow_runs_filter={status: completed}
 ```
 Filter to runs created within the last 24 hours across all branches and event
-types (schedule, pull_request, workflow_dispatch). Apply the deterministic
+types (schedule, pull_request, workflow_dispatch). Apply the bounded
 pagination contract even when page 1 is full. Compute:
 - Total runs, failures (conclusion=failure), cancellations (conclusion=cancelled), successes
 - **Overall failure rate** = failures / (failures + successes) — exclude cancelled runs from denominator
@@ -1546,12 +1545,12 @@ registry:
 ### 1.3 Resource Usage (U1–U3)
 
 **U1 — Daily compute hours:**
-Use the deterministic Actions pagination contract above. Sum all workflow run
+Use the bounded Actions pagination contract above. Sum all workflow run
 durations from the last 24h after filtering locally.
 - 🔵 Info (metric only — for trends table)
 
 **U2 — Eval runs count:**
-Use the deterministic Actions pagination contract with
+Use the bounded Actions pagination contract with
 `resource_id=evaluation.yml`. Count runs from the last 24h after filtering
 locally.
 - 🔵 Info (metric only)

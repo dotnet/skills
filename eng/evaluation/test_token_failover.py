@@ -31,6 +31,106 @@ FIND_TARGETS_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
+HEALTH_PAGE_SIZE = 5
+HEALTH_MAX_PAGES = 100
+HEALTH_SCOPE_ORDER = (
+    "P1-evaluation",
+    "P5",
+    "P6",
+    "P1-other",
+    "P2",
+    "P3",
+    "P4",
+    "U1",
+    "U2",
+)
+
+
+def collect_health_pages(
+    pages: list[list[dict[str, object]]],
+    *,
+    cutoff: str | None = None,
+) -> tuple[list[dict[str, object]], bool]:
+    collected: dict[int, dict[str, object]] = {}
+    for page_number, page in enumerate(pages[:HEALTH_MAX_PAGES], start=1):
+        for item in page:
+            collected.setdefault(int(item["id"]), item)
+        reached_cutoff = bool(
+            cutoff
+            and page
+            and str(page[-1].get("created_at", "")) <= cutoff
+        )
+        if len(page) < HEALTH_PAGE_SIZE or reached_cutoff:
+            return list(collected.values()), True
+        if page_number == HEALTH_MAX_PAGES:
+            return list(collected.values()), False
+    return list(collected.values()), len(pages) < HEALTH_MAX_PAGES
+
+
+def health_scope(fingerprint: str) -> str:
+    if fingerprint.startswith("pipeline:evaluation:failure-rate:"):
+        return "P5"
+    if fingerprint.startswith("pipeline:evaluation:schedule-cancellation:"):
+        return "P6"
+    parts = fingerprint.split(":")
+    if (
+        len(parts) == 5
+        and parts[0] == "pipeline"
+        and parts[1] == "evaluation"
+    ):
+        return "P1-evaluation"
+    if len(parts) == 5 and parts[0] == "pipeline":
+        return "P1-other"
+    raise AssertionError(f"Unsupported test fingerprint: {fingerprint}")
+
+
+def diff_health_findings(
+    previous: list[dict[str, object]],
+    observed: list[dict[str, object]],
+    unavailable_scopes: set[str],
+) -> dict[str, list[dict[str, object]]]:
+    previous_by_fingerprint = {
+        str(finding["fingerprint"]): dict(finding)
+        for finding in previous
+    }
+    current_by_fingerprint: dict[str, dict[str, object]] = {}
+    observed_fingerprints: set[str] = set()
+    for finding in observed:
+        fingerprint = str(finding["fingerprint"])
+        observed_fingerprints.add(fingerprint)
+        current_by_fingerprint.setdefault(fingerprint, dict(finding))
+
+    carried_fingerprints: set[str] = set()
+    for fingerprint, finding in previous_by_fingerprint.items():
+        if (
+            fingerprint not in current_by_fingerprint
+            and health_scope(fingerprint) in unavailable_scopes
+        ):
+            current_by_fingerprint[fingerprint] = dict(finding)
+            carried_fingerprints.add(fingerprint)
+
+    new: list[dict[str, object]] = []
+    existing: list[dict[str, object]] = []
+    resolved: list[dict[str, object]] = []
+    for fingerprint, finding in current_by_fingerprint.items():
+        if fingerprint not in previous_by_fingerprint:
+            finding["occurrences"] = 1
+            new.append(finding)
+            continue
+        prior = previous_by_fingerprint[fingerprint]
+        finding["first_seen"] = prior["first_seen"]
+        finding["occurrences"] = (
+            int(prior["occurrences"]) + 1
+            if fingerprint in observed_fingerprints
+            else int(prior["occurrences"])
+        )
+        finding["was_observed"] = fingerprint not in carried_fingerprints
+        existing.append(finding)
+
+    for fingerprint, finding in previous_by_fingerprint.items():
+        if fingerprint not in current_by_fingerprint:
+            resolved.append(finding)
+    return {"new": new, "existing": existing, "resolved": resolved}
 
 
 def workflow_frontmatter(text: str) -> dict:
@@ -514,6 +614,172 @@ def generated_safe_output_configs(workflow: object) -> list[dict[str, object]]:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_health_pagination_covers_observed_run_and_job_counts(self) -> None:
+        run_pages = [
+            [
+                {"id": index, "created_at": f"2026-11-09T0{index}:00:00Z"}
+                for index in range(1, 6)
+            ],
+            [
+                {"id": 5, "created_at": "2026-11-09T05:00:00Z"},
+                {"id": 6, "created_at": "2026-11-09T04:00:00Z"},
+                {"id": 7, "created_at": "2026-11-09T03:00:00Z"},
+            ],
+        ]
+        runs, runs_complete = collect_health_pages(run_pages)
+        self.assertTrue(runs_complete)
+        self.assertEqual({int(run["id"]) for run in runs}, set(range(1, 8)))
+
+        jobs = [
+            {"id": index, "created_at": "2026-11-09T07:00:00Z"}
+            for index in range(1, 97)
+        ]
+        job_pages = [
+            jobs[index : index + HEALTH_PAGE_SIZE]
+            for index in range(0, len(jobs), HEALTH_PAGE_SIZE)
+        ]
+        collected_jobs, jobs_complete = collect_health_pages(job_pages)
+        self.assertTrue(jobs_complete)
+        self.assertEqual(len(collected_jobs), 96)
+        self.assertEqual(len(job_pages), 20)
+
+    def test_health_pagination_fails_closed_at_page_limit(self) -> None:
+        full_pages = [
+            [
+                {
+                    "id": page * HEALTH_PAGE_SIZE + item,
+                    "created_at": "2026-11-10T00:00:00Z",
+                }
+                for item in range(HEALTH_PAGE_SIZE)
+            ]
+            for page in range(HEALTH_MAX_PAGES)
+        ]
+        collected, complete = collect_health_pages(full_pages)
+        self.assertFalse(complete)
+        self.assertEqual(len(collected), HEALTH_PAGE_SIZE * HEALTH_MAX_PAGES)
+
+        bounded_pages = [*full_pages[:-1], full_pages[-1][:-1]]
+        collected, complete = collect_health_pages(bounded_pages)
+        self.assertTrue(complete)
+        self.assertEqual(
+            len(collected),
+            HEALTH_PAGE_SIZE * HEALTH_MAX_PAGES - 1,
+        )
+
+    def test_health_scope_order_prioritizes_current_critical_evidence(self) -> None:
+        self.assertEqual(
+            HEALTH_SCOPE_ORDER[:3],
+            ("P1-evaluation", "P5", "P6"),
+        )
+        self.assertGreater(
+            HEALTH_SCOPE_ORDER.index("P1-other"),
+            HEALTH_SCOPE_ORDER.index("P6"),
+        )
+
+    def test_health_diff_replaces_stale_evaluation_identity(self) -> None:
+        stale = {
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-old:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-10-18",
+            "occurrences": 1,
+        }
+        current = {
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 99,
+        }
+        result = diff_health_findings(
+            [stale],
+            [current],
+            {"P1-other"},
+        )
+        self.assertEqual(
+            [finding["fingerprint"] for finding in result["resolved"]],
+            [stale["fingerprint"]],
+        )
+        self.assertEqual(
+            [finding["fingerprint"] for finding in result["new"]],
+            [current["fingerprint"]],
+        )
+        self.assertEqual(result["new"][0]["occurrences"], 1)
+
+    def test_health_diff_preserves_observed_and_unavailable_findings(self) -> None:
+        observed_prior = {
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-09",
+            "occurrences": 2,
+        }
+        carried_prior = {
+            "fingerprint": (
+                "pipeline:build:compile:run-tests:failure"
+            ),
+            "first_seen": "2026-11-08",
+            "occurrences": 4,
+        }
+        result = diff_health_findings(
+            [observed_prior, carried_prior],
+            [dict(observed_prior)],
+            {"P1-other"},
+        )
+        existing = {
+            str(finding["fingerprint"]): finding
+            for finding in result["existing"]
+        }
+        self.assertEqual(existing[observed_prior["fingerprint"]]["occurrences"], 3)
+        self.assertTrue(existing[observed_prior["fingerprint"]]["was_observed"])
+        self.assertEqual(existing[carried_prior["fingerprint"]]["occurrences"], 4)
+        self.assertFalse(existing[carried_prior["fingerprint"]]["was_observed"])
+        self.assertEqual(result["resolved"], [])
+
+    def test_health_diff_preserves_evaluation_only_when_its_scope_is_unavailable(
+        self,
+    ) -> None:
+        prior = {
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-old:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-10-18",
+            "occurrences": 1,
+        }
+        result = diff_health_findings([prior], [], {"P1-evaluation"})
+        self.assertEqual(result["resolved"], [])
+        self.assertEqual(result["existing"][0]["occurrences"], 1)
+        self.assertFalse(result["existing"][0]["was_observed"])
+
+    def test_health_diff_deduplicates_fingerprints_and_replaces_rate_bucket(
+        self,
+    ) -> None:
+        prior = {
+            "fingerprint": "pipeline:evaluation:failure-rate:warning",
+            "first_seen": "2026-11-09",
+            "occurrences": 1,
+        }
+        current = {
+            "fingerprint": "pipeline:evaluation:failure-rate:critical",
+            "first_seen": "2026-11-10",
+            "occurrences": 1,
+        }
+        result = diff_health_findings(
+            [prior],
+            [current, dict(current)],
+            set(),
+        )
+        self.assertEqual(len(result["new"]), 1)
+        self.assertEqual(len(result["resolved"]), 1)
+        self.assertEqual(
+            result["new"][0]["fingerprint"],
+            "pipeline:evaluation:failure-rate:critical",
+        )
+
     def test_health_publisher_gates_legacy_rows_on_persisted_state(self) -> None:
         legacy_row = (
             "| Legacy finding | 🔴 critical | 🔄 Dispatched | "
@@ -1445,7 +1711,7 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn("carry_forward_unchanged", shared_health)
         self.assertIn("do not increment their occurrences", shared_health)
         self.assertIn(
-            "Never mark a scope unavailable only because page 1 contains 100 entries",
+            "Never mark a scope unavailable only because page 1 is full",
             " ".join(shared_health.split()),
         )
         self.assertIn("Bounded Actions pagination contract", health_check)
@@ -1456,6 +1722,14 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertIn(
             "`P1-evaluation`; other step-failure fingerprints use `P1-other`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Complete `P1-evaluation`, P5, and P6",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Then collect `P1-other`, P2-P4, U1, and U2",
             " ".join(health_check.split()),
         )
         self.assertIn(
@@ -1557,6 +1831,8 @@ class TokenFailoverTests(unittest.TestCase):
             "`pipeline:{workflow}:{job}:timeout` | P2",
             "`pipeline:evaluation:failure-rate:{bucket}` | P5",
             "`pipeline:evaluation:schedule-cancellation:{bucket}` | P6",
+            "`pipeline:evaluation:{job}:{step}:{conclusion}` | P1-evaluation",
+            "Other `pipeline:{workflow}:{job}:{step}:{conclusion}` | P1-other",
             "`resource:eval-duration:{bucket}` | P3",
             "`resource:cost-increase` | U3",
             "`infra:pages-deployment-failed` | I5",

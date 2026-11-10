@@ -120,14 +120,17 @@ label them as not observed in the visible report. A failure in one scope must
 not suppress resolution decisions for an independently observed scope.
 
 Derive the observation scope from every validated fingerprint. Do not persist
-another field:
+another field. Evaluation step failures and other workflow step failures are
+independent scopes so an unavailable repository-wide inventory cannot preserve
+an absent evaluation finding:
 
 | Fingerprint shape | Scope |
 |-------------------|-------|
 | `pipeline:{workflow}:{job}:timeout` | P2 |
 | `pipeline:evaluation:failure-rate:{bucket}` | P5 |
 | `pipeline:evaluation:schedule-cancellation:{bucket}` | P6 |
-| Other `pipeline:{workflow}:{job}:{step}:{conclusion}` | P1 |
+| `pipeline:evaluation:{job}:{step}:{conclusion}` | P1-evaluation |
+| Other `pipeline:{workflow}:{job}:{step}:{conclusion}` | P1-other |
 | `resource:eval-duration:{bucket}` | P3 |
 | `resource:cost-increase` | U3 |
 | `infra:no-codeowners` | I1 |
@@ -360,21 +363,20 @@ Do not create per-finding islands or HTML-comment row markers.
 
 ### 7.1 API Rate Limits
 - Use targeted, date-filtered queries to minimize API calls
-- Paginate every high-volume workflow-run inventory explicitly with
-  `actions_list`, `method: list_workflow_runs`, `perPage: 100`, and page
-  numbers starting at `1`
-- Do not send `workflow_runs_filter` for complete inventories. GitHub limits
-  filtered workflow-run searches to 1,000 results, and the pinned MCP tool does
-  not expose the REST `created` filter needed to partition that cap safely
-- Use `resource_id` only when the check is scoped to one workflow. Filter
-  branch, status, event, and cutoff locally after each unfiltered page
-- Continue until a page contains fewer than the requested 100 entries or its
-  oldest `created_at` reaches the requested cutoff
-- Process pages incrementally and deduplicate workflow runs by run ID
+- Paginate workflow-run and workflow-job inventories explicitly with
+  `actions_list`, `perPage: 5`, and page numbers starting at `1`; 100-item
+  responses can exceed the bounded agent response channel
+- Use supported `workflow_runs_filter` values for branch, status, and event.
+  Filter conclusion and cutoff locally because the tool does not expose them
+- Use `resource_id` when the check is scoped to one workflow or run
+- Continue until a page contains fewer than 5 entries or its oldest
+  `created_at` reaches the requested cutoff
+- Process pages incrementally and deduplicate workflow runs and jobs by ID
 - Stop after 100 total pages for one observation scope. If the inventory does
   not reach the requested cutoff within that budget, mark only that scope
   unavailable
-- Never mark a scope unavailable only because page 1 contains 100 entries
+- Collect P1-evaluation, P5, and P6 before repository-wide warnings and metrics
+- Never mark a scope unavailable only because page 1 is full
 - Include at most two dispatch inputs in the single publication request
 
 ### 7.2 Issue Body Size
