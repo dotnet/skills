@@ -276,10 +276,10 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   if ($hasInfraChanges -and -not $hasSkillChanges) {
     echo "is_infra=true" >> $env:GITHUB_OUTPUT
-    # Infrastructure changes use one fixed, validated Vally sentinel from
-    # each representative plugin plus one native-agent sentinel. Running every
-    # eval in these large plugins makes infrastructure validation depend on
-    # unrelated suite health.
+    # Infrastructure changes use fixed, validated sentinels for the Vally,
+    # native-agent, and agentic-workflow lanes. Running every eval in these
+    # large collections makes infrastructure validation depend on unrelated
+    # suite health.
     $infraCanarySkills = [ordered]@{
       "dotnet" = "csharp-refactoring"
       "dotnet-msbuild" = "build-perf-diagnostics"
@@ -305,6 +305,17 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
       throw "Infrastructure canary '$infraAgentPlugin/agent.$infraAgent' does not resolve to exactly one agent evaluation entry."
     }
     $entries += $agentEntries
+    $infraWorkflowPackage = "build-failure-analysis"
+    try {
+      $workflowEntries = @(Get-WorkflowEntries `
+        -contentRoot $contentRoot -selectedPackages @($infraWorkflowPackage))
+    } catch {
+      throw "Infrastructure canary 'agentic-workflows/$infraWorkflowPackage' could not be resolved: $($_.Exception.Message)"
+    }
+    if ($workflowEntries.Count -ne 1) {
+      throw "Infrastructure canary 'agentic-workflows/$infraWorkflowPackage' does not resolve to exactly one workflow evaluation entry."
+    }
+    $entries += $workflowEntries
     $selectedCanaryPlugins = @($entries |
       Select-Object -ExpandProperty plugin -Unique)
     $missingCanaryPlugins = @($infraCanaryPlugins |
@@ -314,7 +325,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     }
     $canaryNames = @($infraCanarySkills.GetEnumerator() |
       ForEach-Object { "$($_.Key)/$($_.Value)" })
-    Write-Host "Infrastructure changes detected, evaluating fixed Vally canaries: $($canaryNames -join ', '); native agent canary: $infraAgentPlugin/agent.$infraAgent."
+    Write-Host "Infrastructure changes detected, evaluating fixed Vally canaries: $($canaryNames -join ', '); native agent canary: $infraAgentPlugin/agent.$infraAgent; workflow canary: agentic-workflows/$infraWorkflowPackage."
   } else {
     # Extract unique plugin/skill pairs from changed skill sources and
     # non-agent eval directories.

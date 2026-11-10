@@ -209,6 +209,22 @@ class WorkflowTargetsTests(unittest.TestCase):
         ):
             self.create_plugin_fixture(plugin, skill)
         self.create_agent_fixture(plugin="dotnet-msbuild", agent_name="build-perf")
+        package = self.root / "agentic-workflows" / "build-failure-analysis"
+        package.mkdir(parents=True)
+        (package / "aw.yml").write_text(
+            "includes: [workflows/main.md]\n", encoding="utf-8"
+        )
+        evaluation = (
+            self.root
+            / "tests"
+            / "agentic-workflows"
+            / "build-failure-analysis"
+            / "eval.yaml"
+        )
+        evaluation.parent.mkdir(parents=True)
+        evaluation.write_text(
+            "name: build-failure-analysis\nstimuli: []\n", encoding="utf-8"
+        )
 
     def test_infrastructure_change_uses_fixed_plugin_canaries(self):
         manifest = self.create_plugin_fixture()
@@ -251,14 +267,14 @@ class WorkflowTargetsTests(unittest.TestCase):
             repeated_result.stdout + repeated_result.stderr,
         )
         self.assertEqual(self.entries(), entries)
-        self.assertEqual(len(entries), 8)
+        self.assertEqual(len(entries), 10)
         self.assertEqual(
             {entry["target_kind"] for entry in entries},
-            {"skill", "agent"},
+            {"skill", "agent", "workflow"},
         )
         self.assertEqual(
             {entry["plugin"] for entry in entries},
-            {"dotnet", "dotnet-msbuild", "dotnet-test"},
+            {"agentic-workflows", "dotnet", "dotnet-msbuild", "dotnet-test"},
         )
         self.assertEqual(
             {entry["skills_path"] for entry in entries},
@@ -288,12 +304,40 @@ class WorkflowTargetsTests(unittest.TestCase):
             {entry["eval_path"] for entry in agent_entries},
             {"tests/dotnet-msbuild/agent.build-perf/eval.yaml"},
         )
+        workflow_entries = [
+            entry for entry in entries if entry["target_kind"] == "workflow"
+        ]
+        self.assertEqual(len(workflow_entries), 2)
+        self.assertEqual(
+            {entry["name"] for entry in workflow_entries},
+            {
+                "agentic-workflows--build-failure-analysis--claude-sonnet-5",
+                "agentic-workflows--build-failure-analysis--gpt-5.6-luna",
+            },
+        )
+        self.assertEqual(
+            {entry["package_path"] for entry in workflow_entries},
+            {"agentic-workflows/build-failure-analysis/aw.yml"},
+        )
+        self.assertEqual(
+            {entry["eval_path"] for entry in workflow_entries},
+            {"tests/agentic-workflows/build-failure-analysis/eval.yaml"},
+        )
+        self.assertEqual(
+            {entry["skills_path"] for entry in workflow_entries},
+            {""},
+        )
+        self.assertEqual(
+            {entry["agents_path"] for entry in workflow_entries},
+            {""},
+        )
         self.assertIn(
             "evaluating fixed Vally canaries: "
             "dotnet/csharp-refactoring, "
             "dotnet-msbuild/build-perf-diagnostics, "
             "dotnet-test/writing-mstest-tests; "
-            "native agent canary: dotnet-msbuild/agent.build-perf",
+            "native agent canary: dotnet-msbuild/agent.build-perf; "
+            "workflow canary: agentic-workflows/build-failure-analysis",
             result.stdout,
         )
 
@@ -383,6 +427,42 @@ class WorkflowTargetsTests(unittest.TestCase):
             "Infrastructure canary "
             "'dotnet-msbuild/agent.build-perf' does not resolve to "
             "exactly one agent evaluation entry",
+            normalized_output(result),
+        )
+
+    def test_infrastructure_change_fails_when_workflow_canary_is_unavailable(self):
+        self.create_plugin_fixture()
+        for plugin, skill in (
+            ("dotnet", "csharp-refactoring"),
+            ("dotnet-msbuild", "build-perf-diagnostics"),
+            ("dotnet-test", "writing-mstest-tests"),
+        ):
+            self.create_plugin_fixture(plugin, skill)
+        self.create_agent_fixture(plugin="dotnet-msbuild", agent_name="build-perf")
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
+        find_targets.write_text(
+            find_targets.read_text(encoding="utf-8")
+            + "\n# Infrastructure change.\n",
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change evaluation infrastructure")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "Infrastructure canary 'agentic-workflows/build-failure-analysis' "
+            "could not be resolved: Unknown workflow package "
+            "'build-failure-analysis'",
             normalized_output(result),
         )
 

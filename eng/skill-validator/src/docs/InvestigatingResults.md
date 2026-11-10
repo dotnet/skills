@@ -88,10 +88,11 @@ behavior against the corrected executor.
 > Evaluation-infrastructure changes use one fixed Vally sentinel from each
 > representative plugin: `dotnet/csharp-refactoring`,
 > `dotnet-msbuild/build-perf-diagnostics`, and
-> `dotnet-test/writing-mstest-tests`, plus the native-agent sentinel
-> `dotnet-msbuild/agent.build-perf`. This exercises the Vally baseline,
-> isolated, plugin, comparison, and adaptation path and the native custom-agent
-> adapter without making infrastructure
+> `dotnet-test/writing-mstest-tests`, the native-agent sentinel
+> `dotnet-msbuild/agent.build-perf`, and the agentic-workflow sentinel
+> `agentic-workflows/build-failure-analysis`. This exercises the Vally baseline,
+> isolated, plugin, comparison, and adaptation path, the native custom-agent
+> adapter, and the workflow-prompt SDK lane without making infrastructure
 > validation depend on every unrelated eval in those plugins. Discovery fails
 > if any sentinel is unavailable. Valid version-only root manifest changes do
 > not run model evaluations; repository versioning and manifest checks
