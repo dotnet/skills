@@ -2,8 +2,6 @@
 
 These breaking changes affect the .NET runtime and JIT compiler. Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/11
 
-> **Note:** .NET 11 is in preview. Additional runtime breaking changes are expected in later previews.
-
 ## Behavioral Changes
 
 ### Minimum hardware requirements updated
@@ -57,3 +55,17 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/jit/11/minim
 **Fix:** Update build scripts, deployment pipelines, or P/Invoke declarations that reference output filenames by the old name without the `lib` prefix.
 
 Source: https://github.com/dotnet/runtime/pull/124611
+
+### Floating-point conversions to small integral types are saturating (Preview 7)
+
+**Impact: Low–Medium.** On CoreCLR and Native AOT, unchecked conversions from `float`, `double`, or `Half` to `sbyte`, `byte`, `short`, `ushort`, and `char` now saturate at the bounds of the target type, and `NaN` converts to `0`. Previously the value was typically converted to `int` first and the low bits kept. Checked conversions are unchanged.
+
+```csharp
+double big = 65578.0, negative = -42.0;
+short s = (short)big;       // .NET 10: 42      .NET 11: 32767
+ushort u = (ushort)negative; // .NET 10: 65494   .NET 11: 0
+```
+
+**Fix:** Clamp or validate values explicitly where out-of-range input is possible, such as indexes, offsets, and pixel or audio sample math. `unchecked((ushort)(int)x)` matches the previous two-step conversion. There is no compatibility switch.
+
+Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/jit/11/fp-to-small-integer
