@@ -375,7 +375,19 @@ Do not create per-finding islands or HTML-comment row markers.
 - Stop after 100 total pages for one observation scope. If the inventory does
   not reach the requested cutoff within that budget, mark only that scope
   unavailable
-- Collect P1-evaluation, P5, and P6 before repository-wide warnings and metrics
+- Complete P5 first, then derive P1-evaluation and P6 run sets from the same
+  deduplicated all-branch inventory
+- Fetch targeted P1-evaluation and P6 run inventories only when P5 is
+  unavailable; keep those fallback scopes independent
+- Do not paginate failed P1 jobs or start a fallback or lower-priority
+  inventory before P5 reaches a terminal condition
+- While P5 has a full page newer than its cutoff, request the next explicit P5
+  page
+- P5 is mandatory: skip lower-priority scopes rather than abandon P5 before a
+  short page, the 24-hour cutoff, the 100-page limit, or a tool error provides
+  a terminal condition
+- Record the page count and terminal condition for P5 and each targeted
+  fallback inventory
 - Never mark a scope unavailable only because page 1 is full
 - Include at most two dispatch inputs in the single publication request
 

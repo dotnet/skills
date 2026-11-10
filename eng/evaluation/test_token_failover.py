@@ -36,7 +36,19 @@ HEALTH_MAX_PAGES = 100
 HEALTH_SOURCE_CONTRACT = (
     "`actions_list` with `perPage: 5` and explicit `page` values starting at `1`.",
     "Stop after 100 total pages for one observation scope.",
-    "Complete `P1-evaluation`, P5, and P6 with `resource_id=evaluation.yml`.",
+    "Complete P5 first with `resource_id=evaluation.yml`.",
+    "derive the `P1-evaluation` main-branch run set and the P6 main-branch "
+    "scheduled run set from that same deduplicated P5 inventory.",
+    "Do not fetch separate P1 or P6 run inventories.",
+    "If P5 is unavailable, fall back to the targeted P1 and P6 run queries below.",
+    "Only after P5 reaches a terminal condition, paginate "
+    "`method: list_workflow_jobs` with `perPage: 5`",
+    "the next Actions call must request the next explicit P5 page.",
+    "P5 is mandatory: skip every lower-priority scope rather than abandon P5 "
+    "before a short page, the 24-hour cutoff, the 100-page limit, or a tool "
+    "error provides a terminal condition.",
+    "Record the page count and terminal condition for P5 and for each targeted "
+    "fallback inventory",
     "Then collect `P1-other`, P2-P4, U1, and U2 while capacity remains.",
     "`method: list_workflow_jobs` with `perPage: 5`",
     "An unavailable `P1-other` inventory must not carry forward an absent "
@@ -49,7 +61,15 @@ HEALTH_SHARED_CONTRACT = (
     "Continue until a page contains fewer than 5 entries or its oldest "
     "`created_at` reaches the requested cutoff",
     "Stop after 100 total pages for one observation scope.",
-    "Collect P1-evaluation, P5, and P6 before repository-wide warnings and metrics",
+    "Complete P5 first, then derive P1-evaluation and P6 run sets from the same "
+    "deduplicated all-branch inventory",
+    "Fetch targeted P1-evaluation and P6 run inventories only when P5 is unavailable",
+    "Do not paginate failed P1 jobs or start a fallback or lower-priority "
+    "inventory before P5 reaches a terminal condition",
+    "request the next explicit P5 page",
+    "P5 is mandatory: skip lower-priority scopes rather than abandon P5",
+    "Record the page count and terminal condition for P5 and each targeted "
+    "fallback inventory",
     "Never mark a scope unavailable only because page 1 is full",
     "carry_forward_unchanged",
     "do not increment their occurrences",
@@ -73,15 +93,24 @@ def assert_health_production_contract(
     for clause in HEALTH_SHARED_CONTRACT:
         if clause not in normalized_shared:
             raise AssertionError(f"Missing shared health contract: {clause}")
-    critical_index = normalized_source.index(
-        "Complete `P1-evaluation`, P5, and P6"
+    p5_index = normalized_source.index(
+        "Complete P5 first with `resource_id=evaluation.yml`"
+    )
+    derive_index = normalized_source.index(
+        "derive the `P1-evaluation` main-branch run set and the P6 main-branch"
+    )
+    fallback_index = normalized_source.index(
+        "If P5 is unavailable, fall back to the targeted P1 and P6 run queries"
+    )
+    jobs_index = normalized_source.index(
+        "Only after P5 reaches a terminal condition, paginate"
     )
     remaining_index = normalized_source.index(
         "Then collect `P1-other`, P2-P4, U1, and U2"
     )
-    if critical_index >= remaining_index:
+    if not p5_index < derive_index < fallback_index < jobs_index < remaining_index:
         raise AssertionError(
-            "Health source does not collect evaluation-critical scopes first"
+            "Health source does not complete P5 before fallbacks, jobs, and lower scopes"
         )
     if "perPage: 100" in normalized_source or "perPage: 100" in normalized_shared:
         raise AssertionError("Health contract contains an unsafe 100-item page")
@@ -129,7 +158,7 @@ def reference_collect_health_pages(
             return list(collected.values()), True
         if page_number == HEALTH_MAX_PAGES:
             return list(collected.values()), False
-    return list(collected.values()), len(pages) < HEALTH_MAX_PAGES
+    return list(collected.values()), False
 
 
 def reference_health_scope(fingerprint: str) -> str:
@@ -898,6 +927,43 @@ class TokenFailoverTests(unittest.TestCase):
         )
         self.assertTrue(complete)
         self.assertEqual(len(collected), 5)
+
+    def test_health_p5_four_full_pages_without_cutoff_fail_closed(self) -> None:
+        pages = [
+            [
+                {
+                    "id": page * HEALTH_PAGE_SIZE + item,
+                    "created_at": "2026-11-10T20:00:00Z",
+                }
+                for item in range(HEALTH_PAGE_SIZE)
+            ]
+            for page in range(4)
+        ]
+        collected, complete = reference_collect_health_pages(
+            pages,
+            cutoff="2026-11-09T21:09:34Z",
+        )
+        self.assertFalse(complete)
+        self.assertEqual(len(collected), 20)
+
+        stale_rate = {
+            "fingerprint": "pipeline:evaluation:failure-rate:critical",
+            "occurrences": 2,
+            "first_seen": "2026-10-18",
+        }
+        diff = reference_diff_health_findings(
+            [stale_rate],
+            [],
+            unavailable_scopes={"P5"},
+        )
+        self.assertEqual(len(diff["existing"]), 1)
+        self.assertEqual(
+            diff["existing"][0]["fingerprint"],
+            stale_rate["fingerprint"],
+        )
+        self.assertEqual(diff["existing"][0]["occurrences"], 2)
+        self.assertFalse(diff["existing"][0]["was_observed"])
+        self.assertEqual(diff["resolved"], [])
 
     def test_health_diff_replaces_stale_evaluation_identity(self) -> None:
         stale = {
@@ -2223,7 +2289,15 @@ class TokenFailoverTests(unittest.TestCase):
             " ".join(health_check.split()),
         )
         self.assertIn(
-            "Complete `P1-evaluation`, P5, and P6",
+            "Complete P5 first with `resource_id=evaluation.yml`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "derive the `P1-evaluation` main-branch run set",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Do not fetch separate P1 or P6 run inventories",
             " ".join(health_check.split()),
         )
         self.assertIn(

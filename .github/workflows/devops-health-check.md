@@ -1324,14 +1324,29 @@ observation scope. If the inventory does not reach the cutoff within that
 budget, mark only that scope unavailable. A full first page is not evidence
 that pagination is unavailable. Do not rely on implicit MCP pagination.
 
-Collect critical evaluation scopes before repository-wide warnings and metrics:
+Collect one critical evaluation run inventory before repository-wide warnings
+and metrics:
 
-1. Complete `P1-evaluation`, P5, and P6 with `resource_id=evaluation.yml`.
-2. For every failed evaluation run in P1, paginate
-   `method: list_workflow_jobs` with `perPage: 5`; do not request one large job
-   response.
-3. Then collect `P1-other`, P2-P4, U1, and U2 while capacity remains. Mark only
+1. Complete P5 first with `resource_id=evaluation.yml`.
+2. If P5 completes, derive the `P1-evaluation` main-branch run set and the P6
+   main-branch scheduled run set from that same deduplicated P5 inventory. Do
+   not fetch separate P1 or P6 run inventories.
+3. If P5 is unavailable, fall back to the targeted P1 and P6 run queries below.
+   Keep their observation scopes independent.
+4. Only after P5 reaches a terminal condition, paginate
+   `method: list_workflow_jobs` with `perPage: 5` for every failed P1 evaluation
+   run; do not request one large job response. `P1-evaluation` is complete only
+   when its run set and all required failed-job identities are complete.
+5. Then collect `P1-other`, P2-P4, U1, and U2 while capacity remains. Mark only
    an incomplete lower-priority scope unavailable.
+
+Do not start a fallback or lower-priority inventory while P5 has a full page
+whose oldest item is newer than its cutoff. In that case, the next Actions call
+must request the next explicit P5 page. P5 is mandatory: skip every
+lower-priority scope rather than abandon P5 before a short page, the 24-hour
+cutoff, the 100-page limit, or a tool error provides a terminal condition.
+Record the page count and terminal condition for P5 and for each targeted
+fallback inventory in the report's skipped/healthy evidence.
 
 For state resolution, evaluation step-failure fingerprints use
 `P1-evaluation`; other step-failure fingerprints use `P1-other`. Treat these as
@@ -1346,7 +1361,8 @@ actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
               page={page},
               workflow_runs_filter={branch: main, status: completed}
 ```
-Complete this evaluation-scoped inventory first. Filter locally to
+Normally derive this evaluation-scoped run set from the completed P5 inventory.
+Use this targeted query only when P5 is unavailable. Filter locally to
 `conclusion=failure` and runs created within the last 24 hours. Then attempt the
 non-evaluation repository inventory as `P1-other` with the same page size and
 cutoff rules. For each failed run:
@@ -1429,7 +1445,9 @@ actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
               workflow_runs_filter={branch: main, event: schedule,
                                     status: completed}
 ```
-Filter locally to scheduled runs on `main` created within the last 24 hours.
+Normally derive this run set from the completed P5 inventory. Use this targeted
+query only when P5 is unavailable. Filter locally to scheduled runs on `main`
+created within the last 24 hours.
 Compute:
 - Total scheduled runs, cancelled count, completed count
 - Cancellation rate = cancelled / total
