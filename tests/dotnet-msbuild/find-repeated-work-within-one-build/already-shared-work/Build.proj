@@ -1,0 +1,25 @@
+<Project DefaultTargets="BuildAll">
+  <PropertyGroup>
+    <BuildInfoPath>$(MSBuildThisFileDirectory)obj/buildinfo.g.cs</BuildInfoPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Component Include="Api/Api.csproj;Worker/Worker.csproj" />
+  </ItemGroup>
+
+  <Target Name="Restore">
+    <MSBuild Projects="@(Component)" Targets="Restore"
+             Properties="BuildInfoPath=$(BuildInfoPath)" BuildInParallel="true" />
+  </Target>
+
+  <Target Name="GenerateSharedBuildInfo"
+          Inputs="$(MSBuildThisFileDirectory)buildinfo.cs.in"
+          Outputs="$(BuildInfoPath)">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)obj" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)buildinfo.cs.in" DestinationFiles="$(BuildInfoPath)" />
+  </Target>
+
+  <Target Name="BuildAll" DependsOnTargets="GenerateSharedBuildInfo">
+    <MSBuild Projects="@(Component)" Targets="Build"
+             Properties="BuildInfoPath=$(BuildInfoPath)" BuildInParallel="true" />
+  </Target>
+</Project>

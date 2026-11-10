@@ -1,0 +1,20 @@
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Example" Version="1.0.0" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <!-- Exercise restored build assets without requiring framework reference packs. -->
+  <Target Name="Build">
+    <Error Condition="'$(ExampleBuildContract)' != 'from-packed-assets'"
+           Text="Example.props did not supply the required package contract." />
+    <MakeDir Directories="$(MSBuildProjectDirectory)\obj" />
+    <WriteLinesToFile File="$(MSBuildProjectDirectory)\obj\contract.txt"
+                      Lines="$(ExampleBuildContract)" Overwrite="true" />
+  </Target>
+</Project>

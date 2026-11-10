@@ -1,0 +1,10 @@
+<Project DefaultTargets="Build">
+  <ItemGroup>
+    <Specs Include="Specs\*.json" />
+  </ItemGroup>
+  <Import Project="Generator.targets" />
+  <Target Name="GenerateCatalog" Inputs="@(Specs)" Outputs="obj\catalog.txt">
+    <CallTarget Targets="WriteCatalog" />
+  </Target>
+  <Target Name="Build" DependsOnTargets="GenerateCatalog" />
+</Project>
