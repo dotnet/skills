@@ -1,0 +1,12 @@
+diff --git a/project/Build.proj b/project/Build.proj
+--- a/project/Build.proj
++++ b/project/Build.proj
+@@ -2,6 +2,7 @@
+   <PropertyGroup>
+     <BeforeHook>optional.targets;required.targets</BeforeHook>
+   </PropertyGroup>
+-  <Import Project="$(BeforeHook)" Condition="Exists('$(BeforeHook)')" />
++  <Import Project="optional.targets" Condition="Exists('optional.targets')" />
++  <Import Project="required.targets" />
+   <Target Name="Build" />
+ </Project>

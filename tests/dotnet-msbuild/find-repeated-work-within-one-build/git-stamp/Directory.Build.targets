@@ -1,0 +1,11 @@
+<Project>
+  <!-- Stamps the short commit id into the informational version of every assembly. -->
+  <Target Name="StampGitCommit" BeforeTargets="GetAssemblyAttributes">
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitCommit" />
+    </Exec>
+    <PropertyGroup>
+      <InformationalVersion>$(Version)+$(GitCommit)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
+</Project>
