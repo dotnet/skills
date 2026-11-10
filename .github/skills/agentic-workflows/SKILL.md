@@ -103,6 +103,7 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 - `.github/aw/serena-tool.md`
 - `.github/aw/shared-safe-jobs.md`
 - `.github/aw/skills.md`
+- `.github/aw/squad.md`
 - `.github/aw/subagents.md`
 - `.github/aw/syntax-agentic.md`
 - `.github/aw/syntax-checkout.md`

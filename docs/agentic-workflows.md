@@ -44,7 +44,7 @@ devops-health-groom (Groomer) ─── runs daily
 
 ## Setup
 
-1. Install the validated `gh aw` CLI extension: `gh extension install github/gh-aw --pin v0.89.22`
+1. Install the validated `gh aw` CLI extension: `gh extension install github/gh-aw --pin v1.0.1`
 2. Compile: `gh aw compile` (from the repo root — this compiles all `.md` files in `.github/workflows/`)
 3. Commit both the `.md` and generated `.lock.yml` files
 4. The health check runs daily, or on-demand via `workflow_dispatch`
@@ -56,7 +56,7 @@ devops-health-groom (Groomer) ─── runs daily
 # schedule seed (generates .lock.yml from .md frontmatter)
 gh aw compile --strict --validate --schedule-seed dotnet/skills `
   --action-mode action `
-  --action-tag 2fbab69bfca02bebd76cd0fc43f2d12acfed994f
+  --action-tag 221ba4f4319de6b8e809d1a15528b3ae6a818aa5
 
 # Dry-run (validates without triggering on GitHub Actions)
 gh aw run devops-health-check --dry-run
@@ -76,8 +76,8 @@ gh aw run devops-health-check --push --ref <branch>
 
 ## Runtime Compatibility and HTTP 400 Failures
 
-The validated runtime is gh-aw **v0.89.22**, paired with the matching
-`gh-aw-actions` commit and AWF **v0.28.25**. Keep the CI and Copilot setup
+The validated runtime is gh-aw **v1.0.1**, paired with the matching
+`gh-aw-actions` commit and AWF **v0.29.0**. Keep the CI and Copilot setup
 installers, validation constants, runtime-upgrade guard, package `min-version`
 fields, and compiled workflows aligned when
 upgrading. Commit regenerated locks and maintenance workflow together with

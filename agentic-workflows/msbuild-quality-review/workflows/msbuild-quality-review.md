@@ -24,7 +24,7 @@ on:
       - "**/*.nuspec"
       - "**/Directory.Build.*"
       - "**/Directory.Packages.*"
-  roles: all
+  roles: [admin, maintainer, write]
 
 if: github.event.pull_request.draft == false
 
