@@ -662,7 +662,7 @@ stimuli:
       commands:
         - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor -int Server --framework net9.0 --no-https --no-restore --force
         - dotnet add package Syncfusion.Blazor.Toolkit --version 2.0.1 --no-restore
-        - for attempt in 1 2 3; do flock --wait 180 /tmp/syncfusion-blazor-toolkit-install-restore.lock dotnet restore --disable-parallel && break; if [ "$attempt" -eq 3 ]; then exit 1; fi; sleep $((attempt * 2)); done
+        - for attempt in 1 2 3; do flock --wait 180 /tmp/syncfusion-blazor-toolkit-install-restore.lock dotnet restore --disable-parallel --source https://api.nuget.org/v3/index.json && break; if [ "$attempt" -eq 3 ]; then exit 1; fi; sleep $((attempt * 2)); done
         - node -e 'const fs=require("fs");const e=(f,g)=>fs.writeFileSync(f,g(fs.readFileSync(f,"utf8")));e("Program.cs",s=>"using Syncfusion.Blazor.Toolkit;\n"+s.replace("var app = builder.Build();","builder.Services.AddSyncfusionBlazorToolkit();\n\nvar app = builder.Build();"));e("Components/_Imports.razor",s=>s.replace(/\s*$/,"\n")+"@using Syncfusion.Blazor.Toolkit\n")'
         - node -e 'require("fs").writeFileSync(".gitignore","bin/\nobj/\n")'
         - git init -q
