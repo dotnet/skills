@@ -551,7 +551,9 @@ function writeResult(outputRoot, evalFile, identity, verdict, model, judgeModel,
       timestamp: new Date().toISOString(),
       expectedEval,
       evaluationLane: identity.evaluationLane,
-      verdicts: [verdict],
+      // Also stamp evalFile on the verdict so it survives downstream merges that
+      // concatenate verdicts from many results.json files (e.g. dashboard publish).
+      verdicts: [{ ...verdict, evalFile }],
     }, null, 2),
   );
 }
