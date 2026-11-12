@@ -14,8 +14,8 @@ from pathlib import Path
 import yaml
 
 
-GH_AW_ACTIONS_SHA = "2fbab69bfca02bebd76cd0fc43f2d12acfed994f"
-GH_AW_VERSION = "v0.89.22"
+GH_AW_ACTIONS_SHA = "221ba4f4319de6b8e809d1a15528b3ae6a818aa5"
+GH_AW_VERSION = "v1.0.1"
 ALLOWED_WARNINGS = (
     re.compile(
         r"(?i)\.github[\\/]+workflows[\\/]+devops-health-check\.md: warning: "
