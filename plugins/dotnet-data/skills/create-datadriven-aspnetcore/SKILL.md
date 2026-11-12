@@ -117,6 +117,7 @@ Skip this step for non-Blazor scaffolders.
 - `[SupplyParameterFromForm]` properties MUST use `= new()` (not `null!`) — prevents `EditForm` crash on initial GET
 - `Program.cs` must chain `.AddInteractiveServerComponents()` on `AddRazorComponents()` and `.AddInteractiveServerRenderMode()` on `MapRazorComponents<App>()`. only add interactive server services/render mode when the generated components actually use @rendermode InteractiveServer (or the project already does).
 - Do not replace existing chained render mode calls (e.g., `.AddInteractiveWebAssemblyRenderMode()`)
+- Provide reachable list, details, create, edit, and delete UI for the requested entity and every required parent entity. Separate routable components or an equivalent combined component are both valid, but do not omit a parent details flow.
 
 ### Step 4: Generate Code
 
@@ -167,7 +168,8 @@ Skip this step for non-API scaffolders.
 4. Request labels must accurately describe the action (e.g., "Create a category" must POST to the categories endpoint)
 5. Order requests by dependency: create parent entities before child entities
 6. When possible, capture IDs from parent creation responses using your HTTP client's variable/templating features and reuse them as foreign key values in child-entity POST payloads
-7. If your client cannot capture response values, add comments indicating which FK IDs must be updated after running the parent creation requests; do not leave unrealistic placeholder or assumed FK values that do not correspond to actual parent records when executing the requests
+7. Make the capture unambiguous and executable: name the parent-create request and reference that named response, or assign a variable in a response handler attached directly to that request. Do not rely on a generic "previous response" variable when any request can run between parent creation and child creation.
+8. If your client cannot capture response values, add comments indicating which FK IDs must be updated after running the parent creation requests; do not leave unrealistic placeholder or assumed FK values that do not correspond to actual parent records when executing the requests
 
 ### Step 7: Verify
 

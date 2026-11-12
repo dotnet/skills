@@ -1,0 +1,21 @@
+diff --git a/fixtures/non-web/CsvReportWriter.cs b/fixtures/non-web/CsvReportWriter.cs
+new file mode 100644
+--- /dev/null
++++ b/fixtures/non-web/CsvReportWriter.cs
+@@ -0,0 +1,16 @@
++using System.Globalization;
++
++namespace Utility;
++
++public static class CsvReportWriter
++{
++    public static void WriteRow(TextWriter writer, string title, decimal total)
++    {
++        ArgumentNullException.ThrowIfNull(writer);
++        ArgumentNullException.ThrowIfNull(title);
++
++        var escapedTitle = title.Replace("\"", "\"\"");
++        writer.WriteLine(
++            $"\"{escapedTitle}\",{total.ToString(CultureInfo.InvariantCulture)}");
++    }
++}
