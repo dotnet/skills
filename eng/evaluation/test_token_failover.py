@@ -34,6 +34,213 @@ FIND_TARGETS_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
+HEALTH_PAGE_SIZE = 5
+HEALTH_MAX_PAGES = 100
+HEALTH_SOURCE_CONTRACT = (
+    "`actions_list` with `perPage: 5` and explicit `page` values starting at `1`.",
+    "After a full page `N` that has not reached the cutoff, the next request "
+    "must use `page: N+1`; never skip a page or jump to the 100-page limit.",
+    "Stop after 100 total pages for one observation scope.",
+    "Complete P5 first with `resource_id=evaluation.yml`.",
+    "derive the `P1-evaluation` main-branch run set and the P6 main-branch "
+    "scheduled run set from that same deduplicated P5 inventory.",
+    "Do not fetch separate P1 or P6 run inventories.",
+    "If P5 is unavailable, fall back to the targeted P1 and P6 run queries below.",
+    "Only after P5 reaches a terminal condition, paginate "
+    "`method: list_workflow_jobs` with `perPage: 5`",
+    "the next Actions call must request the next explicit P5 page.",
+    "P5 is mandatory: skip every lower-priority scope rather than abandon P5 "
+    "before a short page, the 24-hour cutoff, the 100-page limit, or a tool "
+    "error provides a terminal condition.",
+    "Record the page count and terminal condition for P5 and for each targeted "
+    "fallback inventory",
+    "Replace every existing `history` entry with today's date with today's "
+    "summary and metrics.",
+    "preserve entries for different dates",
+    "Then collect `P1-other`, P2-P4, U1, and U2 while capacity remains.",
+    "`method: list_workflow_jobs` with `perPage: 5`",
+    "An unavailable `P1-other` inventory must not carry forward an absent "
+    "`pipeline:evaluation:{job}:{step}:{conclusion}` finding after "
+    "`P1-evaluation` completed.",
+)
+HEALTH_SHARED_CONTRACT = (
+    "`pipeline:evaluation:{job}:{step}:{conclusion}` | P1-evaluation",
+    "Other `pipeline:{workflow}:{job}:{step}:{conclusion}` | P1-other",
+    "Continue until a page contains fewer than 5 entries or its oldest "
+    "`created_at` reaches the requested cutoff",
+    "After a full page `N` that has not reached the cutoff, request "
+    "`page: N+1`; never skip a page or jump to the page limit",
+    "Stop after 100 total pages for one observation scope.",
+    "Complete P5 first, then derive P1-evaluation and P6 run sets from the same "
+    "deduplicated all-branch inventory",
+    "Fetch targeted P1-evaluation and P6 run inventories only when P5 is unavailable",
+    "Do not paginate failed P1 jobs or start a fallback or lower-priority "
+    "inventory before P5 reaches a terminal condition",
+    "request the next explicit P5 page",
+    "P5 is mandatory: skip lower-priority scopes rather than abandon P5",
+    "Record the page count and terminal condition for P5 and each targeted "
+    "fallback inventory",
+    "Keep at most one history entry per date",
+    "replace same-date entries with the latest summary",
+    "preserve different dates",
+    "Never mark a scope unavailable only because page 1 is full",
+    "carry_forward_unchanged",
+    "do not increment their occurrences",
+)
+
+
+def normalized_markdown(text: str) -> str:
+    return " ".join(text.split())
+
+
+def assert_health_production_contract(
+    source: str,
+    shared: str,
+    locks: dict[str, str],
+) -> None:
+    normalized_source = normalized_markdown(source)
+    normalized_shared = normalized_markdown(shared)
+    for clause in HEALTH_SOURCE_CONTRACT:
+        if clause not in normalized_source:
+            raise AssertionError(f"Missing health source contract: {clause}")
+    for clause in HEALTH_SHARED_CONTRACT:
+        if clause not in normalized_shared:
+            raise AssertionError(f"Missing shared health contract: {clause}")
+    p5_index = normalized_source.index(
+        "Complete P5 first with `resource_id=evaluation.yml`"
+    )
+    derive_index = normalized_source.index(
+        "derive the `P1-evaluation` main-branch run set and the P6 main-branch"
+    )
+    fallback_index = normalized_source.index(
+        "If P5 is unavailable, fall back to the targeted P1 and P6 run queries"
+    )
+    jobs_index = normalized_source.index(
+        "Only after P5 reaches a terminal condition, paginate"
+    )
+    remaining_index = normalized_source.index(
+        "Then collect `P1-other`, P2-P4, U1, and U2"
+    )
+    if not p5_index < derive_index < fallback_index < jobs_index < remaining_index:
+        raise AssertionError(
+            "Health source does not complete P5 before fallbacks, jobs, and lower scopes"
+        )
+    if "perPage: 100" in normalized_source or "perPage: 100" in normalized_shared:
+        raise AssertionError("Health contract contains an unsafe 100-item page")
+
+    required_imports = {
+        "devops-health-check.lock.yml": (
+            "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+            "{{#runtime-import .github/workflows/devops-health-check.md}}",
+        ),
+        "devops-health-groom.lock.yml": (
+            "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+            "{{#runtime-import .github/workflows/devops-health-groom.md}}",
+        ),
+        "devops-health-investigate.lock.yml": (
+            "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+            "{{#runtime-import .github/workflows/devops-health-investigate.md}}",
+        ),
+    }
+    for lock_name, imports in required_imports.items():
+        lock = locks[lock_name]
+        if '"compiler_version":"v0.89.22"' not in lock:
+            raise AssertionError(f"{lock_name} was not compiled with v0.89.22")
+        for runtime_import in imports:
+            if runtime_import not in lock:
+                raise AssertionError(
+                    f"{lock_name} is missing runtime import: {runtime_import}"
+                )
+
+
+def reference_collect_health_pages(
+    pages: list[list[dict[str, object]]],
+    *,
+    cutoff: str | None = None,
+    requested_pages: list[int] | None = None,
+) -> tuple[list[dict[str, object]], bool]:
+    collected: dict[int, dict[str, object]] = {}
+    for page_number, page in enumerate(pages[:HEALTH_MAX_PAGES], start=1):
+        if requested_pages is not None:
+            requested_pages.append(page_number)
+        for item in page:
+            collected.setdefault(int(item["id"]), item)
+        reached_cutoff = bool(
+            cutoff
+            and page
+            and str(page[-1].get("created_at", "")) <= cutoff
+        )
+        if len(page) < HEALTH_PAGE_SIZE or reached_cutoff:
+            return list(collected.values()), True
+        if page_number == HEALTH_MAX_PAGES:
+            return list(collected.values()), False
+    return list(collected.values()), False
+
+
+def reference_health_scope(fingerprint: str) -> str:
+    if fingerprint.startswith("pipeline:evaluation:failure-rate:"):
+        return "P5"
+    if fingerprint.startswith("pipeline:evaluation:schedule-cancellation:"):
+        return "P6"
+    parts = fingerprint.split(":")
+    if (
+        len(parts) == 5
+        and parts[0] == "pipeline"
+        and parts[1] == "evaluation"
+    ):
+        return "P1-evaluation"
+    if len(parts) == 5 and parts[0] == "pipeline":
+        return "P1-other"
+    raise AssertionError(f"Unsupported test fingerprint: {fingerprint}")
+
+
+def reference_diff_health_findings(
+    previous: list[dict[str, object]],
+    observed: list[dict[str, object]],
+    unavailable_scopes: set[str],
+) -> dict[str, list[dict[str, object]]]:
+    previous_by_fingerprint = {
+        str(finding["fingerprint"]): dict(finding)
+        for finding in previous
+    }
+    current_by_fingerprint: dict[str, dict[str, object]] = {}
+    observed_fingerprints: set[str] = set()
+    for finding in observed:
+        fingerprint = str(finding["fingerprint"])
+        observed_fingerprints.add(fingerprint)
+        current_by_fingerprint.setdefault(fingerprint, dict(finding))
+
+    carried_fingerprints: set[str] = set()
+    for fingerprint, finding in previous_by_fingerprint.items():
+        if (
+            fingerprint not in current_by_fingerprint
+            and reference_health_scope(fingerprint) in unavailable_scopes
+        ):
+            current_by_fingerprint[fingerprint] = dict(finding)
+            carried_fingerprints.add(fingerprint)
+
+    new: list[dict[str, object]] = []
+    existing: list[dict[str, object]] = []
+    resolved: list[dict[str, object]] = []
+    for fingerprint, finding in current_by_fingerprint.items():
+        if fingerprint not in previous_by_fingerprint:
+            finding["occurrences"] = 1
+            new.append(finding)
+            continue
+        prior = previous_by_fingerprint[fingerprint]
+        finding["first_seen"] = prior["first_seen"]
+        finding["occurrences"] = (
+            int(prior["occurrences"]) + 1
+            if fingerprint in observed_fingerprints
+            else int(prior["occurrences"])
+        )
+        finding["was_observed"] = fingerprint not in carried_fingerprints
+        existing.append(finding)
+
+    for fingerprint, finding in previous_by_fingerprint.items():
+        if fingerprint not in current_by_fingerprint:
+            resolved.append(finding)
+    return {"new": new, "existing": existing, "resolved": resolved}
 
 
 def workflow_frontmatter(text: str) -> dict:
@@ -175,6 +382,10 @@ def run_health_publisher(
     current_body: str,
     *,
     replacement_state: dict[str, object] | None = None,
+    dispatches: list[dict[str, object]] | None = None,
+    investigation_rows: list[dict[str, object]] | None = None,
+    fail_update_call: int | None = None,
+    capture_fatal_error: bool = False,
 ) -> dict[str, object]:
     node = shutil.which("node")
     if not node:
@@ -220,8 +431,22 @@ def run_health_publisher(
                                 )
                                 + "\n```"
                             ),
-                            "investigation_rows_json": "```json\n[]\n```",
-                            "dispatches_json": "```json\n[]\n```",
+                            "investigation_rows_json": (
+                                "```json\n"
+                                + json.dumps(
+                                    investigation_rows or [],
+                                    separators=(",", ":"),
+                                )
+                                + "\n```"
+                            ),
+                            "dispatches_json": (
+                                "```json\n"
+                                + json.dumps(
+                                    dispatches or [],
+                                    separators=(",", ":"),
+                                )
+                                + "\n```"
+                            ),
                         }
                     ]
                 }
@@ -234,6 +459,7 @@ const fs = require("fs");
 const errors = [];
 const calls = [];
 let dashboardBody = {json.dumps(current_body)};
+let updateCount = 0;
 const core = {{
   setFailed: message => errors.push(String(message)),
   info: () => {{}}
@@ -258,6 +484,13 @@ const github = {{
         }}
       }}),
       update: async args => {{
+        updateCount += 1;
+        if (
+          {json.dumps(fail_update_call)} !== null &&
+          updateCount === {json.dumps(fail_update_call)}
+        ) {{
+          throw new Error("simulated persistence failure");
+        }}
         dashboardBody = args.body;
         calls.push({{ type: "update", body: args.body }});
         return {{ data: {{}} }};
@@ -292,6 +525,15 @@ const github = {{
 }})().then(
   () => console.log(JSON.stringify({{ errors, calls, dashboardBody }})),
   error => {{
+    if ({json.dumps(capture_fatal_error)}) {{
+      console.log(JSON.stringify({{
+        errors,
+        calls,
+        dashboardBody,
+        fatalError: String(error.message || error)
+      }}));
+      return;
+    }}
     console.error(error);
     process.exitCode = 1;
   }}
@@ -517,6 +759,697 @@ def generated_safe_output_configs(workflow: object) -> list[dict[str, object]]:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_health_production_contract_is_present_in_sources_and_locks(
+        self,
+    ) -> None:
+        workflows = REPO_ROOT / ".github" / "workflows"
+        assert_health_production_contract(
+            (workflows / "devops-health-check.md").read_text(encoding="utf-8"),
+            (
+                REPO_ROOT / ".github" / "aw" / "shared"
+                / "devops-health.lock.md"
+            ).read_text(encoding="utf-8"),
+            {
+                name: (workflows / name).read_text(encoding="utf-8")
+                for name in (
+                    "devops-health-check.lock.yml",
+                    "devops-health-groom.lock.yml",
+                    "devops-health-investigate.lock.yml",
+                )
+            },
+        )
+
+    def test_health_production_contract_rejects_each_required_clause_mutation(
+        self,
+    ) -> None:
+        workflows = REPO_ROOT / ".github" / "workflows"
+        source = (workflows / "devops-health-check.md").read_text(
+            encoding="utf-8"
+        )
+        shared = (
+            REPO_ROOT / ".github" / "aw" / "shared" / "devops-health.lock.md"
+        ).read_text(encoding="utf-8")
+        locks = {
+            name: (workflows / name).read_text(encoding="utf-8")
+            for name in (
+                "devops-health-check.lock.yml",
+                "devops-health-groom.lock.yml",
+                "devops-health-investigate.lock.yml",
+            )
+        }
+
+        for clause in HEALTH_SOURCE_CONTRACT:
+            with self.subTest(source_clause=clause):
+                mutated = normalized_markdown(source).replace(clause, "MUTATED", 1)
+                with self.assertRaisesRegex(
+                    AssertionError,
+                    "Missing health source contract",
+                ):
+                    assert_health_production_contract(mutated, shared, locks)
+        for clause in HEALTH_SHARED_CONTRACT:
+            with self.subTest(shared_clause=clause):
+                mutated = normalized_markdown(shared).replace(clause, "MUTATED", 1)
+                with self.assertRaisesRegex(
+                    AssertionError,
+                    "Missing shared health contract",
+                ):
+                    assert_health_production_contract(source, mutated, locks)
+
+        runtime_imports = {
+            "devops-health-check.lock.yml": (
+                "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+                "{{#runtime-import .github/workflows/"
+                "devops-health-check.md}}",
+            ),
+            "devops-health-groom.lock.yml": (
+                "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+                "{{#runtime-import .github/workflows/"
+                "devops-health-groom.md}}",
+            ),
+            "devops-health-investigate.lock.yml": (
+                "{{#runtime-import .github/aw/shared/devops-health.lock.md}}",
+                "{{#runtime-import .github/workflows/"
+                "devops-health-investigate.md}}",
+            ),
+        }
+        for lock_name, imports in runtime_imports.items():
+            for runtime_import in imports:
+                with self.subTest(lock=lock_name, runtime_import=runtime_import):
+                    self.assertEqual(locks[lock_name].count(runtime_import), 1)
+                    mutated_locks = dict(locks)
+                    mutated_locks[lock_name] = locks[lock_name].replace(
+                        runtime_import,
+                        "MUTATED",
+                        1,
+                    )
+                    with self.assertRaisesRegex(
+                        AssertionError,
+                        "missing runtime import",
+                    ):
+                        assert_health_production_contract(
+                            source,
+                            shared,
+                            mutated_locks,
+                        )
+            with self.subTest(lock=lock_name, compiler_version=True):
+                mutated_locks = dict(locks)
+                mutated_locks[lock_name] = locks[lock_name].replace(
+                    '"compiler_version":"v0.89.22"',
+                    '"compiler_version":"MUTATED"',
+                    1,
+                )
+                with self.assertRaisesRegex(
+                    AssertionError,
+                    "was not compiled with v0.89.22",
+                ):
+                    assert_health_production_contract(
+                        source,
+                        shared,
+                        mutated_locks,
+                    )
+
+    def test_health_pagination_covers_observed_run_and_job_counts(self) -> None:
+        run_pages = [
+            [
+                {"id": index, "created_at": f"2026-11-09T0{index}:00:00Z"}
+                for index in range(1, 6)
+            ],
+            [
+                {"id": 5, "created_at": "2026-11-09T05:00:00Z"},
+                {"id": 6, "created_at": "2026-11-09T04:00:00Z"},
+                {"id": 7, "created_at": "2026-11-09T03:00:00Z"},
+            ],
+        ]
+        runs, runs_complete = reference_collect_health_pages(run_pages)
+        self.assertTrue(runs_complete)
+        self.assertEqual({int(run["id"]) for run in runs}, set(range(1, 8)))
+
+        jobs = [
+            {"id": index, "created_at": "2026-11-09T07:00:00Z"}
+            for index in range(1, 97)
+        ]
+        job_pages = [
+            jobs[index : index + HEALTH_PAGE_SIZE]
+            for index in range(0, len(jobs), HEALTH_PAGE_SIZE)
+        ]
+        collected_jobs, jobs_complete = reference_collect_health_pages(job_pages)
+        self.assertTrue(jobs_complete)
+        self.assertEqual(len(collected_jobs), 96)
+        self.assertEqual(len(job_pages), 20)
+
+    def test_health_pagination_fails_closed_at_page_limit(self) -> None:
+        full_pages = [
+            [
+                {
+                    "id": page * HEALTH_PAGE_SIZE + item,
+                    "created_at": "2026-11-10T00:00:00Z",
+                }
+                for item in range(HEALTH_PAGE_SIZE)
+            ]
+            for page in range(HEALTH_MAX_PAGES)
+        ]
+        collected, complete = reference_collect_health_pages(full_pages)
+        self.assertFalse(complete)
+        self.assertEqual(len(collected), HEALTH_PAGE_SIZE * HEALTH_MAX_PAGES)
+
+        bounded_pages = [*full_pages[:-1], full_pages[-1][:-1]]
+        collected, complete = reference_collect_health_pages(bounded_pages)
+        self.assertTrue(complete)
+        self.assertEqual(
+            len(collected),
+            HEALTH_PAGE_SIZE * HEALTH_MAX_PAGES - 1,
+        )
+
+    def test_health_pagination_stops_after_reaching_cutoff(self) -> None:
+        pages = [
+            [
+                {
+                    "id": index,
+                    "created_at": f"2026-11-10T0{index}:00:00Z",
+                }
+                for index in range(5, 0, -1)
+            ],
+            [
+                {
+                    "id": index,
+                    "created_at": f"2026-11-09T0{index}:00:00Z",
+                }
+                for index in range(5, 0, -1)
+            ],
+        ]
+        collected, complete = reference_collect_health_pages(
+            pages,
+            cutoff="2026-11-10T02:00:00Z",
+        )
+        self.assertTrue(complete)
+        self.assertEqual(len(collected), 5)
+
+    def test_health_p5_four_full_pages_without_cutoff_fail_closed(self) -> None:
+        pages = [
+            [
+                {
+                    "id": page * HEALTH_PAGE_SIZE + item,
+                    "created_at": "2026-11-10T20:00:00Z",
+                }
+                for item in range(HEALTH_PAGE_SIZE)
+            ]
+            for page in range(4)
+        ]
+        collected, complete = reference_collect_health_pages(
+            pages,
+            cutoff="2026-11-09T21:09:34Z",
+        )
+        self.assertFalse(complete)
+        self.assertEqual(len(collected), 20)
+
+        stale_rate = {
+            "fingerprint": "pipeline:evaluation:failure-rate:critical",
+            "occurrences": 2,
+            "first_seen": "2026-10-18",
+        }
+        diff = reference_diff_health_findings(
+            [stale_rate],
+            [],
+            unavailable_scopes={"P5"},
+        )
+        self.assertEqual(len(diff["existing"]), 1)
+        self.assertEqual(
+            diff["existing"][0]["fingerprint"],
+            stale_rate["fingerprint"],
+        )
+        self.assertEqual(diff["existing"][0]["occurrences"], 2)
+        self.assertFalse(diff["existing"][0]["was_observed"])
+        self.assertEqual(diff["resolved"], [])
+
+    def test_health_p5_requests_page_five_after_four_full_pages(self) -> None:
+        pages = [
+            [
+                {
+                    "id": page * HEALTH_PAGE_SIZE + item,
+                    "created_at": "2026-11-10T20:00:00Z",
+                }
+                for item in range(HEALTH_PAGE_SIZE)
+            ]
+            for page in range(4)
+        ]
+        pages.append(
+            [
+                {
+                    "id": 4 * HEALTH_PAGE_SIZE,
+                    "created_at": "2026-11-09T20:00:00Z",
+                }
+            ]
+        )
+        requested_pages: list[int] = []
+        collected, complete = reference_collect_health_pages(
+            pages,
+            cutoff="2026-11-09T21:51:41Z",
+            requested_pages=requested_pages,
+        )
+
+        self.assertTrue(complete)
+        self.assertEqual(requested_pages, [1, 2, 3, 4, 5])
+        self.assertEqual(len(collected), 21)
+
+    def test_health_diff_replaces_stale_evaluation_identity(self) -> None:
+        stale = {
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-old:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-10-18",
+            "occurrences": 1,
+        }
+        current = {
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 99,
+        }
+        result = reference_diff_health_findings(
+            [stale],
+            [current],
+            {"P1-other"},
+        )
+        self.assertEqual(
+            [finding["fingerprint"] for finding in result["resolved"]],
+            [stale["fingerprint"]],
+        )
+        self.assertEqual(
+            [finding["fingerprint"] for finding in result["new"]],
+            [current["fingerprint"]],
+        )
+        self.assertEqual(result["new"][0]["occurrences"], 1)
+
+    def test_health_diff_preserves_observed_and_unavailable_findings(self) -> None:
+        observed_prior = {
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-09",
+            "occurrences": 2,
+        }
+        carried_prior = {
+            "fingerprint": (
+                "pipeline:build:compile:run-tests:failure"
+            ),
+            "first_seen": "2026-11-08",
+            "occurrences": 4,
+        }
+        result = reference_diff_health_findings(
+            [observed_prior, carried_prior],
+            [dict(observed_prior)],
+            {"P1-other"},
+        )
+        existing = {
+            str(finding["fingerprint"]): finding
+            for finding in result["existing"]
+        }
+        self.assertEqual(existing[observed_prior["fingerprint"]]["occurrences"], 3)
+        self.assertTrue(existing[observed_prior["fingerprint"]]["was_observed"])
+        self.assertEqual(existing[carried_prior["fingerprint"]]["occurrences"], 4)
+        self.assertFalse(existing[carried_prior["fingerprint"]]["was_observed"])
+        self.assertEqual(result["resolved"], [])
+
+    def test_health_diff_preserves_evaluation_only_when_its_scope_is_unavailable(
+        self,
+    ) -> None:
+        prior = {
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-old:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-10-18",
+            "occurrences": 1,
+        }
+        result = reference_diff_health_findings(
+            [prior],
+            [],
+            {"P1-evaluation"},
+        )
+        self.assertEqual(result["resolved"], [])
+        self.assertEqual(result["existing"][0]["occurrences"], 1)
+        self.assertFalse(result["existing"][0]["was_observed"])
+
+    def test_health_diff_deduplicates_fingerprints_and_replaces_rate_bucket(
+        self,
+    ) -> None:
+        prior = {
+            "fingerprint": "pipeline:evaluation:failure-rate:warning",
+            "first_seen": "2026-11-09",
+            "occurrences": 1,
+        }
+        current = {
+            "fingerprint": "pipeline:evaluation:failure-rate:critical",
+            "first_seen": "2026-11-10",
+            "occurrences": 1,
+        }
+        result = reference_diff_health_findings(
+            [prior],
+            [current, dict(current)],
+            set(),
+        )
+        self.assertEqual(len(result["new"]), 1)
+        self.assertEqual(len(result["resolved"]), 1)
+        self.assertEqual(
+            result["new"][0]["fingerprint"],
+            "pipeline:evaluation:failure-rate:critical",
+        )
+
+    def test_reference_state_transition_is_compatible_with_real_publisher(
+        self,
+    ) -> None:
+        stale_evaluation = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-old:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-10-18",
+            "occurrences": 1,
+            "severity": "critical",
+            "title": "Stale evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/39012752904",
+        }
+        unavailable_other = {
+            "category": "pipeline",
+            "fingerprint": "pipeline:build:compile:run-tests:failure",
+            "first_seen": "2026-11-09",
+            "occurrences": 2,
+            "severity": "warning",
+            "title": "Build failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42570000000",
+        }
+        current_evaluation = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 99,
+            "severity": "critical",
+            "title": "Current evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42593360206",
+        }
+        transition = reference_diff_health_findings(
+            [stale_evaluation, unavailable_other],
+            [current_evaluation],
+            {"P1-other"},
+        )
+        next_findings = [
+            {
+                key: value
+                for key, value in finding.items()
+                if key != "was_observed"
+            }
+            for finding in [*transition["new"], *transition["existing"]]
+        ]
+        carried = next(
+            finding
+            for finding in next_findings
+            if finding["fingerprint"] == unavailable_other["fingerprint"]
+        )
+        self.assertEqual(carried["first_seen"], unavailable_other["first_seen"])
+        self.assertEqual(carried["occurrences"], unavailable_other["occurrences"])
+        previous_state = (
+            "<!-- devops-health-state:v1\n"
+            + json.dumps(
+                {
+                    "active_findings": [
+                        stale_evaluation,
+                        unavailable_other,
+                    ],
+                    "history": [],
+                },
+                separators=(",", ":"),
+            )
+            + "\n-->"
+        )
+        published = run_health_publisher(
+            self,
+            previous_state,
+            replacement_state={
+                "active_findings": next_findings,
+                "history": [],
+            },
+        )
+        self.assertEqual(published["errors"], [])
+        self.assertEqual(
+            [call["type"] for call in published["calls"]],
+            ["update", "update", "comment"],
+        )
+        self.assertNotIn(stale_evaluation["fingerprint"], published["dashboardBody"])
+        self.assertIn(current_evaluation["fingerprint"], published["dashboardBody"])
+        self.assertIn(unavailable_other["fingerprint"], published["dashboardBody"])
+
+    def test_health_publisher_coalesces_same_date_history(self) -> None:
+        def history_entry(
+            date: str,
+            *,
+            existing_count: int,
+        ) -> dict[str, object]:
+            return {
+                "date": date,
+                "new_count": 0,
+                "existing_count": existing_count,
+                "resolved_count": 0,
+                "by_severity": {
+                    "critical": existing_count,
+                    "warning": 0,
+                    "info": 0,
+                },
+                "metrics": {},
+            }
+
+        previous_history = [
+            history_entry("2026-10-14", existing_count=2),
+            history_entry("2026-10-15", existing_count=3),
+        ]
+        previous_state = (
+            "<!-- devops-health-state:v1\n"
+            + json.dumps(
+                {
+                    "active_findings": [],
+                    "history": previous_history,
+                },
+                separators=(",", ":"),
+            )
+            + "\n-->"
+        )
+        published = run_health_publisher(
+            self,
+            previous_state,
+            replacement_state={
+                "active_findings": [],
+                "history": [
+                    *previous_history,
+                    history_entry("2026-10-16", existing_count=4),
+                    history_entry("2026-10-15", existing_count=1),
+                ],
+            },
+        )
+        self.assertEqual(published["errors"], [])
+        state_match = re.search(
+            r"<!-- devops-health-state:v1\n(.*?)\n-->",
+            published["dashboardBody"],
+            re.DOTALL,
+        )
+        self.assertIsNotNone(state_match)
+        history = json.loads(state_match.group(1))["history"]
+        self.assertEqual(
+            [entry["date"] for entry in history],
+            ["2026-10-14", "2026-10-15", "2026-10-16"],
+        )
+        self.assertEqual(history[1]["existing_count"], 1)
+
+    def test_health_publisher_dispatches_only_matching_persisted_outbox(
+        self,
+    ) -> None:
+        finding = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 1,
+            "severity": "critical",
+            "title": "Current evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42593360206",
+        }
+        correlation = "hc-2026-11-10-123-1"
+        row = {
+            "fingerprint": finding["fingerprint"],
+            "status": "dispatching",
+            "correlation_id": correlation,
+            "result_summary": "",
+            "result_url": "",
+        }
+        dispatch = {
+            "correlation_id": correlation,
+            "finding_id": finding["fingerprint"],
+            "finding_severity": finding["severity"],
+            "finding_title": finding["title"],
+            "finding_type": finding["category"],
+            "health_issue_number": "695",
+            "resource_url": finding["url"],
+        }
+        published = run_health_publisher(
+            self,
+            "",
+            replacement_state={
+                "active_findings": [finding],
+                "history": [],
+            },
+            investigation_rows=[row],
+            dispatches=[dispatch],
+        )
+        self.assertEqual(published["errors"], [])
+        self.assertEqual(
+            [call["type"] for call in published["calls"]],
+            ["update", "dispatch", "update", "comment"],
+        )
+        self.assertIn("⏳ Dispatch pending", published["calls"][0]["body"])
+        self.assertIn("🔄 Dispatched", published["calls"][2]["body"])
+        self.assertEqual(
+            published["calls"][1]["inputs"]["finding_id"],
+            finding["fingerprint"],
+        )
+
+        stale_dispatch = {
+            **dispatch,
+            "finding_id": (
+                "pipeline:evaluation:evaluate-stale:"
+                "run-vally-evaluations:failure"
+            ),
+            "finding_title": "Stale evaluation failure",
+            "resource_url": (
+                "https://github.com/dotnet/skills/actions/runs/39012752904"
+            ),
+        }
+        rejected = run_health_publisher(
+            self,
+            "",
+            replacement_state={
+                "active_findings": [finding],
+                "history": [],
+            },
+            investigation_rows=[row],
+            dispatches=[stale_dispatch],
+        )
+        self.assertEqual(
+            rejected["errors"],
+            ["A dispatch item does not match persisted dashboard state"],
+        )
+        self.assertEqual(rejected["calls"], [])
+
+    def test_health_publisher_stops_before_dispatch_when_persistence_fails(
+        self,
+    ) -> None:
+        finding = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 1,
+            "severity": "critical",
+            "title": "Current evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42593360206",
+        }
+        correlation = "hc-2026-11-10-123-1"
+        result = run_health_publisher(
+            self,
+            "",
+            replacement_state={
+                "active_findings": [finding],
+                "history": [],
+            },
+            investigation_rows=[
+                {
+                    "fingerprint": finding["fingerprint"],
+                    "status": "dispatching",
+                    "correlation_id": correlation,
+                    "result_summary": "",
+                    "result_url": "",
+                }
+            ],
+            dispatches=[
+                {
+                    "correlation_id": correlation,
+                    "finding_id": finding["fingerprint"],
+                    "finding_severity": finding["severity"],
+                    "finding_title": finding["title"],
+                    "finding_type": finding["category"],
+                    "health_issue_number": "695",
+                    "resource_url": finding["url"],
+                }
+            ],
+            fail_update_call=1,
+            capture_fatal_error=True,
+        )
+        self.assertEqual(result["fatalError"], "simulated persistence failure")
+        self.assertEqual(result["calls"], [])
+
+    def test_health_publisher_retains_outbox_when_final_update_fails(
+        self,
+    ) -> None:
+        finding = {
+            "category": "pipeline",
+            "fingerprint": (
+                "pipeline:evaluation:evaluate-current:"
+                "run-vally-evaluations:failure"
+            ),
+            "first_seen": "2026-11-10",
+            "occurrences": 1,
+            "severity": "critical",
+            "title": "Current evaluation failure",
+            "url": "https://github.com/dotnet/skills/actions/runs/42593360206",
+        }
+        correlation = "hc-2026-11-10-123-1"
+        result = run_health_publisher(
+            self,
+            "",
+            replacement_state={
+                "active_findings": [finding],
+                "history": [],
+            },
+            investigation_rows=[
+                {
+                    "fingerprint": finding["fingerprint"],
+                    "status": "dispatching",
+                    "correlation_id": correlation,
+                    "result_summary": "",
+                    "result_url": "",
+                }
+            ],
+            dispatches=[
+                {
+                    "correlation_id": correlation,
+                    "finding_id": finding["fingerprint"],
+                    "finding_severity": finding["severity"],
+                    "finding_title": finding["title"],
+                    "finding_type": finding["category"],
+                    "health_issue_number": "695",
+                    "resource_url": finding["url"],
+                }
+            ],
+            fail_update_call=2,
+            capture_fatal_error=True,
+        )
+        self.assertEqual(result["fatalError"], "simulated persistence failure")
+        self.assertEqual(
+            [call["type"] for call in result["calls"]],
+            ["update", "dispatch"],
+        )
+        self.assertIn("⏳ Dispatch pending", result["dashboardBody"])
+        self.assertNotIn("🔄 Dispatched", result["dashboardBody"])
+
     def test_health_publisher_gates_legacy_rows_on_persisted_state(self) -> None:
         legacy_row = (
             "| Legacy finding | 🔴 critical | 🔄 Dispatched | "
@@ -1448,24 +2381,37 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIn("carry_forward_unchanged", shared_health)
         self.assertIn("do not increment their occurrences", shared_health)
         self.assertIn(
-            "Never mark a scope unavailable only because page 1 contains 100 entries",
+            "Never mark a scope unavailable only because page 1 is full",
             " ".join(shared_health.split()),
         )
+        self.assertIn("Bounded Actions pagination contract", health_check)
+        self.assertIn("`page` values starting at `1`", " ".join(health_check.split()))
         self.assertIn(
-            "Deterministic Actions pagination contract",
-            health_check,
-        )
-        self.assertIn("`page` values\nstarting at `1`", health_check)
-        self.assertIn(
-            "`method: list_workflow_runs`, `perPage: 100`",
+            "`actions_list` with `perPage: 5`",
             " ".join(health_check.split()),
         )
         self.assertIn(
-            "Do not send `workflow_runs_filter`",
+            "`P1-evaluation`; other step-failure fingerprints use `P1-other`",
             " ".join(health_check.split()),
         )
         self.assertIn(
-            "Filter locally to `branch=main`, `conclusion=failure`",
+            "Complete P5 first with `resource_id=evaluation.yml`",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "derive the `P1-evaluation` main-branch run set",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Do not fetch separate P1 or P6 run inventories",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "Then collect `P1-other`, P2-P4, U1, and U2",
+            " ".join(health_check.split()),
+        )
+        self.assertIn(
+            "`method: list_workflow_jobs` with `perPage: 5`",
             " ".join(health_check.split()),
         )
         self.assertIn(
@@ -1481,7 +2427,7 @@ class TokenFailoverTests(unittest.TestCase):
             " ".join(health_check.split()),
         )
         self.assertIn(
-            "does not expose the REST `created` filter",
+            "Use supported `workflow_runs_filter` values",
             " ".join(health_check.split()),
         )
         self.assertIn("Stop after 100 total pages", health_check)
@@ -1563,6 +2509,8 @@ class TokenFailoverTests(unittest.TestCase):
             "`pipeline:{workflow}:{job}:timeout` | P2",
             "`pipeline:evaluation:failure-rate:{bucket}` | P5",
             "`pipeline:evaluation:schedule-cancellation:{bucket}` | P6",
+            "`pipeline:evaluation:{job}:{step}:{conclusion}` | P1-evaluation",
+            "Other `pipeline:{workflow}:{job}:{step}:{conclusion}` | P1-other",
             "`resource:eval-duration:{bucket}` | P3",
             "`resource:cost-increase` | U3",
             "`infra:pages-deployment-failed` | I5",

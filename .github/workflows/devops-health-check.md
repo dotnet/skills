@@ -564,6 +564,15 @@ safe-outputs:
                 left.severity === right.severity &&
                 left.title === right.title &&
                 left.url === right.url;
+              const coalesceHistory = (previousHistory, candidateHistory) => {
+                const byDate = new Map();
+                for (const entry of [...previousHistory, ...candidateHistory]) {
+                  byDate.set(entry.date, entry);
+                }
+                return [...byDate.values()]
+                  .sort((left, right) => left.date.localeCompare(right.date))
+                  .slice(-14);
+              };
 
               const currentBody = dashboard.data.body || "";
               const currentStateMatches = [
@@ -574,6 +583,10 @@ safe-outputs:
               const currentStateTokenCount =
                 currentBody.split("<!-- devops-health-state:v1").length - 1;
               const hasPersistedState = currentStateMatches.length === 1;
+              let previousState = {
+                active_findings: [],
+                history: [],
+              };
               let previousStateFindings = new Map();
               if (currentStateTokenCount > 1) {
                 core.setFailed("Existing dashboard state marker is duplicated");
@@ -585,8 +598,9 @@ safe-outputs:
               }
               if (currentStateMatches.length === 1) {
                 try {
+                  previousState = JSON.parse(currentStateMatches[0][1]);
                   previousStateFindings = validateState(
-                    JSON.parse(currentStateMatches[0][1]),
+                    previousState,
                     "Existing dashboard state",
                     validRepositoryUrl
                   );
@@ -758,6 +772,21 @@ safe-outputs:
                 stateFindings = validateState(
                   state,
                   "Dashboard state",
+                  (url, category, finding) =>
+                    validResourceUrlForType(url, category) ||
+                    sameFinding(
+                      previousStateFindings.get(finding.fingerprint),
+                      finding
+                    ) ||
+                    legacyFindingInReport(finding)
+                );
+                state.history = coalesceHistory(
+                  previousState.history,
+                  state.history
+                );
+                stateFindings = validateState(
+                  state,
+                  "Coalesced dashboard state",
                   (url, category, finding) =>
                     validResourceUrlForType(url, category) ||
                     sameFinding(
@@ -1312,27 +1341,62 @@ findings. Retain the validated previous issue body in memory for Step 2.
 
 ### 1.1 Pipeline Health (P1–P6)
 
-**Deterministic Actions pagination contract:** For every P1-P6, U1, or U2
-workflow-run inventory, call `actions_list` with
-`method: list_workflow_runs`, `perPage: 100`, and explicit `page` values
-starting at `1`. Do not send `workflow_runs_filter`: GitHub limits filtered
-workflow-run searches to 1,000 results, and the pinned MCP tool does not expose
-the REST `created` filter needed to partition that cap safely. Use
-`resource_id` only when the check is scoped to one workflow. Filter branch,
-status, event, and cutoff locally after each unfiltered page. Process pages
-immediately, deduplicate runs by run ID, and continue until a page contains
-fewer than the requested 100 entries or its oldest `created_at` reaches the
-check's cutoff. Stop after 100 total pages for one observation scope. If the
-inventory does not reach the requested cutoff within that budget, mark only
-that scope unavailable. A full first page is not evidence that pagination is
-unavailable. Do not rely on implicit MCP pagination.
+**Bounded Actions pagination contract:** The pinned `actions_list` tool returns
+enough metadata that a 100-item response can exceed the agent response channel.
+For every P1-P6, U1, or U2 workflow-run or workflow-job inventory, call
+`actions_list` with `perPage: 5` and explicit `page` values starting at `1`.
+Use supported `workflow_runs_filter` values that match the check, then filter
+conclusion and cutoff locally. Process pages immediately, deduplicate by ID,
+and continue until a page contains fewer than 5 entries or its oldest
+`created_at` reaches the check's cutoff. Stop after 100 total pages for one
+observation scope. If the inventory does not reach the cutoff within that
+budget, mark only that scope unavailable. A full first page is not evidence
+that pagination is unavailable. After a full page `N` that has not reached the
+cutoff, the next request must use `page: N+1`; never skip a page or jump to the
+100-page limit. Do not rely on implicit MCP pagination.
+
+Collect one critical evaluation run inventory before repository-wide warnings
+and metrics:
+
+1. Complete P5 first with `resource_id=evaluation.yml`.
+2. If P5 completes, derive the `P1-evaluation` main-branch run set and the P6
+   main-branch scheduled run set from that same deduplicated P5 inventory. Do
+   not fetch separate P1 or P6 run inventories.
+3. If P5 is unavailable, fall back to the targeted P1 and P6 run queries below.
+   Keep their observation scopes independent.
+4. Only after P5 reaches a terminal condition, paginate
+   `method: list_workflow_jobs` with `perPage: 5` for every failed P1 evaluation
+   run; do not request one large job response. `P1-evaluation` is complete only
+   when its run set and all required failed-job identities are complete.
+5. Then collect `P1-other`, P2-P4, U1, and U2 while capacity remains. Mark only
+   an incomplete lower-priority scope unavailable.
+
+Do not start a fallback or lower-priority inventory while P5 has a full page
+whose oldest item is newer than its cutoff. In that case, the next Actions call
+must request the next explicit P5 page. P5 is mandatory: skip every
+lower-priority scope rather than abandon P5 before a short page, the 24-hour
+cutoff, the 100-page limit, or a tool error provides a terminal condition.
+Record the page count and terminal condition for P5 and for each targeted
+fallback inventory in the report's skipped/healthy evidence.
+
+For state resolution, evaluation step-failure fingerprints use
+`P1-evaluation`; other step-failure fingerprints use `P1-other`. Treat these as
+independent observation scopes. An unavailable `P1-other` inventory must not
+carry forward an absent
+`pipeline:evaluation:{job}:{step}:{conclusion}` finding after `P1-evaluation`
+completed.
 
 **P1 — Failed workflow runs on `main` in last 24h:**
 ```
-actions_list: method=list_workflow_runs, perPage=100, page={page}
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
+              page={page},
+              workflow_runs_filter={branch: main, status: completed}
 ```
-Filter locally to `branch=main`, `conclusion=failure`, and runs created within
-the last 24 hours. For each failed run:
+Normally derive this evaluation-scoped run set from the completed P5 inventory.
+Use this targeted query only when P5 is unavailable. Filter locally to
+`conclusion=failure` and runs created within the last 24 hours. Then attempt the
+non-evaluation repository inventory as `P1-other` with the same page size and
+cutoff rules. For each failed run:
 - Use paginated Actions job data for that run and inspect only failed job logs
   when needed to identify the failed step. P1 is complete only when both the
   run inventory and each included run's failed job/step identity are complete.
@@ -1345,7 +1409,8 @@ the last 24 hours. For each failed run:
 
 **P2 — Cancelled/timed-out runs in last 24h:**
 ```
-actions_list: method=list_workflow_runs, perPage=100, page={page}
+actions_list: method=list_workflow_runs, perPage=5, page={page},
+              workflow_runs_filter={branch: main, status: completed}
 ```
 - Filter locally to `branch=main`, `conclusion` in `cancelled` or `timed_out`,
   and the last 24 hours.
@@ -1359,7 +1424,9 @@ actions_list: method=list_workflow_runs, perPage=100, page={page}
 
 **P3 — Evaluation duration trend:**
 ```
-actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=100, page={page}
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
+              page={page},
+              workflow_runs_filter={branch: main, status: completed}
 ```
 Filter locally to `branch=main` and compute average run duration over the last
 14 days.
@@ -1369,7 +1436,8 @@ Filter locally to `branch=main` and compute average run duration over the last
 
 **P4 — Workflow failure rate (7-day rolling):**
 ```
-actions_list: method=list_workflow_runs, perPage=100, page={page}
+actions_list: method=list_workflow_runs, perPage=5, page={page},
+              workflow_runs_filter={branch: main, status: completed}
 ```
 Filter locally to `branch=main` and the last 7 days. Group by workflow name and
 compute success/failure ratio.
@@ -1377,10 +1445,11 @@ compute success/failure ratio.
 
 **P5 — Evaluation failure rate across all branches (last 24h):**
 ```
-actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=100, page={page}
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
+              page={page}, workflow_runs_filter={status: completed}
 ```
 Filter to runs created within the last 24 hours across all branches and event
-types (schedule, pull_request, workflow_dispatch). Apply the deterministic
+types (schedule, pull_request, workflow_dispatch). Apply the bounded
 pagination contract even when page 1 is full. Compute:
 - Total runs, failures (conclusion=failure), cancellations (conclusion=cancelled), successes
 - **Overall failure rate** = failures / (failures + successes) — exclude cancelled runs from denominator
@@ -1402,9 +1471,14 @@ Also include in the finding details:
 
 **P6 — Evaluation scheduled run cancellation rate (last 24h):**
 ```
-actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=100, page={page}
+actions_list: method=list_workflow_runs, resource_id=evaluation.yml, perPage=5,
+              page={page},
+              workflow_runs_filter={branch: main, event: schedule,
+                                    status: completed}
 ```
-Filter locally to scheduled runs on `main` created within the last 24 hours.
+Normally derive this run set from the completed P5 inventory. Use this targeted
+query only when P5 is unavailable. Filter locally to scheduled runs on `main`
+created within the last 24 hours.
 Compute:
 - Total scheduled runs, cancelled count, completed count
 - Cancellation rate = cancelled / total
@@ -1520,12 +1594,12 @@ registry:
 ### 1.3 Resource Usage (U1–U3)
 
 **U1 — Daily compute hours:**
-Use the deterministic Actions pagination contract above. Sum all workflow run
+Use the bounded Actions pagination contract above. Sum all workflow run
 durations from the last 24h after filtering locally.
 - 🔵 Info (metric only — for trends table)
 
 **U2 — Eval runs count:**
-Use the deterministic Actions pagination contract with
+Use the bounded Actions pagination contract with
 `resource_id=evaluation.yml`. Count runs from the last 24h after filtering
 locally.
 - 🔵 Info (metric only)
@@ -1597,8 +1671,10 @@ After collecting all findings, perform the diff:
    - Replace `active_findings` with the current fingerprint set, including the
      bounded finding fields, occurrence counts, and first-seen dates defined in
      the imported knowledge.
-   - Append today's summary and metrics to `history`, then retain only the most
-     recent 14 entries.
+   - Replace every existing `history` entry with today's date with today's
+     summary and metrics. Append today's entry only when that date is absent,
+     preserve entries for different dates, then retain only the most recent 14
+     distinct dates.
    - Serialize the state as one compact JSON object inside the exact
      `devops-health-state:v1` marker in the replacement issue body.
    - Require each fingerprint to be at most 300 characters, each title at most
