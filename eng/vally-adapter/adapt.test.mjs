@@ -429,7 +429,15 @@ test("writes an explicit invalid verdict for every expected eval", () => {
       readFileSync(join(outputRoot, "dotnet-test", "missing-skill", "results.json"), "utf8"),
     );
     assert.equal(missingResult.evalFile, missingEval);
+    assert.equal(missingResult.verdicts[0].evalFile, missingEval);
     assert.equal(missingResult.expectedEval, true);
+    const observedResult = JSON.parse(
+      readFileSync(
+        join(outputRoot, "dotnet-diag", "analyzing-dotnet-performance", "results.json"),
+        "utf8",
+      ),
+    );
+    assert.equal(observedResult.verdicts[0].evalFile, evalFile);
     assert.equal(missingResult.verdicts[0].state, VERDICT_STATES.INVALID_INCONCLUSIVE);
     assert.equal(
       missingResult.verdicts[0].stateReason.code,

@@ -223,6 +223,7 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | Field | Description |
 |-------|-------------|
 | `skillName` / `skillPath` | Compatibility field names containing the evaluated target name and source path; `skillKind` disambiguates skills and agents |
+| `evalFile` | Normalized eval path, duplicated from the top level so it survives merges that concatenate `verdicts[]` from many files (the dashboard publish step does this; its merged file keeps only the first file's top-level `evalFile`) |
 | `state` | One of `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or `INVALID_INCONCLUSIVE` |
 | `stateReason` | Machine-readable `{ code, phase }`. Use this field for automation; do not parse `reason` |
 | `noChangeDiagnosis` | Canonical subtype for a `VALID_NO_CHANGE` preference result: `all_ties`, `mixed`, directional `*_tie_limited` / `*_unproven`, or `*_sparse`; renderers consume this key so PR and dashboard labels stay aligned |
