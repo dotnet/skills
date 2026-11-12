@@ -2,11 +2,12 @@
 license: MIT
 name: use-js-interop
 description: >
-  Add, review, or fix JavaScript interop in Blazor components.
-  USE FOR: calling JavaScript from Blazor, calling .NET from JavaScript,
+  Add, review, or fix JavaScript interop that is actually required by a Blazor component.
+  USE ONLY FOR: calling JavaScript from Blazor, calling .NET from JavaScript,
   collocated .razor.js modules, IJSRuntime, IJSObjectReference lifecycle,
   DotNetObjectReference, ElementReference, timing rules for when JS is available,
   IAsyncDisposable disposal of JS references, server-side JS interop safety.
+  NEVER USE for presentational responsive layout that built-in styling and media queries solve.
   DO NOT USE FOR: general Blazor component authoring without JS interop needs
   (use author-component), forms (use collect-user-input).
 ---
