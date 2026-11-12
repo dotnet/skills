@@ -130,7 +130,9 @@ Use this skill when you need to:
 
 ## How It Works
 
-This skill coordinates multiple specialized agents in a **Research → Plan → Implement** pipeline:
+The pipeline owner completes **Research → Plan → Implement** inline by default
+and may delegate substantial phases to specialized agents. A delegated
+implementer is a leaf and performs its own validation:
 
 ### Pipeline Overview
 
@@ -140,24 +142,15 @@ This skill coordinates multiple specialized agents in a **Research → Plan → 
 │  Coordinates the full pipeline and manages state            │
 └─────────────────────┬───────────────────────────────────────┘
                       │
-        ┌─────────────┼─────────────┐
-        ▼             ▼             ▼
-┌───────────┐  ┌───────────┐  ┌───────────────┐
-│ RESEARCHER│  │  PLANNER  │  │  IMPLEMENTER  │
-│           │  │           │  │               │
-│ Analyzes  │  │ Creates   │  │ Writes tests  │
-│ codebase  │→ │ phased    │→ │ per phase     │
-│           │  │ plan      │  │               │
-└───────────┘  └───────────┘  └───────┬───────┘
-                                      │
-                    ┌─────────┬───────┼───────────┐
-                    ▼         ▼       ▼           ▼
-              ┌─────────┐ ┌───────┐ ┌───────┐ ┌───────┐
-              │ BUILDER │ │TESTER │ │ FIXER │ │LINTER │
-              │         │ │       │ │       │ │       │
-              │ Compiles│ │ Runs  │ │ Fixes │ │Formats│
-              │ code    │ │ tests │ │ errors│ │ code  │
-              └─────────┘ └───────┘ └───────┘ └───────┘
+        ┌─────────────┼──────────────────┐
+        ▼             ▼                  ▼
+┌───────────┐  ┌───────────┐  ┌────────────────────────┐
+│ RESEARCHER│  │  PLANNER  │  │ IMPLEMENTER (leaf)     │
+│           │  │           │  │ Writes tests per phase │
+│ Analyzes  │  │ Creates   │  │ Builds / tests / fixes │
+│ codebase  │→ │ phased    │→ │ Checks discovery       │
+│           │  │ plan      │  │ Formats inline         │
+└───────────┘  └───────────┘  └────────────────────────┘
 ```
 
 ## Step-by-Step Instructions
@@ -334,7 +327,7 @@ focused request does not create these files:
 | `test-engineer`   | Coordinates pipeline |
 | `code-testing-researcher`  | Analyzes codebase    |
 | `code-testing-planner`     | Creates test plan    |
-| `code-testing-implementer` | Writes test files    |
+| `code-testing-implementer` | Writes and validates tests inline (leaf worker) |
 | `code-testing-builder`     | Compiles code        |
 | `code-testing-tester`      | Runs tests           |
 | `code-testing-fixer`       | Fixes errors         |
@@ -355,7 +348,7 @@ execution as blocked rather than substituting `dotnet test`.
 
 ### Tests don't compile
 
-The `code-testing-fixer` agent will attempt to resolve compilation errors. Check
+The implementer diagnoses and fixes compilation errors inline. Check
 `<TESTAGENT_DIR>/plan.md` for the expected test structure. Read the matching
 language file relative to the supplied `code-testing-extensions` catalog
 for error code references (e.g., `dotnet.md` for .NET).
