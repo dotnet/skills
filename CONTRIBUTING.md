@@ -428,6 +428,18 @@ python eng/eval-quality/check_eval_quality.py
      canonical public location for Vally docs, then link the grader/stimulus
      reference and the CLI usage guide here instead of the local examples. -->
 
+### Supported build environments
+
+The repository pins a .NET 11 preview SDK in `global.json`. The official .NET preview SDK binaries are built against **glibc** and cannot run directly on Bionic-only Linux loaders (such as native Android / Termux environments without a glibc userspace).
+
+Recommended environments for building and running tests locally:
+
+- **GitHub Codespaces / Dev Containers** — uses `actions/setup-dotnet` with `global.json` (the standard CI path).
+- **Docker** — `mcr.microsoft.com/dotnet/sdk:11.0-preview` (glibc-based).
+- **WSL 2** — glibc userspace on Windows.
+- **Any glibc-based Linux distribution**, x64 or arm64.
+- **Windows** (x64 / arm64) or **macOS** (Apple Silicon / Intel).
+
 ### Running tests locally
 
 Prerequisites: Node.js 20+ and the [GitHub CLI](https://cli.github.com) signed in (`gh auth login`). The script checks these and tells you what's missing, so just run it:
