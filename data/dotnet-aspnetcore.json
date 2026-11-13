@@ -3,344 +3,6 @@
   "entries": {
     "Efficiency": [
       {
-        "model": "claude-sonnet-5",
-        "commit": {
-          "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
-          "timestamp": "2026-10-28T23:58:22+00:00",
-          "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          }
-        },
-        "benches": [
-          {
-            "value": 12.9,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 49083.0,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 10.5,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 49227.0,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 22.7,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 22818.0,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 16.5,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Time",
-            "overfitting": "high",
-            "unit": "seconds",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 106796.0,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Tokens In",
-            "overfitting": "high",
-            "unit": "tokens",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 16.9,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Time",
-            "overfitting": "high",
-            "unit": "seconds",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 108342.0,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Tokens In",
-            "overfitting": "high",
-            "unit": "tokens",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 57.9,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 81163.0,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 25.5,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Time",
-            "overfitting": "high",
-            "unit": "seconds",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 195785.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Tokens In",
-            "overfitting": "high",
-            "unit": "tokens",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 14.5,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Time",
-            "overfitting": "high",
-            "unit": "seconds",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 78549.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Tokens In",
-            "overfitting": "high",
-            "unit": "tokens",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 22.3,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 61450.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 103.9,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Time",
-            "overfitting": "high",
-            "unit": "seconds",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 1164433.0,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Tokens In",
-            "overfitting": "high",
-            "unit": "tokens",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 84.2,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Time",
-            "overfitting": "high",
-            "unit": "seconds",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 899425.0,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Tokens In",
-            "overfitting": "high",
-            "unit": "tokens",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 151.6,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 1179861.0,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Tokens In",
-            "unit": "tokens"
-          }
-        ],
-        "tool": "customSmallerIsBetter",
-        "date": 1793382641277
-      },
-      {
-        "model": "gpt-5.6-luna",
-        "commit": {
-          "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
-          "timestamp": "2026-10-28T23:58:22+00:00",
-          "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          }
-        },
-        "benches": [
-          {
-            "value": 23.8,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.31
-          },
-          {
-            "value": 61983.0,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.31
-          },
-          {
-            "value": 15.8,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.31
-          },
-          {
-            "value": 29521.0,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.31
-          },
-          {
-            "value": 25.7,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 38616.0,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 17.1,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 63169.0,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 10.5,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 63720.0,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 12.8,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 36055.0,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 20.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 63101.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 20.5,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 46988.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 23.2,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 36709.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 59.5,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 276625.0,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 77.4,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 344649.0,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 76.3,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 219932.0,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Tokens In",
-            "unit": "tokens"
-          }
-        ],
-        "tool": "customSmallerIsBetter",
-        "date": 1793382641317
-      },
-      {
         "benches": [
           {
             "value": 17.8,
@@ -10863,607 +10525,1233 @@
           },
           "timestamp": "2026-11-12T00:22:57+00:00"
         }
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "executionId": "43382703592:1",
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 41.2,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 428521.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 45.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 437282.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 47.5,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 329666.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 25.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 242297.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 40.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 397846.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 60.3,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 502560.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 40836.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 6.2,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 61636.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 72.8,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 105698.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 6.5,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 61005.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 8.6,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 83826.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.9,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 83209.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 39.5,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 389911.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.4,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 427168.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 78.6,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 484078.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 336760.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 33.2,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 335798.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 51.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 400532.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 30.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 387599.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 28.5,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 353619.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 103.9,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 663220.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.7,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 389155.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 25.7,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 295295.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 44.1,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 338639.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 33.2,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 334773.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.6,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 369579.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 116.7,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 775059.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 20.4,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 227267.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 40.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 370356.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 33.9,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 257439.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 17.5,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 227755.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 23.9,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 262542.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 126063.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "notActivated": true,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Skilled Time",
+            "overfittingScore": 0.32,
+            "value": 40.7
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "notActivated": true,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Skilled Tokens In",
+            "overfittingScore": 0.32,
+            "value": 301125.0
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 9.5,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 104425.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.1,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 101675.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 39.9,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 209523.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 35.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 228152.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.3,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 181895.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 97.1,
+            "name": "dotnet-webapi/Implement a new minimal product API - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 811964.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 80.8,
+            "name": "dotnet-webapi/Implement a new minimal product API - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 932785.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 76.4,
+            "name": "dotnet-webapi/Implement a new minimal product API - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 472007.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 44.5,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 266356.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 27.1,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 129456.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.4,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 126547.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 44.8,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 469958.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 7.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 61389.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 19.1,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 205321.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "notActivated": true,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Skilled Time",
+            "overfittingScore": 0.32,
+            "value": 14.8
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "notActivated": true,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Skilled Tokens In",
+            "overfittingScore": 0.32,
+            "value": 145559.0
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 20.1,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 148415.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 14.4,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 124233.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 15.3,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 190647.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 28.8,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 177722.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 28.6,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 217456.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Vanilla Tokens In"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-11-12T07:27:26+00:00",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "message": "Merge pull request #1304 from dotnet/abhitejjohn-infra-eval-pr-guidance",
+          "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607",
+          "id": "2877c712edc20643b72f64e2983b168e6661d607"
+        },
+        "model": "claude-sonnet-5",
+        "date": 1794600449466
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "executionId": "43382703592:1",
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 31.6,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 133472.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 30.1,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 117777.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 46.1,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 129719.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.4,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 151705.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.1,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 132806.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 39.5,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 135760.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 13.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 52034.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.8,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 59406.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.5,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 47199.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 17.7,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 80294.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 14.1,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 54860.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.8,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 37155.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 25.3,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 114795.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 23.2,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 131053.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.6,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 81030.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 35.6,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 186835.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 23.7,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 113954.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.1,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 157398.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 24.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 112746.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.1,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 171675.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.7,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 138272.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 24.1,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 113269.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.4,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 167736.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 35.5,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 155651.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.8,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 164750.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.6,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 154507.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 33.6,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 127904.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 43.2,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 216499.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 53.4,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 334622.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 26.2,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 107697.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 17.1,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 104094.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 14.9,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 107895.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.4,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 67353.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 16.3,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 115116.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 13.2,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 116127.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 21.4,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 101429.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.8,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 143026.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 41.6,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 147370.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.1,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 80072.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 52.4,
+            "name": "dotnet-webapi/Implement a new minimal product API - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 282467.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 47.4,
+            "name": "dotnet-webapi/Implement a new minimal product API - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 263045.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 51.7,
+            "name": "dotnet-webapi/Implement a new minimal product API - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 206218.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 53.4,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 159671.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 8.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 36802.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 49.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 239361.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.2,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 60241.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.2,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 49787.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 24.9,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 102312.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 17.8,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 116074.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 17.6,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 118114.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 15.2,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 74446.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 25.6,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 154264.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 22.4,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 175243.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 21.6,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 118243.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Vanilla Tokens In"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-11-12T07:27:26+00:00",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "message": "Merge pull request #1304 from dotnet/abhitejjohn-infra-eval-pr-guidance",
+          "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607",
+          "id": "2877c712edc20643b72f64e2983b168e6661d607"
+        },
+        "model": "gpt-5.6-luna",
+        "date": 1794600449587
       }
     ],
     "Quality": [
-      {
-        "verdictEvidence": [
-          {
-            "skillName": "convert-blazor-server-to-webapp",
-            "skillKind": "invocable",
-            "evaluationLane": null,
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (1W/0T/0L over 1 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +100.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "noChangeDiagnosis": null,
-            "gateEvidence": {
-              "stimulusVoteCount": 1,
-              "wins": 1,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 1,
-              "direction": "better",
-              "pValue": 0.5,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 1,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
-                "direction": "better",
-                "rationale": "B satisfies all five explicit migration criteria and presents the correct .NET 8 service-based authentication cascade and middleware order. A gets the core hosting/render-mode migration largely right but fails two explicit requirements, including retaining the obsolete component wrapper and ordering antiforgery incorrectly."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/95e7d0cb7994d47b5789baa68e13f7a2f348b956/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/95e7d0cb7994d47b5789baa68e13f7a2f348b956/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956"
-              }
-            ]
-          },
-          {
-            "skillName": "dotnet-webapi",
-            "skillKind": "invocable",
-            "evaluationLane": null,
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (3W/0T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.125), mean preference +60.0% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "noChangeDiagnosis": null,
-            "gateEvidence": {
-              "stimulusVoteCount": 3,
-              "wins": 3,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 3,
-              "direction": "better",
-              "pValue": 0.12500000000000003,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Add a new API endpoint to an existing controller-based project",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Add a new API endpoint to an existing controller-based project",
-                "direction": "better",
-                "rationale": "B satisfies every explicit rubric item and provides a complete controller/service contract consistent with cancellation propagation. A follows the controller and CreatedAtAction patterns but misses cancellation tokens, sealed-record DTOs, XML documentation, and a creation timestamp field."
-              },
-              {
-                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
-                "direction": "better",
-                "rationale": "Both solutions satisfy the central modern-handler, mapping, registration, and safe-500 requirements. B more fully meets the requested project organization and more deliberately addresses non-exception error statuses, while A is otherwise similarly correct and provides a more expanded explanation."
-              },
-              {
-                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
-                "direction": "better",
-                "rationale": "Both deliver working, verified minimal APIs with the requested endpoints, service abstraction, native OpenAPI, enum serialization, and correct Created responses. B is stronger on the rubric's compile-time DTO/result and cancellation-oriented architecture, whereas A visibly uses an unsealed request record and synchronous service methods without CancellationToken propagation."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/95e7d0cb7994d47b5789baa68e13f7a2f348b956/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/95e7d0cb7994d47b5789baa68e13f7a2f348b956/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956"
-              }
-            ]
-          }
-        ],
-        "commit": {
-          "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
-          "timestamp": "2026-10-28T23:58:22+00:00",
-          "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          }
-        },
-        "benches": [
-          {
-            "value": 7.142857074737549,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 10.0,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.22
-          },
-          {
-            "value": 8.928571701049805,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Quality",
-            "overfitting": "high",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 10.0,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Quality",
-            "overfitting": "high",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 6.0714287757873535,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Quality",
-            "overfitting": "high",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 10.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Quality",
-            "overfitting": "high",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 9.5,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 4.615384578704834,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Quality",
-            "overfitting": "high",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 3.846153736114502,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Quality",
-            "overfitting": "high",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.7
-          },
-          {
-            "value": 4.42307710647583,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Quality",
-            "unit": "Score (0-10)"
-          }
-        ],
-        "tool": "customBiggerIsBetter",
-        "date": 1793382641277,
-        "model": "claude-sonnet-5"
-      },
-      {
-        "verdictEvidence": [
-          {
-            "skillName": "convert-blazor-server-to-webapp",
-            "skillKind": "invocable",
-            "evaluationLane": null,
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +0.0% (0W/1T/0L over 1 preference-eligible stimulus vote(s), sign test p=1.000), mean preference +0.0% across 1 paired run(s) — underpowered (1 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "noChangeDiagnosis": null,
-            "gateEvidence": {
-              "stimulusVoteCount": 1,
-              "wins": 0,
-              "ties": 1,
-              "losses": 0,
-              "discordant": 0,
-              "direction": "none",
-              "pValue": 1,
-              "alpha": 0.05,
-              "netWin": 0,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Blazor Server app with CascadingAuthenticationState",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/95e7d0cb7994d47b5789baa68e13f7a2f348b956/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/95e7d0cb7994d47b5789baa68e13f7a2f348b956/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956"
-              }
-            ]
-          },
-          {
-            "skillName": "dotnet-webapi",
-            "skillKind": "invocable",
-            "evaluationLane": null,
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +0.0% (0W/3T/0L over 3 preference-eligible stimulus vote(s), sign test p=1.000), mean preference +0.0% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "noChangeDiagnosis": null,
-            "gateEvidence": {
-              "stimulusVoteCount": 3,
-              "wins": 0,
-              "ties": 3,
-              "losses": 0,
-              "discordant": 0,
-              "direction": "none",
-              "pValue": 1,
-              "alpha": 0.05,
-              "netWin": 0,
-              "minimumNetWin": 0.2,
-              "minCredibleStimuli": 5,
-              "excludedStimulusCount": 0
-            },
-            "activationContract": {
-              "evaluated": true,
-              "requiredForPass": true,
-              "source": "isolated_target_skill_activation",
-              "reason": "Explicit dormancy expectations are evaluated independently of preference",
-              "count": 0,
-              "satisfied": 0,
-              "violated": 0,
-              "passed": true,
-              "failures": [],
-              "scenarios": [],
-              "unmatchedDormancyStimuli": []
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Add a new API endpoint to an existing controller-based project",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              },
-              {
-                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
-                "expectation": "active",
-                "preferenceGateEligible": true,
-                "isolated": "activated",
-                "isolatedActivationOnlyFailedRuns": 0,
-                "plugin": "plugin-activity-observed",
-                "pluginActivationOnlyFailedRuns": 0,
-                "invokedAgents": [],
-                "delegatedAgents": [],
-                "invokedSkills": [],
-                "isolatedTools": [],
-                "pluginTools": [],
-                "isolatedCompleted": null,
-                "pluginCompleted": null
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Add a new API endpoint to an existing controller-based project",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
-              },
-              {
-                "scenarioName": "Add error handling with ProblemDetails and IExceptionHandler",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
-              },
-              {
-                "scenarioName": "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/95e7d0cb7994d47b5789baa68e13f7a2f348b956/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/95e7d0cb7994d47b5789baa68e13f7a2f348b956/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956"
-              }
-            ]
-          }
-        ],
-        "commit": {
-          "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
-          "timestamp": "2026-10-28T23:58:22+00:00",
-          "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          }
-        },
-        "benches": [
-          {
-            "value": 10.0,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Skilled Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.31
-          },
-          {
-            "value": 10.0,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Plugin Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.31
-          },
-          {
-            "value": 7.5,
-            "name": "convert-blazor-server-to-webapp/Blazor Server app with CascadingAuthenticationState - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 1.4285714626312256,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Skilled Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 1.4285714626312256,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Plugin Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 6.0714287757873535,
-            "name": "dotnet-webapi/Add a new API endpoint to an existing controller-based project - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Skilled Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 10.0,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Plugin Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 9.5,
-            "name": "dotnet-webapi/Add error handling with ProblemDetails and IExceptionHandler - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 1.923076868057251,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Skilled Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 2.884615421295166,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Plugin Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.41
-          },
-          {
-            "value": 1.7307692766189575,
-            "name": "dotnet-webapi/Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics - Vanilla Quality",
-            "unit": "Score (0-10)"
-          }
-        ],
-        "tool": "customBiggerIsBetter",
-        "date": 1793382641317,
-        "model": "gpt-5.6-luna"
-      },
       {
         "verdictEvidence": [
           {
@@ -26408,263 +26696,1705 @@
           },
           "timestamp": "2026-11-12T00:22:57+00:00"
         }
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "executionId": "43382703592:1",
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.5,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 8.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.5,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "notActivated": true,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Skilled Quality",
+            "overfittingScore": 0.32,
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 9.375,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 6.25,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 8.75,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "notActivated": true,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Skilled Quality",
+            "overfittingScore": 0.32,
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.32,
+            "value": 10.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Vanilla Quality"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-11-12T07:27:26+00:00",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "message": "Merge pull request #1304 from dotnet/abhitejjohn-infra-eval-pr-guidance",
+          "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607",
+          "id": "2877c712edc20643b72f64e2983b168e6661d607"
+        },
+        "model": "claude-sonnet-5",
+        "verdictEvidence": [
+          {
+            "skillName": "convert-blazor-server-to-webapp",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win -14.3% (0W/6T/1L over 7 preference-eligible stimulus vote(s), sign test p=0.500), mean preference +0.0% across 9 paired run(s), 2 dormancy stimulus/stimuli excluded from preference — no improvement",
+            "noChangeDiagnosis": "negative_tie_limited",
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 0,
+              "ties": 6,
+              "losses": 1,
+              "discordant": 1,
+              "direction": "worse",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": -0.14285714285714285,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 2
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 2,
+              "satisfied": 2,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [
+                {
+                  "scenarioName": "Keep conversion guidance dormant for hosted WebAssembly",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                },
+                {
+                  "scenarioName": "Leave an existing Blazor Web App unchanged",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Convert a Startup-based application",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert a basic interactive server app",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep conversion guidance dormant for hosted WebAssembly",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Leave an existing Blazor Web App unchanged",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Migrate cascading authentication state",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve authentication pipeline order",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve configured circuit behavior",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve disabled prerendering",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve the host document and error UI",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Convert a Startup-based application",
+                "direction": "none",
+                "rationale": "Both completed a valid Blazor Web App conversion satisfying all stated requirements and demonstrated clean successful builds. Their hosting layouts differ, but the rubric expressly permits either split Startup hosting or consolidation."
+              },
+              {
+                "scenarioName": "Convert a basic interactive server app",
+                "direction": "worse",
+                "rationale": "Both implementations are substantively correct, compile cleanly, and meet the migration requirements. A is modestly stronger because it follows the contemporary Components organization and verifies a live prerendered response, whereas B only validates by build and source search."
+              },
+              {
+                "scenarioName": "Keep conversion guidance dormant for hosted WebAssembly",
+                "direction": "better",
+                "rationale": "Both correctly decline to fabricate a migration without source files and avoid inappropriate server-rendered guidance. B is modestly stronger because it explicitly distinguishes hosted WASM from the Server conversion path, though its additional target-layout speculation is not necessary."
+              },
+              {
+                "scenarioName": "Leave an existing Blazor Web App unchanged",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Migrate cascading authentication state",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve authentication pipeline order",
+                "direction": "none",
+                "rationale": "Both deliver a clean, building Blazor Web App migration satisfying all requested pipeline, endpoint, legacy-host removal, and interactive-server requirements. Their structural choices differ but do not produce a material quality difference."
+              },
+              {
+                "scenarioName": "Preserve configured circuit behavior",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve disabled prerendering",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve the host document and error UI",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: tie, reverse: B). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/2877c712edc20643b72f64e2983b168e6661d607/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/2877c712edc20643b72f64e2983b168e6661d607/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607"
+              }
+            ]
+          },
+          {
+            "skillName": "dotnet-webapi",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "activation_contract_failed",
+              "phase": "activation"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (0W/7T/0L over 7 preference-eligible stimulus vote(s), sign test p=1.000), mean preference -4.4% across 9 paired run(s), 2 dormancy stimulus/stimuli excluded from preference — activation contract failed (1 explicit dormancy scenario(s) activated the isolated target skill)",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 0,
+              "ties": 7,
+              "losses": 0,
+              "discordant": 0,
+              "direction": "none",
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 2
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 2,
+              "satisfied": 1,
+              "violated": 1,
+              "passed": false,
+              "failures": [
+                {
+                  "scenarioName": "Keep Web API guidance dormant for a SignalR hub",
+                  "expected": "dormant",
+                  "observed": "activated",
+                  "satisfied": false
+                }
+              ],
+              "scenarios": [
+                {
+                  "scenarioName": "Keep Web API guidance dormant for a Blazor form",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                },
+                {
+                  "scenarioName": "Keep Web API guidance dormant for a SignalR hub",
+                  "expected": "dormant",
+                  "observed": "activated",
+                  "satisfied": false
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Add centralized exception-to-problem-details handling",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create an HTTP request file for every catalog route",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Enable automatic validation for a minimal API request",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Extend an existing controller API with order endpoints",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Implement a new minimal product API",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep Web API guidance dormant for a Blazor form",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep Web API guidance dormant for a SignalR hub",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "unexpected-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve an existing JSON contract while adding string enums",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Repair a TypedResults handler that does not compile",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Add centralized exception-to-problem-details handling",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Create an HTTP request file for every catalog route",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Enable automatic validation for a minimal API request",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Extend an existing controller API with order endpoints",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Implement a new minimal product API",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Keep Web API guidance dormant for a Blazor form",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Keep Web API guidance dormant for a SignalR hub",
+                "direction": "worse",
+                "rationale": "Both delivered a compiling, functionally correct SignalR ChatHub, but A is substantially cleaner and more focused. B's unnecessary Web API, OpenAPI, and weather endpoint work violates explicit scope requirements; A still retains a template root minimal endpoint, so the overall quality advantage is not absolute."
+              },
+              {
+                "scenarioName": "Preserve an existing JSON contract while adding string enums",
+                "direction": "none",
+                "rationale": "The implementations and demonstrated build results are substantively identical; neither response has a quality advantage."
+              },
+              {
+                "scenarioName": "Repair a TypedResults handler that does not compile",
+                "direction": "none",
+                "rationale": "The final implementations and verification are materially identical and fully satisfy the task. Both recover from the missing namespace compilation issue by adding the necessary HttpResults using and rebuild successfully."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/2877c712edc20643b72f64e2983b168e6661d607/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/2877c712edc20643b72f64e2983b168e6661d607/tests/dotnet-aspnetcore/dotnet-webapi/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607"
+              }
+            ]
+          }
+        ],
+        "date": 1794600449466
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "executionId": "43382703592:1",
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a Startup-based application - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Convert a basic interactive server app - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.75,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.25,
+            "name": "convert-blazor-server-to-webapp/Keep conversion guidance dormant for hosted WebAssembly - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Leave an existing Blazor Web App unchanged - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Migrate cascading authentication state - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve authentication pipeline order - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve configured circuit behavior - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve disabled prerendering - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "convert-blazor-server-to-webapp/Preserve the host document and error UI - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Add centralized exception-to-problem-details handling - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 9.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 10.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Create an HTTP request file for every catalog route - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 10.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 10.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Enable automatic validation for a minimal API request - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Extend an existing controller API with order endpoints - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 10.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 9.5,
+            "name": "dotnet-webapi/Implement a new minimal product API - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Implement a new minimal product API - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.25,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a Blazor form - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.75,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Keep Web API guidance dormant for a SignalR hub - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 10.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 10.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Preserve an existing JSON contract while adding string enums - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 10.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "overfittingScore": 0.34,
+            "value": 10.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "dotnet-webapi/Repair a TypedResults handler that does not compile - Vanilla Quality"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-11-12T07:27:26+00:00",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "message": "Merge pull request #1304 from dotnet/abhitejjohn-infra-eval-pr-guidance",
+          "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607",
+          "id": "2877c712edc20643b72f64e2983b168e6661d607"
+        },
+        "model": "gpt-5.6-luna",
+        "verdictEvidence": [
+          {
+            "skillName": "convert-blazor-server-to-webapp",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "activation_contract_failed",
+              "phase": "activation"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (0W/7T/0L over 7 preference-eligible stimulus vote(s), sign test p=1.000), mean preference -4.4% across 9 paired run(s), 2 dormancy stimulus/stimuli excluded from preference — activation contract failed (1 explicit dormancy scenario(s) activated the isolated target skill)",
+            "noChangeDiagnosis": null,
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 0,
+              "ties": 7,
+              "losses": 0,
+              "discordant": 0,
+              "direction": "none",
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 2
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 2,
+              "satisfied": 1,
+              "violated": 1,
+              "passed": false,
+              "failures": [
+                {
+                  "scenarioName": "Leave an existing Blazor Web App unchanged",
+                  "expected": "dormant",
+                  "observed": "activated",
+                  "satisfied": false
+                }
+              ],
+              "scenarios": [
+                {
+                  "scenarioName": "Keep conversion guidance dormant for hosted WebAssembly",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                },
+                {
+                  "scenarioName": "Leave an existing Blazor Web App unchanged",
+                  "expected": "dormant",
+                  "observed": "activated",
+                  "satisfied": false
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Convert a Startup-based application",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Convert a basic interactive server app",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep conversion guidance dormant for hosted WebAssembly",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Leave an existing Blazor Web App unchanged",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "unexpected-activation",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Migrate cascading authentication state",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve authentication pipeline order",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve configured circuit behavior",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve disabled prerendering",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve the host document and error UI",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Convert a Startup-based application",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Convert a basic interactive server app",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Keep conversion guidance dormant for hosted WebAssembly",
+                "direction": "worse",
+                "rationale": "Response A better demonstrates recognition of the hosted WebAssembly migration path by explicitly naming 'hosted WebAssembly layout' in its output, which directly addresses rubric criterion #1. Both responses equally succeed at avoiding server-side recommendations (criteria #2 and #3). While Response B showed more methodical investigation with a sophisticated grep pattern, it failed to articulate the critical distinction between WebAssembly and server-rendered hosting models in its final communication. For a task focused on understanding the difference between these two fundamentally different Blazor architectures, explicit recognition in the output is important.\""
+              },
+              {
+                "scenarioName": "Leave an existing Blazor Web App unchanged",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Migrate cascading authentication state",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve authentication pipeline order",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve configured circuit behavior",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve disabled prerendering",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve the host document and error UI",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/2877c712edc20643b72f64e2983b168e6661d607/plugins/dotnet-aspnetcore/skills/convert-blazor-server-to-webapp/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/2877c712edc20643b72f64e2983b168e6661d607/tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607"
+              }
+            ]
+          },
+          {
+            "skillName": "dotnet-webapi",
+            "skillKind": "invocable",
+            "evaluationLane": null,
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +0.0% (1W/5T/1L over 7 preference-eligible stimulus vote(s), sign test p=0.750), mean preference +0.0% across 9 paired run(s), 2 dormancy stimulus/stimuli excluded from preference — no improvement",
+            "noChangeDiagnosis": "mixed",
+            "gateEvidence": {
+              "stimulusVoteCount": 7,
+              "wins": 1,
+              "ties": 5,
+              "losses": 1,
+              "discordant": 2,
+              "direction": "none",
+              "pValue": 0.75,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": 0.2,
+              "minCredibleStimuli": 5,
+              "excludedStimulusCount": 2
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 2,
+              "satisfied": 2,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [
+                {
+                  "scenarioName": "Keep Web API guidance dormant for a Blazor form",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                },
+                {
+                  "scenarioName": "Keep Web API guidance dormant for a SignalR hub",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Add centralized exception-to-problem-details handling",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Create an HTTP request file for every catalog route",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Enable automatic validation for a minimal API request",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Extend an existing controller API with order endpoints",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Implement a new minimal product API",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep Web API guidance dormant for a Blazor form",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Keep Web API guidance dormant for a SignalR hub",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-no-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Preserve an existing JSON contract while adding string enums",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              },
+              {
+                "scenarioName": "Repair a TypedResults handler that does not compile",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "isolatedActivationOnlyFailedRuns": 0,
+                "plugin": "plugin-activity-observed",
+                "pluginActivationOnlyFailedRuns": 0,
+                "invokedAgents": [],
+                "delegatedAgents": [],
+                "invokedSkills": [],
+                "isolatedTools": [],
+                "pluginTools": [],
+                "isolatedCompleted": null,
+                "pluginCompleted": null
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Add centralized exception-to-problem-details handling",
+                "direction": "worse",
+                "rationale": "Run 1 achieves the task requirements more directly and efficiently. It uses ASP.NET Core's built-in `Results.Problem()` which automatically handles Problem Details formatting and content-type headers correctly, demonstrating immediate verification success. Run 2 required debugging iterations and multiple patches to fix content-type header issues before achieving a working state. While both eventually produce builds and both use centralized error handling, Run 1's simpler approach with built-in framework utilities proved more reliable and required zero corrections. The evidence shows Run 1 passing verification cleanly on first attempt, while Run 2 shows failed verification with subsequent fixes.\""
+              },
+              {
+                "scenarioName": "Create an HTTP request file for every catalog route",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Enable automatic validation for a minimal API request",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Extend an existing controller API with order endpoints",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Implement a new minimal product API",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Keep Web API guidance dormant for a Blazor form",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: A). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Keep Web API guidance dormant for a SignalR hub",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve an existing JSON contract while adding string enums",
+                "direction": "none",
+                "rationale": "Both responses implemented identical, correct solutions that fully satisfy all task requirements. The patches applied to Program.cs are functionally equivalent, both preserve backward compatibility with existing clients, and both build successfully without errors or warnings. Response A was slightly more efficient (6 turns vs 7, lower token usage) while Response B used a skill that didn't add substantive value. Both demonstrated methodical problem-solving approaches and successfully handled the NuGet restore requirement. The quality of the final deliverable is equivalent.\""
+              },
+              {
+                "scenarioName": "Repair a TypedResults handler that does not compile",
+                "direction": "better",
+                "rationale": "Both responses successfully fix the CS1593 compilation error and achieve the core requirements. However, Response B is slightly better because it strictly adheres to the task instruction to \"keep typed 200 and 404 results and the existing route, service contract, and cancellation behavior.\" Response A added an unnecessary `.WithName()` metadata call that changes the original behavior beyond what was needed. Response B makes only the minimal, essential changes required to fix the compilation error while maintaining exact compatibility with the original codebase.\""
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/2877c712edc20643b72f64e2983b168e6661d607/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/2877c712edc20643b72f64e2983b168e6661d607/tests/dotnet-aspnetcore/dotnet-webapi/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607"
+              }
+            ]
+          }
+        ],
+        "date": 1794600449587
       }
     ],
     "SkillValue": [
-      {
-        "model": "claude-sonnet-5",
-        "commit": {
-          "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
-          "timestamp": "2026-10-28T23:58:22+00:00",
-          "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          }
-        },
-        "skills": [
-          {
-            "bothPass": 0,
-            "baselineFail": 1,
-            "timedOut": false,
-            "skill": "convert-blazor-server-to-webapp",
-            "treatmentFail": 1,
-            "treatmentOnlyPass": 0,
-            "baseAvailable": 1,
-            "preference": {
-              "underpowered": true,
-              "pValue": 0.5,
-              "direction": "better",
-              "practicalPassed": true,
-              "conclusive": true,
-              "ties": 0,
-              "wins": 1,
-              "count": 1,
-              "losses": 0,
-              "minCredibleStimuli": 5,
-              "netWin": 1,
-              "alpha": 0.05
-            },
-            "baseline": {
-              "tokens": 22818.0,
-              "tokensOut": 2406.0,
-              "timeMs": 22655.0,
-              "cacheWrite": 7181.0,
-              "n": 1,
-              "tokensIn": 20412.0,
-              "cacheRead": 13229.0
-            },
-            "baselineOnlyPass": 0,
-            "activationFired": 1,
-            "activationContract": {
-              "count": 0,
-              "violated": 0,
-              "passed": true,
-              "evaluated": true
-            },
-            "passTotal": 1,
-            "activationExpected": 1,
-            "pairedN": 1,
-            "bothFail": 1,
-            "treatAvailable": 1,
-            "hasPassData": true,
-            "treatment": {
-              "tokens": 49083.0,
-              "tokensOut": 1558.0,
-              "timeMs": 12899.0,
-              "cacheWrite": 13541.0,
-              "n": 1,
-              "tokensIn": 47525.0,
-              "cacheRead": 33980.0
-            }
-          },
-          {
-            "bothPass": 1,
-            "baselineFail": 2,
-            "timedOut": false,
-            "skill": "dotnet-webapi",
-            "treatmentFail": 1,
-            "treatmentOnlyPass": 1,
-            "baseAvailable": 3,
-            "preference": {
-              "underpowered": true,
-              "pValue": 0.12500000000000003,
-              "direction": "better",
-              "practicalPassed": true,
-              "conclusive": true,
-              "ties": 0,
-              "wins": 3,
-              "count": 3,
-              "losses": 0,
-              "minCredibleStimuli": 5,
-              "netWin": 1,
-              "alpha": 0.05
-            },
-            "baseline": {
-              "tokens": 440824.6666666667,
-              "tokensOut": 4872.333333333333,
-              "timeMs": 77269.33333333333,
-              "cacheWrite": 14027.666666666666,
-              "n": 3,
-              "tokensIn": 435952.3333333333,
-              "cacheRead": 421895.3333333333
-            },
-            "baselineOnlyPass": 0,
-            "activationFired": 3,
-            "activationContract": {
-              "count": 0,
-              "violated": 0,
-              "passed": true,
-              "evaluated": true
-            },
-            "passTotal": 3,
-            "activationExpected": 3,
-            "pairedN": 3,
-            "bothFail": 1,
-            "treatAvailable": 3,
-            "hasPassData": true,
-            "treatment": {
-              "tokens": 489004.6666666667,
-              "tokensOut": 4382.666666666667,
-              "timeMs": 48613.666666666664,
-              "cacheWrite": 21226.666666666668,
-              "n": 3,
-              "tokensIn": 484622.0,
-              "cacheRead": 463366.0
-            }
-          }
-        ],
-        "judgeModel": "gpt-5.6-terra",
-        "date": 1793382641277
-      },
-      {
-        "model": "gpt-5.6-luna",
-        "commit": {
-          "message": "Merge pull request #1364 from dotnet/dependabot/nuget/eng/skill-validator/src/microsoft-and-system-38d43a4916",
-          "timestamp": "2026-10-28T23:58:22+00:00",
-          "id": "95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "url": "https://github.com/dotnet/skills/commit/95e7d0cb7994d47b5789baa68e13f7a2f348b956",
-          "author": {
-            "name": "Abhitej John",
-            "username": "AbhitejJohn"
-          }
-        },
-        "skills": [
-          {
-            "bothPass": 0,
-            "baselineFail": 1,
-            "timedOut": false,
-            "skill": "convert-blazor-server-to-webapp",
-            "treatmentFail": 0,
-            "treatmentOnlyPass": 1,
-            "baseAvailable": 1,
-            "preference": {
-              "underpowered": true,
-              "pValue": 1,
-              "direction": "none",
-              "practicalPassed": false,
-              "conclusive": true,
-              "ties": 1,
-              "wins": 0,
-              "count": 1,
-              "losses": 0,
-              "minCredibleStimuli": 5,
-              "netWin": 0,
-              "alpha": 0.05
-            },
-            "baseline": {
-              "tokens": 38616.0,
-              "tokensOut": 1815.0,
-              "timeMs": 25745.0,
-              "cacheWrite": 5217.0,
-              "n": 1,
-              "tokensIn": 36801.0,
-              "cacheRead": 31575.0
-            },
-            "baselineOnlyPass": 0,
-            "activationFired": 1,
-            "activationContract": {
-              "count": 0,
-              "violated": 0,
-              "passed": true,
-              "evaluated": true
-            },
-            "passTotal": 1,
-            "activationExpected": 1,
-            "pairedN": 1,
-            "bothFail": 0,
-            "treatAvailable": 1,
-            "hasPassData": true,
-            "treatment": {
-              "tokens": 61983.0,
-              "tokensOut": 1518.0,
-              "timeMs": 23789.0,
-              "cacheWrite": 9013.0,
-              "n": 1,
-              "tokensIn": 60465.0,
-              "cacheRead": 51440.0
-            }
-          },
-          {
-            "bothPass": 1,
-            "baselineFail": 2,
-            "timedOut": false,
-            "skill": "dotnet-webapi",
-            "treatmentFail": 2,
-            "treatmentOnlyPass": 0,
-            "baseAvailable": 3,
-            "preference": {
-              "underpowered": true,
-              "pValue": 1,
-              "direction": "none",
-              "practicalPassed": false,
-              "conclusive": true,
-              "ties": 3,
-              "wins": 0,
-              "count": 3,
-              "losses": 0,
-              "minCredibleStimuli": 5,
-              "netWin": 0,
-              "alpha": 0.05
-            },
-            "baseline": {
-              "tokens": 97565.33333333333,
-              "tokensOut": 1938.0,
-              "timeMs": 37402.333333333336,
-              "cacheWrite": 9064.333333333334,
-              "n": 3,
-              "tokensIn": 95627.33333333333,
-              "cacheRead": 86543.0
-            },
-            "baselineOnlyPass": 0,
-            "activationFired": 3,
-            "activationContract": {
-              "count": 0,
-              "violated": 0,
-              "passed": true,
-              "evaluated": true
-            },
-            "passTotal": 3,
-            "activationExpected": 3,
-            "pairedN": 3,
-            "bothFail": 2,
-            "treatAvailable": 3,
-            "hasPassData": true,
-            "treatment": {
-              "tokens": 134298.33333333334,
-              "tokensOut": 1885.3333333333333,
-              "timeMs": 32196.0,
-              "cacheWrite": 11696.333333333334,
-              "n": 3,
-              "tokensIn": 132413.0,
-              "cacheRead": 120694.66666666667
-            }
-          }
-        ],
-        "judgeModel": "claude-haiku-4.5",
-        "date": 1793382641317
-      },
       {
         "skills": [
           {
@@ -30046,9 +31776,273 @@
           },
           "timestamp": "2026-11-12T00:22:57+00:00"
         }
+      },
+      {
+        "skills": [
+          {
+            "timedOut": false,
+            "passTotal": 9,
+            "pairedN": 9,
+            "baselineFail": 1,
+            "treatmentOnlyPass": 1,
+            "treatmentFail": 1,
+            "baseline": {
+              "cacheRead": 382009.6666666667,
+              "timeMs": 65309.11111111111,
+              "tokensOut": 4849.888888888889,
+              "tokensIn": 404334.6666666667,
+              "cacheWrite": 22293.444444444445,
+              "tokens": 409184.55555555556,
+              "n": 9
+            },
+            "targetActivationFailed": false,
+            "completionRegressed": false,
+            "treatAvailable": 9,
+            "skill": "convert-blazor-server-to-webapp",
+            "activationExpected": 7,
+            "activationFired": 7,
+            "baseAvailable": 9,
+            "bothPass": 7,
+            "bothFail": 0,
+            "activationContract": {
+              "count": 2,
+              "evaluated": true,
+              "passed": true,
+              "violated": 0
+            },
+            "treatment": {
+              "cacheRead": 272334.44444444444,
+              "timeMs": 27680.11111111111,
+              "tokensOut": 2706.222222222222,
+              "tokensIn": 287389.0,
+              "cacheWrite": 15033.444444444445,
+              "tokens": 290095.22222222225,
+              "n": 9
+            },
+            "hasPassData": true,
+            "baselineOnlyPass": 1,
+            "preference": {
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": -0.14285714285714285,
+              "count": 7,
+              "minCredibleStimuli": 5,
+              "practicalPassed": false,
+              "underpowered": false,
+              "wins": 0,
+              "direction": "worse",
+              "conclusive": true,
+              "ties": 6,
+              "losses": 1
+            }
+          },
+          {
+            "timedOut": false,
+            "passTotal": 9,
+            "pairedN": 9,
+            "baselineFail": 0,
+            "treatmentOnlyPass": 0,
+            "treatmentFail": 2,
+            "baseline": {
+              "cacheRead": 188503.66666666666,
+              "timeMs": 28243.444444444445,
+              "tokensOut": 2537.777777777778,
+              "tokensIn": 198866.22222222222,
+              "cacheWrite": 10344.555555555555,
+              "tokens": 201404.0,
+              "n": 9
+            },
+            "targetActivationFailed": false,
+            "completionRegressed": false,
+            "treatAvailable": 9,
+            "skill": "dotnet-webapi",
+            "activationExpected": 7,
+            "activationFired": 5,
+            "baseAvailable": 9,
+            "bothPass": 7,
+            "bothFail": 0,
+            "activationContract": {
+              "count": 2,
+              "evaluated": true,
+              "passed": false,
+              "violated": 1
+            },
+            "treatment": {
+              "cacheRead": 296646.8888888889,
+              "timeMs": 37218.444444444445,
+              "tokensOut": 2981.8888888888887,
+              "tokensIn": 313701.8888888889,
+              "cacheWrite": 17032.333333333332,
+              "tokens": 316683.77777777775,
+              "n": 9
+            },
+            "hasPassData": true,
+            "baselineOnlyPass": 2,
+            "preference": {
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "count": 7,
+              "minCredibleStimuli": 5,
+              "practicalPassed": false,
+              "underpowered": false,
+              "wins": 0,
+              "direction": "none",
+              "conclusive": true,
+              "ties": 7,
+              "losses": 0
+            }
+          }
+        ],
+        "executionId": "43382703592:1",
+        "judgeModel": "gpt-5.6-terra",
+        "commit": {
+          "timestamp": "2026-11-12T07:27:26+00:00",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "message": "Merge pull request #1304 from dotnet/abhitejjohn-infra-eval-pr-guidance",
+          "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607",
+          "id": "2877c712edc20643b72f64e2983b168e6661d607"
+        },
+        "model": "claude-sonnet-5",
+        "date": 1794600449466
+      },
+      {
+        "skills": [
+          {
+            "timedOut": false,
+            "passTotal": 9,
+            "pairedN": 9,
+            "baselineFail": 1,
+            "treatmentOnlyPass": 1,
+            "treatmentFail": 0,
+            "baseline": {
+              "cacheRead": 102034.11111111111,
+              "timeMs": 31271.444444444445,
+              "tokensOut": 1908.0,
+              "tokensIn": 110324.0,
+              "cacheWrite": 8265.555555555555,
+              "tokens": 112232.0,
+              "n": 9
+            },
+            "targetActivationFailed": false,
+            "completionRegressed": false,
+            "treatAvailable": 9,
+            "skill": "convert-blazor-server-to-webapp",
+            "activationExpected": 7,
+            "activationFired": 7,
+            "baseAvailable": 9,
+            "bothPass": 8,
+            "bothFail": 0,
+            "activationContract": {
+              "count": 2,
+              "evaluated": true,
+              "passed": false,
+              "violated": 1
+            },
+            "treatment": {
+              "cacheRead": 110635.33333333333,
+              "timeMs": 25958.333333333332,
+              "tokensOut": 1593.5555555555557,
+              "tokensIn": 121728.66666666667,
+              "cacheWrite": 11071.0,
+              "tokens": 123322.22222222222,
+              "n": 9
+            },
+            "hasPassData": true,
+            "baselineOnlyPass": 0,
+            "preference": {
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "count": 7,
+              "minCredibleStimuli": 5,
+              "practicalPassed": false,
+              "underpowered": false,
+              "wins": 0,
+              "direction": "none",
+              "conclusive": true,
+              "ties": 7,
+              "losses": 0
+            }
+          },
+          {
+            "timedOut": false,
+            "passTotal": 9,
+            "pairedN": 9,
+            "baselineFail": 0,
+            "treatmentOnlyPass": 0,
+            "treatmentFail": 0,
+            "baseline": {
+              "cacheRead": 112203.44444444444,
+              "timeMs": 27940.0,
+              "tokensOut": 1679.0,
+              "tokensIn": 120224.44444444444,
+              "cacheWrite": 7995.333333333333,
+              "tokens": 121903.44444444444,
+              "n": 9
+            },
+            "targetActivationFailed": false,
+            "completionRegressed": false,
+            "treatAvailable": 9,
+            "skill": "dotnet-webapi",
+            "activationExpected": 7,
+            "activationFired": 7,
+            "baseAvailable": 9,
+            "bothPass": 9,
+            "bothFail": 0,
+            "activationContract": {
+              "count": 2,
+              "evaluated": true,
+              "passed": true,
+              "violated": 0
+            },
+            "treatment": {
+              "cacheRead": 136821.55555555556,
+              "timeMs": 29528.777777777777,
+              "tokensOut": 1714.7777777777778,
+              "tokensIn": 148446.55555555556,
+              "cacheWrite": 11599.0,
+              "tokens": 150161.33333333334,
+              "n": 9
+            },
+            "hasPassData": true,
+            "baselineOnlyPass": 0,
+            "preference": {
+              "pValue": 0.75,
+              "alpha": 0.05,
+              "netWin": 0,
+              "count": 7,
+              "minCredibleStimuli": 5,
+              "practicalPassed": false,
+              "underpowered": false,
+              "wins": 1,
+              "direction": "none",
+              "conclusive": true,
+              "ties": 5,
+              "losses": 1
+            }
+          }
+        ],
+        "executionId": "43382703592:1",
+        "judgeModel": "claude-haiku-4.5",
+        "commit": {
+          "timestamp": "2026-11-12T07:27:26+00:00",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "message": "Merge pull request #1304 from dotnet/abhitejjohn-infra-eval-pr-guidance",
+          "url": "https://github.com/dotnet/skills/commit/2877c712edc20643b72f64e2983b168e6661d607",
+          "id": "2877c712edc20643b72f64e2983b168e6661d607"
+        },
+        "model": "gpt-5.6-luna",
+        "date": 1794600449587
       }
     ]
   },
-  "lastUpdate": 1794498614027,
+  "lastUpdate": 1794600449587,
   "schemaVersion": 2
 }
