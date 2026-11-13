@@ -2249,7 +2249,9 @@ function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEv
     judgeModel: opts["judge-model"],
     timestamp: new Date().toISOString(),
     expectedEval,
-    verdicts: [verdict],
+    // Also stamp evalFile on the verdict so it survives downstream merges that
+    // concatenate verdicts from many results.json files (e.g. dashboard publish).
+    verdicts: [{ ...verdict, evalFile }],
   };
   const evalOutDir = join(outputRoot, identity.plugin, identity.skill);
   mkdirSync(evalOutDir, { recursive: true });

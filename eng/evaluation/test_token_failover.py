@@ -24,6 +24,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+INFRA_ADVISORY_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "fork-infra-check.yml"
+)
 EVAL_QUALITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "eval-quality.yml"
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
@@ -2714,6 +2717,101 @@ esac
             "node eng/evaluation-tools/lint-corpus.mjs tests",
         )
 
+    def test_evaluation_infrastructure_advisory_is_metadata_only(self) -> None:
+        workflow = yaml.safe_load(
+            INFRA_ADVISORY_WORKFLOW.read_text(encoding="utf-8")
+        )
+        triggers = workflow.get("on", workflow.get(True))
+        self.assertEqual(
+            triggers["pull_request_target"]["types"],
+            ["opened", "synchronize", "reopened"],
+        )
+        self.assertIn("global.json", triggers["pull_request_target"]["paths"])
+        self.assertEqual(workflow["permissions"], {"pull-requests": "write"})
+        self.assertEqual(
+            workflow["concurrency"],
+            {
+                "group": "fork-infra-check-${{ github.event.pull_request.number }}",
+                "cancel-in-progress": False,
+            },
+        )
+
+        fork_job = workflow["jobs"]["check-fork-infra"]
+        self.assertIn("github.event.action == 'opened'", fork_job["if"])
+        self.assertIn(
+            "github.event.pull_request.head.repo.full_name != github.repository",
+            fork_job["if"],
+        )
+
+        advisory_job = workflow["jobs"]["check-evaluation-infra"]
+        self.assertNotIn("permissions", advisory_job)
+        steps = advisory_job["steps"]
+        self.assertEqual(len(steps), 1)
+        step = steps[0]
+        self.assertEqual(
+            step["uses"],
+            "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
+        )
+        self.assertNotIn("run", step)
+        self.assertNotIn("secrets", json.dumps(advisory_job))
+
+        script = step["with"]["script"]
+        self.assertIn(
+            "github.paginate(github.rest.pulls.listFiles",
+            script,
+        )
+        self.assertIn(
+            "({ filename, previous_filename })",
+            script,
+        )
+        self.assertIn(
+            "isEvaluationInfrastructure(previous_filename)",
+            script,
+        )
+        self.assertIn(
+            "github.paginate(github.rest.issues.listComments",
+            script,
+        )
+        self.assertIn(
+            "<!-- eval-infra-full-eval-required -->",
+            script,
+        )
+        self.assertNotIn("<!-- pr-triage:fingerprint=", script)
+
+        for path in (
+            "eng/evaluation-tools/",
+            "eng/evaluation/nuget.config",
+            "eng/vally-adapter/",
+            "eng/evaluation/change-classification.ps1",
+            "eng/evaluation/find-targets.ps1",
+            "eng/evaluation/path-safety.ps1",
+            "eng/evaluation/workflow-targets.ps1",
+            "eng/skill-validator/Directory.Build.props",
+            "eng/skill-validator/src/",
+            "dotnet-skills.experiment.yaml",
+            "global.json",
+            ".github/workflows/evaluation.yml",
+            ".github/workflows/evaluation-run.yml",
+        ):
+            self.assertIn(path, script)
+
+        for expected_text in (
+            "A full evaluation is required before this PR merges.",
+            "trusted branch or ref in `dotnet/skills`",
+            "Leave the `plugin` input blank",
+            "default model profile is sufficient",
+            "The PR `/evaluate` command is not sufficient",
+            "first promote the commit to a reviewed branch in `dotnet/skills`",
+        ):
+            self.assertIn(expected_text, script)
+
+    def test_infrastructure_advisory_changes_run_workflow_tests(self) -> None:
+        workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        advisory_path = ".github/workflows/fork-infra-check.yml"
+        for event in ("pull_request", "push"):
+            self.assertEqual(triggers[event]["paths"].count(advisory_path), 1)
+
     def test_path_safety_helper_changes_run_workflow_tests(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
         triggers = workflow.get("on", workflow.get(True))
@@ -3898,6 +3996,76 @@ esac
                 "/tests/demo/nested/agent.router/eval.yaml",
                 eval_link["url"],
             )
+
+    def test_dashboard_eval_links_are_per_verdict_in_merged_results(self) -> None:
+        # The publish step merges per-skill results.json files and keeps the
+        # first file's top-level evalFile. Each verdict must still link to its
+        # own eval, not the first skill's.
+        def verdict(skill: str, eval_file: str | None) -> dict:
+            v = {
+                "skillName": skill,
+                "state": "VALID_PASS",
+                "passed": True,
+                "reason": "ok",
+                "scenarios": [],
+            }
+            if eval_file is not None:
+                v["evalFile"] = eval_file
+            return v
+
+        def eval_links(top_level_eval: str, verdicts: list[dict]) -> dict[str, str]:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                results = root / "results.json"
+                output = root / "out"
+                results.write_text(json.dumps({
+                    "schemaVersion": 5,
+                    "model": "executor",
+                    "judgeModel": "judge",
+                    "evalFile": top_level_eval,
+                    "verdicts": verdicts,
+                }), encoding="utf-8")
+
+                result = subprocess.run([
+                    "pwsh", "-NoLogo", "-NoProfile", "-NonInteractive",
+                    "-File", str(DASHBOARD_GENERATOR),
+                    "-ResultsFile", str(results),
+                    "-PluginName", "demo",
+                    "-OutputDir", str(output),
+                    "-CommitJson", json.dumps({
+                        "id": "abcdef1234567890",
+                        "url": "https://github.com/dotnet/skills/commit/abcdef1234567890",
+                    }),
+                ], capture_output=True, text=True, timeout=30)
+
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                dashboard = json.loads((output / "demo.json").read_text(encoding="utf-8-sig"))
+                evidence = dashboard["entries"]["Quality"][-1]["verdictEvidence"]
+                return {
+                    e["skillName"]: next(
+                        link["url"] for link in e["links"] if link["label"] == "Eval source"
+                    )
+                    for e in evidence
+                }
+
+        # Merged file: the top-level evalFile belongs to the first source file only.
+        merged = eval_links("tests/demo/nested/first-skill/eval.yaml", [
+            verdict("first-skill", "tests/demo/nested/first-skill/eval.yaml"),
+            verdict("second-skill", "tests/demo/nested/second-skill/eval.yaml"),
+            # Legacy merged verdict without its own evalFile: must fall back to
+            # the conventional path, not the top-level (first) evalFile.
+            verdict("third-skill", None),
+        ])
+        self.assertTrue(merged["first-skill"].endswith("/tests/demo/nested/first-skill/eval.yaml"))
+        self.assertTrue(merged["second-skill"].endswith("/tests/demo/nested/second-skill/eval.yaml"))
+        self.assertTrue(merged["third-skill"].endswith("/tests/demo/third-skill/eval.yaml"))
+
+        # Single-verdict file whose verdict path fails validation: the valid
+        # top-level path must still win over the conventional fallback.
+        single = eval_links("tests/demo/nested/solo/eval.yaml", [
+            verdict("solo", "/abs/elsewhere/eval.yaml"),
+        ])
+        self.assertTrue(single["solo"].endswith("/tests/demo/nested/solo/eval.yaml"))
 
     def test_dashboard_agent_evidence_allows_missing_plugin_role(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
