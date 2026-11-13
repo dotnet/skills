@@ -6,12 +6,13 @@ description: >
   NOT for writing new programs.
   USE FOR: upgrading TargetFramework from net10.0 to net11.0, fixing build errors
   after updating the .NET 11 SDK, resolving source-breaking and behavioral changes
-  in .NET 11 runtime, C# 15 compiler, ASP.NET Core 11, and EF Core 11, adapting to updated minimum
-  hardware requirements (x86-64-v2, Arm64 LSE), and updating CI/CD pipelines and
-  Dockerfiles for .NET 11.
+  in .NET 11 runtime, C# 15 compiler, ASP.NET Core 11, and EF Core 11, adapting to
+  updated minimum hardware requirements (x86-64-v2, Arm64 LSE), and updating CI/CD
+  pipelines and Dockerfiles for .NET 11.
   DO NOT USE FOR: .NET Framework migrations, upgrading from .NET 9 or earlier,
   greenfield .NET 11 projects, or cosmetic modernization unrelated to the upgrade.
-  Covers the common breaking changes documented for the .NET 11 GA release (SDK 11.0.100).
+  Covers the common breaking changes documented for the .NET 11 GA release
+  (SDK 11.0.100).
 license: MIT
 ---
 
@@ -104,8 +105,8 @@ Load reference documents based on the project's technology areas:
 | `references/sdk-msbuild-dotnet10to11.md` | Always (SDK and build tooling changes) |
 | `references/aspnetcore-dotnet10to11.md` | Project uses ASP.NET Core (Blazor, forms and antiforgery, OpenAPI, Kestrel) |
 | `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core |
-| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS, HttpClient metrics, or targets macOS |
-| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, or using NativeAOT |
+| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS or X.509 chain building, HttpClient metrics, or targets macOS |
+| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, using NativeAOT, or casting floating-point values to small integer types |
 
 **Check these first.** They are the most common new warnings in .NET 11 and fail builds that use `TreatWarningsAsErrors`:
 
@@ -253,5 +254,5 @@ The `references/` folder contains detailed breaking change information organized
 | `references/sdk-msbuild-dotnet10to11.md` | Always (SDK and build tooling changes) |
 | `references/aspnetcore-dotnet10to11.md` | Project uses ASP.NET Core (Blazor, forms and antiforgery, OpenAPI, Kestrel) |
 | `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core |
-| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS, HttpClient metrics, or targets macOS |
-| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, or using NativeAOT |
+| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS or X.509 chain building, HttpClient metrics, or targets macOS |
+| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, using NativeAOT, or casting floating-point values to small integer types |
