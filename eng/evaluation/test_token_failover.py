@@ -947,9 +947,18 @@ class TokenFailoverTests(unittest.TestCase):
             self.assertNotIn("add_comment", config)
             self.assertNotIn("create_issue", config)
             self.assertNotIn("create_report_incomplete_issue", config)
-        self.assertIn(
-            '"tools":["missing_data","missing_tool","noop","publish_health_report"]',
-            health_lock_text,
+        # gh-aw v1.2.2 renamed the safe-output tools from missing_data /
+        # missing_tool to report_missing_data / report_missing_tool. Accept
+        # both spellings so the guidance check survives a runtime upgrade.
+        self.assertTrue(
+            any(
+                expected in health_lock_text
+                for expected in (
+                    '"tools":["missing_data","missing_tool","noop","publish_health_report"]',
+                    '"tools":["noop","publish_health_report","report_missing_data","report_missing_tool"]',
+                )
+            ),
+            health_lock_text[:500],
         )
         update_index = health_lock_text.index(
             "await github.rest.issues.update"
