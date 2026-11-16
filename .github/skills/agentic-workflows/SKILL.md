@@ -1,11 +1,11 @@
 ---
 name: agentic-workflows
-description: Route gh-aw design, creation, diagnosis, patching, active debugging, and upgrade requests to the right strategies.
+description: Route gh-aw design, creation, diagnosis, patching, active debugging, upgrades, and local SDLC issue requests to the right strategies.
 ---
 
 # Agentic Workflows Router
 
-Use this skill when a user asks to design, create, update, debug, or upgrade GitHub Agentic Workflows in this repository.
+Use this skill when a user asks to design, create, update, debug, or upgrade GitHub Agentic Workflows in this repository, or prepare a substantial issue for a local, self-contained SDLC.
 
 This skill is a dispatcher: identify the task type, load the matching workflow prompt/skill file, and follow it directly. Keep responses concise and ask a clarifying question if the correct prompt is unclear.
 
@@ -40,8 +40,12 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 - `.github/aw/cli-commands.md`
 - `.github/aw/compat.md`
 - `.github/aw/configure-agentic-engine.md`
+- `.github/aw/connectors.md`
 - `.github/aw/context.md`
+- `.github/aw/create-agentic-workflow-design.md`
+- `.github/aw/create-agentic-workflow-evaluation.md`
 - `.github/aw/create-agentic-workflow-trigger-details.md`
+- `.github/aw/create-agentic-workflow-validation.md`
 - `.github/aw/create-agentic-workflow.md`
 - `.github/aw/create-shared-agentic-workflow.md`
 - `.github/aw/debug-agentic-workflow.md`
@@ -60,6 +64,7 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 - `.github/aw/designer.md`
 - `.github/aw/doctor.md`
 - `.github/aw/documentation-workflows.md`
+- `.github/aw/dreaming.md`
 - `.github/aw/drive-memory.md`
 - `.github/aw/enclaves.md`
 - `.github/aw/evals.md`
@@ -70,6 +75,7 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 - `.github/aw/github-mcp-server-tools.md`
 - `.github/aw/github-mcp-server.md`
 - `.github/aw/harbor.md`
+- `.github/aw/index-search.md`
 - `.github/aw/instructions.md`
 - `.github/aw/intent.md`
 - `.github/aw/jobs.md`
@@ -86,11 +92,13 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 - `.github/aw/multi-agent-research.md`
 - `.github/aw/network.md`
 - `.github/aw/optimize-agentic-workflow.md`
+- `.github/aw/otel.md`
 - `.github/aw/patterns.md`
 - `.github/aw/playwright.md`
 - `.github/aw/pr-reviewer.md`
 - `.github/aw/release-workflow.md`
 - `.github/aw/report.md`
+- `.github/aw/responsible-ai.md`
 - `.github/aw/reuse.md`
 - `.github/aw/safe-outputs-automation.md`
 - `.github/aw/safe-outputs-content.md`
@@ -100,6 +108,7 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 - `.github/aw/serena-tool.md`
 - `.github/aw/shared-safe-jobs.md`
 - `.github/aw/skills.md`
+- `.github/aw/squad.md`
 - `.github/aw/subagents.md`
 - `.github/aw/syntax-agentic.md`
 - `.github/aw/syntax-checkout.md`
@@ -124,6 +133,7 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 After loading the matching workflow prompt or skill, follow it directly:
 - Design workflows from scratch via interview: `.github/aw/designer.md`
 - Create new workflows: `.github/aw/create-agentic-workflow.md`
+- Configure scheduled dreaming or consolidate persistent memory: `.github/aw/create-agentic-workflow.md`, then `.github/aw/memory.md#scheduled-dreaming`; load `.github/aw/dreaming.md` only when the decision and input scope justify implementation
 - Configure or add declarative engines: `.github/aw/configure-agentic-engine.md`
 - Update existing workflows: `.github/aw/update-agentic-workflow.md`
 - Diagnose, patch, audit, or actively debug workflows: `.github/aw/debug-agentic-workflow.md` (local-first strategy, evidence triage and live gates)
@@ -142,6 +152,7 @@ After loading the matching workflow prompt or skill, follow it directly:
 - Advanced cost controls without native settings (custom AIC allowances by server size or shared organization budget policies): read `docs/src/content/docs/reference/cost-management.md#configure-advanced-cost-controls-with-admission` ([published guidance](https://github.github.com/gh-aw/reference/cost-management/#configure-advanced-cost-controls-with-admission)). Explain the external authority requirement and cooperative limits; do not invent frontmatter fields or promise hard caps, reservations, or mid-run cancellation.
 - Design long-running multi-agent research workflows: `.github/aw/multi-agent-research.md`
 - Add skills or agent plugins requested by the user (`skills:` / `plugins:` frontmatter, never on-the-fly installs): `.github/aw/skills.md`
+- Local SDLC issue bootstrap: `.github/aw/squad.md`
 
 When the task involves OTEL, OTLP, traces, observability backends, or telemetry-driven analysis, also read and follow `skills/otel-queries/SKILL.md` after loading the matching workflow prompt or skill.
 
