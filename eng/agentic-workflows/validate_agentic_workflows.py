@@ -15,7 +15,7 @@ import yaml
 
 
 GH_AW_ACTIONS_SHA = "2fbab69bfca02bebd76cd0fc43f2d12acfed994f"
-GH_AW_VERSION = "v0.89.22"
+GH_AW_VERSION = "v1.2.2"
 ALLOWED_WARNINGS = (
     re.compile(
         r"(?i)\.github[\\/]+workflows[\\/]+devops-health-check\.md: warning: "
