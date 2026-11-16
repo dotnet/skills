@@ -3,5 +3,11 @@
   "name": "dotnet-experimental",
   "version": "0.1.2",
   "description": "Experimental skills under active evaluation that may change or graduate to stable plugins.",
-  "skills": ["./skills/"]
+  "extensions": {
+    "com.github.copilot": {
+      "skills": [
+        "./skills/"
+      ]
+    }
+  }
 }

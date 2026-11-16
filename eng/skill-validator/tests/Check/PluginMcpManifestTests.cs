@@ -12,6 +12,111 @@ namespace SkillValidator.Tests;
 [TestClass]
 public class PluginMcpManifestTests
 {
+    private static void WritePortableManifest(string pluginDir)
+    {
+        File.WriteAllText(Path.Combine(pluginDir, "plugin.json"), $$$"""
+            {
+              "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+              "name": "{{{Path.GetFileName(pluginDir)}}}",
+              "version": "0.1.0",
+              "description": "A portable plugin.",
+              "mcpServers": {"ignored": {}},
+              "extensions": {
+                "com.github.copilot": {
+                  "mcpServers": {"also-ignored": {}}
+                }
+              }
+            }
+            """);
+    }
+
+    [TestMethod]
+    public async Task PortableMcpUsesFixedFileForValidationAndNamespacedAgentEvaluation()
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WritePortableManifest(pluginDir);
+            WriteManifest(pluginDir, ".codex-plugin/plugin.json", BinlogServers);
+            File.WriteAllText(Path.Combine(pluginDir, "mcp.json"), $$"""
+                {"$schema":"https://agent-plugins.org/schemas/1.0.0/mcp.schema.json","mcpServers":{{BinlogServers}}}
+                """);
+            var agents = Path.Combine(pluginDir, "com.github.copilot", "agents");
+            Directory.CreateDirectory(agents);
+            var agentPath = Path.Combine(agents, "helper.agent.md");
+            File.WriteAllText(agentPath, "---\nname: helper\ndescription: A helper.\n---\nHelp.");
+
+            var plugin = PluginDiscovery.ParsePluginJson(Path.Combine(pluginDir, "plugin.json"))!;
+            Assert.IsEmpty(PluginProfiler.ValidatePlugin(plugin).Errors);
+            var servers = await SkillValidator.Evaluate.EvaluateCommand.FindPluginMcpServers(agentPath);
+            Assert.IsNotNull(servers);
+            Assert.HasCount(1, servers);
+            Assert.AreEqual("dotnet", servers["binlog"].Command);
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [TestMethod]
+    public void PortableMcpAbsentDoesNotLoadLegacyInlineServers()
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WritePortableManifest(pluginDir);
+            Assert.IsTrue(PluginDiscovery.TryGetManifestMcpServerNames(
+                pluginDir, Path.Combine(pluginDir, "plugin.json"), out var names, out var error));
+            Assert.IsNull(error);
+            Assert.IsEmpty(names);
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("not JSON")]
+    [DataRow("[]")]
+    [DataRow("{}")]
+    [DataRow("{\"mcpServers\":[]}")]
+    public void PortableMcpMalformedFileReportsError(string content)
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WritePortableManifest(pluginDir);
+            File.WriteAllText(Path.Combine(pluginDir, "mcp.json"), content);
+            Assert.IsFalse(PluginDiscovery.TryGetManifestMcpServerNames(
+                pluginDir, Path.Combine(pluginDir, "plugin.json"), out _, out var error));
+            Assert.Contains("mcp.json", error!);
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [TestMethod]
+    public void PortableMcpDirectoryReportsError()
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WritePortableManifest(pluginDir);
+            Directory.CreateDirectory(Path.Combine(pluginDir, "mcp.json"));
+            Assert.IsFalse(PluginDiscovery.TryGetManifestMcpServerNames(
+                pluginDir, Path.Combine(pluginDir, "plugin.json"), out _, out var error));
+            Assert.Contains("regular file", error!);
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
     private const string BinlogServers = """
         {
           "binlog": {

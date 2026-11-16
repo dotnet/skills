@@ -128,6 +128,102 @@ public class ParseFrontmatterTests
 public class PluginDiscoveryTests
 {
     [TestMethod]
+    public async Task AgentPluginsUsesFixedLocationsInsteadOfLegacyOrExtensionPaths()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"portable-plugin-{Guid.NewGuid():N}");
+        var skills = Path.Combine(root, "skills");
+        var agents = Path.Combine(root, "com.github.copilot", "agents");
+        Directory.CreateDirectory(skills);
+        Directory.CreateDirectory(agents);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "plugin.json"), """
+                {
+                  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+                  "name": "demo",
+                  "skills": ["./ignored-skills/"],
+                  "agents": ["./ignored-agents/"],
+                  "extensions": {
+                    "com.github.copilot": {"agents": ["./also-ignored/"]},
+                    "com.example.other": {"agents": ["./not-copilot/"]}
+                  }
+                }
+                """);
+            File.WriteAllText(Path.Combine(agents, "helper.agent.md"),
+                "---\nname: helper\ndescription: A helper.\n---\nHelp.");
+
+            var plugin = PluginDiscovery.ParsePluginJson(Path.Combine(root, "plugin.json"))!;
+            Assert.IsTrue(plugin.IsAgentPlugins);
+            CollectionAssert.AreEqual(new[] { "./skills/" }, plugin.SkillPaths.ToArray());
+            CollectionAssert.AreEqual(new[] { "./com.github.copilot/agents/" }, plugin.AgentPaths.ToArray());
+            var agent = Assert.ContainsSingle(await AgentDiscovery.DiscoverAgentsInPlugin(root));
+            Assert.AreEqual(Path.Combine(agents, "helper.agent.md"), agent.Path);
+            var resolvedSkills = Assert.ContainsSingle(SkillValidator.Evaluate.AgentRunner.ResolvePluginSkillDirectories(root));
+            Assert.AreEqual(skills, Path.TrimEndingDirectorySeparator(resolvedSkills));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task AgentPluginsDoesNotFallBackToLegacyAgentsWhenNamespaceIsAbsent()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"portable-plugin-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(root, "agents"));
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "plugin.json"), $$"""
+                {
+                  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+                  "name": "{{Path.GetFileName(root)}}",
+                  "version": "1.0.0",
+                  "description": "A portable plugin."
+                }
+                """);
+            File.WriteAllText(Path.Combine(root, "agents", "legacy.agent.md"),
+                "---\nname: legacy\ndescription: Legacy agent.\n---\nHelp.");
+
+            var plugin = PluginDiscovery.ParsePluginJson(Path.Combine(root, "plugin.json"))!;
+            Assert.IsEmpty(plugin.SkillPaths);
+            Assert.IsEmpty(plugin.AgentPaths);
+            Assert.IsEmpty(await AgentDiscovery.DiscoverAgentsInPlugin(root));
+            Assert.IsEmpty(SkillValidator.Check.PluginProfiler.ValidatePlugin(plugin).Errors);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task LegacyManifestStillDiscoversDeclaredAgentPaths()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"legacy-plugin-{Guid.NewGuid():N}");
+        var agents = Path.Combine(root, "custom-agents");
+        Directory.CreateDirectory(agents);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "plugin.json"), """
+                {"name":"demo","skills":["./custom-skills/"],"agents":["./custom-agents/helper.agent.md"]}
+                """);
+            File.WriteAllText(Path.Combine(agents, "helper.agent.md"),
+                "---\nname: helper\ndescription: A helper.\n---\nHelp.");
+
+            var plugin = PluginDiscovery.ParsePluginJson(Path.Combine(root, "plugin.json"))!;
+            Assert.IsFalse(plugin.IsAgentPlugins);
+            CollectionAssert.AreEqual(new[] { "./custom-skills/" }, plugin.SkillPaths.ToArray());
+            var agent = Assert.ContainsSingle(await AgentDiscovery.DiscoverAgentsInPlugin(root));
+            Assert.AreEqual(Path.Combine(agents, "helper.agent.md"), agent.Path);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
     public void FindPluginContextReturnsNullWithoutPluginJson()
     {
         var tmpDir = Path.Combine(Path.GetTempPath(), $"ctx-test-{Guid.NewGuid():N}");

@@ -105,6 +105,16 @@ behavior against the corrected executor.
 
 This guide is intended primarily for AI agents investigating skill evaluation failures, though humans will find it useful too. It documents the `results.json` schema, common failure patterns, and recommended fixes.
 
+## Plugin component discovery
+
+For Agent Plugins 1.0 packages, sibling skills come from the fixed `skills/` directory,
+MCP servers come from root `mcp.json`, and Copilot agents come from
+`com.github.copilot/agents/`. Top-level legacy component fields and declarations retained
+under `extensions` do not redirect this discovery. When investigating missing components,
+check those fixed paths rather than only the legacy compatibility manifests. Legacy
+manifests without the Agent Plugins schema retain their existing discovery behavior.
+This package-discovery change does not change the results JSON schema.
+
 ## Workflow-package evaluation
 
 Individual gh-aw package manifests are accepted by `skill-validator evaluate`.

@@ -43,7 +43,8 @@ public sealed record PluginInfo(
     IReadOnlyList<string> SkillPaths,
     IReadOnlyList<string> AgentPaths,
     string DirectoryPath,
-    string DirectoryName);
+    string DirectoryName,
+    bool IsAgentPlugins = false);
 
 // --- Frontmatter ---
 

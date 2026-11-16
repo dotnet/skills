@@ -34,8 +34,8 @@ public static class AgentDiscovery
 
     /// <summary>
     /// Discover agent files (.agent.md) within a plugin root directory.
-    /// Uses plugin.json to determine the agents paths; falls back to
-    /// the "agents" directory by convention when none are specified.
+    /// Uses the fixed Copilot namespace for Agent Plugins manifests. Legacy manifests
+    /// declare agent paths or fall back to the "agents" directory by convention.
     /// </summary>
     public static async Task<IReadOnlyList<AgentInfo>> DiscoverAgentsInPlugin(string pluginRoot)
     {
@@ -47,8 +47,7 @@ public static class AgentDiscovery
         if (plugin is null)
             return [];
 
-        // Use declared paths; fall back to "agents" directory convention.
-        var paths = plugin.AgentPaths.Count > 0
+        var paths = plugin.AgentPaths.Count > 0 || plugin.IsAgentPlugins
             ? plugin.AgentPaths
             : (IReadOnlyList<string>)["agents"];
 

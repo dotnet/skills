@@ -147,6 +147,12 @@ settings. The pinned `codex-plugin-smoke` workflow uses Codex itself to validate
 server shape during marketplace installation and a real MCP tool call, avoiding a brittle duplicate
 of Codex's evolving server parser in `skill-validator`.
 
+For schema-qualified Agent Plugins 1.0 packages, discovery uses `skills/`, root `mcp.json`,
+and `com.github.copilot/agents/`. Legacy component declarations, including declarations
+retained under `extensions`, do not override those fixed locations. Manifests without the
+Agent Plugins schema retain the existing explicit-path and conventional-agent behavior.
+This discovery support is not a complete implementation of Agent Plugins schema validation.
+
 ## `check` flags
 
 | Flag | Default | Description |

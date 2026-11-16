@@ -1,0 +1,23 @@
+{
+  "lspServers": {
+    "csharp": {
+      "command": "dnx",
+      "args": [
+        "roslyn-language-server",
+        "--yes",
+        "--prerelease",
+        "--",
+        "--stdio",
+        "--daemon-mode",
+        "--autoLoadProjects"
+      ],
+      "cwd": "${PLUGIN_ROOT}",
+      "fileExtensions": {
+        ".cs": "csharp",
+        ".razor": "aspnetcorerazor",
+        ".cshtml": "aspnetcorerazor"
+      },
+      "warmupTimeoutMs": 120000
+    }
+  }
+}

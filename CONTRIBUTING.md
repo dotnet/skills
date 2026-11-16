@@ -34,7 +34,12 @@ plugins/
         scripts/
         references/
         assets/
-    agents/
+    mcp.json                 # optional portable MCP configuration
+    com.github.copilot/
+      agents/
+        <agent-name>.agent.md
+      lsp.json               # optional Copilot LSP configuration
+    agents/                  # temporary legacy compatibility copies
       <agent-name>.agent.md
 tests/
   <plugin>/
@@ -43,7 +48,10 @@ tests/
       <fixture files>
 ```
 
-Every plugin must have a plugin.json file in the plugin root that is linked to from the marketplace.json file.
+Every plugin must have a schema-qualified Agent Plugins 1.0 `plugin.json` in its root,
+linked from the marketplace catalogs. Skills and MCP servers use the fixed `skills/` and
+`mcp.json` locations; do not add top-level `skills`, `agents`, `lspServers`, or `mcpServers`
+fields. Client-specific manifest data belongs under `extensions.com.github.copilot`.
 
 ### Plugin organization
 
@@ -55,8 +63,9 @@ To create a new plugin:
 1. Add `plugins/<plugin-name>/plugin.json`, a Claude compatibility manifest at
    `plugins/<plugin-name>/.claude-plugin/plugin.json`, a Codex-specific compatibility manifest at
    `plugins/<plugin-name>/.codex-plugin/plugin.json`, and a `skills/` directory beneath them.
-   Start the Claude manifest as a copy of the root manifest, then preserve any host-specific field
-   values that Claude requires. The Codex manifest must contain only components its runtime loads;
+   Use existing plugins as examples: the root manifest follows Agent Plugins 1.0, while the
+   compatibility manifests retain their host-specific formats. Do not copy the portable schema
+   or `extensions` into legacy host manifests. The Codex manifest must contain only components its runtime loads;
    do not copy `agents` or `lspServers` into it.
 2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep names and `plugins[].source` values consistent across all marketplace manifests. Descriptions may be host-specific when a capability is unavailable there; for example, the Codex marketplace must not advertise `.agent.md` agents or LSP integration.
    Also add a `plugins/<plugin-name>/version.json` (copy an existing one) so the plugin participates in automated versioning. Start its `plugin.json` version at `0.1.0`.
@@ -66,12 +75,17 @@ To create a new plugin:
 
 See existing plugins for the expected format.
 
-This legacy multi-host layout and its Codex parity validation are a compatibility bridge, not the
-intended permanent Agent Plugins package format. A future Agent Plugins 1.0 migration would use a
-schema-qualified root `plugin.json`, fixed `skills/` and `mcp.json` locations, and namespaced client
-extensions instead of top-level host fields. That migration should remove the duplicated
-host-specific manifests and most custom parity and shape validation while retaining a smaller Codex
-integration smoke test for installation and discovery.
+The root manifest and `com.github.copilot/` locations now follow Agent Plugins 1.0. During
+the migration, `extensions.com.github.copilot` retains the old component declarations as
+transition metadata; they do not override the fixed discovery locations. Copilot agent and LSP
+files are temporarily copied into the namespace while legacy files and `.claude-plugin/` and
+`.codex-plugin/` manifests remain for existing consumers and evaluation tooling. Keep each
+namespaced copy synchronized with its legacy counterpart, rebasing relative links for the extra
+directory level, until the cleanup phase removes that duplication. Do not rename a host-required
+compatibility directory without native installation and discovery evidence for its replacement.
+The remaining migration should remove redundant
+Codex manifests and most custom parity/shape validation while retaining native integration
+coverage and any compatibility files other hosts still require.
 
 ### The `dotnet-experimental` plugin
 
@@ -128,14 +142,15 @@ do not trigger skill evaluations.
 
 ## Bundled MCP servers
 
-Under the repository's current legacy layout, a plugin that bundles an MCP server must declare it
-in **every** manifest it ships. Each host reads a different one — Copilot reads `plugin.json`, Codex
-reads `.codex-plugin/plugin.json`, and Claude reads `.claude-plugin/plugin.json` — so a server
-declared in only one of them is silently unavailable in the others. Keep the same server names and
-transport settings, but preserve host-specific schema differences instead of copying optional
-fields blindly.
+Declare portable MCP servers in a schema-qualified plugin-root `mcp.json`. Copilot reads that
+fixed location, not the transition metadata in `extensions`. Until legacy host manifests are
+retired, also declare the servers in `.codex-plugin/plugin.json` and
+`.claude-plugin/plugin.json`. Keep the same server names and transport settings, but preserve
+host-specific schema differences instead of copying optional fields blindly. In particular,
+the portable MCP schema does not allow the legacy `tools` field.
 
-Declare the servers inline as an object. The alternative form, a relative path to a companion
+In a legacy host manifest, declare the servers inline as an object. The alternative form, a
+relative path to a companion
 `.mcp.json`, is resolved by hosts against the **plugin root** and not against the directory holding the
 manifest, so `"mcpServers": "./.mcp.json"` inside `.codex-plugin/plugin.json` points at
 `plugins/<plugin>/.mcp.json`, never `plugins/<plugin>/.codex-plugin/.mcp.json`.
@@ -153,7 +168,9 @@ model inference, prompt-based skill selection, or model-driven tool selection.
 ## Host-specific agents
 
 [Agent Plugins 1.0](https://agent-plugins.org/specification) standardizes skills and MCP
-servers, not custom agents or LSP servers. Files under `plugins/<plugin>/agents/*.agent.md` use
+servers, not custom agents or LSP servers. Copilot reads agents from
+`plugins/<plugin>/com.github.copilot/agents/*.agent.md` and LSP configuration from
+`plugins/<plugin>/com.github.copilot/lsp.json`. These agents use
 [GitHub Copilot custom-agent](https://docs.github.com/copilot/reference/custom-agents-configuration)
 frontmatter such as `tools`, `agents`, and `handoffs`.
 

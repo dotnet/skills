@@ -2332,91 +2332,44 @@ public static class EvaluateCommand
     }
 
     /// <summary>
-    /// Walk up from a skill directory to find the nearest plugin.json and
-    /// extract its mcpServers map (if any).
+    /// Find a skill or agent's plugin and resolve MCP configuration using its package format.
     /// </summary>
-    internal static async Task<IReadOnlyDictionary<string, MCPServerDef>?> FindPluginMcpServers(
+    internal static Task<IReadOnlyDictionary<string, MCPServerDef>?> FindPluginMcpServers(
         string skillDir, int maxLevels = 3)
     {
-        var dir = Path.GetFullPath(skillDir);
-        for (var i = 0; i < maxLevels; i++)
+        var pluginRoot = PluginDiscovery.FindPluginRoot(skillDir, maxLevels);
+        IReadOnlyDictionary<string, MCPServerDef>? result = null;
+        if (pluginRoot is null)
+            return Task.FromResult(result);
+
+        if (!PluginDiscovery.TryGetManifestMcpServers(
+                pluginRoot, Path.Combine(pluginRoot, "plugin.json"), out var servers, out var error))
         {
-            var candidate = Path.Combine(dir, "plugin.json");
-            if (File.Exists(candidate))
-            {
-                try
-                {
-                    var raw = JsonSerializer.Deserialize(
-                        await File.ReadAllTextAsync(candidate),
-                        SkillValidatorJsonContext.Default.JsonElement);
-                    if (raw.TryGetProperty("mcpServers", out var serversEl))
-                    {
-                        JsonElement? mcpObject = null;
-                        if (serversEl.ValueKind == JsonValueKind.String)
-                        {
-                            var refPath = serversEl.GetString()!;
-                            if (!Path.IsPathRooted(refPath) && !refPath.Contains(".."))
-                                mcpObject = await ResolveMcpFile(dir, Path.Combine(dir, refPath));
-                        }
-                        else if (serversEl.ValueKind == JsonValueKind.Object)
-                        {
-                            mcpObject = serversEl;
-                        }
-
-                        if (mcpObject is { } obj)
-                        {
-                            var result = new Dictionary<string, MCPServerDef>();
-                            foreach (var prop in obj.EnumerateObject())
-                            {
-                                var def = JsonSerializer.Deserialize(
-                                    prop.Value.GetRawText(),
-                                    SkillValidatorJsonContext.Default.MCPServerDef);
-                                if (def is not null)
-                                    result[prop.Name] = def;
-                            }
-                            return result.Count > 0 ? result : null;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"Failed to parse plugin.json in {dir}: {ex.GetType().Name}: {ex.Message}");
-                }
-                return null;
-            }
-
-            var parent = Directory.GetParent(dir)?.FullName;
-            if (parent is null || parent == dir) break;
-            dir = parent;
+            Console.Error.WriteLine($"Failed to read plugin MCP configuration in {pluginRoot}: {error}");
+            return Task.FromResult(result);
         }
-        return null;
-    }
 
-    /// <summary>
-    /// Resolve a .mcp.json file path and return the mcpServers object element, or null.
-    /// Codex plugins use a string path in plugin.json to reference an external .mcp.json file.
-    /// </summary>
-    private static async Task<JsonElement?> ResolveMcpFile(string pluginRoot, string mcpPath)
-    {
-        if (PathSafety.ContainsReparsePoint(pluginRoot, mcpPath))
-        {
-            Console.Error.WriteLine($"Refusing to read .mcp.json through a symbolic link or reparse point: {mcpPath}");
-            return null;
-        }
-        if (!File.Exists(mcpPath)) return null;
         try
         {
-            var doc = JsonSerializer.Deserialize(
-                await File.ReadAllTextAsync(mcpPath),
-                SkillValidatorJsonContext.Default.JsonElement);
-            return doc.TryGetProperty("mcpServers", out var obj) && obj.ValueKind == JsonValueKind.Object
-                ? obj : null;
+            if (servers is { } serverObject)
+            {
+                var definitions = new Dictionary<string, MCPServerDef>();
+                foreach (var server in serverObject.EnumerateObject())
+                {
+                    var definition = JsonSerializer.Deserialize(
+                        server.Value.GetRawText(), SkillValidatorJsonContext.Default.MCPServerDef);
+                    if (definition is not null)
+                        definitions[server.Name] = definition;
+                }
+                if (definitions.Count > 0)
+                    result = definitions;
+            }
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
-            Console.Error.WriteLine($"Failed to parse .mcp.json at {mcpPath}: {ex.GetType().Name}: {ex.Message}");
-            return null;
+            Console.Error.WriteLine($"Failed to parse plugin MCP configuration in {pluginRoot}: {ex.Message}");
         }
+        return Task.FromResult(result);
     }
 
     /// <summary>

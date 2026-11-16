@@ -65,7 +65,7 @@ public static class PluginProfiler
         SkillProfiler.ValidateDescription(plugin.Description, "Plugin", errors);
 
         // --- Skills path validation ---
-        if (plugin.SkillPaths.Count == 0)
+        if (plugin.SkillPaths.Count == 0 && !plugin.IsAgentPlugins)
         {
             errors.Add("plugin.json has no 'skills' field — required.");
         }
@@ -99,11 +99,11 @@ public static class PluginProfiler
             {
                 errors.Add($"Plugin agent path is invalid: {agentPathError}");
             }
-            else if (Directory.Exists(resolved!))
+            else if (Directory.Exists(resolved!) && !plugin.IsAgentPlugins)
             {
                 errors.Add($"Plugin agent path '{agentPath}' is a directory. Claude Code requires explicit file paths in the 'agents' array, e.g., './agents/my-agent.agent.md'.");
             }
-            else if (!File.Exists(resolved!))
+            else if (!Directory.Exists(resolved!) && !File.Exists(resolved!))
             {
                 errors.Add($"Plugin agent path '{agentPath}' does not exist at '{resolved}'.");
             }

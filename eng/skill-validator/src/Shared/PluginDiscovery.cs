@@ -7,6 +7,14 @@ namespace SkillValidator.Shared;
 /// </summary>
 public static class PluginDiscovery
 {
+    internal const string AgentPluginsSchema = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
+    internal const string CopilotAgentsPath = "./com.github.copilot/agents/";
+
+    private static bool IsAgentPluginsManifest(JsonElement manifest) =>
+        manifest.TryGetProperty("$schema", out var schema)
+        && schema.ValueKind == JsonValueKind.String
+        && schema.GetString() == AgentPluginsSchema;
+
     /// <summary>
     /// Walk up from a path to find the plugin root (directory containing plugin.json).
     /// </summary>
@@ -100,7 +108,8 @@ public static class PluginDiscovery
     ];
 
     /// <summary>
-    /// Reads the names of the MCP servers declared by a plugin manifest.
+    /// Reads the names of the MCP servers declared by a plugin manifest, or from the fixed
+    /// root mcp.json location for an Agent Plugins manifest.
     /// The 'mcpServers' field is either an inline object or a relative path to a companion
     /// .mcp.json file. Hosts resolve that path against the plugin root, not against the
     /// directory holding the manifest, so <paramref name="pluginRoot"/> is the resolution base
@@ -138,6 +147,40 @@ public static class PluginDiscovery
             return false;
         }
 
+        if (IsAgentPluginsManifest(manifest))
+        {
+            var mcpPath = Path.Combine(pluginRoot, "mcp.json");
+            if (Directory.Exists(mcpPath))
+            {
+                error = "mcp.json must be a regular file, not a directory.";
+                return false;
+            }
+            if (!File.Exists(mcpPath))
+                return true;
+
+            if (PathSafety.ContainsReparsePoint(pluginRoot, mcpPath))
+            {
+                error = "Refusing to read mcp.json through a symbolic link or reparse point.";
+                return false;
+            }
+
+            if (!TryReadJsonObject(mcpPath, out var portableDocument, out var portableReadError))
+            {
+                error = $"mcp.json could not be parsed as a JSON object: {portableReadError}";
+                return false;
+            }
+
+            if (!portableDocument.TryGetProperty("mcpServers", out var portableServers)
+                || portableServers.ValueKind != JsonValueKind.Object)
+            {
+                error = "mcp.json has no 'mcpServers' object.";
+                return false;
+            }
+
+            mcpServers = portableServers;
+            return true;
+        }
+
         if (!manifest.TryGetProperty("mcpServers", out var servers))
             return true;
 
@@ -163,6 +206,12 @@ public static class PluginDiscovery
         {
             error = $"'mcpServers' references '{referencePath}', which hosts resolve against the plugin root as '{resolved}' — no such file. " +
                 "Put the .mcp.json at the plugin root or declare the servers inline in the manifest.";
+            return false;
+        }
+
+        if (PathSafety.ContainsReparsePoint(pluginRoot, resolved!))
+        {
+            error = $"Refusing to read MCP configuration through a symbolic link or reparse point: {referencePath}";
             return false;
         }
 
@@ -236,8 +285,16 @@ public static class PluginDiscovery
         var name = doc.TryGetProperty("name", out var n) ? n.GetString() : null;
         var version = doc.TryGetProperty("version", out var v) ? v.GetString() : null;
         var description = doc.TryGetProperty("description", out var d) ? d.GetString() : null;
+        var isAgentPlugins = IsAgentPluginsManifest(doc);
+        var dirPath = Path.GetDirectoryName(Path.GetFullPath(pluginJsonPath))!;
+        var dirName = Path.GetFileName(dirPath);
         IReadOnlyList<string> skillPaths = [];
-        if (doc.TryGetProperty("skills", out var s))
+        if (isAgentPlugins)
+        {
+            if (Directory.Exists(Path.Combine(dirPath, "skills")))
+                skillPaths = ["./skills/"];
+        }
+        else if (doc.TryGetProperty("skills", out var s))
         {
             if (s.ValueKind == JsonValueKind.Array)
             {
@@ -253,7 +310,12 @@ public static class PluginDiscovery
         }
 
         IReadOnlyList<string> agentPaths = [];
-        if (doc.TryGetProperty("agents", out var a))
+        if (isAgentPlugins)
+        {
+            if (Directory.Exists(Path.Combine(dirPath, "com.github.copilot", "agents")))
+                agentPaths = [CopilotAgentsPath];
+        }
+        else if (doc.TryGetProperty("agents", out var a))
         {
             if (a.ValueKind == JsonValueKind.Array)
             {
@@ -268,9 +330,6 @@ public static class PluginDiscovery
             }
         }
 
-        var dirPath = Path.GetDirectoryName(Path.GetFullPath(pluginJsonPath))!;
-        var dirName = Path.GetFileName(dirPath);
-
-        return new PluginInfo(name ?? "", version, description, skillPaths, agentPaths, dirPath, dirName);
+        return new PluginInfo(name ?? "", version, description, skillPaths, agentPaths, dirPath, dirName, isAgentPlugins);
     }
 }
