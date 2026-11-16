@@ -6,7 +6,7 @@ namespace SkillValidator.Shared;
 
 public sealed record MCPServerDef(
     string Command,
-    string[] Args,
+    string[]? Args,
     string? Type = null,
     string[]? Tools = null,
     Dictionary<string, string>? Env = null,

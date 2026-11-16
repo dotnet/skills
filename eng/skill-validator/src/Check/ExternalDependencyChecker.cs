@@ -253,66 +253,18 @@ public static partial class ExternalDependencyChecker
         if (!File.Exists(pluginJsonPath))
             return findings;
 
-        string json;
-        try
+        if (PluginDiscovery.TryGetManifestMcpServerNames(
+                plugin.DirectoryPath, pluginJsonPath, out var serverNames, out _))
         {
-            json = File.ReadAllText(pluginJsonPath);
-        }
-        catch
-        {
-            return findings;
-        }
-
-        try
-        {
-            var doc = System.Text.Json.JsonSerializer.Deserialize(
-                json, SkillValidatorJsonContext.Default.JsonElement);
-
-            if (doc.TryGetProperty("mcpServers", out var serversEl))
+            foreach (var serverName in serverNames)
             {
-                System.Text.Json.JsonElement? mcpObject = null;
-                if (serversEl.ValueKind == System.Text.Json.JsonValueKind.Object)
-                {
-                    mcpObject = serversEl;
-                }
-                else if (serversEl.ValueKind == System.Text.Json.JsonValueKind.String)
-                {
-                    var refPath = serversEl.GetString()!;
-                    if (!Path.IsPathRooted(refPath) && !refPath.Contains(".."))
-                        mcpObject = ResolveMcpFileSync(
-                            Path.Combine(Path.GetDirectoryName(pluginJsonPath)!, refPath));
-                }
-
-                if (mcpObject is { } obj)
-                {
-                    foreach (var prop in obj.EnumerateObject())
-                    {
-                        var key = $"mcp-server:{plugin.Name}:{prop.Name}";
-                        if (allowed?.Contains(key) != true)
-                            findings.Add($"MCP server '{prop.Name}' — review needed: verify this MCP server dependency is intentional and necessary. (allow: {key})");
-                    }
-                }
+                var key = $"mcp-server:{plugin.Name}:{serverName}";
+                if (allowed?.Contains(key) != true)
+                    findings.Add($"MCP server '{serverName}' — review needed: verify this MCP server dependency is intentional and necessary. (allow: {key})");
             }
-        }
-        catch
-        {
-            // JSON parsing errors are reported by the main plugin validator
         }
 
         return findings;
-    }
-
-    private static System.Text.Json.JsonElement? ResolveMcpFileSync(string mcpPath)
-    {
-        if (!File.Exists(mcpPath)) return null;
-        try
-        {
-            var doc = System.Text.Json.JsonSerializer.Deserialize(
-                File.ReadAllText(mcpPath), SkillValidatorJsonContext.Default.JsonElement);
-            return doc.TryGetProperty("mcpServers", out var obj)
-                && obj.ValueKind == System.Text.Json.JsonValueKind.Object ? obj : null;
-        }
-        catch { return null; }
     }
 
     // Matches "INVOKES" followed by a script-like filename (word.ext)

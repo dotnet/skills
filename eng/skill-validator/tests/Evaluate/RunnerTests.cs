@@ -1116,6 +1116,113 @@ public class BuildSessionConfigTests
     }
 
     [TestMethod]
+    public async Task PortableBinlogMcpAllowsOnlyEvaluatorTrustedTools()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"portable-mcp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "plugin.json"), """
+                {
+                  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+                  "name": "dotnet-msbuild"
+                }
+                """);
+            await File.WriteAllTextAsync(Path.Combine(root, "mcp.json"), """
+                {
+                  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+                  "mcpServers": {
+                    "binlog": {
+                      "type": "stdio",
+                      "command": "dotnet",
+                      "args": ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]
+                    }
+                  }
+                }
+                """);
+
+            var servers = await EvaluateCommand.FindPluginMcpServers(Path.Combine(root, "skills"));
+            Assert.IsNotNull(servers);
+
+            var config = await AgentRunner.BuildSessionConfig(
+                null, null, "gpt-4.1", Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work")), servers);
+            var allowed = await config.OnPermissionRequest!(new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "binlog",
+                ToolCallId = "portable-binlog-allowed",
+                ToolName = "binlog_overview",
+                ToolTitle = "Build overview",
+            }, null!);
+            var denied = await config.OnPermissionRequest!(new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "binlog",
+                ToolCallId = "portable-binlog-denied",
+                ToolName = "unlisted_tool",
+                ToolTitle = "Unlisted tool",
+            }, null!);
+
+            Assert.AreEqual("approve-once", allowed.Kind);
+            Assert.AreEqual("reject", denied.Kind);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task PortableUntrustedMcpDefaultsToDeny()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"portable-mcp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "plugin.json"), """
+                { "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "name": "demo" }
+                """);
+            await File.WriteAllTextAsync(Path.Combine(root, "mcp.json"), """
+                {
+                  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+                  "mcpServers": {
+                    "other": {
+                      "type": "stdio",
+                      "command": "dotnet",
+                      "args": ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]
+                    }
+                  }
+                }
+                """);
+
+            var servers = await EvaluateCommand.FindPluginMcpServers(Path.Combine(root, "skills"));
+            Assert.IsNotNull(servers);
+            var config = await AgentRunner.BuildSessionConfig(
+                null, null, "gpt-4.1", Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work")), servers);
+            var decision = await config.OnPermissionRequest!(new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "other",
+                ToolCallId = "portable-untrusted-denied",
+                ToolName = "binlog_overview",
+                ToolTitle = "Build overview",
+            }, null!);
+
+            Assert.AreEqual("reject", decision.Kind);
+            Assert.IsEmpty(Assert.IsInstanceOfType<McpStdioServerConfig>(config.McpServers!["other"]).Tools!);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
+    [TestMethod]
     public void McpPermissionRejectsUntrustedServerWithOmittedTools()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));

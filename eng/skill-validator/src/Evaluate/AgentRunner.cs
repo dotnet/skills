@@ -46,6 +46,7 @@ internal sealed class RunEventBuffer
             populate(agentEvent, _agentOutput);
             _events.Add(agentEvent);
         }
+
     }
 
     internal void Add(AgentEvent agentEvent)
@@ -69,7 +70,7 @@ internal sealed class RunEventBuffer
 
 public static class AgentRunner
 {
-    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v3";
+    internal const string ExecutionContractVersion = "workspace-and-typed-shell-permissions-v4";
     private static readonly HashSet<string> EvaluatorOnlySetupEntries =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -1691,22 +1692,50 @@ public static class AgentRunner
     private static readonly string[] AllowedBinlogMcpArgs =
         ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"];
 
+    private static readonly string[] TrustedPortableBinlogMcpTools =
+    [
+        "binlog_overview",
+        "binlog_errors",
+        "binlog_warnings",
+        "binlog_search",
+        "binlog_projects",
+        "binlog_properties",
+        "binlog_items",
+        "binlog_imports",
+        "binlog_explain_property",
+        "binlog_files",
+        "binlog_search_files",
+        "binlog_expensive_projects",
+        "binlog_expensive_targets",
+        "binlog_expensive_tasks",
+        "binlog_compare",
+    ];
+
     private const string BinlogMcpPackage = "Microsoft.AITools.BinlogMcp";
     private const string BinlogMcpVersion = "3.0.2";
     private const string TrustedNugetSource = "https://api.nuget.org/v3/index.json";
     private static readonly Lazy<HardenedMcpLaunch> HardenedBinlogMcpLaunch =
         new(CreateHardenedBinlogMcpLaunch);
 
-    internal static string[]? SanitizeMcpArgs(string command, string[] args)
+    internal static string[]? SanitizeMcpArgs(string command, string[]? args)
     {
         var cmdName = Path.GetFileNameWithoutExtension(command);
         if (!cmdName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
             return null;
 
-        return args.SequenceEqual(AllowedBinlogMcpArgs, StringComparer.Ordinal)
+        return args is not null && args.SequenceEqual(AllowedBinlogMcpArgs, StringComparer.Ordinal)
             ? [.. args]
             : null;
     }
+
+    internal static string[]? GetTrustedPortableMcpTools(string serverName, MCPServerDef server) =>
+        serverName.Equals("binlog", StringComparison.Ordinal)
+        && server.Type == "stdio"
+        && server.Args is not null
+        && IsAllowedMcpCommand(server.Command)
+        && SanitizeMcpArgs(server.Command, server.Args) is not null
+            ? [.. TrustedPortableBinlogMcpTools]
+            : null;
 
     private static HardenedMcpLaunch CreateHardenedBinlogMcpLaunch()
     {

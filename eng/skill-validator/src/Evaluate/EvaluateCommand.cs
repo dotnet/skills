@@ -2342,6 +2342,7 @@ public static class EvaluateCommand
         if (pluginRoot is null)
             return Task.FromResult(result);
 
+        var manifest = PluginDiscovery.ParsePluginJson(Path.Combine(pluginRoot, "plugin.json"));
         if (!PluginDiscovery.TryGetManifestMcpServers(
                 pluginRoot, Path.Combine(pluginRoot, "plugin.json"), out var servers, out var error))
         {
@@ -2359,7 +2360,17 @@ public static class EvaluateCommand
                     var definition = JsonSerializer.Deserialize(
                         server.Value.GetRawText(), SkillValidatorJsonContext.Default.MCPServerDef);
                     if (definition is not null)
-                        definitions[server.Name] = definition;
+                    {
+                        if (manifest?.IsAgentPlugins == true)
+                        {
+                            var trustedTools = AgentRunner.GetTrustedPortableMcpTools(server.Name, definition);
+                            definitions[server.Name] = definition with { Tools = trustedTools ?? [] };
+                        }
+                        else
+                        {
+                            definitions[server.Name] = definition;
+                        }
+                    }
                 }
                 if (definitions.Count > 0)
                     result = definitions;

@@ -409,6 +409,38 @@ public class ExternalDependencyCheckerTests
         finally { Cleanup(dir); }
     }
 
+    [TestMethod]
+    public void Plugin_WithPortableMcpConfig_FlagsAndAllowsServer()
+    {
+        var (plugin, dir) = MakePlugin();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "plugin.json"), $$"""
+                {
+                  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+                  "name": "{{plugin.Name}}"
+                }
+                """);
+            File.WriteAllText(Path.Combine(dir, "mcp.json"), """
+                {
+                  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+                  "mcpServers": { "binlog": { "type": "stdio", "command": "dotnet" } }
+                }
+                """);
+
+            var findings = ExternalDependencyChecker.CheckPlugin(plugin);
+            Assert.ContainsSingle(findings);
+            Assert.Contains("MCP server 'binlog'", findings[0]);
+
+            var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                $"mcp-server:{plugin.Name}:binlog"
+            };
+            Assert.IsEmpty(ExternalDependencyChecker.CheckPlugin(plugin, allowed));
+        }
+        finally { Cleanup(dir); }
+    }
+
     // ========================================
     // Allowlist: LoadAllowList
     // ========================================
