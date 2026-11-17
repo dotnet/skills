@@ -2,7 +2,7 @@
 #:package System.Security.Cryptography.Pkcs@10.0.0
 #:property PublishAot=false
 
-// Usage: dotnet run GenerateFixtures.cs
+// From the test suite directory: dotnet run tools/GenerateFixtures.cs
 // Set FIXTURE_TEST_ROOT and FIXTURE_REPO_ROOT when staging outside the repository;
 // FIXTURE_INSPECTOR may point to a staged copy of the production inspector.
 
@@ -35,9 +35,12 @@ internal static class FixtureGenerator
 
     public static async Task<int> RunAsync()
     {
-        string tools = Path.GetFullPath(AppContext.BaseDirectory);
+        string tools = Path.GetFullPath((AppContext.GetData("EntryPointFileDirectoryPath") as string) ?? AppContext.BaseDirectory);
         string testRoot = Environment.GetEnvironmentVariable("FIXTURE_TEST_ROOT")
             ?? Path.GetFullPath(Path.Combine(tools, ".."));
+        if (!File.Exists(Path.Combine(testRoot, "eval.yaml")) ||
+            !File.Exists(Path.Combine(testRoot, "tools", "GenerateFixtures.cs")))
+            throw new InvalidOperationException("Fixture suite root must contain eval.yaml and tools/GenerateFixtures.cs.");
         string fixtures = Path.Combine(testRoot, "fixtures");
         string repo = Environment.GetEnvironmentVariable("FIXTURE_REPO_ROOT") ?? FindRepo(testRoot);
         string work = Path.Combine(Path.GetTempPath(), $"blazor-readiness-fixture-generator-v1-{Environment.ProcessId}");
@@ -825,7 +828,7 @@ internal static class FixtureGenerator
     private static string FindRepo(string path)
     {
         for (var current = new DirectoryInfo(path); current is not null; current = current.Parent)
-            if (Directory.Exists(Path.Combine(current.FullName, ".git"))) return current.FullName;
+            if (Path.Exists(Path.Combine(current.FullName, ".git"))) return current.FullName;
         throw new InvalidOperationException("Repository root not found.");
     }
 

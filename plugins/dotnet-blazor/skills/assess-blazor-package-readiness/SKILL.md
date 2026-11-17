@@ -54,7 +54,10 @@ Do not install the package into an app or execute its assemblies or build hooks.
    --output "<report.json>"
    ```
 
-   A repository `global.json` above the script can select an unavailable SDK.
+   Run from the bundled `scripts` directory to use its .NET 10-or-later
+   `global.json`; first resolve package and output paths to absolute paths.
+   SDK selection starts at the working directory, not the script path.
+   A caller repository's `global.json` can otherwise select an unavailable SDK.
    If necessary, copy the skill and the caller's approved `nuget.config` to a
    clean temporary directory outside that tree and run there. Do not edit the
    caller's SDK pin or silently change package sources. Report restore,

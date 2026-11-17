@@ -156,38 +156,50 @@ internal static class Inspector
             object? offlineAttestation = options.TryGetValue("--attestation", out var attestationPath)
                 ? ReadOfflineAttestation(attestationPath) : null;
             var finalProvenance = options.TryGetValue("--attestation-repo", out var repository)
-                ? await VerifyAttestationAsync(package, repository, false)
+                ? await VerifyAttestationAsync(package, repository, false, nuspec.Commit)
                 : new Provenance(false, false, "gh-verification-not-requested", null);
             var releaseProvenance = options.TryGetValue("--attestation-repo", out repository) &&
                 release is not null && parity?.Matches == true
-                    ? await VerifyAttestationAsync(release, repository, true)
+                    ? await VerifyAttestationAsync(release, repository, true, nuspec.Commit)
                     : new Provenance(false, false, "parity-release-verification-not-available", null);
             var buildProvenance = finalProvenance.BuildVerified ? finalProvenance :
                 releaseProvenance.BuildVerified ? releaseProvenance : finalProvenance;
+            var sourceProvenance = finalProvenance.SourceVerified ? finalProvenance :
+                releaseProvenance.SourceVerified ? releaseProvenance : finalProvenance;
             bool sbomBindsFinalPackage = sbom?.BindingSha256Digests.Contains(package.Sha256, StringComparer.OrdinalIgnoreCase) == true;
-            bool finalDigestBound = finalProvenance.SourceVerified && sbomBindsFinalPackage;
+            bool provenanceAndSbomBindFinalPackage = finalProvenance.SourceVerified && sbomBindsFinalPackage;
+            bool finalDigestBound = packageSignature.Valid && provenanceAndSbomBindFinalPackage;
             rows.Add(new("PI-10", finalDigestBound ? "verified" : Untested, "X",
                 finalDigestBound ? "final-package-sbom-and-provenance-bound" :
+                    provenanceAndSbomBindFinalPackage ? "package-signature-not-verified" :
                     finalProvenance.SourceVerified ? "sbom-missing-final-package-sha256" : finalProvenance.ReasonCode,
-                "The exact final signed package digest must be bound by both SBOM and gh-verified provenance.", true,
+                "The exact inspected signed package digest must be bound by both the root SBOM and gh-verified provenance at the .nuspec commit.", true,
                 new { provenance = finalProvenance, sbomBindsFinalPackage, finalPackageSha256 = package.Sha256,
                     sbomBindingSha256Digests = sbom?.BindingSha256Digests,
+                    inspectedPackageSignatureValid = packageSignature.Valid,
                     offlineAttestation, releaseParity = parity }));
-            rows.Add(new("PI-11", buildProvenance.BuildVerified ? "verified" : Untested, "X", buildProvenance.ReasonCode,
-                "Build provenance additionally needs recognized SLSA build, workflow, builder and invocation semantics.", true,
+            bool buildVerified = packageSignature.Valid && buildProvenance.BuildVerified;
+            rows.Add(new("PI-11", buildVerified ? "verified" : Untested, "X",
+                buildVerified ? buildProvenance.ReasonCode :
+                    buildProvenance.BuildVerified ? "package-signature-not-verified" : buildProvenance.ReasonCode,
+                "Build provenance additionally needs the .nuspec commit plus recognized SLSA build, workflow, builder and invocation semantics.", true,
                 new { provenance = buildProvenance, offlineAttestation, releaseParity = parity,
                     packageSignature, finalPackageProvenance = finalProvenance, parityReleaseProvenance = releaseProvenance,
+                    inspectedPackageSha256 = package.Sha256, parityReleasePackageSha256 = release?.Sha256,
                     verifiedDigest = ReferenceEquals(buildProvenance, releaseProvenance) ? release?.Sha256 : package.Sha256,
                     selectedReleasePackage = ReferenceEquals(buildProvenance, releaseProvenance) }));
             rows.Add(new("PI-12", "owner evidence required", "X", "owner-process-evidence-required",
                 "The owner must provide and maintain a policy for retaining release evidence and verification records.", true, new { }));
             rows.Insert(9, new("LP-10", Untested, "E", "packaged-binary-source-attribution-unproven",
-                "Every packaged binary must map to public source or a clearly referenced upstream package and release.", true,
+                "Every shipped binary must map to public upstream source or a clearly referenced upstream package and release.", true,
                 new
                 {
                     nuspec.RepositoryUrl, nuspec.Commit,
                     assemblies = managed.Select(p => new { p.Path, p.InformationalVersion }),
-                    provenance = buildProvenance, releaseParity = parity, webAssetCount = web.Count
+                    provenance = sourceProvenance, releaseParity = parity, webAssetCount = web.Count,
+                    inspectedPackageSignatureValid = packageSignature.Valid,
+                    signedPackageSourceBindingVerified = packageSignature.Valid && sourceProvenance.SourceVerified,
+                    caveat = "Package-level provenance does not prove that every shipped binary corresponds to public upstream source."
                 }));
             var deferred = DeferredRows();
             var report = new
@@ -1126,7 +1138,8 @@ internal static class Inspector
             note = "Decoded offline facts only. DSSE signatures, identity, subject binding and provenance are not verified." };
     }
 
-    private static async Task<Provenance> VerifyAttestationAsync(Archive selected, string repository, bool releaseSelected)
+    private static async Task<Provenance> VerifyAttestationAsync(
+        Archive selected, string repository, bool releaseSelected, string? nuspecCommit)
     {
         var start = new ProcessStartInfo("gh") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
             CreateNoWindow = true };
@@ -1169,7 +1182,10 @@ internal static class Inspector
                 .Where(s => s.ValueKind == JsonValueKind.Object).ToArray();
             var bound = statements.Where(s => Array(s, "subject").Any(subject =>
                 Text(Property(subject, "digest"), "sha256").Equals(selected.Sha256, StringComparison.OrdinalIgnoreCase))).ToArray();
+            bool validNuspecCommit = !string.IsNullOrWhiteSpace(nuspecCommit) &&
+                Regex.IsMatch(nuspecCommit, @"\A(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})\z");
             bool sourceVerified = false, buildVerified = false;
+            bool commitMismatchOnly = false;
             var evaluations = new List<object>();
             foreach (var statement in bound)
             {
@@ -1180,7 +1196,7 @@ internal static class Inspector
                 var workflow = Property(Property(definition, "externalParameters"), "workflow");
                 string workflowRepo = Text(workflow, "repository").TrimEnd('/');
                 bool repositoryMatches = workflowRepo.Equals("https://github.com/" + repository, StringComparison.OrdinalIgnoreCase);
-                bool commitBound = Array(definition, "resolvedDependencies").Any(dependency =>
+                bool commitMatchesNuspec = validNuspecCommit && Array(definition, "resolvedDependencies").Any(dependency =>
                 {
                     string uri = Text(dependency, "uri");
                     string prefix = "git+https://github.com/" + repository;
@@ -1188,9 +1204,11 @@ internal static class Inspector
                         uri.StartsWith(prefix + "@", StringComparison.OrdinalIgnoreCase) || uri.StartsWith(prefix + ".git@", StringComparison.OrdinalIgnoreCase);
                     var digest = Property(dependency, "digest");
                     return repo && new[] { "gitCommit", "sha1", "sha256" }.Any(k =>
-                        Regex.IsMatch(Text(digest, k), @"\A(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})\z"));
+                        Text(digest, k).Equals(nuspecCommit, StringComparison.OrdinalIgnoreCase));
                 });
-                bool source = inToto && slsa && repositoryMatches && commitBound && !string.IsNullOrWhiteSpace(Text(workflow, "ref"));
+                bool workflowRefPresent = !string.IsNullOrWhiteSpace(Text(workflow, "ref"));
+                bool sourceWithoutCommit = inToto && slsa && repositoryMatches && workflowRefPresent;
+                bool source = sourceWithoutCommit && commitMatchesNuspec;
                 var run = Property(predicate, "runDetails");
                 string builder = Text(Property(run, "builder"), "id");
                 string invocation = Text(Property(run, "metadata"), "invocationId");
@@ -1205,11 +1223,16 @@ internal static class Inspector
                     Regex.IsMatch(invocation, @"\Ahttps://github\.com/" + Regex.Escape(repository) +
                         @"/actions/runs/[0-9]+(?:/attempts/[0-9]+)?\z", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
                 sourceVerified |= source; buildVerified |= build;
-                evaluations.Add(new { statement = statement.Clone(), sourceSemanticsVerified = source, buildSemanticsVerified = build });
+                commitMismatchOnly |= sourceWithoutCommit && !commitMatchesNuspec;
+                evaluations.Add(new { statement = statement.Clone(), validNuspecCommit, commitMatchesNuspec,
+                    sourceSemanticsVerified = source, buildSemanticsVerified = build });
             }
             return new(sourceVerified, buildVerified,
-                bound.Length == 0 ? "gh-output-missing-exact-sha256-subject" : sourceVerified ? "gh-exact-subject-provenance-verified" : "gh-subject-bound-semantics-unresolved",
+                bound.Length == 0 ? "gh-output-missing-exact-sha256-subject" :
+                    sourceVerified ? "gh-exact-subject-provenance-verified" :
+                    commitMismatchOnly ? "gh-provenance-commit-mismatch" : "gh-subject-bound-semantics-unresolved",
                 new { selectedPackage = selected.Path, selected.Sha256, releaseSelected, exitCode = process.ExitCode, evaluations,
+                    nuspecCommit, validNuspecCommit,
                     note = releaseSelected ? "Verified the parity-matched pre-repository-signing release artifact itself." :
                         "Verified only the exact selected package. A pre-repository-signing attestation cannot stand in for these bytes." });
         }
