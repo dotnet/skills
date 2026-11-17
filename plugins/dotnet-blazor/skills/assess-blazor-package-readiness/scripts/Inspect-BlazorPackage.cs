@@ -1,5 +1,6 @@
 #:package NuGet.Packaging@7.3.1
 #:package System.Security.Cryptography.Pkcs@10.0.15
+#:package YamlDotNet@18.1.0
 #:property PublishAot=false
 
 // Bounded, static package inspection. No entries are extracted and no inspected
@@ -20,6 +21,8 @@ using System.Xml;
 using System.Xml.Linq;
 using NuGet.Packaging;
 using NuGet.Packaging.Signing;
+using YamlDotNet.Core;
+using YamlDotNet.RepresentationModel;
 
 return await Inspector.RunAsync(args);
 
@@ -29,6 +32,9 @@ internal static class Inspector
     internal const int MaxEntryBytes = 64 * 1024 * 1024;
     internal const int MaxTotalBytes = 256 * 1024 * 1024;
     private const int MaxArchiveBytes = MaxTotalBytes + 16 * 1024 * 1024;
+    private const int MaxWorkflowBytes = 4 * 1024 * 1024;
+    private const int MaxYamlDepth = 64;
+    private const int MaxYamlNodes = 100_000;
     private const string Untested = "not tested";
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -119,16 +125,33 @@ internal static class Inspector
                 "Repository primary/countersignature presence does not identify NuGet.org or establish repository trust.", true,
                 new { packageSignature.SignerType, packageSignature.RepositorySignature, packageSignature.HasRepositorySignature,
                     trust = "Run dotnet nuget verify --all against the intended trust policy separately." }));
-            rows.Add(new("PI-05", Untested, "E", "trusted-publishing-evidence-needed",
-                "OIDC or trusted-publishing configuration cannot be established from package bytes.", true,
-                new { packageSignature.SignerType, packageSignature.HasRepositorySignature }));
+            var workflow = options.TryGetValue("--workflow", out var workflowPath) ? ReadWorkflow(workflowPath) : null;
+            rows.Add(workflow?.LongLivedApiKeyPush == true
+                ? new("PI-05", "gap", "E", "trusted-publishing-static-api-key-path",
+                    "A package-publish run step consumes a GitHub secret as its NuGet API key.", true,
+                    new { workflow, packageSignature.SignerType, packageSignature.HasRepositorySignature })
+                : new("PI-05", Untested, "E", workflow is null ? "trusted-publishing-evidence-needed" :
+                        "trusted-publishing-not-fully-established",
+                    workflow is null
+                        ? "OIDC or trusted-publishing configuration cannot be established from package bytes."
+                        : "Static workflow evidence did not prove a long-lived API-key path, but cannot establish server-side trust policy or the path that published this release.",
+                    true, new { workflow, packageSignature.SignerType, packageSignature.HasRepositorySignature }));
             rows.Add(new("PI-06", Untested, "E", "sbom-publication-per-release-unproven",
                 "A supplied local SBOM does not prove that an SBOM is published for every release.", true,
                 new { sbomProvided = sbom is not null, format = sbom?.Format }));
-            rows.Add(new("PI-07", Untested, "E", "dependency-graph-reconciliation-not-performed",
-                "Direct and transitive SBOM completeness requires reconciliation with restored dependency graphs.", true,
-                new { sbomProvided = sbom is not null, sbom?.NugetCount, sbom?.NpmCount,
-                    packageCount = sbom?.Packages.Count ?? 0, lockProvided = options.ContainsKey("--package-lock") }));
+            string[] nuspecDirectDependenciesMissingFromSbom = MissingDirectDependencies(nuspec.DirectDependencies, sbom);
+            rows.Add(new("PI-07", nuspecDirectDependenciesMissingFromSbom.Length > 0 ? "gap" : Untested, "E",
+                nuspecDirectDependenciesMissingFromSbom.Length > 0 ? "nuspec-dependencies-missing-from-sbom" :
+                    "dependency-graph-reconciliation-not-performed",
+                nuspecDirectDependenciesMissingFromSbom.Length > 0
+                    ? "At least one direct NuGet dependency declared by the .nuspec is absent from the supplied SBOM."
+                    : "Declared direct-dependency inclusion is only a one-way check; full direct and transitive closure remains not tested.",
+                true, new { sbomProvided = sbom is not null, sbom?.NugetCount, sbom?.NpmCount,
+                    packageCount = sbom?.Packages.Count ?? 0, lockProvided = options.ContainsKey("--package-lock"),
+                    directDependencies = nuspec.DirectDependencies, nuspecDirectDependenciesMissingFromSbom,
+                    directInclusionComplete = sbom is not null && nuspecDirectDependenciesMissingFromSbom.Length == 0,
+                    fullClosureProven = false,
+                    caveat = "SBOM-only extra packages and transitive packages are not gaps. npm purls never satisfy NuGet declarations." }));
             var lockInventory = options.TryGetValue("--package-lock", out var lockPath) ? ReadLock(lockPath) : null;
             bool noWeb = web.Count == 0 && resourceAssets.Length == 0 && !malformedPe;
             var coverage = ResolveCoverage(web, resourceAssets, sbom);
@@ -154,7 +177,7 @@ internal static class Inspector
                 "A supplied local SBOM does not prove that an SBOM is published for every release.", true,
                 new { sbomProvided = sbom is not null, format = sbom?.Format, releaseParity = parity });
             object? offlineAttestation = options.TryGetValue("--attestation", out var attestationPath)
-                ? ReadOfflineAttestation(attestationPath) : null;
+                ? ReadOfflineAttestation(attestationPath, nuspec.Commit, package.Sha256, release?.Sha256) : null;
             var finalProvenance = options.TryGetValue("--attestation-repo", out var repository)
                 ? await VerifyAttestationAsync(package, repository, false, nuspec.Commit)
                 : new Provenance(false, false, "gh-verification-not-requested", null);
@@ -206,11 +229,12 @@ internal static class Inspector
             {
                 schemaVersion = "1.0", scope = "lp-pi-22-of-60",
                 package = new { path = package.Path, sha256 = package.Sha256, nuspec.Id, nuspec.Version,
+                    directDependencies = nuspec.DirectDependencies,
                     entryCount = package.AllEntries.Count, fileCount = package.Entries.Count,
                     totalBytes = package.Entries.Sum(e => (long)e.Bytes.Length) },
                 limitations = new[] { "Static evidence only; no assemblies loaded and no entries extracted.",
                     "Not a full 60-row readiness assessment. Trust, completeness and legal conclusions are separate.",
-                    "No YAML or JavaScript AST parsing. Nested Authenticode signatures are not examined." },
+                    "Workflow YAML is parsed structurally, but shell expressions and reusable workflow execution are not evaluated. Nested Authenticode signatures are not examined." },
                 rows, deferredRows = deferred,
                 inventory = new
                 {
@@ -258,7 +282,7 @@ internal static class Inspector
     private static Dictionary<string, string> ParseOptions(string[] args)
     {
         string[] names = ["--nupkg", "--release-nupkg", "--sbom", "--attestation", "--attestation-repo",
-            "--package-lock", "--expected-publisher", "--output"];
+            "--package-lock", "--workflow", "--expected-publisher", "--output"];
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int i = 0; i < args.Length; i++)
         {
@@ -450,9 +474,28 @@ internal static class Inspector
         string Value(string key) => metadata.Elements().SingleOrDefault(e => e.Name.LocalName == key)?.Value.Trim() ?? "";
         var license = metadata.Elements().SingleOrDefault(e => e.Name.LocalName == "license");
         var repository = metadata.Elements().SingleOrDefault(e => e.Name.LocalName == "repository");
+        var dependencies = metadata.Elements().SingleOrDefault(e => e.Name.LocalName == "dependencies");
+        var directDependencies = new List<NuspecDependency>();
+        if (dependencies is not null)
+        {
+            void AddDependencies(IEnumerable<XElement> elements, string targetFramework)
+            {
+                foreach (var dependency in elements.Where(e => e.Name.LocalName == "dependency"))
+                {
+                    string id = dependency.Attribute("id")?.Value.Trim() ?? "";
+                    string version = dependency.Attribute("version")?.Value.Trim() ?? "";
+                    if (id.Length == 0) throw new InvalidDataException("Nuspec dependency id is missing.");
+                    directDependencies.Add(new(id, version, targetFramework));
+                }
+            }
+            AddDependencies(dependencies.Elements(), "");
+            foreach (var group in dependencies.Elements().Where(e => e.Name.LocalName == "group"))
+                AddDependencies(group.Elements(), group.Attribute("targetFramework")?.Value.Trim() ?? "");
+        }
         return new(Value("id"), Value("version"), Value("authors"), Value("projectUrl"), license?.Value.Trim() ?? "",
             license?.Attribute("type")?.Value.Trim() ?? "", repository?.Attribute("url")?.Value.Trim() ?? "",
-            repository?.Attribute("type")?.Value.Trim() ?? "", repository?.Attribute("commit")?.Value.Trim() ?? "");
+            repository?.Attribute("type")?.Value.Trim() ?? "", repository?.Attribute("commit")?.Value.Trim() ?? "",
+            directDependencies);
     }
 
     private static bool ResourceWebName(string name) =>
@@ -638,8 +681,11 @@ internal static class Inspector
         var cor = headers.CorHeader!;
         bool signed = (cor.Flags & CorFlags.StrongNameSigned) != 0;
         byte[] key = metadata.GetBlobBytes(assembly.PublicKey);
+        string? publicKeyToken = key.Length == 0 ? null :
+            Convert.ToHexString(SHA1.HashData(key).AsSpan(^8).ToArray().Reverse().ToArray()).ToLowerInvariant();
         var directory = cor.StrongNameSignatureDirectory;
-        var basic = new { strongNameSigned = signed, publicKeyBytes = key.Length, signatureDirectoryRva = directory.RelativeVirtualAddress,
+        var basic = new { strongNameSigned = signed, rawCorFlags = (uint)cor.Flags, publicKeyBytes = key.Length, publicKeyToken,
+            signatureDirectoryRva = directory.RelativeVirtualAddress,
             signatureDirectoryBytes = directory.Size, assemblyHashAlgorithm = assembly.HashAlgorithm.ToString() };
         if (key.Length == 0) return new("gap", signed ? "no-public-key" : "unsigned", basic);
         if (directory.Size == 0) return new("gap", signed ? "signature-directory-missing" : "delay-signed", basic);
@@ -747,7 +793,40 @@ internal static class Inspector
     {
         var reader = new AsnReader(content, AsnEncodingRules.BER);
         var sequence = reader.ReadSequence();
-        sequence.ReadEncodedValue();
+        var attribute = sequence.ReadSequence();
+        string attributeType = attribute.ReadObjectIdentifier();
+        if (attributeType != "1.3.6.1.4.1.311.2.1.15")
+            throw new CryptographicException($"Unexpected Authenticode indirect-data attribute OID: {attributeType}");
+        if (!attribute.HasData)
+            throw new CryptographicException("Authenticode SpcPeImageData value is missing.");
+        Asn1Tag valueTag = attribute.PeekTag();
+        AsnReader imageData;
+        AsnReader? explicitValue = null;
+        if (valueTag.HasSameClassAndValue(Asn1Tag.Sequence))
+        {
+            imageData = attribute.ReadSequence();
+        }
+        else if (valueTag.HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 0, isConstructed: true)))
+        {
+            explicitValue = attribute.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, isConstructed: true));
+            imageData = explicitValue.ReadSequence();
+        }
+        else
+        {
+            throw new CryptographicException("Authenticode indirect data does not contain SpcPeImageData.");
+        }
+        if (imageData.HasData && imageData.PeekTag().HasSameClassAndValue(Asn1Tag.PrimitiveBitString))
+            imageData.ReadBitString(out _);
+        if (imageData.HasData)
+        {
+            ReadOnlyMemory<byte> link = imageData.ReadEncodedValue();
+            var tag = Asn1Tag.Decode(link.Span, out _);
+            if (tag.TagClass != TagClass.ContextSpecific || tag.TagValue is < 0 or > 2)
+                throw new CryptographicException("Authenticode SpcPeImageData contains an invalid SpcLink choice.");
+        }
+        imageData.ThrowIfNotEmpty();
+        explicitValue?.ThrowIfNotEmpty();
+        attribute.ThrowIfNotEmpty();
         var digestInfo = sequence.ReadSequence();
         var identifier = digestInfo.ReadSequence();
         string oid = identifier.ReadObjectIdentifier();
@@ -1034,6 +1113,281 @@ internal static class Inspector
             bindingSha256Digests.Order(StringComparer.Ordinal).ToArray());
     }
 
+    private static string[] MissingDirectDependencies(List<NuspecDependency> dependencies, SbomEvidence? sbom)
+    {
+        if (dependencies.Count == 0 || sbom is null) return [];
+        var nugetIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var package in sbom.Packages)
+        {
+            if (package.Purl.StartsWith("pkg:nuget/", StringComparison.OrdinalIgnoreCase))
+            {
+                string id = package.Purl["pkg:nuget/".Length..].Split(['@', '?', '#'], 2)[0];
+                try { id = Uri.UnescapeDataString(id); }
+                catch (UriFormatException) { id = ""; }
+                if (id.Length > 0) nugetIds.Add(id);
+                if (!string.IsNullOrWhiteSpace(package.Name)) nugetIds.Add(package.Name);
+            }
+            else if (string.IsNullOrWhiteSpace(package.Purl) && !string.IsNullOrWhiteSpace(package.Name))
+            {
+                nugetIds.Add(package.Name);
+            }
+        }
+        return dependencies.Select(d => d.Id).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(id => !nugetIds.Contains(id)).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static WorkflowEvidence ReadWorkflow(string path)
+    {
+        byte[] bytes = ReadFile(path, MaxWorkflowBytes);
+        string yaml = new UTF8Encoding(false, true).GetString(bytes);
+        var stream = new YamlStream();
+        try
+        {
+            ValidateYamlEvents(yaml);
+            using var reader = new StringReader(yaml);
+            stream.Load(reader);
+        }
+        catch (YamlException ex)
+        {
+            throw new InvalidDataException($"Malformed workflow YAML: {ex.Message}", ex);
+        }
+        if (stream.Documents.Count != 1 || stream.Documents[0].RootNode is not YamlMappingNode root)
+            throw new InvalidDataException("Workflow YAML must contain one mapping document.");
+        int yamlNodes = 0;
+        ValidateYamlMappings(root, 0, ref yamlNodes, new(ReferenceEqualityComparer.Instance));
+        var observations = new List<WorkflowPushEvidence>();
+        var rootEnv = ReadYamlScalars(Mapping(root, "env"));
+        bool rootIdTokenWrite = HasIdTokenWrite(Node(root, "permissions"));
+        var jobs = Mapping(root, "jobs");
+        if (jobs is not null)
+        {
+            foreach (var jobEntry in jobs.Children)
+            {
+                if (jobEntry.Key is not YamlScalarNode jobName || jobEntry.Value is not YamlMappingNode job)
+                    continue;
+                var jobEnv = MergeEnvironment(rootEnv, ReadYamlScalars(Mapping(job, "env")));
+                bool jobIdTokenWrite = Node(job, "permissions") is null
+                    ? rootIdTokenWrite
+                    : HasIdTokenWrite(Node(job, "permissions"));
+                if (Sequence(job, "steps") is not { } steps) continue;
+                bool nugetLoginPresent = steps.Children.OfType<YamlMappingNode>().Any(step =>
+                    Scalar(step, "uses").Contains("nuget/login", StringComparison.OrdinalIgnoreCase));
+                for (int index = 0; index < steps.Children.Count; index++)
+                {
+                    if (steps.Children[index] is not YamlMappingNode step) continue;
+                    string run = Scalar(step, "run");
+                    if (run.Length == 0) continue;
+                    var environment = MergeEnvironment(jobEnv, ReadYamlScalars(Mapping(step, "env")));
+                    foreach (string command in PublishCommands(run))
+                    {
+                        string source = ApiKeySource(command, environment);
+                        bool longLived = source.StartsWith("github-secret:", StringComparison.Ordinal);
+                        observations.Add(new(jobName.Value ?? "", index, Hash(Encoding.UTF8.GetBytes(run)),
+                            SanitizeCommand(command), source, longLived, jobIdTokenWrite, nugetLoginPresent));
+                    }
+                }
+            }
+        }
+        return new(Path.GetFullPath(path), Hash(bytes), rootIdTokenWrite,
+            observations.Any(o => o.IdTokenWrite), observations.Any(o => o.NugetLoginPresent),
+            observations.Any(o => o.LongLivedApiKey), observations,
+            "Only bounded, structurally parsed local run steps are inspected. Anchors, aliases and merge keys are rejected. NuGet/login presence is not proof that its output supplied a publish credential. Expressions, called workflows, shell expansion, server-side trust policy, and release execution are not evaluated.");
+    }
+
+    private static void ValidateYamlEvents(string yaml)
+    {
+        using var reader = new StringReader(yaml);
+        var parser = new Parser(reader);
+        int depth = 0, nodes = 0;
+        while (parser.MoveNext())
+        {
+            switch (parser.Current)
+            {
+                case YamlDotNet.Core.Events.AnchorAlias:
+                    throw new InvalidDataException("Workflow YAML anchors and aliases are not supported.");
+                case YamlDotNet.Core.Events.MappingStart mapping:
+                    CountNode(mapping.Anchor);
+                    if (++depth > MaxYamlDepth)
+                        throw new InvalidDataException($"Workflow YAML exceeds depth {MaxYamlDepth}.");
+                    break;
+                case YamlDotNet.Core.Events.SequenceStart sequence:
+                    CountNode(sequence.Anchor);
+                    if (++depth > MaxYamlDepth)
+                        throw new InvalidDataException($"Workflow YAML exceeds depth {MaxYamlDepth}.");
+                    break;
+                case YamlDotNet.Core.Events.MappingEnd or YamlDotNet.Core.Events.SequenceEnd:
+                    if (--depth < 0) throw new InvalidDataException("Workflow YAML collection depth is invalid.");
+                    break;
+                case YamlDotNet.Core.Events.Scalar scalar:
+                    CountNode(scalar.Anchor);
+                    break;
+            }
+        }
+        if (depth != 0) throw new InvalidDataException("Workflow YAML collection depth is invalid.");
+        void CountNode(AnchorName anchor)
+        {
+            if (!anchor.IsEmpty)
+                throw new InvalidDataException("Workflow YAML anchors and aliases are not supported.");
+            if (++nodes > MaxYamlNodes)
+                throw new InvalidDataException($"Workflow YAML exceeds {MaxYamlNodes} nodes.");
+        }
+    }
+
+    private static void ValidateYamlMappings(
+        YamlNode node, int depth, ref int count, HashSet<YamlNode> visiting)
+    {
+        if (depth > MaxYamlDepth) throw new InvalidDataException($"Workflow YAML exceeds depth {MaxYamlDepth}.");
+        if (++count > MaxYamlNodes) throw new InvalidDataException($"Workflow YAML exceeds {MaxYamlNodes} nodes.");
+        if (node.NodeType == YamlNodeType.Alias || !node.Anchor.IsEmpty)
+            throw new InvalidDataException("Workflow YAML anchors and aliases are not supported.");
+        if (!visiting.Add(node)) throw new InvalidDataException("Workflow YAML contains a recursive node graph.");
+        if (node is YamlMappingNode mapping)
+        {
+            var keys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var child in mapping.Children)
+            {
+                if (child.Key is not YamlScalarNode key || key.Value is null)
+                    throw new InvalidDataException("Workflow YAML mapping keys must be scalar strings.");
+                if (key.Value == "<<")
+                    throw new InvalidDataException("Workflow YAML merge keys are not supported.");
+                if (!keys.Add(key.Value))
+                    throw new InvalidDataException($"Workflow YAML contains duplicate key '{key.Value}'.");
+                ValidateYamlMappings(child.Key, depth + 1, ref count, visiting);
+                ValidateYamlMappings(child.Value, depth + 1, ref count, visiting);
+            }
+        }
+        else if (node is YamlSequenceNode sequence)
+            foreach (var child in sequence.Children)
+                ValidateYamlMappings(child, depth + 1, ref count, visiting);
+        visiting.Remove(node);
+    }
+
+    private static YamlNode? Node(YamlMappingNode? mapping, string key) =>
+        mapping is not null && mapping.Children.TryGetValue(new YamlScalarNode(key), out var value) ? value : null;
+    private static YamlMappingNode? Mapping(YamlMappingNode? mapping, string key) => Node(mapping, key) as YamlMappingNode;
+    private static YamlSequenceNode? Sequence(YamlMappingNode? mapping, string key) => Node(mapping, key) as YamlSequenceNode;
+    private static string Scalar(YamlMappingNode? mapping, string key) =>
+        Node(mapping, key) is YamlScalarNode scalar ? scalar.Value ?? "" : "";
+    private static Dictionary<string, string> ReadYamlScalars(YamlMappingNode? mapping)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (mapping is null) return result;
+        foreach (var child in mapping.Children)
+            if (child.Key is YamlScalarNode key && key.Value is not null && child.Value is YamlScalarNode value)
+                result[key.Value] = value.Value ?? "";
+        return result;
+    }
+    private static Dictionary<string, string> MergeEnvironment(
+        Dictionary<string, string> inherited, Dictionary<string, string> current)
+    {
+        var result = new Dictionary<string, string>(inherited, StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in current) result[pair.Key] = pair.Value;
+        return result;
+    }
+    private static bool HasIdTokenWrite(YamlNode? permissions) =>
+        permissions is YamlScalarNode scalar
+            ? scalar.Value?.Equals("write-all", StringComparison.OrdinalIgnoreCase) == true
+            : permissions is YamlMappingNode mapping &&
+                Scalar(mapping, "id-token").Equals("write", StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<string> PublishCommands(string run)
+    {
+        var logicalLine = new StringBuilder();
+        foreach (string rawLine in run.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            string line = StripShellComment(rawLine).Trim();
+            if (line.Length == 0) continue;
+            bool continued = EndsWithContinuation(line);
+            if (continued) line = line[..^1].TrimEnd();
+            if (logicalLine.Length > 0) logicalLine.Append(' ');
+            logicalLine.Append(line);
+            if (continued) continue;
+            foreach (string command in Commands(logicalLine.ToString())) yield return command;
+            logicalLine.Clear();
+        }
+        if (logicalLine.Length > 0)
+            foreach (string command in Commands(logicalLine.ToString())) yield return command;
+
+        static IEnumerable<string> Commands(string line)
+        {
+            foreach (Match match in Regex.Matches(line,
+                @"(?:^|(?<=[;&|]))\s*(?:(?:dotnet\s+nuget)|(?:nuget(?:\.exe)?))\s+push\b[^;&|]*",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                yield return match.Value.Trim();
+        }
+    }
+    private static bool EndsWithContinuation(string line)
+    {
+        if (line.Length == 0 || line[^1] is not '\\' and not '`') return false;
+        bool single = false, doubleQuoted = false;
+        for (int i = 0; i < line.Length - 1; i++)
+        {
+            if (line[i] == '\'' && !doubleQuoted) single = !single;
+            else if (line[i] == '"' && !single) doubleQuoted = !doubleQuoted;
+        }
+        return !single && !doubleQuoted;
+    }
+    private static string StripShellComment(string line)
+    {
+        bool single = false, doubleQuoted = false;
+        for (int i = 0; i < line.Length; i++)
+        {
+            if (line[i] == '\'' && !doubleQuoted) single = !single;
+            else if (line[i] == '"' && !single) doubleQuoted = !doubleQuoted;
+            else if (line[i] == '#' && !single && !doubleQuoted && (i == 0 || char.IsWhiteSpace(line[i - 1])))
+                return line[..i];
+        }
+        return line;
+    }
+    private static string ApiKeySource(string command, Dictionary<string, string> environment)
+    {
+        var match = Regex.Match(command,
+            @"(?:^|\s)(?:--api-key|-k)(?:=|\s+)(?<value>""[^""]*""|'[^']*'|\$\{\{.*?\}\}|[^\s]+)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!match.Success) return "api-key-option-absent";
+        string value = match.Groups["value"].Value.Trim().Trim('"', '\'');
+        if (Regex.IsMatch(value, @"\$\{\{\s*secrets\.[A-Za-z_][A-Za-z0-9_]*\s*\}\}",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            string secret = Regex.Match(value, @"secrets\.([A-Za-z_][A-Za-z0-9_]*)",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Groups[1].Value;
+            return secret.Equals("GITHUB_TOKEN", StringComparison.OrdinalIgnoreCase)
+                ? "github-token:GITHUB_TOKEN" : "github-secret:" + secret;
+        }
+        var envExpression = Regex.Match(value, @"^\$\{\{\s*env\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (envExpression.Success)
+            return EnvironmentSource(envExpression.Groups[1].Value, environment);
+        string variable = "";
+        var variableMatch = Regex.Match(value,
+            @"^(?:\$(?:env:)?(?<a>[A-Za-z_][A-Za-z0-9_]*)|\$\{(?<b>[A-Za-z_][A-Za-z0-9_]*)\}|%(?<c>[A-Za-z_][A-Za-z0-9_]*)%)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (variableMatch.Success)
+            variable = variableMatch.Groups.Cast<Group>().Skip(1).First(g => g.Success).Value;
+        if (variable.Length > 0) return EnvironmentSource(variable, environment);
+        if (value.Contains("steps.", StringComparison.OrdinalIgnoreCase) &&
+            value.Contains(".outputs.", StringComparison.OrdinalIgnoreCase))
+            return "step-output-expression";
+        return variable.Length > 0 ? "environment-unresolved:" + variable : "static-or-unresolved";
+    }
+    private static string EnvironmentSource(string variable, Dictionary<string, string> environment)
+    {
+        if (!environment.TryGetValue(variable, out string? source))
+            return "environment-unresolved:" + variable;
+        var secret = Regex.Match(source, @"secrets\.([A-Za-z_][A-Za-z0-9_]*)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (secret.Success)
+            return secret.Groups[1].Value.Equals("GITHUB_TOKEN", StringComparison.OrdinalIgnoreCase)
+                ? "github-token:GITHUB_TOKEN" : "github-secret:" + variable;
+        if (source.Contains("steps.", StringComparison.OrdinalIgnoreCase) &&
+            source.Contains(".outputs.", StringComparison.OrdinalIgnoreCase))
+            return "step-output:" + variable;
+        return "environment-unresolved:" + variable;
+    }
+    private static string SanitizeCommand(string command) => Regex.Replace(command,
+        @"\$\{\{\s*secrets\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}", "${{ secrets.$1 }}",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     private static object ReadLock(string path)
     {
         using var document = ReadJson(path);
@@ -1119,23 +1473,165 @@ internal static class Inspector
             "Only the root .signature.p7s is excluded. Container bytes/signatures are not claimed identical.");
     }
 
-    private static object ReadOfflineAttestation(string path)
+    private static object ReadOfflineAttestation(
+        string path, string nuspecCommit, string inspectedPackageSha256, string? parityReleaseSha256)
     {
-        using var document = ReadJson(path);
-        var root = document.RootElement;
-        string payload = Text(root, "payload");
-        JsonElement statement;
-        if (payload.Length > 0)
+        byte[] bytes = ReadFile(path, MaxEntryBytes);
+        var roots = new List<JsonElement>();
+        void AddRoot(JsonElement element)
         {
-            byte[] decoded;
-            try { decoded = Convert.FromBase64String(payload); }
-            catch (FormatException ex) { throw new InvalidDataException("Invalid DSSE base64 payload.", ex); }
-            using var payloadJson = ParseJson(decoded);
-            statement = payloadJson.RootElement.Clone();
+            if (roots.Count == 1024)
+                throw new InvalidDataException("Attestation input exceeds 1024 JSON records.");
+            roots.Add(element.Clone());
         }
-        else statement = root.Clone();
-        return new { verified = false, payloadType = Text(root, "payloadType"), statement,
-            note = "Decoded offline facts only. DSSE signatures, identity, subject binding and provenance are not verified." };
+        try
+        {
+            using var document = ParseJson(bytes);
+            if (document.RootElement.ValueKind == JsonValueKind.Array)
+                foreach (var element in document.RootElement.EnumerateArray()) AddRoot(element);
+            else AddRoot(document.RootElement);
+        }
+        catch (JsonException)
+        {
+            string jsonl;
+            try { jsonl = new UTF8Encoding(false, true).GetString(bytes); }
+            catch (DecoderFallbackException ex) { throw new InvalidDataException("Attestation JSONL is not valid UTF-8.", ex); }
+            int lineNumber = 0;
+            foreach (string line in jsonl.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+            {
+                lineNumber++;
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                try
+                {
+                    using var document = ParseJson(Encoding.UTF8.GetBytes(line));
+                    AddRoot(document.RootElement);
+                }
+                catch (JsonException ex)
+                {
+                    throw new InvalidDataException($"Invalid attestation JSONL record at line {lineNumber}.", ex);
+                }
+            }
+        }
+        if (roots.Count == 0)
+            throw new InvalidDataException("Attestation input must contain at least one JSON record.");
+        bool validNuspecCommit = Regex.IsMatch(nuspecCommit, @"\A(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})\z");
+        var records = new List<object>();
+        bool inspectedSubject = false, releaseSubject = false, commit = false, sameRecord = false;
+        bool concreteMismatch = false;
+        for (int index = 0; index < roots.Count; index++)
+        {
+            var root = roots[index];
+            if (root.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException($"Attestation record {index + 1} must be a JSON object.");
+            JsonElement envelope = root;
+            string sourceShape = "direct-statement";
+            var nestedEnvelope = Property(root, "dsseEnvelope");
+            var bundleEnvelope = Property(Property(root, "bundle"), "dsseEnvelope");
+            if (nestedEnvelope.ValueKind == JsonValueKind.Object)
+            {
+                envelope = nestedEnvelope;
+                sourceShape = "dsseEnvelope";
+            }
+            else if (bundleEnvelope.ValueKind == JsonValueKind.Object)
+            {
+                envelope = bundleEnvelope;
+                sourceShape = "bundle.dsseEnvelope";
+            }
+            else if (Text(root, "payload").Length > 0)
+            {
+                sourceShape = "root-dsse";
+            }
+            string payload = Text(envelope, "payload");
+            if (sourceShape is "dsseEnvelope" or "bundle.dsseEnvelope" && payload.Length == 0)
+                throw new InvalidDataException($"Attestation record {index + 1} contains a DSSE envelope without payload.");
+            JsonElement statement;
+            bool dsse = payload.Length > 0;
+            if (dsse)
+            {
+                byte[] decoded;
+                try { decoded = Convert.FromBase64String(payload); }
+                catch (FormatException ex) { throw new InvalidDataException($"Invalid DSSE base64 payload in record {index + 1}.", ex); }
+                if (decoded.Length > MaxEntryBytes)
+                    throw new InvalidDataException($"Decoded DSSE payload in record {index + 1} exceeds limit.");
+                using var payloadJson = ParseJson(decoded);
+                statement = payloadJson.RootElement.Clone();
+            }
+            else statement = root.Clone();
+            var subjects = Array(statement, "subject").Select(subject =>
+            {
+                string sha256 = Text(Property(subject, "digest"), "sha256").ToLowerInvariant();
+                bool validSha256 = Regex.IsMatch(sha256, @"\A[a-f0-9]{64}\z");
+                bool matchesInspectedPackage = sha256.Equals(inspectedPackageSha256, StringComparison.OrdinalIgnoreCase);
+                bool matchesParityRelease = parityReleaseSha256 is not null &&
+                    sha256.Equals(parityReleaseSha256, StringComparison.OrdinalIgnoreCase);
+                inspectedSubject |= matchesInspectedPackage;
+                releaseSubject |= matchesParityRelease;
+                return new { name = Text(subject, "name"), sha256, validSha256,
+                    matchesInspectedPackage, matchesParityRelease };
+            }).ToArray();
+            var definition = Property(Property(statement, "predicate"), "buildDefinition");
+            var resolvedDependencies = Array(definition, "resolvedDependencies").Select(dependency =>
+            {
+                var digest = Property(dependency, "digest");
+                var digests = digest.ValueKind == JsonValueKind.Object
+                    ? digest.EnumerateObject().Where(p => p.Value.ValueKind == JsonValueKind.String)
+                        .ToDictionary(p => p.Name, p => p.Value.GetString() ?? "", StringComparer.Ordinal)
+                    : new Dictionary<string, string>(StringComparer.Ordinal);
+                bool hasComparableCommitDigest = digests.Any(p =>
+                    p.Key == "gitCommit" && Regex.IsMatch(p.Value, @"\A(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})\z") ||
+                    p.Key == "sha1" && Regex.IsMatch(p.Value, @"\A[a-fA-F0-9]{40}\z") ||
+                    p.Key == "sha256" && Regex.IsMatch(p.Value, @"\A[a-fA-F0-9]{64}\z"));
+                bool matchesNuspecCommit = validNuspecCommit &&
+                    digests.Any(p => p.Key is "gitCommit" or "sha1" or "sha256" &&
+                        p.Value.Equals(nuspecCommit, StringComparison.OrdinalIgnoreCase));
+                commit |= matchesNuspecCommit;
+                return new { uri = Text(dependency, "uri"), digests, hasComparableCommitDigest, matchesNuspecCommit };
+            }).ToArray();
+            bool recordSubject = subjects.Any(s => s.matchesInspectedPackage || s.matchesParityRelease);
+            bool recordCommit = resolvedDependencies.Any(d => d.matchesNuspecCommit);
+            bool concreteCorrespondenceEvidence = validNuspecCommit &&
+                subjects.Any(s => s.validSha256) && resolvedDependencies.Any(d => d.hasComparableCommitDigest);
+            bool recordMismatch = concreteCorrespondenceEvidence && !(recordSubject && recordCommit);
+            sameRecord |= recordSubject && recordCommit;
+            concreteMismatch |= recordMismatch;
+            records.Add(new
+            {
+                index,
+                dsse,
+                sourceShape,
+                rootRecord = root,
+                dsseEnvelope = dsse ? envelope.Clone() : (JsonElement?)null,
+                payloadType = Text(envelope, "payloadType"),
+                statement,
+                subjects,
+                resolvedDependencies,
+                subjectMatchesInspectedPackage = subjects.Any(s => s.matchesInspectedPackage),
+                subjectMatchesParityRelease = subjects.Any(s => s.matchesParityRelease),
+                resolvedDependencyMatchesNuspecCommit = recordCommit,
+                subjectAndCommitCorrespondenceObserved = recordSubject && recordCommit,
+                concreteCorrespondenceEvidence,
+                concreteMismatchObserved = recordMismatch,
+                verified = false
+            });
+        }
+        return new
+        {
+            verified = false,
+            recordCount = records.Count,
+            records,
+            validNuspecCommit,
+            nuspecCommit,
+            inspectedPackageSha256,
+            parityReleaseSha256,
+            anySubjectMatchesInspectedPackage = inspectedSubject,
+            anySubjectMatchesParityRelease = releaseSubject,
+            anyResolvedDependencyMatchesNuspecCommit = commit,
+            anySingleRecordSubjectAndCommitCorrespondence = sameRecord,
+            noSingleRecordCorrespondenceObserved = !sameRecord,
+            offlineMismatch = concreteMismatch,
+            correspondenceState = sameRecord ? "observed-unverified" : concreteMismatch ? "mismatch-unverified" : "unknown",
+            note = "Decoded offline facts only. DSSE signatures, identities, subjects, dependency commits, and provenance are not live verified."
+        };
     }
 
     private static async Task<Provenance> VerifyAttestationAsync(
@@ -1253,7 +1749,8 @@ internal sealed record Entry(string Name, byte[] Bytes, string Sha256);
 internal sealed record EntrySummary(string Path, int TotalBytes, string Sha256, bool Directory);
 internal sealed record CentralEntry(string RawName, string Name, int Local, int End, int Expanded, uint Crc, bool Directory);
 internal sealed record Nuspec(string Id, string Version, string Authors, string ProjectUrl, string License,
-    string LicenseType, string RepositoryUrl, string RepositoryType, string Commit);
+    string LicenseType, string RepositoryUrl, string RepositoryType, string Commit, List<NuspecDependency> DirectDependencies);
+internal sealed record NuspecDependency(string Id, string Version, string TargetFramework);
 internal sealed record Check(string Status, string ReasonCode, object Facts);
 internal sealed record WebAsset(string Path, string Extension, int TotalBytes, string Sha256, string[] LicenseSignals,
     string[] SourceMaps, string[] Sources);
@@ -1282,6 +1779,10 @@ internal sealed record SbomFile(string Path, string Sha256, string SpdxId, bool 
     LicenseEvaluation ConcludedPolicy, LicenseEvaluation Policy);
 internal sealed record SbomEvidence(string Format, List<SbomPackage> Packages, List<SbomFile> Files, int NpmCount,
     int NugetCount, string[] BindingSha256Digests);
+internal sealed record WorkflowEvidence(string Path, string Sha256, bool RootIdTokenWrite, bool AnyIdTokenWrite,
+    bool NugetLoginPresent, bool LongLivedApiKeyPush, List<WorkflowPushEvidence> Pushes, string Caveat);
+internal sealed record WorkflowPushEvidence(string Job, int StepIndex, string RunSha256, string Command,
+    string ApiKeySource, bool LongLivedApiKey, bool IdTokenWrite, bool NugetLoginPresent);
 internal sealed record Coverage(bool Complete, bool LicensesApproved, string[] Unresolved, string Caveat);
 internal sealed record Parity(bool Matches, int PackageEntryCount, int ReleaseEntryCount, string[] Differences,
     Dictionary<string, string> PackageEntries, Dictionary<string, string> ReleaseEntries, string Caveat);

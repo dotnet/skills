@@ -56,6 +56,25 @@ publishing, even when the same job has OIDC permissions. Check which path
 published the exact release. Workflow text alone cannot prove server-side
 trust-policy configuration or successful execution.
 
+For bounded local workflow facts, pass the exact workflow file:
+
+```text
+dotnet run --file scripts/Inspect-BlazorPackage.cs -- --nupkg package.nupkg --workflow .github/workflows/release.yml
+```
+
+The inspector uses YamlDotNet structural parsing with a 4 MiB input limit,
+64-level depth limit, 100,000-node limit, duplicate-key rejection, and explicit
+rejection of anchors, aliases, and merge keys.
+It reports a gap only when an actual local NuGet publish `run` step consumes a
+GitHub secret directly or through scoped `env` as `--api-key` or `-k`.
+`secrets.GITHUB_TOKEN` is recorded separately and is not classified as a
+long-lived NuGet publishing secret. Bounded backslash/backtick continuations and
+`${{ env.NAME }}` references are recognized. A literal key argument,
+NuGet/login action, step output, or `id-token: write` does not by itself prove
+or disprove Trusted Publishing. Called workflows, general shell expansion,
+general expression evaluation, server-side policy, and the workflow run that
+published the release still require review.
+
 Reference: [NuGet Trusted Publishing](https://www.nuget.org/account/trustedpublishing).
 
 ## PI-06, PI-10, PI-11: exact artifact binding
@@ -64,8 +83,14 @@ Reference: [NuGet Trusted Publishing](https://www.nuget.org/account/trustedpubli
   without changing any shipped payload. Supply both packages to compare every
   non-`.signature.p7s` entry by normalized name and SHA-256. Require exact set
   equality, not just matching DLLs, versions, or file counts.
-- An offline DSSE bundle is unverified JSON. Do not promote its subject,
-  certificate, workflow, or predicate to trusted facts merely because it parses.
+- An offline DSSE bundle or JSONL stream is unverified JSON. Root DSSE objects,
+  `dsseEnvelope`, `bundle.dsseEnvelope`, and direct statements are retained with
+  every bounded original record, decoded statement, subject digest, and
+  `resolvedDependencies` commit-correspondence observation. Absence is reported
+  as unknown, not as mismatch. A mismatch is reported only when a record has
+  concrete valid subject and commit evidence that does not correspond. All
+  observations remain `verified: false`; do not promote them to live facts
+  merely because they parse.
 - For live verification, provide `--attestation-repo`. The inspector invokes
   `gh attestation verify` with argument-list boundaries, never shell expansion.
   Require a successful exit and a subject digest in the verified JSON statement

@@ -26,9 +26,9 @@ does not validate the truth of that declaration.
 | PI-02 | D | Authenticode CMS and indirect PE image digest must both verify. Missing/invalid signatures are gaps. Integrity alone is not tested for trusted publisher: expected subject, OS chain, and timestamp validity are additional gates; disclose offline revocation limits. |
 | PI-03 | D | NuGet primary CMS signature and package archive integrity must verify. Author or repository primary signatures may qualify; trust is separately checked with `dotnet nuget verify --all`. |
 | PI-04 | X | NuGet.org repository primary signature or countersignature, qualified by acquisition source. Other repositories or unbound certificate text do not establish NuGet.org distribution. |
-| PI-05 | E | OIDC/Trusted Publishing is used instead of long-lived publish secrets. Inspect the actual release workflow and configured trust policy. `id-token: write` alone is not proof; a secret API-key publish path is not Trusted Publishing. |
+| PI-05 | E | OIDC/Trusted Publishing is used instead of long-lived publish secrets. Optional `--workflow` evidence structurally inspects local publish `run` steps, including `--api-key`/`-k`, bounded line continuations, and scoped `env` references. A NuGet API key sourced directly or through `env` from a GitHub secret is a gap, except the short-lived `secrets.GITHUB_TOKEN`, which is retained as a distinct unresolved source. `id-token: write` and scalar `permissions: write-all` are recorded as OIDC permission evidence; `read-all` and `none` are not. Permissions, NuGet/login presence, static literals, and step outputs do not verify keyless publishing; server-side trust policy and the executed release path remain external evidence. |
 | PI-06 | E | An SPDX or CycloneDX SBOM is published with every release. Local `--sbom` evidence does not establish public release publication, so remains not tested. |
-| PI-07 | E | The SBOM enumerates direct and transitive dependencies. Counts alone do not prove complete dependency-graph reconciliation, so remain not tested without that evidence. |
+| PI-07 | E | When an SBOM is supplied, every direct dependency ID declared by grouped or ungrouped `.nuspec` metadata must appear case-insensitively as a NuGet SBOM purl/name. A missing declaration is a gap. Without an SBOM, the row remains not tested rather than treating every declaration as missing. SBOM extras and transitive entries are not gaps. Successful one-way direct inclusion remains not tested because it does not prove complete direct/transitive closure. npm purls do not satisfy NuGet declarations. |
 | PI-08 | E | Bundled third-party JS/CSS upstream components and versions are listed in the SBOM. Not applicable only when there are no web assets, build static-asset manifests, or relevant embedded resources. Otherwise reconcile SBOM/lock with shipped assets. |
 | PI-09 | E | Required bundled third-party license and notice files are preserved. Same strict absence rule as PI-08; otherwise a clear packaged policy violation is a gap and unproven coverage stays not tested. File hashes alone do not verify preservation. |
 | PI-10 | X | The inspected package has a verified NuGet primary signature and archive integrity (PI-03), and both an exact-root SBOM SHA-256 binding and live SLSA provenance bind the `.nuspec` commit to that same exact inspected package SHA-256. A parity-matched release digest cannot substitute for the inspected package digest. |
@@ -44,9 +44,15 @@ review and version-matched notice reconciliation.
 
 Strong-name checking uses declared PE structures and metadata only. It never
 loads an assembly, scans certificate bytes for executable markers, or treats a
-strong-name flag as an RSA result. Authenticode compares the signed indirect
-digest to an independently computed image digest. NuGet signing compares the
-signature content to archive integrity. Report these as separate evidence.
+strong-name flag as an RSA result. Evidence retains raw COR flags and the
+standard SHA-1-derived public-key token alongside RSA verification.
+Authenticode requires `SpcIndirectDataContent` to start with
+`SpcAttributeTypeAndOptionalValue` for OID `1.3.6.1.4.1.311.2.1.15` and a
+structurally valid `SpcPeImageData`; its DEFAULT flags may be omitted and its
+optional `SpcLink` variants are accepted, while a NULL placeholder is rejected. The image
+digest is then compared to an independently computed PE digest. NuGet signing
+compares the signature content to archive integrity. Report these as separate
+evidence.
 
 ## Deferred rows: explicitly not tested
 

@@ -71,10 +71,13 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)grid-export-engine'
+          pattern: '(?i)fabrikam-telemetry-shim.{0,120}(?:GPL-3\.0-only|GPL[- ]?v?3(?:\.0)?(?:[- ]only)?)|(?:GPL-3\.0-only|GPL[- ]?v?3(?:\.0)?(?:[- ]only)?).{0,120}fabrikam-telemetry-shim'
       - type: output-matches
         config:
-          pattern: '(?i)(GPL-3\.0-only|GPL[- ]?v?3(?:\.0)?(?:[- ]only)?)'
+          pattern: '(?i)grid-export-engine.{0,120}LicenseRef-Fabrikam-Custom|LicenseRef-Fabrikam-Custom.{0,120}grid-export-engine'
+      - type: output-matches
+        config:
+          pattern: '(?i)fabrikam-telemetry-shim'
       - type: output-matches
         config:
           pattern: '(?i)LicenseRef-Fabrikam-Custom'
@@ -84,10 +87,10 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - "Reads the SPDX manifest inside the ZIP despite its companion checksum file."
-      - "Flags grid-export-engine's concluded GPL-3.0-only license as a blocking policy failure even though the same dependency declares MIT."
-      - "Treats fabrikam-telemetry-shim's LicenseRef-Fabrikam-Custom as unresolved, not approved and not evidence that cancels the known copyleft failure."
-      - "Accepts a concrete MIT conclusion when the corresponding declaration is NOASSERTION, rather than inventing a copyleft finding."
+      - "Reads the nested SPDX manifest inside the ZIP and assesses the larger dependency set rather than stopping at archive layout or the checksum companion."
+      - "Flags fabrikam-telemetry-shim's concluded GPL-3.0-only license as a blocking policy failure even though the same dependency declares MIT."
+      - "Treats grid-export-engine's LicenseRef-Fabrikam-Custom conclusion with a NOASSERTION declaration as unresolved, not approved and not evidence that cancels the known copyleft failure."
+      - "Distinguishes the hard policy violation from unresolved custom-license evidence across the supplied dependency inventory."
       - "Explains that a local SBOM alone proves neither public release publication nor complete direct/transitive dependency coverage."
 
   - name: Distinguish payload parity from exact signed-package provenance
@@ -114,21 +117,31 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(identical|byte[- ]for[- ]byte|parity)'
+          pattern: '(?i)(?:non[- ]signature|payload).{0,80}(?:identical|byte[- ]for[- ]byte|parity)|(?:identical|byte[- ]for[- ]byte|parity).{0,80}(?:non[- ]signature|payload)'
       - type: output-matches
         config:
-          pattern: '(?i)(SHA[- ]?256|digest|hash)'
+          pattern: '(?i)(?:release|pre[- ]counter).{0,80}(?:SBOM|SHA[- ]?256|digest|hash)|(?:SBOM|SHA[- ]?256|digest|hash).{0,80}(?:release|pre[- ]counter)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(ghcr\.io/northwind/charts|(?:container|build|OCI|docker)[- ]image|image (?:subject|artifact))'
+      - type: output-matches
+        config:
+          pattern: '(?i)SLSA'
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:final|feed|inspected).{0,80}(?:SHA[- ]?256|digest|hash)|(?:SHA[- ]?256|digest|hash).{0,80}(?:final|feed|inspected)'
       - type: output-matches
         config:
           pattern: '(?i)(unverified|not verified|not cryptographically verified|cannot (?:verify|establish)|does not (?:verify|establish))'
       - type: exit-success
       - type: prompt
     rubric:
-      - "Reports that all non-signature archive entries have identical byte hashes, while the two outer NuGet package SHA-256 digests differ."
+      - "Reports that the multi-targeted non-signature archive payloads have matching byte hashes while the two outer NuGet package SHA-256 digests differ."
       - "Attributes the signature-layer difference to repository countersigning rather than claiming that shipped DLL or asset bytes changed."
       - "States that charts.spdx.json binds the pre-countersigning release package digest, not the final feed package digest."
-      - "Treats the offline DSSE envelope as unverified provenance; parsing it and matching a subject hash do not establish signature trust."
-      - "Does not substitute non-signature payload parity for exact final signed-package digest binding."
+      - "Distinguishes the first SLSA record's container-image subject from the second SLSA record's exact inspected final-package subject."
+      - "Treats both offline DSSE envelopes as unverified; exact subject-hash matching does not establish signature trust or verified provenance."
+      - "Does not substitute payload parity or release-SBOM binding for exact final signed-package SBOM binding."
 
   - name: Discover bundled scripts hidden behind build assets and embedded resources
     tags:
@@ -210,11 +223,11 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - "Identifies that the actual dotnet nuget push step uses secrets.NUGET_API_KEY rather than the OIDC login output, so id-token write permission and NuGet/login alone do not prove keyless publishing."
+      - "Identifies from the supplied workflow that the actual dotnet nuget push step uses secrets.NUGET_API_KEY rather than the OIDC login output, so id-token write permission and NuGet/login alone do not prove keyless publishing."
       - "Flags the file-based license declaration as missing SPDX expression metadata and notes the GPL-2.0-only alternative in LICENSE.txt under the non-copyleft policy."
       - "Flags a1b2c3d4 as an abbreviated commit rather than a full commit identifier."
       - "Flags the missing projectUrl without inventing other missing populated fields."
-      - "Keeps workflow/source adjudication distinct from what package cryptographic inspection can establish."
+      - "Reconciles the concrete local workflow credential evidence with the package inspection boundary instead of treating an untested workflow-authentication status as contradictory."
 
   - name: Reject a nested digest spoof and reconcile transitive bundled dependencies
     tags:
@@ -245,7 +258,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(?:metadata[.\s]component|root component)'
+          pattern: '(?i)(?:metadata[.\s]component|SBOM\s+root|root\s+(?:component|package|entry|hash|digest|SHA[- ]?256))'
       - type: output-matches
         config:
           pattern: '(?i)(stale|mismatch|does not match|not.{0,30}(?:bind|match))'
@@ -386,6 +399,130 @@ stimuli:
       - "Affirms the exact CycloneDX root SHA-256 match to the final countersigned package and the five dependencies' resolved permissive licenses."
       - "Correctly finds no bundled browser assets or embedded resources, without inventing browser notice defects."
       - "Keeps OS/root trust, verified SLSA provenance, anonymous source retrieval, and public SBOM publication unresolved rather than converting missing external evidence into fabricated failures or passes."
+
+  - name: Detect signing drift across target framework assemblies
+    tags:
+      capability: multi-target-signing-consistency
+      risk: one-valid-tfm-masks-public-sign-drift
+      journey: approve-multi-target-package
+    prompt: |
+      Assess Contoso.Blazor.Navigation.1.0.0.nupkg for assembly-signing
+      consistency before release. Compare the assemblies shipped for every
+      target framework, including files with the same basename, and explain
+      which cryptographic checks pass or fail. Base the answer on the supplied
+      package without live publisher verification; analysis-tool dependency
+      restore is allowed.
+    environment:
+      files:
+        - src: fixtures/multi-tfm-public-sign-drift/Contoso.Blazor.Navigation.1.0.0.nupkg
+          dest: Contoso.Blazor.Navigation.1.0.0.nupkg
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)net8(?:\.0)?.{0,100}(?:valid|pass|RSA|Authenticode)|(?:valid|pass|RSA|Authenticode).{0,100}net8(?:\.0)?'
+      - type: output-matches
+        config:
+          pattern: '(?i)net10(?:\.0)?.{0,120}(?:PublicSign|StrongNameSigned|0x0*8|zero(?:ed)?|invalid|fail)|(?:PublicSign|StrongNameSigned|0x0*8|zero(?:ed)?|invalid|fail).{0,120}net10(?:\.0)?'
+      - type: output-matches
+        config:
+          pattern: '(?i)(PublicSign|StrongNameSigned|0x0*8)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(zero(?:ed)?[- ](?:filled[- ])?signature|no valid RSA|invalid RSA|RSA.{0,30}(?:fail|invalid))'
+      - type: output-matches
+        config:
+          pattern: '(?i)Export\.dll.{0,80}(?:(?:isn.t|is not|lacks?|has no|without).{0,30}strong[- ]name|(?:is )?unsigned)|(?:(?:isn.t|is not|lacks?|has no|without).{0,30}strong[- ]name|unsigned).{0,80}Export\.dll'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - "Separately reports the same-named net8.0 assembly as having valid RSA strong-name and Authenticode image-digest integrity."
+      - "Identifies the net10.0 counterpart as public-signed: its public key and StrongNameSigned flag are present, but its zero-filled signature is not valid RSA evidence."
+      - "Finds that the net10.0 Export.dll is not strong-name signed rather than assuming all assemblies inherit the result of the valid target."
+      - "Rejects package-wide signing consistency because target-framework-specific assembly evidence differs."
+      - "Keeps mathematical integrity separate from live publisher and certificate-chain trust."
+
+  - name: Find a declared package dependency omitted from the SBOM
+    tags:
+      capability: nuspec-sbom-dependency-reconciliation
+      risk: exact-root-hash-masks-missing-direct-dependency
+      journey: verify-package-sbom-completeness
+    prompt: |
+      Review Northwind.Blazor.Layout.1.0.0.nupkg with layout.spdx.json. Does
+      the SBOM identify the exact package and completely represent the direct
+      dependencies declared for its supported target frameworks? Separate
+      artifact identity from dependency completeness and explain the release
+      decision using only these local files.
+    environment:
+      files:
+        - src: fixtures/nuspec-dependency-omitted-from-sbom/Northwind.Blazor.Layout.1.0.0.nupkg
+          dest: Northwind.Blazor.Layout.1.0.0.nupkg
+        - src: fixtures/nuspec-dependency-omitted-from-sbom/layout.spdx.json
+          dest: layout.spdx.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:root|package).{0,80}(?:exact|match|bind).{0,80}(?:SHA[- ]?256|digest|hash)|(?:SHA[- ]?256|digest|hash).{0,80}(?:exact|match|bind).{0,80}(?:root|package)'
+      - type: output-matches
+        config:
+          pattern: '(?i)Contoso\.Blazor\.Theming'
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:missing|omitted|absent|incomplete).{0,80}Contoso\.Blazor\.Theming|Contoso\.Blazor\.Theming.{0,80}(?:missing|omitted|absent|incomplete)'
+      - type: output-matches
+        config:
+          pattern: '(?i)net8(?:\.0)?.{0,100}net10(?:\.0)?|net10(?:\.0)?.{0,100}net8(?:\.0)?'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - "Credits the SPDX root SHA-256 as an exact match for the inspected package without treating that identity match as a completeness proof."
+      - "Reconciles the direct dependency inventory declared across the net8.0 and net10.0 nuspec groups."
+      - "Identifies Contoso.Blazor.Theming as the declared direct dependency omitted from the SBOM."
+      - "Rejects complete dependency coverage despite the exact package-root hash and otherwise permissive MIT evidence."
+      - "Does not invent a live publication or provenance claim from the local package and SBOM."
+
+  - name: Detect a provenance commit that disagrees with package metadata
+    tags:
+      capability: provenance-revision-binding
+      risk: exact-artifact-hash-masks-source-commit-mismatch
+      journey: reconcile-package-and-provenance
+    prompt: |
+      Assess Fabrikam.Blazor.Diagrams.1.0.0.nupkg, diagrams.cdx.json, and
+      provenance.dsse.json. Determine whether the SBOM and provenance identify
+      the exact package, then reconcile the source repository and commit in the
+      provenance with the package metadata. State what remains unverified when
+      only this offline evidence is available.
+    environment:
+      files:
+        - src: fixtures/provenance-commit-mismatch-nuspec/Fabrikam.Blazor.Diagrams.1.0.0.nupkg
+          dest: Fabrikam.Blazor.Diagrams.1.0.0.nupkg
+        - src: fixtures/provenance-commit-mismatch-nuspec/diagrams.cdx.json
+          dest: diagrams.cdx.json
+        - src: fixtures/provenance-commit-mismatch-nuspec/provenance.dsse.json
+          dest: provenance.dsse.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:SBOM|CycloneDX|root).{0,100}(?:exact|match|bind).{0,80}(?:package|SHA[- ]?256|digest|hash)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:provenance|DSSE).{0,100}(?:exact|match|bind).{0,80}(?:package|SHA[- ]?256|digest|hash)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:repository|source).{0,80}(?:match|same|consistent)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(?:commit|revision).{0,100}(?:mismatch|differ|disagree|conflict)|(?:mismatch|differ|disagree|conflict).{0,100}(?:commit|revision)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(unverified|not verified|cannot verify|does not establish).{0,80}(?:DSSE|signature|provenance|trust)|(?:DSSE|signature|provenance|trust).{0,80}(?:unverified|not verified|cannot verify|does not establish)'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - "Credits both the CycloneDX root and the DSSE subject for matching the exact inspected package SHA-256."
+      - "Recognizes that the provenance and nuspec identify the same source repository."
+      - "Finds that the provenance's full 40-hex Git commit differs from the full commit recorded in the nuspec."
+      - "Rejects source-revision provenance binding despite the exact artifact hash and repository match."
+      - "Treats the offline DSSE signature and provenance trust as unverified rather than promoting parsed claims to verified provenance."
 
   - name: Answer an Ignite UI app registration and hydration question
     tags:

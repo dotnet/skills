@@ -8,6 +8,7 @@
 
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Formats.Asn1;
 using System.IO.Compression;
 using System.Numerics;
 using System.Security.Cryptography;
@@ -27,7 +28,6 @@ internal static class FixtureGenerator
     private static readonly DateTimeOffset ZipTime = new(2020, 1, 2, 3, 4, 6, TimeSpan.Zero);
     private static readonly UTF8Encoding Utf8 = new(false);
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-    private static readonly byte[] PackagePadding = Enumerable.Range(0, 6144).Select(i => (byte)((i * 73 + 19) & 255)).ToArray();
     // Public seeds derive deterministic, intentionally insecure TEST-ONLY RSA keys.
     private const string AssemblyKeySeed = "blazor-readiness-fixtures/assembly-key/v1";
     private const string AuthorKeySeed = "blazor-readiness-fixtures/author-key/v1";
@@ -43,11 +43,9 @@ internal static class FixtureGenerator
             throw new InvalidOperationException("Fixture suite root must contain eval.yaml and tools/GenerateFixtures.cs.");
         string fixtures = Path.Combine(testRoot, "fixtures");
         string repo = Environment.GetEnvironmentVariable("FIXTURE_REPO_ROOT") ?? FindRepo(testRoot);
-        string work = Path.Combine(Path.GetTempPath(), $"blazor-readiness-fixture-generator-v1-{Environment.ProcessId}");
+        string work = Path.Combine(testRoot, "tools", $".fixture-work-{Environment.ProcessId}");
         if (Directory.Exists(work)) Directory.Delete(work, true);
         Directory.CreateDirectory(work);
-        if (Directory.Exists(fixtures)) Directory.Delete(fixtures, true);
-        Directory.CreateDirectory(fixtures);
 
         using var assemblyRsa = CreateDeterministicRsa(AssemblyKeySeed);
         using var authorRsa = CreateDeterministicRsa(AuthorKeySeed);
@@ -57,16 +55,39 @@ internal static class FixtureGenerator
         using var repositoryCert = CreateCertificate(repositoryRsa, "CN=Fixture Repository", 3, false);
         byte[] snk = CreateSnk(assemblyRsa);
 
+        if (Environment.GetEnvironmentVariable("FIXTURE_AUTH_SAMPLE_ONLY") == "1")
+        {
+            string sampleRoot = Path.Combine(work, "sample-fixtures");
+            string sampleDir = Make(sampleRoot, "authenticode-sample");
+            byte[] sample = SignAuthenticode(await BuildAssembly(work, snk, "Fixture.Authenticode.Sample",
+                false, null, "AUTHENTICODE_SAMPLE"), assemblyCert);
+            WritePackage(Path.Combine(sampleDir, "Fixture.Authenticode.Sample.1.0.0.nupkg"),
+                Nuspec("Fixture.Authenticode.Sample", "1.0.0", "MIT", commit: new('0', 40)),
+                ("lib/net10.0/Fixture.Authenticode.Sample.dll", sample, true));
+            await ValidateAuthenticodeFixtures(sampleRoot, work);
+            if (Environment.GetEnvironmentVariable("FIXTURE_KEEP_AUTH_SAMPLE") == "1")
+                Console.WriteLine($"Authenticode sample retained at {sampleRoot}");
+            else
+                Directory.Delete(work, true);
+            return 0;
+        }
+
+        if (Directory.Exists(fixtures)) Directory.Delete(fixtures, true);
+        Directory.CreateDirectory(fixtures);
         await GenerateMultiLayer(fixtures, work, snk, assemblyCert, authorCert);
         GenerateSpdx(fixtures);
-        await GenerateParity(fixtures, authorCert, repositoryCert);
+        await GenerateParity(fixtures, work, snk, assemblyCert, authorCert, repositoryCert);
         await GenerateHiddenAssets(fixtures, work, snk, assemblyCert);
         GenerateOidc(fixtures);
         GenerateClosure(fixtures);
         await GenerateReadme(fixtures, work, snk, assemblyCert, authorCert);
         await GeneratePostSignTamper(fixtures, work, snk, assemblyCert, authorCert);
         await GenerateClean(fixtures, work, snk, assemblyCert, authorCert, repositoryCert);
+        await GeneratePublicSignDrift(fixtures, work, snk, assemblyCert, authorCert);
+        await GenerateSbomDependencyOmission(fixtures, work, snk, assemblyCert, authorCert);
+        await GenerateProvenanceCommitMismatch(fixtures, work, snk, assemblyCert, authorCert);
         GenerateDormancy(fixtures);
+        await ValidateAuthenticodeFixtures(fixtures, work);
         await WriteObservedManifest(repo, testRoot, fixtures);
         foreach (string package in Directory.EnumerateFiles(fixtures, "*.nupkg", SearchOption.AllDirectories))
             if (new FileInfo(package).Length > 25 * 1024)
@@ -98,25 +119,74 @@ internal static class FixtureGenerator
     {
         string dir = Make(root, "zipped-spdx-license-conflict");
         string package = Path.Combine(dir, "Fabrikam.Blazor.Grid.2.1.0.nupkg");
-        WritePackage(package, Nuspec("Fabrikam.Blazor.Grid", "2.1.0", "MIT", commit: new('b', 40)));
-        string sbom = """
-        {"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"fixture","documentNamespace":"https://example.invalid/spdx/fabrikam-grid","documentDescribes":["SPDXRef-Root"],"packages":[
-        {"name":"Fabrikam.Blazor.Grid","SPDXID":"SPDXRef-Root","versionInfo":"2.1.0","licenseDeclared":"NOASSERTION","licenseConcluded":"MIT","checksums":[{"algorithm":"SHA256","checksumValue":"1111111111111111111111111111111111111111111111111111111111111111"}]},
-        {"name":"grid-export-engine","SPDXID":"SPDXRef-Npm","versionInfo":"4.0.0","licenseDeclared":"MIT","licenseConcluded":"GPL-3.0-only","externalRefs":[{"referenceType":"purl","referenceLocator":"pkg:npm/grid-export-engine@4.0.0"}]},
-        {"name":"fabrikam-telemetry-shim","SPDXID":"SPDXRef-Shim","versionInfo":"1.0.0","licenseDeclared":"NOASSERTION","licenseConcluded":"LicenseRef-Fabrikam-Custom","externalRefs":[{"referenceType":"purl","referenceLocator":"pkg:nuget/fabrikam-telemetry-shim@1.0.0"}]}]}
-        """;
+        var nugetDependencies = Enumerable.Range(1, 17)
+            .Select(i => new Dependency($"Fabrikam.Permissive.Component{i:00}", $"1.{i}.0"))
+            .Append(new Dependency("fabrikam-telemetry-shim", "1.0.0"))
+            .ToArray();
+        WritePackage(package, Nuspec("Fabrikam.Blazor.Grid", "2.1.0", "MIT", commit: new('b', 40),
+                dependencies: nugetDependencies),
+            ("staticwebassets/grid-export-engine.4.0.0.js",
+                Utf8.GetBytes("/*! grid-export-engine 4.0.0 */\nexport const exportGrid = rows => JSON.stringify(rows);\n"), true));
+        var packages = new List<object>
+        {
+            SpdxPackage("Fabrikam.Blazor.Grid", "SPDXRef-Root", "2.1.0", "MIT", "MIT",
+                "pkg:nuget/Fabrikam.Blazor.Grid@2.1.0", new string('1', 64)),
+            SpdxPackage("fabrikam-telemetry-shim", "SPDXRef-Telemetry", "1.0.0", "MIT", "GPL-3.0-only",
+                "pkg:nuget/fabrikam-telemetry-shim@1.0.0"),
+            SpdxPackage("grid-export-engine", "SPDXRef-GridExport", "4.0.0", "NOASSERTION",
+                "LicenseRef-Fabrikam-Custom", "pkg:npm/grid-export-engine@4.0.0")
+        };
+        packages.AddRange(Enumerable.Range(1, 17).Select(i =>
+            SpdxPackage($"Fabrikam.Permissive.Component{i:00}", $"SPDXRef-NuGet-{i:00}", $"1.{i}.0",
+                i % 2 == 0 ? "Apache-2.0" : "MIT", i % 2 == 0 ? "Apache-2.0" : "MIT",
+                $"pkg:nuget/Fabrikam.Permissive.Component{i:00}@1.{i}.0")));
+        packages.AddRange(Enumerable.Range(1, 16).Select(i =>
+            SpdxPackage($"@fabrikam/permissive-{i:00}", $"SPDXRef-Npm-{i:00}", $"2.{i}.0",
+                i % 3 == 0 ? "BSD-3-Clause" : "MIT", i % 3 == 0 ? "BSD-3-Clause" : "MIT",
+                $"pkg:npm/%40fabrikam/permissive-{i:00}@2.{i}.0")));
+        packages.Add(SpdxPackage("Fabrikam.Blazor.Grid.HashTrap", "SPDXRef-HashTrap", "2.1.0", "MIT", "MIT",
+            "pkg:nuget/Fabrikam.Blazor.Grid.HashTrap@2.1.0", Sha(File.ReadAllBytes(package))));
+        string sbom = JsonSerializer.Serialize(new
+        {
+            spdxVersion = "SPDX-2.3",
+            SPDXID = "SPDXRef-DOCUMENT",
+            name = "fabrikam-grid-synthetic",
+            documentNamespace = "https://example.invalid/spdx/fabrikam-grid/2026-03",
+            documentDescribes = new[] { "SPDXRef-Root" },
+            packages
+        });
         WriteZip(Path.Combine(dir, "fabrikam-grid-sbom.spdx.zip"),
-            ("bom.spdx.json", Utf8.GetBytes(sbom), true),
-            ("bom.spdx.json.sha256", Utf8.GetBytes(Sha(Utf8.GetBytes(sbom)) + "  bom.spdx.json\n"), true));
+            ("sbom/2026-03/fabrikam-grid.spdx.json", Utf8.GetBytes(sbom), true),
+            ("sbom/2026-03/fabrikam-grid.spdx.json.sha256",
+                Utf8.GetBytes(Sha(Utf8.GetBytes(sbom)) + "  fabrikam-grid.spdx.json\n"), true));
     }
 
-    private static async Task GenerateParity(string root, X509Certificate2 author, X509Certificate2 repository)
+    private static async Task GenerateParity(string root, string work, byte[] snk, X509Certificate2 cert,
+        X509Certificate2 author, X509Certificate2 repository)
     {
         string dir = Make(root, "countersigned-parity-provenance");
-        byte[] payload = Utf8.GetBytes("identical package payload\n");
+        byte[] net8 = SignAuthenticode(await BuildAssembly(work, snk, "Northwind.Blazor.Charts",
+            false, null, "CHARTS_NET8", targetFramework: "net8.0"), cert);
+        byte[] net10 = SignAuthenticode(await BuildAssembly(work, snk, "Northwind.Blazor.Charts",
+            false, null, "CHARTS_NET10", targetFramework: "net10.0"), cert);
+        byte[] analyzer = SignAuthenticode(await BuildAssembly(work, snk, "Northwind.Blazor.Charts.Analyzers",
+            false, null, "CHARTS_ANALYZER", targetFramework: "net10.0"), cert);
         string release = Path.Combine(dir, "Northwind.Blazor.Charts.3.0.0.release.nupkg");
         WritePackage(release, Nuspec("Northwind.Blazor.Charts", "3.0.0", "MIT", commit: new('c', 40)),
-            ("content/payload.txt", payload, true));
+            ("lib/net8.0/Northwind.Blazor.Charts.dll", net8, true),
+            ("lib/net8.0/Northwind.Blazor.Charts.xml", Utf8.GetBytes("<doc><assembly><name>Northwind.Blazor.Charts</name></assembly></doc>\n"), true),
+            ("lib/net10.0/Northwind.Blazor.Charts.dll", net10, true),
+            ("lib/net10.0/Northwind.Blazor.Charts.xml", Utf8.GetBytes("<doc><assembly><name>Northwind.Blazor.Charts</name></assembly></doc>\n"), true),
+            ("staticwebassets/chart-runtime.js", Utf8.GetBytes("export const renderChart = data => data.length;\n"), true),
+            ("staticwebassets/chart-theme.css", Utf8.GetBytes(".northwind-chart{display:block}\n"), true),
+            ("buildTransitive/Northwind.Blazor.Charts.props", Utf8.GetBytes("<Project><PropertyGroup><NorthwindCharts>true</NorthwindCharts></PropertyGroup></Project>\n"), true),
+            ("buildTransitive/Northwind.Blazor.Charts.targets", Utf8.GetBytes("<Project><Target Name=\"NorthwindChartsAssets\" /></Project>\n"), true),
+            ("analyzers/dotnet/cs/Northwind.Blazor.Charts.Analyzers.dll", analyzer, true),
+            ("contentFiles/any/any/chart.defaults.json", Utf8.GetBytes("{\"animation\":false}\n"), true),
+            ("docs/getting-started.md", Utf8.GetBytes("# Getting started\n\nAdd the chart component to a Razor page.\n"), true),
+            ("docs/api.xml", Utf8.GetBytes("<api package=\"Northwind.Blazor.Charts\" />\n"), true),
+            ("licenses/NOTICE.txt", Utf8.GetBytes("Synthetic MIT fixture content.\n"), true),
+            ("tools/net10.0/any/chart-schema.json", Utf8.GetBytes("{\"type\":\"object\"}\n"), true));
         await AuthorSign(release, author);
         string final = Path.Combine(dir, "Northwind.Blazor.Charts.3.0.0.nupkg");
         File.Copy(release, final);
@@ -125,6 +195,13 @@ internal static class FixtureGenerator
         {"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","name":"northwind","documentNamespace":"https://example.invalid/spdx/northwind","documentDescribes":["SPDXRef-Root"],"packages":[{"name":"Northwind.Blazor.Charts","SPDXID":"SPDXRef-Root","versionInfo":"3.0.0","licenseDeclared":"MIT","licenseConcluded":"MIT","checksums":[{"algorithm":"SHA256","checksumValue":"{{Sha(File.ReadAllBytes(release))}}"}]}]}
         """;
         File.WriteAllText(Path.Combine(dir, "charts.spdx.json"), sbom + "\n", Utf8);
+        string imageStatement = JsonSerializer.Serialize(new
+        {
+            _type = "https://in-toto.io/Statement/v1",
+            subject = new[] { new { name = "ghcr.io/northwind/charts", digest = new { sha256 = new string('9', 64) } } },
+            predicateType = "https://slsa.dev/provenance/v1",
+            predicate = new { buildDefinition = new { externalParameters = new { repository = "https://example.invalid/northwind/charts" } } }
+        });
         string statement = JsonSerializer.Serialize(new
         {
             _type = "https://in-toto.io/Statement/v1",
@@ -133,8 +210,9 @@ internal static class FixtureGenerator
             predicateType = "https://slsa.dev/provenance/v1",
             predicate = new { buildDefinition = new { externalParameters = new { repository = "https://example.invalid/northwind/charts" } } }
         });
-        string dsse = JsonSerializer.Serialize(new { payloadType = "application/vnd.in-toto+json", payload = Convert.ToBase64String(Utf8.GetBytes(statement)), signatures = new[] { new { keyid = "fixture", sig = "AA==" } } });
-        File.WriteAllText(Path.Combine(dir, "provenance.intoto.jsonl"), dsse + "\n", Utf8);
+        string imageDsse = Dsse(imageStatement);
+        string packageDsse = Dsse(statement);
+        File.WriteAllText(Path.Combine(dir, "provenance.intoto.jsonl"), imageDsse + "\n" + packageDsse + "\n", Utf8);
     }
 
     private static async Task GenerateHiddenAssets(string root, string work, byte[] snk, X509Certificate2 cert)
@@ -187,17 +265,24 @@ internal static class FixtureGenerator
         byte[] bundle = Utf8.GetBytes("/*! @floating-ui/dom 1.6.12 */\nexport const computePosition=()=>({x:0,y:0});\n");
         string package = Path.Combine(dir, "Litware.Blazor.Pivot.1.1.0.nupkg");
         WritePackage(package,
-            Nuspec("Litware.Blazor.Pivot", "1.1.0", "MIT", commit: new('e', 40)),
+            Nuspec("Litware.Blazor.Pivot", "1.1.0", "MIT", commit: new('e', 40),
+                dependencies: [new Dependency("Litware.Core", "1.1.0")]),
             ("staticwebassets/floating-ui.dom.8f3a1c.bundle.js", bundle, true));
         string cdx = JsonSerializer.Serialize(new
         {
             bomFormat = "CycloneDX", specVersion = "1.6", version = 1,
             metadata = new { component = new { type = "library", name = "Litware.Blazor.Pivot", version = "1.1.0",
                 hashes = new[] { new { alg = "SHA-256", content = new string('0', 64) } } } },
-            components = new[] { new { type = "library", name = "@floating-ui/dom", version = "1.6.12",
-                purl = "pkg:npm/%40floating-ui/dom@1.6.12",
-                licenses = new[] { new { license = new { id = "MIT" } } },
-                hashes = new[] { new { alg = "SHA-256", content = Sha(File.ReadAllBytes(package)) } } } }
+            components = new object[]
+            {
+                new { type = "library", name = "Litware.Core", version = "1.1.0",
+                    purl = "pkg:nuget/Litware.Core@1.1.0",
+                    licenses = new[] { new { license = new { id = "MIT" } } } },
+                new { type = "library", name = "@floating-ui/dom", version = "1.6.12",
+                    purl = "pkg:npm/%40floating-ui/dom@1.6.12",
+                    licenses = new[] { new { license = new { id = "MIT" } } },
+                    hashes = new[] { new { alg = "SHA-256", content = Sha(File.ReadAllBytes(package)) } } }
+            }
         });
         File.WriteAllText(Path.Combine(dir, "bom.cdx.json"), cdx + "\n", Utf8);
         File.WriteAllText(Path.Combine(dir, "package.json"), """{"name":"litware-pivot-fixture","private":true,"dependencies":{"@floating-ui/dom":"1.6.12"}}""" + "\n", Utf8);
@@ -239,12 +324,13 @@ internal static class FixtureGenerator
         byte[] one = SignAuthenticode(await BuildAssembly(work, snk, "Litware.Blazor.Primitives", false, null, "ONE"), cert);
         byte[] two = SignAuthenticode(await BuildAssembly(work, snk, "Litware.Blazor.Primitives.Extras", false, null, "TWO"), cert);
         string package = Path.Combine(dir, "Litware.Blazor.Primitives.1.0.0.nupkg");
-        WritePackage(package, Nuspec("Litware.Blazor.Primitives", "1.0.0", "Apache-2.0 AND MIT", commit: new('2', 64)),
+        string[] deps = ["Litware.Core.Primitives", "Contoso.Serialization", "Fabrikam.Diagnostics", "Northwind.Resilience", "Tailspin.Text"];
+        WritePackage(package, Nuspec("Litware.Blazor.Primitives", "1.0.0", "Apache-2.0 AND MIT", commit: new('2', 64),
+                dependencies: deps.Select((d, i) => new Dependency(d, $"1.0.{i}")).ToArray()),
             ("lib/net10.0/Litware.Blazor.Primitives.dll", one, true),
             ("lib/net10.0/Litware.Blazor.Primitives.Extras.dll", two, true));
         await AuthorSign(package, author);
         await RepositoryCountersign(package, repository);
-        string[] deps = ["Litware.Core.Primitives", "Contoso.Serialization", "Fabrikam.Diagnostics", "Northwind.Resilience", "Tailspin.Text"];
         var components = deps.Select((d, i) => new { type = "library", name = d, version = $"1.0.{i}",
             purl = $"pkg:nuget/{d}@1.0.{i}",
             licenses = new[] { new { license = new { id = i % 3 == 0 ? "MIT" : i % 3 == 1 ? "Apache-2.0" : "BSD-3-Clause" } } } }).ToArray();
@@ -256,6 +342,134 @@ internal static class FixtureGenerator
             components
         });
         File.WriteAllText(Path.Combine(dir, "primitives.cdx.json"), cdx + "\n", Utf8);
+    }
+
+    private static async Task GeneratePublicSignDrift(string root, string work, byte[] snk,
+        X509Certificate2 cert, X509Certificate2 author)
+    {
+        string dir = Make(root, "multi-tfm-public-sign-drift");
+        byte[] net8 = SignAuthenticode(await BuildAssembly(work, snk, "Contoso.Blazor.Navigation",
+            false, null, "NAVIGATION_NET8", targetFramework: "net8.0"), cert);
+        byte[] net10 = await BuildAssembly(work, snk, "Contoso.Blazor.Navigation",
+            true, null, "NAVIGATION_NET10", targetFramework: "net10.0");
+        SetStrongNameSignedFlag(net10);
+        net10 = SignAuthenticode(net10, cert);
+        byte[] export = SignAuthenticode(await BuildAssembly(work, snk, "Contoso.Blazor.Navigation.Export",
+            false, null, "NAVIGATION_EXPORT", signAssembly: false, targetFramework: "net10.0"), cert);
+        string package = Path.Combine(dir, "Contoso.Blazor.Navigation.1.0.0.nupkg");
+        WritePackage(package, Nuspec("Contoso.Blazor.Navigation", "1.0.0", "MIT", commit: new('3', 40)),
+            ("lib/net8.0/Contoso.Blazor.Navigation.dll", net8, true),
+            ("lib/net10.0/Contoso.Blazor.Navigation.dll", net10, true),
+            ("lib/net10.0/Contoso.Blazor.Navigation.Export.dll", export, true));
+        await AuthorSign(package, author);
+    }
+
+    private static async Task GenerateSbomDependencyOmission(string root, string work, byte[] snk,
+        X509Certificate2 cert, X509Certificate2 author)
+    {
+        string dir = Make(root, "nuspec-dependency-omitted-from-sbom");
+        var groups = new[]
+        {
+            new DependencyGroup("net8.0",
+                [new Dependency("Northwind.Blazor.Core", "1.0.0"), new Dependency("Contoso.Blazor.Theming", "2.0.0")]),
+            new DependencyGroup("net10.0",
+                [new Dependency("Northwind.Blazor.Interop", "1.5.0"), new Dependency("Fabrikam.Diagnostics", "3.2.0")])
+        };
+        byte[] net8 = SignAuthenticode(await BuildAssembly(work, snk, "Northwind.Blazor.Layout",
+            false, null, "LAYOUT_NET8", targetFramework: "net8.0"), cert);
+        byte[] net10 = SignAuthenticode(await BuildAssembly(work, snk, "Northwind.Blazor.Layout",
+            false, null, "LAYOUT_NET10", targetFramework: "net10.0"), cert);
+        string package = Path.Combine(dir, "Northwind.Blazor.Layout.1.0.0.nupkg");
+        WritePackage(package, Nuspec("Northwind.Blazor.Layout", "1.0.0", "MIT", commit: new('4', 40),
+                dependencyGroups: groups),
+            ("lib/net8.0/Northwind.Blazor.Layout.dll", net8, true),
+            ("lib/net10.0/Northwind.Blazor.Layout.dll", net10, true));
+        await AuthorSign(package, author);
+
+        var sbomPackages = new List<object>
+        {
+            SpdxPackage("Northwind.Blazor.Layout", "SPDXRef-Root", "1.0.0", "MIT", "MIT",
+                "pkg:nuget/Northwind.Blazor.Layout@1.0.0", Sha(File.ReadAllBytes(package))),
+            SpdxPackage("Northwind.Blazor.Core", "SPDXRef-Core", "1.0.0", "MIT", "MIT",
+                "pkg:nuget/Northwind.Blazor.Core@1.0.0"),
+            SpdxPackage("Northwind.Blazor.Interop", "SPDXRef-Interop", "1.5.0", "MIT", "MIT",
+                "pkg:nuget/Northwind.Blazor.Interop@1.5.0"),
+            SpdxPackage("Fabrikam.Diagnostics", "SPDXRef-Diagnostics", "3.2.0", "MIT", "MIT",
+                "pkg:nuget/Fabrikam.Diagnostics@3.2.0")
+        };
+        sbomPackages.AddRange(Enumerable.Range(1, 21).Select(i =>
+            SpdxPackage($"Northwind.Transitive.Component{i:00}", $"SPDXRef-Transitive-{i:00}",
+                $"1.0.{i}", "MIT", "MIT", $"pkg:nuget/Northwind.Transitive.Component{i:00}@1.0.{i}")));
+        string spdx = JsonSerializer.Serialize(new
+        {
+            spdxVersion = "SPDX-2.3",
+            SPDXID = "SPDXRef-DOCUMENT",
+            name = "northwind-layout-synthetic",
+            documentNamespace = "https://example.invalid/spdx/northwind-layout/1.0.0",
+            documentDescribes = new[] { "SPDXRef-Root" },
+            packages = sbomPackages
+        });
+        if (sbomPackages.Count != 25) throw new InvalidOperationException("Layout SPDX fixture must contain 25 packages.");
+        File.WriteAllText(Path.Combine(dir, "layout.spdx.json"), spdx + "\n", Utf8);
+    }
+
+    private static async Task GenerateProvenanceCommitMismatch(string root, string work, byte[] snk,
+        X509Certificate2 cert, X509Certificate2 author)
+    {
+        const string packageCommit = "5555555555555555555555555555555555555555";
+        const string provenanceCommit = "6666666666666666666666666666666666666666";
+        const string repository = "https://example.invalid/source.git";
+        string dir = Make(root, "provenance-commit-mismatch-nuspec");
+        byte[] dll = SignAuthenticode(await BuildAssembly(work, snk, "Fabrikam.Blazor.Diagrams",
+            false, null, "DIAGRAMS"), cert);
+        string package = Path.Combine(dir, "Fabrikam.Blazor.Diagrams.1.0.0.nupkg");
+        WritePackage(package, Nuspec("Fabrikam.Blazor.Diagrams", "1.0.0", "MIT", commit: packageCommit),
+            ("lib/net10.0/Fabrikam.Blazor.Diagrams.dll", dll, true),
+            ("staticwebassets/diagrams.js", Utf8.GetBytes("export const drawDiagram = nodes => nodes.length;\n"), true));
+        await AuthorSign(package, author);
+        string hash = Sha(File.ReadAllBytes(package));
+        string cdx = JsonSerializer.Serialize(new
+        {
+            bomFormat = "CycloneDX",
+            specVersion = "1.6",
+            version = 1,
+            metadata = new
+            {
+                component = new
+                {
+                    type = "library",
+                    name = "Fabrikam.Blazor.Diagrams",
+                    version = "1.0.0",
+                    purl = "pkg:nuget/Fabrikam.Blazor.Diagrams@1.0.0",
+                    licenses = new[] { new { license = new { id = "MIT" } } },
+                    hashes = new[] { new { alg = "SHA-256", content = hash } }
+                }
+            },
+            components = Array.Empty<object>()
+        });
+        File.WriteAllText(Path.Combine(dir, "diagrams.cdx.json"), cdx + "\n", Utf8);
+        string statement = JsonSerializer.Serialize(new
+        {
+            _type = "https://in-toto.io/Statement/v1",
+            subject = new[]
+            {
+                new { name = "Fabrikam.Blazor.Diagrams.1.0.0.nupkg", digest = new { sha256 = hash } }
+            },
+            predicateType = "https://slsa.dev/provenance/v1",
+            predicate = new
+            {
+                buildDefinition = new
+                {
+                    externalParameters = new { repository },
+                    resolvedDependencies = new[]
+                    {
+                        new { uri = repository, digest = new { gitCommit = provenanceCommit } }
+                    }
+                },
+                runDetails = new { builder = new { id = "https://example.invalid/builders/offline-fixture" } }
+            }
+        });
+        File.WriteAllText(Path.Combine(dir, "provenance.dsse.json"), Dsse(statement) + "\n", Utf8);
     }
 
     private static void GenerateDormancy(string root)
@@ -282,7 +496,8 @@ internal static class FixtureGenerator
     }
 
     private static async Task<byte[]> BuildAssembly(string work, byte[] snk, string name, bool delay,
-        (string Name, string Content)? resource, string marker)
+        (string Name, string Content)? resource, string marker, bool signAssembly = true,
+        string targetFramework = "net10.0")
     {
         string slug = name.Replace('.', '_') + (delay ? "_delay" : "");
         string dir = Path.Combine(work, slug);
@@ -301,31 +516,40 @@ internal static class FixtureGenerator
         File.WriteAllText(Path.Combine(dir, "Fixture.csproj"), $$"""
         <Project Sdk="Microsoft.NET.Sdk">
           <PropertyGroup>
-            <TargetFramework>net10.0</TargetFramework><AssemblyName>{{name}}</AssemblyName>
+            <TargetFramework>{{targetFramework}}</TargetFramework><AssemblyName>{{name}}</AssemblyName>
             <RootNamespace>SyntheticFixtures</RootNamespace><Deterministic>true</Deterministic>
             <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild><DebugType>none</DebugType>
             <InformationalVersion>1.0.0+fixture</InformationalVersion>
-            <SignAssembly>true</SignAssembly><DelaySign>{{delay.ToString().ToLowerInvariant()}}</DelaySign>
-            <AssemblyOriginatorKeyFile>fixture.snk</AssemblyOriginatorKeyFile>
+            <SignAssembly>{{signAssembly.ToString().ToLowerInvariant()}}</SignAssembly><DelaySign>{{delay.ToString().ToLowerInvariant()}}</DelaySign>
+            {{(signAssembly ? "<AssemblyOriginatorKeyFile>fixture.snk</AssemblyOriginatorKeyFile>" : "")}}
             <PathMap>{{dir}}=/_/fixture</PathMap>
           </PropertyGroup>
           {{resourceItem}}
         </Project>
         """, Utf8);
         await Run("dotnet", ["build", "Fixture.csproj", "-c", "Release", "--nologo", "-v:q", "-p:RestoreIgnoreFailedSources=true"], dir);
-        return File.ReadAllBytes(Path.Combine(dir, "bin", "Release", "net10.0", name + ".dll"));
+        return File.ReadAllBytes(Path.Combine(dir, "bin", "Release", targetFramework, name + ".dll"));
     }
 
     private static string Nuspec(string id, string version, string license, string licenseType = "expression",
-        string? commit = null, string projectUrl = "https://example.invalid/project")
+        string? commit = null, string projectUrl = "https://example.invalid/project",
+        Dependency[]? dependencies = null, DependencyGroup[]? dependencyGroups = null)
     {
+        XElement? dependenciesElement = null;
+        if (dependencyGroups is { Length: > 0 })
+            dependenciesElement = new XElement("dependencies", dependencyGroups.Select(group =>
+                new XElement("group", new XAttribute("targetFramework", group.TargetFramework),
+                    group.Dependencies.Select(DependencyElement))));
+        else if (dependencies is { Length: > 0 })
+            dependenciesElement = new XElement("dependencies", dependencies.Select(DependencyElement));
         var metadata = new XElement("metadata",
             new XElement("id", id), new XElement("version", version), new XElement("authors", "Synthetic Fixture Authors"),
             new XElement("description", "Synthetic package-readiness fixture with no vendor artifacts."),
             string.IsNullOrEmpty(projectUrl) ? null : new XElement("projectUrl", projectUrl),
             new XElement("license", new XAttribute("type", licenseType), license),
             new XElement("repository", new XAttribute("type", "git"), new XAttribute("url", "https://example.invalid/source.git"),
-                new XAttribute("commit", commit ?? "")));
+                new XAttribute("commit", commit ?? "")),
+            dependenciesElement);
         return new XDocument(new XDeclaration("1.0", "utf-8", null),
             new XElement("package", metadata))
             .ToString(SaveOptions.DisableFormatting);
@@ -334,8 +558,19 @@ internal static class FixtureGenerator
     private static void WritePackage(string path, string nuspec, params (string Name, byte[] Bytes, bool Compress)[] files)
     {
         string id = XDocument.Parse(nuspec).Descendants().First(e => e.Name.LocalName == "id").Value;
-        WriteZip(path, [(id + ".nuspec", Utf8.GetBytes(nuspec), true),
-            ("package/fixture-padding.bin", PackagePadding, false), .. files]);
+        var entries = new List<(string Name, byte[] Bytes, bool Compress)>
+        {
+            (id + ".nuspec", Utf8.GetBytes(nuspec), true),
+            ("README.md", Utf8.GetBytes($"# {id}\n\nDeterministic synthetic package-readiness fixture.\n"), true),
+            ("docs/package-metadata.xml", Utf8.GetBytes($"<package id=\"{id}\" synthetic=\"true\" />\n"), true)
+        };
+        foreach (var file in files)
+        {
+            int existing = entries.FindIndex(entry => entry.Name.Equals(file.Name, StringComparison.Ordinal));
+            if (existing >= 0) entries[existing] = file;
+            else entries.Add(file);
+        }
+        WriteZip(path, entries.ToArray());
     }
 
     private static void WriteZip(string path, params (string Name, byte[] Bytes, bool Compress)[] files)
@@ -398,14 +633,7 @@ internal static class FixtureGenerator
         BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(security, 4), certificateOffset);
         byte[] digest = AuthenticodeHash(image, pe, optional, security, certificateOffset);
         byte[] indirect = CreateIndirectData(digest);
-        var cms = new SignedCms(new ContentInfo(new Oid("1.3.6.1.4.1.311.2.1.4"), indirect));
-        var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, certificate)
-        {
-            DigestAlgorithm = new Oid("2.16.840.1.101.3.4.2.1"),
-            IncludeOption = X509IncludeOption.EndCertOnly
-        };
-        cms.ComputeSignature(signer, true);
-        byte[] encoded = cms.Encode();
+        byte[] encoded = CreateAuthenticodeSignedData(indirect, certificate);
         int winLength = 8 + encoded.Length;
         int aligned = (winLength + 7) & ~7;
         BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(security + 4, 4), aligned);
@@ -415,6 +643,7 @@ internal static class FixtureGenerator
         BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(old + 4, 2), 0x200);
         BinaryPrimitives.WriteUInt16LittleEndian(image.AsSpan(old + 6, 2), 2);
         encoded.CopyTo(image.AsSpan(old + 8));
+        UpdatePeChecksum(image);
         return image;
     }
 
@@ -443,6 +672,7 @@ internal static class FixtureGenerator
         int flagsOffset = clrOffset + 16;
         int flags = I32(image, flagsOffset);
         BinaryPrimitives.WriteInt32LittleEndian(image.AsSpan(flagsOffset, 4), flags | 0x8);
+        UpdatePeChecksum(image);
     }
 
     private static byte[] AuthenticodeHash(byte[] image, int pe, int optional, int security, int certificateOffset)
@@ -473,9 +703,21 @@ internal static class FixtureGenerator
 
     private static byte[] CreateIndirectData(byte[] digest)
     {
-        var writer = new System.Formats.Asn1.AsnWriter(System.Formats.Asn1.AsnEncodingRules.DER);
+        var writer = new AsnWriter(AsnEncodingRules.DER);
         writer.PushSequence();
-        writer.WriteNull();
+        writer.PushSequence();
+        writer.WriteObjectIdentifier("1.3.6.1.4.1.311.2.1.15");
+        writer.PushSequence();
+        writer.WriteBitString(ReadOnlySpan<byte>.Empty);
+        var context0 = new Asn1Tag(TagClass.ContextSpecific, 0, true);
+        var context2 = new Asn1Tag(TagClass.ContextSpecific, 2, true);
+        writer.PushSequence(context0);
+        writer.PushSequence(context2);
+        writer.WriteOctetString(ReadOnlySpan<byte>.Empty, new Asn1Tag(TagClass.ContextSpecific, 0));
+        writer.PopSequence(context2);
+        writer.PopSequence(context0);
+        writer.PopSequence();
+        writer.PopSequence();
         writer.PushSequence();
         writer.PushSequence();
         writer.WriteObjectIdentifier("2.16.840.1.101.3.4.2.1");
@@ -484,7 +726,138 @@ internal static class FixtureGenerator
         writer.WriteOctetString(digest);
         writer.PopSequence();
         writer.PopSequence();
+        byte[] encoded = writer.Encode();
+        byte[] expectedPrefix = Convert.FromHexString("304C3017060A2B06010401823702010F");
+        if (encoded.Length != 78 || !encoded.AsSpan(0, expectedPrefix.Length).SequenceEqual(expectedPrefix))
+            throw new InvalidOperationException(
+                $"SPC indirect-data encoding drifted from the Windows Authenticode profile: {encoded.Length} bytes, {Convert.ToHexString(encoded)}");
+        return encoded;
+    }
+
+    private static byte[] CreateAuthenticodeSignedData(byte[] indirect, X509Certificate2 certificate)
+    {
+        var context0 = new Asn1Tag(TagClass.ContextSpecific, 0, true);
+        byte[] indirectInnerDigest = SHA256.HashData(indirect.AsSpan(2));
+        byte[] attributes = CreateAuthenticodeAttributes(indirectInnerDigest);
+        using RSA rsa = certificate.GetRSAPrivateKey()
+            ?? throw new InvalidOperationException("Authenticode certificate has no RSA private key.");
+        byte[] signature = rsa.SignData(attributes, System.Security.Cryptography.HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        writer.PushSequence();
+        writer.WriteObjectIdentifier("1.2.840.113549.1.7.2");
+        writer.PushSequence(context0);
+        writer.PushSequence();
+        writer.WriteInteger(1);
+        writer.PushSetOf();
+        WriteAlgorithmIdentifier(writer, "2.16.840.1.101.3.4.2.1");
+        writer.PopSetOf();
+        writer.PushSequence();
+        writer.WriteObjectIdentifier("1.3.6.1.4.1.311.2.1.4");
+        writer.PushSequence(context0);
+        writer.WriteEncodedValue(indirect);
+        writer.PopSequence(context0);
+        writer.PopSequence();
+        writer.PushSetOf(context0);
+        writer.WriteEncodedValue(certificate.RawData);
+        writer.PopSetOf(context0);
+        writer.PushSetOf();
+        writer.PushSequence();
+        writer.WriteInteger(1);
+        writer.PushSequence();
+        writer.WriteEncodedValue(certificate.IssuerName.RawData);
+        byte[] serial = certificate.GetSerialNumber();
+        Array.Reverse(serial);
+        writer.WriteIntegerUnsigned(serial);
+        writer.PopSequence();
+        WriteAlgorithmIdentifier(writer, "2.16.840.1.101.3.4.2.1");
+        WriteAuthenticodeAttributes(writer, context0, indirectInnerDigest);
+        WriteAlgorithmIdentifier(writer, "1.2.840.113549.1.1.1");
+        writer.WriteOctetString(signature);
+        writer.PopSequence();
+        writer.PopSetOf();
+        writer.PopSequence();
+        writer.PopSequence(context0);
+        writer.PopSequence();
         return writer.Encode();
+    }
+
+    private static byte[] CreateAuthenticodeAttributes(byte[] indirectInnerDigest)
+    {
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        writer.PushSetOf();
+        WriteAuthenticodeAttributeValues(writer, indirectInnerDigest);
+        writer.PopSetOf();
+        return writer.Encode();
+    }
+
+    private static void WriteAuthenticodeAttributes(AsnWriter writer, Asn1Tag tag, byte[] indirectInnerDigest)
+    {
+        writer.PushSetOf(tag);
+        WriteAuthenticodeAttributeValues(writer, indirectInnerDigest);
+        writer.PopSetOf(tag);
+    }
+
+    private static void WriteAuthenticodeAttributeValues(AsnWriter writer, byte[] indirectInnerDigest)
+    {
+        writer.PushSequence();
+        writer.WriteObjectIdentifier("1.2.840.113549.1.9.3");
+        writer.PushSetOf();
+        writer.WriteObjectIdentifier("1.3.6.1.4.1.311.2.1.4");
+        writer.PopSetOf();
+        writer.PopSequence();
+
+        writer.PushSequence();
+        writer.WriteObjectIdentifier("1.3.6.1.4.1.311.2.1.11");
+        writer.PushSetOf();
+        writer.PushSequence();
+        writer.WriteObjectIdentifier("1.3.6.1.4.1.311.2.1.21");
+        writer.PopSequence();
+        writer.PopSetOf();
+        writer.PopSequence();
+
+        writer.PushSequence();
+        writer.WriteObjectIdentifier("1.2.840.113549.1.9.4");
+        writer.PushSetOf();
+        writer.WriteOctetString(indirectInnerDigest);
+        writer.PopSetOf();
+        writer.PopSequence();
+    }
+
+    private static void WriteAlgorithmIdentifier(AsnWriter writer, string oid)
+    {
+        writer.PushSequence();
+        writer.WriteObjectIdentifier(oid);
+        writer.WriteNull();
+        writer.PopSequence();
+    }
+
+    private static void UpdatePeChecksum(byte[] image)
+    {
+        int pe = I32(image, 0x3c);
+        int checksumOffset = pe + 24 + 64;
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(checksumOffset, 4), 0);
+        BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(checksumOffset, 4), ComputePeChecksum(image));
+    }
+
+    private static uint ComputePeChecksum(byte[] image)
+    {
+        int pe = I32(image, 0x3c);
+        int checksumOffset = pe + 24 + 64;
+        ulong sum = 0;
+        int index = 0;
+        while (index + 1 < image.Length)
+        {
+            if (index != checksumOffset && index != checksumOffset + 2)
+                sum += BinaryPrimitives.ReadUInt16LittleEndian(image.AsSpan(index, 2));
+            sum = (sum & 0xffff) + (sum >> 16);
+            index += 2;
+        }
+        if (index < image.Length) sum += image[index];
+        sum = (sum & 0xffff) + (sum >> 16);
+        sum += sum >> 16;
+        return (uint)((sum & 0xffff) + (uint)image.Length);
     }
 
     private static X509Certificate2 CreateCertificate(RSA rsa, string subject, byte serial, bool codeSigning)
@@ -656,6 +1029,78 @@ internal static class FixtureGenerator
         File.WriteAllBytes(path, bytes);
     }
 
+    private static async Task ValidateAuthenticodeFixtures(string fixtures, string work)
+    {
+        string oracleRoot = Path.Combine(work, "authenticode-oracle");
+        Directory.CreateDirectory(oracleRoot);
+        var images = new List<(string Source, string Path, bool Tampered)>();
+        int packageIndex = 0;
+        foreach (string package in Directory.EnumerateFiles(fixtures, "*.nupkg", SearchOption.AllDirectories)
+                     .Order(StringComparer.Ordinal))
+        {
+            using var archive = ZipFile.OpenRead(package);
+            foreach (ZipArchiveEntry entry in archive.Entries
+                         .Where(entry => entry.FullName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                         .OrderBy(entry => entry.FullName, StringComparer.Ordinal))
+            {
+                string directory = Path.Combine(oracleRoot, $"{packageIndex++:D3}");
+                Directory.CreateDirectory(directory);
+                string output = Path.Combine(directory, Path.GetFileName(entry.FullName));
+                entry.ExtractToFile(output);
+                images.Add(($"{Path.GetFileName(package)}::{entry.FullName}", output,
+                    entry.FullName.EndsWith("Contoso.Blazor.Controls.Tampered.dll", StringComparison.Ordinal)));
+            }
+        }
+        if (images.Count == 0) throw new InvalidOperationException("Authenticode oracle found no fixture assemblies.");
+
+        foreach (var image in images)
+        {
+            byte[] bytes = File.ReadAllBytes(image.Path);
+            int pe = I32(bytes, 0x3c);
+            int optional = pe + 24;
+            int directoryBase = U16(bytes, optional) == 0x20b ? 112 : 96;
+            int security = optional + directoryBase + 32;
+            int certificateOffset = I32(bytes, security);
+            int certificateSize = I32(bytes, security + 4);
+            int winLength = I32(bytes, certificateOffset);
+            if (certificateOffset <= 0 || certificateSize < winLength || winLength <= 8)
+                throw new InvalidOperationException($"{image.Source}: malformed WIN_CERTIFICATE.");
+            byte[] pkcs7 = bytes.AsSpan(certificateOffset + 8, winLength - 8).ToArray();
+            var cms = new SignedCms();
+            cms.Decode(pkcs7);
+            cms.CheckSignature(true);
+            byte[] indirect = ReadAuthenticodeIndirectData(pkcs7);
+            if (indirect.Length != 78)
+                throw new InvalidOperationException($"{image.Source}: Authenticode indirect data is not the expected 78 bytes.");
+            byte[] actualDigest = AuthenticodeHash(bytes, pe, optional, security, certificateOffset);
+            bool digestMatches = actualDigest.AsSpan().SequenceEqual(indirect.AsSpan(indirect.Length - 32));
+            if (digestMatches == image.Tampered)
+                throw new InvalidOperationException($"{image.Source}: Authenticode file digest did not match the intended fixture state.");
+
+            uint storedChecksum = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(optional + 64, 4));
+            uint computedChecksum = ComputePeChecksum(bytes);
+            if (image.Tampered ? storedChecksum == computedChecksum : storedChecksum != computedChecksum)
+                throw new InvalidOperationException($"{image.Source}: PE checksum did not match the intended fixture state.");
+        }
+        Console.WriteLine($"Authenticode oracle validated {images.Count} assemblies with SignedCms, indirect digest, and PE checksum checks.");
+    }
+
+    private static byte[] ReadAuthenticodeIndirectData(byte[] pkcs7)
+    {
+        var outer = new AsnReader(pkcs7, AsnEncodingRules.BER).ReadSequence();
+        if (outer.ReadObjectIdentifier() != "1.2.840.113549.1.7.2")
+            throw new InvalidOperationException("Authenticode content is not SignedData.");
+        var explicitSignedData = outer.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, true));
+        var signedData = explicitSignedData.ReadSequence();
+        signedData.ReadInteger();
+        signedData.ReadSetOf();
+        var contentInfo = signedData.ReadSequence();
+        if (contentInfo.ReadObjectIdentifier() != "1.3.6.1.4.1.311.2.1.4")
+            throw new InvalidOperationException("Authenticode content does not contain SPC indirect data.");
+        var explicitContent = contentInfo.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 0, true));
+        return explicitContent.ReadEncodedValue().ToArray();
+    }
+
     private static async Task WriteObservedManifest(string repo, string testRoot, string fixtures)
     {
         string inspector = Environment.GetEnvironmentVariable("FIXTURE_INSPECTOR")
@@ -666,18 +1111,24 @@ internal static class FixtureGenerator
             new Case("zipped-spdx-license-conflict", "Fabrikam.Blazor.Grid.2.1.0.nupkg", ["--sbom","fabrikam-grid-sbom.spdx.zip"]),
             new Case("countersigned-parity-provenance", "Northwind.Blazor.Charts.3.0.0.nupkg", ["--release-nupkg","Northwind.Blazor.Charts.3.0.0.release.nupkg","--sbom","charts.spdx.json","--attestation","provenance.intoto.jsonl"]),
             new Case("hidden-web-assets", "Tailspin.Blazor.Editor.1.4.0.nupkg", []),
-            new Case("oidc-header-apikey-push", "AdventureWorks.Blazor.Forms.1.0.0.nupkg", []),
+            new Case("oidc-header-apikey-push", "AdventureWorks.Blazor.Forms.1.0.0.nupkg",
+                ["--workflow",".github/workflows/release.yml"]),
             new Case("cyclonedx-root-spoof-and-closure", "Litware.Blazor.Pivot.1.1.0.nupkg", ["--sbom","bom.cdx.json","--package-lock","package-lock.json"]),
             new Case("package-only-untrusted-readme", "Woodgrove.Blazor.Icons.1.0.0.nupkg", []),
             new Case("post-sign-entry-tamper", "Proseware.Blazor.Charts.2.0.0.nupkg", []),
-            new Case("clean-permissive-bundle", "Litware.Blazor.Primitives.1.0.0.nupkg", ["--sbom","primitives.cdx.json"])
+            new Case("clean-permissive-bundle", "Litware.Blazor.Primitives.1.0.0.nupkg", ["--sbom","primitives.cdx.json"]),
+            new Case("multi-tfm-public-sign-drift", "Contoso.Blazor.Navigation.1.0.0.nupkg", []),
+            new Case("nuspec-dependency-omitted-from-sbom", "Northwind.Blazor.Layout.1.0.0.nupkg",
+                ["--sbom","layout.spdx.json"]),
+            new Case("provenance-commit-mismatch-nuspec", "Fabrikam.Blazor.Diagrams.1.0.0.nupkg",
+                ["--sbom","diagrams.cdx.json","--attestation","provenance.dsse.json"])
         };
         var output = new List<object>();
         foreach (var item in cases)
         {
             string dir = Path.Combine(fixtures, item.Directory);
-            string report = Path.Combine(Path.GetTempPath(),
-                $"blazor-readiness-{Environment.ProcessId}-{item.Directory}.json");
+            string report = Path.Combine(testRoot, "tools",
+                $".fixture-report-{Environment.ProcessId}-{item.Directory}.json");
             var args = new List<string> { "run", inspector, "--", "--nupkg", Path.Combine(dir, item.Package), "--output", report };
             for (int i = 0; i < item.Options.Length; i += 2)
             {
@@ -777,6 +1228,8 @@ internal static class FixtureGenerator
                 Row("LP-01", "not tested", "license-file-needs-review");
                 Row("LP-07", "gap", "full-repository-commit-missing-or-invalid");
                 Row("LP-09", "gap", "project-url-missing-or-invalid");
+                if (rows["PI-05"].Status != "gap")
+                    throw new InvalidOperationException("OIDC workflow fixture must expose the static API-key push as a PI-05 gap.");
                 break;
             case "cyclonedx-root-spoof-and-closure":
                 Row("LP-03", "verified", "declared-dependency-license-policy-only");
@@ -807,6 +1260,24 @@ internal static class FixtureGenerator
                 Row("PI-10", "not tested", "gh-verification-not-requested");
                 if (!FindRow(report, "PI-10").GetProperty("facts").GetProperty("sbomBindsFinalPackage").GetBoolean())
                     throw new InvalidOperationException("Clean fixture SBOM must bind the final signed package.");
+                break;
+            case "multi-tfm-public-sign-drift":
+                if (rows["PI-01"].Status != "gap")
+                    throw new InvalidOperationException("Multi-TFM public-sign drift must produce a PI-01 gap.");
+                break;
+            case "nuspec-dependency-omitted-from-sbom":
+                Row("PI-07", "gap", "nuspec-dependencies-missing-from-sbom");
+                if (!FindRow(report, "PI-10").GetProperty("facts").GetProperty("sbomBindsFinalPackage").GetBoolean())
+                    throw new InvalidOperationException("Layout SPDX must bind the final package.");
+                break;
+            case "provenance-commit-mismatch-nuspec":
+                Row("PI-10", "not tested", "gh-verification-not-requested");
+                if (!FindRow(report, "PI-10").GetProperty("facts").GetProperty("sbomBindsFinalPackage").GetBoolean())
+                    throw new InvalidOperationException("Diagrams CycloneDX must bind the final package.");
+                var offline = FindRow(report, "PI-10").GetProperty("facts").GetProperty("offlineAttestation");
+                if (offline.GetProperty("correspondenceState").GetString() != "mismatch-unverified" ||
+                    offline.GetProperty("recordCount").GetInt32() != 1)
+                    throw new InvalidOperationException("Diagrams provenance must retain one exact-subject, wrong-commit record.");
                 break;
         }
     }
@@ -854,7 +1325,33 @@ internal static class FixtureGenerator
         return ~crc;
     }
 
+    private static XElement DependencyElement(Dependency dependency) =>
+        new("dependency", new XAttribute("id", dependency.Id), new XAttribute("version", dependency.Version));
+
+    private static object SpdxPackage(string name, string spdxId, string version, string declared,
+        string concluded, string purl, string? sha256 = null) => new
+        {
+            name,
+            SPDXID = spdxId,
+            versionInfo = version,
+            licenseDeclared = declared,
+            licenseConcluded = concluded,
+            externalRefs = new[] { new { referenceType = "purl", referenceLocator = purl } },
+            checksums = sha256 is null
+                ? Array.Empty<object>()
+                : new object[] { new { algorithm = "SHA256", checksumValue = sha256 } }
+        };
+
+    private static string Dsse(string statement) => JsonSerializer.Serialize(new
+    {
+        payloadType = "application/vnd.in-toto+json",
+        payload = Convert.ToBase64String(Utf8.GetBytes(statement)),
+        signatures = new[] { new { keyid = "fixture", sig = "AA==" } }
+    });
+
     private sealed record Case(string Directory, string Package, string[] Options);
+    private sealed record Dependency(string Id, string Version);
+    private sealed record DependencyGroup(string TargetFramework, Dependency[] Dependencies);
     private sealed record ObservedRow(string Status, string ReasonCode);
 
     private sealed class DeterministicSignatureProvider : ISignatureProvider
