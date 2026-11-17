@@ -63,7 +63,9 @@ function renderChecklist({ pr, checks, statuses, review, unresolved }) {
   if (!latestStatuses.has('evaluation-status')) item(false, 'Wait for evaluation-status to report whether skill evaluation is required.');
   const evaluation = latestStatuses.get('evaluation-status');
   if (evaluation && evaluation.state !== 'success') {
-    lines.push('', `Skill evaluation: a maintainer can submit a review containing \`/evaluate\`, or comment \`/evaluate ${pr.head.sha}\`. If evaluation is already running, wait for its result.`);
+    lines.push('', pr.head.repo?.full_name !== pr.base?.repo?.full_name
+      ? 'Skill evaluation: a maintainer must review and promote this fork change to a trusted repository branch before running `/evaluate`. Secret-backed evaluation is disabled for fork PRs.'
+      : `Skill evaluation: a maintainer can submit a review containing \`/evaluate\`, or comment \`/evaluate ${pr.head.sha}\`. If evaluation is already running, wait for its result.`);
   }
   lines.push('', '### Review', '');
   item(review === 'APPROVED', review === 'CHANGES_REQUESTED'
