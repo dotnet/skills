@@ -1,0 +1,72 @@
+name: PR checklist
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review, converted_to_draft, review_requested, review_request_removed]
+  issue_comment:
+    types: [created]
+  # Bot-generated statuses do not trigger more workflows. Reconcile checks and
+  # reviews periodically as well, including fork PRs and resolved conversations.
+  schedule:
+    - cron: '17,47 * * * *'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  resolve:
+    if: >-
+      (github.event_name != 'schedule' || github.repository == 'dotnet/skills') &&
+      (github.event_name != 'issue_comment' ||
+      (github.event.issue.pull_request && startsWith(github.event.comment.body, '/checklist')))
+    runs-on: ubuntu-latest
+    outputs:
+      prs: ${{ steps.resolve.outputs.result }}
+    steps:
+      - name: Checkout trusted scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Resolve affected pull requests
+        id: resolve
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { resolvePullRequests } = require('./.github/scripts/pr-checklist.cjs');
+            return await resolvePullRequests({ github, context });
+
+  update:
+    needs: resolve
+    if: needs.resolve.outputs.prs != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+      statuses: read
+      pull-requests: write
+      issues: write
+    strategy:
+      matrix:
+        pr: ${{ fromJSON(needs.resolve.outputs.prs) }}
+    concurrency:
+      group: pr-checklist-${{ matrix.pr }}
+      cancel-in-progress: false
+    steps:
+      # Never check out or execute PR code in this privileged workflow.
+      - name: Checkout trusted scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Update checklist comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ matrix.pr }}
+        with:
+          script: |
+            const { updateChecklist } = require('./.github/scripts/pr-checklist.cjs');
+            await updateChecklist({ github, context, core, number: Number(process.env.PR_NUMBER) });
