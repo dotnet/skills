@@ -80,9 +80,10 @@ Reference: [NuGet Trusted Publishing](https://www.nuget.org/account/trustedpubli
   are separate from signature verification. An attestation for a different
   artifact, workflow, or revision cannot verify this release.
 - Keep provenance and SBOM checksums distinct. A file checksum in an SBOM is
-  not a signed build attestation. PI-10 needs the SBOM's described root artifact
-  to carry the package digest (SPDX documentDescribes/DESCRIBES or CycloneDX
-  metadata.component), not a coincidental match on a dependency or unrelated file.
+  not a signed build attestation. PI-10 needs the SBOM's described root package
+  to carry the package digest (SPDX documentDescribes/document DESCRIBES package
+  checksums or CycloneDX metadata.component hashes), not a coincidental match on
+  a dependency, child file, comment, or annotation.
 
 ## LP-10: source/build correspondence
 

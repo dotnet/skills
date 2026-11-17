@@ -171,7 +171,6 @@ internal static class Inspector
                     finalProvenance.SourceVerified ? "sbom-missing-final-package-sha256" : finalProvenance.ReasonCode,
                 "The exact final signed package digest must be bound by both SBOM and gh-verified provenance.", true,
                 new { provenance = finalProvenance, sbomBindsFinalPackage, finalPackageSha256 = package.Sha256,
-                    sbomObservedSha256Digests = sbom?.ObservedSha256Digests,
                     sbomBindingSha256Digests = sbom?.BindingSha256Digests,
                     offlineAttestation, releaseParity = parity }));
             rows.Add(new("PI-11", buildProvenance.BuildVerified ? "verified" : Untested, "X", buildProvenance.ReasonCode,
@@ -457,7 +456,9 @@ internal static class Inspector
             extension is ".props" or ".targets" or ".json" &&
             (path.Contains("staticwebassets", StringComparison.Ordinal) ||
                 path.Contains("staticwebasset", StringComparison.Ordinal) ||
-                path.Contains("wwwroot", StringComparison.Ordinal));
+                path.Contains("wwwroot", StringComparison.Ordinal) ||
+                (extension is ".props" or ".targets" &&
+                    DecodeText(entry.Bytes).Contains("StaticWebAsset", StringComparison.OrdinalIgnoreCase)));
         return root || webExtension || buildStaticManifest;
     }
     private static List<WebAsset> InventoryWebAssets(Archive package) => package.Entries.Where(WebEntry)
@@ -910,9 +911,15 @@ internal static class Inspector
         return value.ValueKind == JsonValueKind.Array ? value.EnumerateArray() : Enumerable.Empty<JsonElement>();
     }
     private static bool Bool(JsonElement node, string key) => Property(node, key).ValueKind == JsonValueKind.True;
-    private static string EffectiveLicense(string declared, string concluded) =>
-        string.IsNullOrWhiteSpace(declared) || declared is "NOASSERTION" or "NONE"
-            ? concluded : declared;
+    private static string EffectiveLicense(string declared, string concluded)
+    {
+        static bool Asserted(string value) =>
+            !string.IsNullOrWhiteSpace(value) && value is not "NOASSERTION" and not "NONE";
+        foreach (string value in new[] { declared, concluded }.Where(Asserted))
+            if (LicensePolicy.Evaluate(value).State is "disallowed" or "malformed")
+                return value;
+        return Asserted(concluded) ? concluded : declared;
+    }
     private static SbomEvidence ReadSbom(string path)
     {
         byte[] bytes = ReadFile(path, MaxArchiveBytes);
@@ -927,22 +934,7 @@ internal static class Inspector
         if (bytes.Length > MaxEntryBytes) throw new InvalidDataException("SBOM JSON exceeds limit.");
         using var document = ParseJson(bytes);
         var root = document.RootElement;
-        var observedSha256Digests = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var bindingSha256Digests = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        void CollectSha256(JsonElement node, int depth)
-        {
-            if (depth > 64) throw new InvalidDataException("SBOM nesting exceeds limit.");
-            if (node.ValueKind == JsonValueKind.String)
-            {
-                string value = node.GetString() ?? "";
-                if (Regex.IsMatch(value, @"\A[a-fA-F0-9]{64}\z")) observedSha256Digests.Add(value.ToLowerInvariant());
-            }
-            else if (node.ValueKind == JsonValueKind.Array)
-                foreach (var child in node.EnumerateArray()) CollectSha256(child, depth + 1);
-            else if (node.ValueKind == JsonValueKind.Object)
-                foreach (var property in node.EnumerateObject()) CollectSha256(property.Value, depth + 1);
-        }
-        CollectSha256(root, 0);
         var packages = new List<SbomPackage>();
         var filesEvidence = new List<SbomFile>();
         string format;
@@ -950,8 +942,10 @@ internal static class Inspector
         {
             format = Text(root, "spdxVersion");
             var rootIds = Array(root, "documentDescribes").Where(e => e.ValueKind == JsonValueKind.String)
-                .Select(e => e.GetString() ?? "").ToHashSet(StringComparer.Ordinal);
+                .Select(e => e.GetString() ?? "").Where(id => !string.IsNullOrWhiteSpace(id))
+                .ToHashSet(StringComparer.Ordinal);
             foreach (var relationship in Array(root, "relationships").Where(r =>
+                Text(r, "spdxElementId") == "SPDXRef-DOCUMENT" &&
                 Text(r, "relationshipType").Equals("DESCRIBES", StringComparison.OrdinalIgnoreCase)))
             {
                 string described = Text(relationship, "relatedSpdxElement");
@@ -983,7 +977,6 @@ internal static class Inspector
                 string expression = EffectiveLicense(declared, concluded);
                 string spdxId = Text(file, "SPDXID");
                 bool isRoot = rootIds.Contains(spdxId);
-                if (isRoot) foreach (string digest in Checksums(file)) bindingSha256Digests.Add(digest);
                 filesEvidence.Add(new(Text(file, "fileName"), sha.ToLowerInvariant(), spdxId, isRoot,
                     declared, concluded, expression, LicensePolicy.Evaluate(declared), LicensePolicy.Evaluate(concluded),
                     LicensePolicy.EvaluatePair(declared, concluded)));
@@ -1026,7 +1019,6 @@ internal static class Inspector
         else throw new InvalidDataException("Expected SPDX 2.2/2.3 or CycloneDX JSON.");
         return new(format, packages, filesEvidence, packages.Count(p => p.Purl.StartsWith("pkg:npm/", StringComparison.Ordinal)),
             packages.Count(p => p.Purl.StartsWith("pkg:nuget/", StringComparison.OrdinalIgnoreCase)),
-            observedSha256Digests.Order(StringComparer.Ordinal).ToArray(),
             bindingSha256Digests.Order(StringComparer.Ordinal).ToArray());
     }
 
@@ -1266,7 +1258,7 @@ internal sealed record SbomFile(string Path, string Sha256, string SpdxId, bool 
     string LicenseConcluded, string EffectiveLicense, LicenseEvaluation DeclaredPolicy,
     LicenseEvaluation ConcludedPolicy, LicenseEvaluation Policy);
 internal sealed record SbomEvidence(string Format, List<SbomPackage> Packages, List<SbomFile> Files, int NpmCount,
-    int NugetCount, string[] ObservedSha256Digests, string[] BindingSha256Digests);
+    int NugetCount, string[] BindingSha256Digests);
 internal sealed record Coverage(bool Complete, bool LicensesApproved, string[] Unresolved, string Caveat);
 internal sealed record Parity(bool Matches, int PackageEntryCount, int ReleaseEntryCount, string[] Differences,
     Dictionary<string, string> PackageEntries, Dictionary<string, string> ReleaseEntries, string Caveat);
