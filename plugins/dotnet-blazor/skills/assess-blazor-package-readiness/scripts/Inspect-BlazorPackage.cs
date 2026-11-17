@@ -1,5 +1,5 @@
 #:package NuGet.Packaging@7.3.1
-#:package System.Security.Cryptography.Pkcs@10.0.0
+#:package System.Security.Cryptography.Pkcs@10.0.15
 #:property PublishAot=false
 
 // Bounded, static package inspection. No entries are extracted and no inspected
