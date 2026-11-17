@@ -71,10 +71,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)fabrikam-telemetry-shim.{0,120}(?:GPL-3\.0-only|GPL[- ]?v?3(?:\.0)?(?:[- ]only)?)|(?:GPL-3\.0-only|GPL[- ]?v?3(?:\.0)?(?:[- ]only)?).{0,120}fabrikam-telemetry-shim'
+          pattern: '(?i)fabrikam-telemetry-shim[\s\S]{0,120}(?:GPL-3\.0-only|GPL[- ]?v?3(?:\.0)?(?:[- ]only)?)|(?:GPL-3\.0-only|GPL[- ]?v?3(?:\.0)?(?:[- ]only)?)[\s\S]{0,120}fabrikam-telemetry-shim'
       - type: output-matches
         config:
-          pattern: '(?i)grid-export-engine.{0,120}LicenseRef-Fabrikam-Custom|LicenseRef-Fabrikam-Custom.{0,120}grid-export-engine'
+          pattern: '(?i)grid-export-engine[\s\S]{0,120}LicenseRef-Fabrikam-Custom|LicenseRef-Fabrikam-Custom[\s\S]{0,120}grid-export-engine'
       - type: output-matches
         config:
           pattern: '(?i)fabrikam-telemetry-shim'
@@ -117,10 +117,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(?:non[- ]signature|payload).{0,80}(?:identical|byte[- ]for[- ]byte|parity)|(?:identical|byte[- ]for[- ]byte|parity).{0,80}(?:non[- ]signature|payload)'
+          pattern: '(?i)(?:non[- ]signature|payload)[\s\S]{0,80}(?:identical|byte[- ]for[- ]byte|parity)|(?:identical|byte[- ]for[- ]byte|parity)[\s\S]{0,80}(?:non[- ]signature|payload)'
       - type: output-matches
         config:
-          pattern: '(?i)(?:release|pre[- ]counter).{0,80}(?:SBOM|SHA[- ]?256|digest|hash)|(?:SBOM|SHA[- ]?256|digest|hash).{0,80}(?:release|pre[- ]counter)'
+          pattern: '(?i)(?:release|pre[- ]counter)[\s\S]{0,80}(?:SBOM|SHA[- ]?256|digest|hash)|(?:SBOM|SHA[- ]?256|digest|hash)[\s\S]{0,80}(?:release|pre[- ]counter)'
       - type: output-matches
         config:
           pattern: '(?i)(ghcr\.io/northwind/charts|(?:container|build|OCI|docker)[- ]image|image (?:subject|artifact))'
@@ -129,7 +129,7 @@ stimuli:
           pattern: '(?i)SLSA'
       - type: output-matches
         config:
-          pattern: '(?i)(?:final|feed|inspected).{0,80}(?:SHA[- ]?256|digest|hash)|(?:SHA[- ]?256|digest|hash).{0,80}(?:final|feed|inspected)'
+          pattern: '(?i)(?:final|feed|inspected)[\s\S]{0,80}(?:SHA[- ]?256|digest|hash)|(?:SHA[- ]?256|digest|hash)[\s\S]{0,80}(?:final|feed|inspected)'
       - type: output-matches
         config:
           pattern: '(?i)(unverified|not verified|not cryptographically verified|cannot (?:verify|establish)|does not (?:verify|establish))'
@@ -213,7 +213,7 @@ stimuli:
           pattern: '(?i)(long[- ]lived|secret|API[- ]key)'
       - type: output-matches
         config:
-          pattern: '(?i)(a1b2c3d4|abbreviated|(?:short|partial).{0,30}(?:commit|hash))'
+          pattern: '(?i)(a1b2c3d4|abbreviated|(?:short|partial)[\s\S]{0,30}(?:commit|hash))'
       - type: output-matches
         config:
           pattern: '(?i)project[- ]?url'
@@ -261,7 +261,7 @@ stimuli:
           pattern: '(?i)(?:metadata[.\s]component|SBOM\s+root|root\s+(?:component|package|entry|hash|digest|SHA[- ]?256))'
       - type: output-matches
         config:
-          pattern: '(?i)(stale|mismatch|does not match|not.{0,30}(?:bind|match))'
+          pattern: '(?i)(stale|mismatch|does not match|not[\s\S]{0,30}(?:bind|match))'
       - type: output-matches
         config:
           pattern: '@floating-ui/dom'
@@ -299,16 +299,16 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(cannot|insufficient|not enough|no[- ]go|do not (?:grant|approve)|not.{0,30}(?:signoff|sign-off|certif))'
+          pattern: '(?i)(cannot|insufficient|not enough|no[- ]go|do not (?:grant|approve)|not[\s\S]{0,30}(?:signoff|sign-off|certif))'
       - type: output-matches
         config:
           pattern: '(?i)README'
       - type: output-matches
         config:
-          pattern: '(?i)(retention|retain.{0,20}evidence|(?:seven|7)[- ]year)'
+          pattern: '(?i)(retention|retain[\s\S]{0,20}evidence|(?:seven|7)[- ]year)'
       - type: output-matches
         config:
-          pattern: '(?i)(self[- ]signed|untrusted|trust.{0,20}(?:unverified|not established))'
+          pattern: '(?i)(self[- ]signed|untrusted|trust[\s\S]{0,20}(?:unverified|not established))'
       - type: exit-success
       - type: prompt
     rubric:
@@ -338,10 +338,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(NuGet|archive|package).{0,100}(?:integrity|signature)'
+          pattern: '(?i)(NuGet|archive|package)[\s\S]{0,100}(?:integrity|signature)'
       - type: output-matches
         config:
-          pattern: '(?i)(?:NuGet|archive|package).{0,80}(?:tamper|mismatch|invalid|fail|corrupt)|(?:tamper|mismatch|invalid|fail|corrupt).{0,80}(?:NuGet|archive|package)'
+          pattern: '(?i)(?:NuGet|archive|package)[\s\S]{0,80}(?:tamper|mismatch|invalid|fail|corrupt)|(?:tamper|mismatch|invalid|fail|corrupt)[\s\S]{0,80}(?:NuGet|archive|package)'
       - type: output-matches
         config:
           pattern: '(?i)(GPL-2\.0\+|GPL-2\.0-or-later|GPL[- ]?v?2(?:\.0)?(?:\+|[- ]or[- ]later))'
@@ -383,13 +383,13 @@ stimuli:
           pattern: '(?i)\bMIT\b'
       - type: output-matches
         config:
-          pattern: '(?i)(64[- ]?(?:hex|char)|SHA[- ]?256.{0,30}commit|commit.{0,30}SHA[- ]?256|full(?:[- ]length)?[- ]commit|commit.{0,20}(?:full|complete))'
+          pattern: '(?i)(64[- ]?(?:hex|char)|SHA[- ]?256[\s\S]{0,30}commit|commit[\s\S]{0,30}SHA[- ]?256|full(?:[- ]length)?[- ]commit|commit[\s\S]{0,20}(?:full|complete))'
       - type: output-matches
         config:
-          pattern: '(?i)(countersign|repository.{0,30}sign)'
+          pattern: '(?i)(countersign|repository[\s\S]{0,30}sign)'
       - type: output-matches
         config:
-          pattern: '(?i)(match|exact|bind).{0,80}(?:digest|SHA[- ]?256|hash)|(?:digest|SHA[- ]?256|hash).{0,80}(?:match|exact|bind)'
+          pattern: '(?i)(match|exact|bind)[\s\S]{0,80}(?:digest|SHA[- ]?256|hash)|(?:digest|SHA[- ]?256|hash)[\s\S]{0,80}(?:match|exact|bind)'
       - type: exit-success
       - type: prompt
     rubric:
@@ -419,19 +419,19 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)net8(?:\.0)?.{0,100}(?:valid|pass|RSA|Authenticode)|(?:valid|pass|RSA|Authenticode).{0,100}net8(?:\.0)?'
+          pattern: '(?i)net8(?:\.0)?[\s\S]{0,100}(?:valid|pass|RSA|Authenticode)|(?:valid|pass|RSA|Authenticode)[\s\S]{0,100}net8(?:\.0)?'
       - type: output-matches
         config:
-          pattern: '(?i)net10(?:\.0)?.{0,120}(?:PublicSign|StrongNameSigned|0x0*8|zero(?:ed)?|invalid|fail)|(?:PublicSign|StrongNameSigned|0x0*8|zero(?:ed)?|invalid|fail).{0,120}net10(?:\.0)?'
+          pattern: '(?i)net10(?:\.0)?[\s\S]{0,120}(?:PublicSign|StrongNameSigned|0x0*8|zero(?:ed)?|invalid|fail)|(?:PublicSign|StrongNameSigned|0x0*8|zero(?:ed)?|invalid|fail)[\s\S]{0,120}net10(?:\.0)?'
       - type: output-matches
         config:
           pattern: '(?i)(PublicSign|StrongNameSigned|0x0*8)'
       - type: output-matches
         config:
-          pattern: '(?i)(zero(?:ed)?[- ](?:filled[- ])?signature|no valid RSA|invalid RSA|RSA.{0,30}(?:fail|invalid))'
+          pattern: '(?i)(zero(?:ed)?[- ](?:filled[- ])?signature|no valid RSA|invalid RSA|RSA[\s\S]{0,30}(?:fail|invalid))'
       - type: output-matches
         config:
-          pattern: '(?i)Export\.dll.{0,80}(?:(?:isn.t|is not|lacks?|has no|without).{0,30}strong[- ]name|(?:is )?unsigned)|(?:(?:isn.t|is not|lacks?|has no|without).{0,30}strong[- ]name|unsigned).{0,80}Export\.dll'
+          pattern: '(?i)Export\.dll[\s\S]{0,80}(?:(?:isn[^\r\n\s]?t|is not|lacks?|has no|without)[\s\S]{0,30}strong[- ]name|(?:is )?unsigned)|(?:(?:isn[^\r\n\s]?t|is not|lacks?|has no|without)[\s\S]{0,30}strong[- ]name|unsigned)[\s\S]{0,80}Export\.dll'
       - type: exit-success
       - type: prompt
     rubric:
@@ -461,16 +461,16 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(?:root|package).{0,80}(?:exact|match|bind).{0,80}(?:SHA[- ]?256|digest|hash)|(?:SHA[- ]?256|digest|hash).{0,80}(?:exact|match|bind).{0,80}(?:root|package)'
+          pattern: '(?i)(?:root|package)[\s\S]{0,80}(?:exact|match|bind)[\s\S]{0,80}(?:SHA[- ]?256|digest|hash)|(?:SHA[- ]?256|digest|hash)[\s\S]{0,80}(?:exact|match|bind)[\s\S]{0,80}(?:root|package)'
       - type: output-matches
         config:
           pattern: '(?i)Contoso\.Blazor\.Theming'
       - type: output-matches
         config:
-          pattern: '(?i)(?:missing|omitted|absent|incomplete).{0,80}Contoso\.Blazor\.Theming|Contoso\.Blazor\.Theming.{0,80}(?:missing|omitted|absent|incomplete)'
+          pattern: '(?i)(?:missing|omitted|absent|incomplete)[\s\S]{0,80}Contoso\.Blazor\.Theming|Contoso\.Blazor\.Theming[\s\S]{0,80}(?:missing|omitted|absent|incomplete)'
       - type: output-matches
         config:
-          pattern: '(?i)net8(?:\.0)?.{0,100}net10(?:\.0)?|net10(?:\.0)?.{0,100}net8(?:\.0)?'
+          pattern: '(?i)net8(?:\.0)?[\s\S]{0,100}net10(?:\.0)?|net10(?:\.0)?[\s\S]{0,100}net8(?:\.0)?'
       - type: exit-success
       - type: prompt
     rubric:
@@ -502,19 +502,19 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(?:SBOM|CycloneDX|root).{0,100}(?:exact|match|bind).{0,80}(?:package|SHA[- ]?256|digest|hash)'
+          pattern: '(?i)(?:SBOM|CycloneDX|root)[\s\S]{0,100}(?:exact|match|bind)[\s\S]{0,80}(?:package|SHA[- ]?256|digest|hash)'
       - type: output-matches
         config:
-          pattern: '(?i)(?:provenance|DSSE).{0,100}(?:exact|match|bind).{0,80}(?:package|SHA[- ]?256|digest|hash)'
+          pattern: '(?i)(?:provenance|DSSE)[\s\S]{0,100}(?:exact|match|bind)[\s\S]{0,80}(?:package|SHA[- ]?256|digest|hash)'
       - type: output-matches
         config:
-          pattern: '(?i)(?:repository|source).{0,80}(?:match|same|consistent)'
+          pattern: '(?i)(?:repository|source)[\s\S]{0,80}(?:match|same|consistent)'
       - type: output-matches
         config:
-          pattern: '(?i)(?:commit|revision).{0,100}(?:mismatch|differ|disagree|conflict)|(?:mismatch|differ|disagree|conflict).{0,100}(?:commit|revision)'
+          pattern: '(?i)(?:commit|revision)[\s\S]{0,100}(?:mismatch|differ|disagree|conflict)|(?:mismatch|differ|disagree|conflict)[\s\S]{0,100}(?:commit|revision)'
       - type: output-matches
         config:
-          pattern: '(?i)(unverified|not verified|cannot verify|does not establish).{0,80}(?:DSSE|signature|provenance|trust)|(?:DSSE|signature|provenance|trust).{0,80}(?:unverified|not verified|cannot verify|does not establish)'
+          pattern: '(?i)(unverified|not verified|cannot verify|does not establish)[\s\S]{0,80}(?:DSSE|signature|provenance|trust)|(?:DSSE|signature|provenance|trust)[\s\S]{0,80}(?:unverified|not verified|cannot verify|does not establish)'
       - type: exit-success
       - type: prompt
     rubric:
