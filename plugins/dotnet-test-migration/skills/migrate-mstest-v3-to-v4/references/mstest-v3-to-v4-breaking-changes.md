@@ -483,7 +483,7 @@ MSTest.Sdk then adds `Microsoft.NET.Test.Sdk`:
 Keep the resolved exact `MSTest.Sdk` v4 pin from Step 2; this option changes the runner, not the
 selected MSTest version or target framework.
 
-**Option C -- Switch CI to `dotnet test`**: Replace `vstest.console` invocations in your CI pipeline with `dotnet test`. This works natively with MTP and is the recommended long-term approach for MSTest.Sdk projects.
+**Option C -- Switch CI to `dotnet test`**: Replace `vstest.console` invocations in your CI pipeline with `dotnet test`, after configuring the SDK's MTP integration. With the .NET 8/9 SDKs, the effective `TestingPlatformDotnetTestSupport` property must be `true`; pass MTP arguments after `--`. With the .NET 10+ SDK, configure `global.json` to select `Microsoft.Testing.Platform`; pass MTP arguments directly, without `--`. In either mode, translate VSTest-specific arguments to their MTP equivalents. See the [VSTest-to-MTP migration guide's mode setup and separators](../../migrate-vstest-to-mtp/SKILL.md#step-4-configure-dotnet-test-integration) and [argument translations](../../migrate-vstest-to-mtp/SKILL.md#step-5-update-dotnet-test-command-line-arguments). Without the matching integration configuration, `dotnet test` may still use VSTest and fail to discover the tests.
 
 Do not say this behavior predates v4: removal of the transitive
 `Microsoft.NET.Test.Sdk` reference in MTP mode is one of the v4 behavioral
