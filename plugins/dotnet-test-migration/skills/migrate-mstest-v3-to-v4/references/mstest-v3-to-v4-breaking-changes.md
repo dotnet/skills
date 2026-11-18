@@ -483,7 +483,70 @@ MSTest.Sdk then adds `Microsoft.NET.Test.Sdk`:
 Keep the resolved exact `MSTest.Sdk` v4 pin from Step 2; this option changes the runner, not the
 selected MSTest version or target framework.
 
-**Option C -- Switch CI to `dotnet test`**: Replace `vstest.console` invocations in your CI pipeline with `dotnet test`, after configuring the SDK's MTP integration. With the .NET 8/9 SDKs, the effective `TestingPlatformDotnetTestSupport` property must be `true`; pass MTP arguments after `--`. With the .NET 10+ SDK, configure `global.json` to select `Microsoft.Testing.Platform`; pass MTP arguments directly, without `--`. In either mode, translate VSTest-specific arguments to their MTP equivalents. See the [VSTest-to-MTP migration guide's mode setup and separators](../../migrate-vstest-to-mtp/SKILL.md#step-4-configure-dotnet-test-integration) and [argument translations](../../migrate-vstest-to-mtp/SKILL.md#step-5-update-dotnet-test-command-line-arguments). Without the matching integration configuration, `dotnet test` may still use VSTest and fail to discover the tests.
+**Option C -- Switch CI to `dotnet test`**: Replace `vstest.console` invocations
+only after configuring the SDK's MTP integration. Choose the mode from the
+repository/CI SDK version, not the test project's target framework:
+
+- **.NET 8/9 SDKs**: Ensure the effective property below is set for the test
+  project (in its project file or applicable `Directory.Build.props`):
+
+  ```xml
+  <PropertyGroup>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+  ```
+
+  Keep build arguments before `--` and pass MTP arguments after it.
+- **.NET 10+ SDK**: Merge this `test` section into `global.json`, preserving
+  existing SDK pins and other settings:
+
+  ```json
+  {
+    "test": {
+      "runner": "Microsoft.Testing.Platform"
+    }
+  }
+  ```
+
+  Pass MTP arguments directly, without `--`; the compatibility property above
+  is not needed in this mode.
+
+Without the matching integration configuration, `dotnet test` may still use
+VSTest and fail to discover the tests. Translate the existing CI arguments
+rather than dropping filters, settings, or result publishing:
+
+| Existing VSTest argument | MSTest on MTP |
+|---|---|
+| `/TestCaseFilter:<expression>` or `--filter <expression>` | `--filter <expression>`; preserve the MSTest filter expression unchanged |
+| `/Logger:trx` or `--logger trx` | `--report-trx`; requires `Microsoft.Testing.Extensions.TrxReport` |
+| TRX logger's `LogFileName=<name>` | `--report-trx-filename <name>`; retain unique filenames per project/TFM when sharing a results directory |
+| `/ResultsDirectory:<dir>` or `--results-directory <dir>` | `--results-directory <dir>`; preserve the directory consumed by CI artifact publishing |
+| `/Settings:<file>` or `--settings <file>` | `--settings <file>`; MSTest still supports `.runsettings` |
+| `/ListTests` or `--list-tests` | `--list-tests` |
+| `--collect "Code Coverage;Format=cobertura"` | `--coverage --coverage-output-format cobertura`; requires `Microsoft.Testing.Extensions.CodeCoverage` |
+| `--blame-crash` | `--crashdump`; requires `Microsoft.Testing.Extensions.CrashDump` |
+| `--blame-hang` | `--hangdump`; requires `Microsoft.Testing.Extensions.HangDump` |
+
+Ensure each required extension is included by the `MSTest.Sdk` profile or an
+explicit compatible package reference, following the exact-version and Central
+Package Management rules above. Preserve existing build arguments such as
+`--configuration` and `--framework`. For any other VSTest option or logger
+parameter, confirm its replacement with the MTP test application's `--help`;
+do not silently discard unsupported CI behavior.
+
+For example, after configuring the selected mode and TRX extension:
+
+```shell
+# .NET 8/9 SDKs
+dotnet test --configuration Release -- --filter "TestCategory=Smoke" --report-trx --results-directory TestResults
+
+# .NET 10+ SDK in native MTP mode
+dotnet test --configuration Release --filter "TestCategory=Smoke" --report-trx --results-directory TestResults
+```
+
+Run the actual translated CI command, compare selected test counts with the
+baseline, and verify that the expected TRX/coverage/dump artifacts exist where
+CI publishes them. A zero-test run is not proof of a successful migration.
 
 Do not say this behavior predates v4: removal of the transitive
 `Microsoft.NET.Test.Sdk` reference in MTP mode is one of the v4 behavioral
