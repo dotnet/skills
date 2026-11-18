@@ -63,7 +63,7 @@ changes are runtime migration failures.
 | Unsupported TFM in a full migration | Update the TFM first, then update MSTest packages, then fix source breaks. Do not bury this order in a release-note inventory. |
 | Custom `TestMethodAttribute` subclass | Treat `ExecuteAsync`, CallerInfo propagation, display-name handling, and the subclass's retry/result semantics as one coupled migration. Fix the actual class, not a placeholder example. |
 | `MSTest.Sdk` v4 source/API errors (`ManagedType`, `TestTimeout`, `Contains`) | Give the exact source replacements, then add the adjacent runner warning: MTP mode no longer supplies `Microsoft.NET.Test.Sdk`; add it only if VSTest discovery is still required. |
-| `MSTest.Sdk` v4 plus `vstest.console` | This is a v4 change: MTP mode no longer brings `Microsoft.NET.Test.Sdk`. Keep MTP and add that package for transitional VSTest discovery, opt into `UseVSTest`, or migrate CI to `dotnet test`; state which runner the choice preserves. |
+| `MSTest.Sdk` v4 plus `vstest.console` | MTP mode no longer includes `Microsoft.NET.Test.Sdk` in v4. Add it to retain transitional VSTest discovery while keeping MTP, opt into `UseVSTest`, or migrate CI to `dotnet test`. Native MTP requires every project/TFM governed by `global.json` to support it (4.5). |
 
 ## Response Guidelines
 

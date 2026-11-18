@@ -497,8 +497,16 @@ repository/CI SDK version, not the test project's target framework:
   ```
 
   Keep build arguments before `--` and pass MTP arguments after it.
-- **.NET 10+ SDK**: Merge this `test` section into `global.json`, preserving
-  existing SDK pins and other settings:
+- **.NET 10+ SDK**: Before changing `global.json`, inventory every `dotnet test`
+  invocation governed by that file, including solution-level CI commands.
+  Check every affected test project and target framework for MTP support,
+  including the effective `UseVSTest` value after conditional/imported properties
+  are evaluated. Native MTP cannot run VSTest-only projects; an `MSTest.Sdk`
+  project with effective `UseVSTest=true` is not ready for this mode.
+
+  Only when the affected test projects and target frameworks all support MTP,
+  merge this `test` section into `global.json`, preserving existing SDK pins and
+  other settings:
 
   ```json
   {
@@ -510,6 +518,14 @@ repository/CI SDK version, not the test project's target framework:
 
   Pass MTP arguments directly, without `--`; the compatibility property above
   is not needed in this mode.
+
+If any affected project or target framework must remain on VSTest, keep Option A
+or B for that CI path instead of changing its shared `global.json`. Alternatively,
+use a separately scoped `global.json` and CI invocation that selects only
+MTP-compatible projects/target frameworks. Run that invocation from the intended
+configuration's working directory; passing `--project` alone does not select a
+different `global.json`. Keep the VSTest jobs in their original scope, and verify
+both paths rather than dropping incompatible projects from CI.
 
 Without the matching integration configuration, `dotnet test` may still use
 VSTest and fail to discover the tests. Translate the existing CI arguments
