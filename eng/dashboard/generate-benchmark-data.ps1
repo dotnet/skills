@@ -706,18 +706,23 @@ foreach ($verdict in $results.verdicts) {
             label = if ($isWorkflow) { "Workflow source" } elseif ($isAgent) { "Agent source" } else { "Skill source" }
             url   = "https://github.com/dotnet/skills/blob/$revision/$sourceRelativePath"
         })
-        $declaredEvalPath = if ($results.PSObject.Properties['evalFile']) {
-            "$($results.evalFile)" -replace '\\', '/'
-        } else {
-            ""
+        # The adapters stamp evalFile on each verdict, so prefer that. Merged
+        # per-plugin results files keep only the first source file's top-level
+        # evalFile, so trust the top-level value only for a single-verdict file
+        # (legacy results written before verdict-level evalFile existed).
+        $evalCandidates = @("$($verdict.evalFile)")
+        if (@($results.verdicts).Count -eq 1) {
+            $evalCandidates += "$($results.evalFile)"
         }
-        $evalRelativePath = if (
-            $declaredEvalPath -match "^tests/$pluginPattern/(?:[A-Za-z0-9._-]+/)+eval\.yaml$" -and
-            $declaredEvalPath -notmatch '(^|/)\.\.(/|$)'
-        ) {
-            $declaredEvalPath
-        } else {
-            "tests/$PluginName/$skillName/eval.yaml"
+        $evalRelativePath = $evalCandidates |
+            ForEach-Object { $_ -replace '\\', '/' } |
+            Where-Object {
+                $_ -match "^tests/$pluginPattern/(?:[A-Za-z0-9._-]+/)+eval\.yaml$" -and
+                $_ -notmatch '(^|/)\.\.(/|$)'
+            } |
+            Select-Object -First 1
+        if (-not $evalRelativePath) {
+            $evalRelativePath = "tests/$PluginName/$skillName/eval.yaml"
         }
         $links.Add([ordered]@{
             label = "Eval source"
