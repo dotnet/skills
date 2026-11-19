@@ -575,6 +575,62 @@ test("surfaces failed activation-only completions before generic content advice"
   assert.match(markdown, /\| = implementation task \|/);
 });
 
+test("reports implementation stops after activation apart from advisory stops", () => {
+  const markdown = render([
+    {
+      skillName: "implementation-stop",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "no_credible_preference_change" },
+      passed: false,
+      conclusive: true,
+      reason: "not proven improved",
+      scenarios: [
+        {
+          scenarioName: "write the tests",
+          expectActivation: true,
+          stimulusWork: { kind: "implementation" },
+          skillActivationIsolated: {
+            activated: true,
+            failedActivationOnlyCompletions: 2,
+            implementationActivationOnlyFailures: 2,
+          },
+          skillActivationPlugin: {
+            activated: true,
+            failedActivationOnlyCompletions: 1,
+            implementationActivationOnlyFailures: 1,
+          },
+          netWin: 0,
+          wins: 0,
+          ties: 1,
+          losses: 0,
+          trials: [],
+        },
+        {
+          scenarioName: "explain the approach",
+          expectActivation: true,
+          stimulusWork: { kind: "answer" },
+          skillActivationIsolated: {
+            activated: true,
+            failedActivationOnlyCompletions: 1,
+            implementationActivationOnlyFailures: 0,
+          },
+          netWin: 0,
+          wins: 0,
+          ties: 1,
+          losses: 0,
+          trials: [],
+        },
+      ],
+    },
+  ]);
+
+  assert.match(markdown, /Implementation stop after skill activation: isolated 2 failed runs/);
+  assert.match(markdown, /Implementation stop after skill activation: plugin 1 failed run/);
+  assert.match(markdown, /Activation-only stop: isolated 1 failed run/);
+  assert.doesNotMatch(markdown, /Activation-only stop: plugin/);
+  assert.match(markdown, /Inspect implementation prompts that ended after only loading the skill/);
+});
+
 test("prioritizes activation-only diagnosis over preference-loss guidance", () => {
   const markdown = render([
     {

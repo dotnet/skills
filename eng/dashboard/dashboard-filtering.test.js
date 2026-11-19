@@ -339,6 +339,46 @@ test('efficiency legend gives high overfitting precedence per entry without losi
   assert.match(tooltip, /model-b efficiency/);
 });
 
+test('verdict evidence separates implementation stops after activation', async (t) => {
+  const quality = qualityEntry('model-a', '2026-09-20T00:00:00Z', 8);
+  quality.verdictEvidence = [{
+    skillName: 'demo-skill',
+    skillKind: 'invocable',
+    reason: 'test',
+    activationScenarios: [{
+      scenarioName: 'implement-feature',
+      expectation: 'active',
+      isolated: 'activated',
+      plugin: 'activated',
+      workKind: 'implementation',
+      isolatedActivationOnlyFailedRuns: 3,
+      isolatedImplementationStopRuns: 2,
+      pluginActivationOnlyFailedRuns: 1,
+      pluginImplementationStopRuns: 0,
+    }, {
+      scenarioName: 'legacy-scenario',
+      expectation: 'active',
+      isolated: 'activated',
+      isolatedActivationOnlyFailedRuns: 1,
+    }],
+  }];
+  const pluginData = {
+    entries: {
+      Quality: [quality],
+      Efficiency: [efficiencyEntry('model-a', '2026-09-20T00:00:00Z', 10)],
+    },
+  };
+  const { document } = await renderDashboard(t, pluginData, 2);
+
+  const html = document.getElementById('verdict-evidence-sample').innerHTML;
+  assert.match(html, /2 isolated implementation stops after activation/);
+  assert.match(html, /2 isolated failed after activation/);
+  assert.match(html, /1 plugin failed after activation/);
+  assert.doesNotMatch(html, /plugin implementation stop/);
+  assert.match(html, /work: implementation; isolated implementation stops after activation: 2; isolated activation-only failures: 1; plugin activation-only failures: 1/);
+  assert.match(html, /legacy-scenario<\/strong> \(should activate\): isolated: [^<]*; isolated activation-only failures: 1/);
+});
+
 test('model filtering limits legend items and resets visibility metadata for the toggled model', async (t) => {
   const models = Array.from({ length: 10 }, (_, index) => `model-${index + 1}`);
   const pluginData = {

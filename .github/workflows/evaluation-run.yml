@@ -665,6 +665,7 @@ jobs:
             "$RUNNER_TEMP/evaluation-tools/"
           cp "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/sdk-startup.mjs" \
             "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/vally.mjs" \
+            "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/runtime-identity.mjs" \
             "$RUNNER_TEMP/evaluation-tools/"
           npm ci \
             --prefix "$RUNNER_TEMP/evaluation-tools" \
@@ -1111,6 +1112,32 @@ jobs:
             fi
           fi
 
+          # Record the runtime that trials actually start (the SDK bundles its
+          # own runtime, distinct from the @github/copilot CLI used by the
+          # token probe) and a hash of the tool schema each model is offered.
+          # The adapter stamps this on every verdict so a model-specific
+          # behavior change can be attributed to the model, the runtime, or the
+          # tool surface. Mirror Vally's isolated COPILOT_HOME and run outside
+          # the evaluated checkout. Provenance is diagnostic: never fail on it.
+          RUNTIME_IDENTITY="$GITHUB_WORKSPACE/$RESULTS_DIR/runtime-identity.json"
+          IDENTITY_HOME=$(mktemp -d)
+          if ! (
+            cd "$RUNNER_TEMP"
+            COPILOT_HOME="$IDENTITY_HOME" timeout --signal=TERM --kill-after=15s 5m \
+              node "$RUNNER_TEMP/evaluation-tools/runtime-identity.mjs" \
+                --output "$RUNTIME_IDENTITY" \
+                --model "$MODEL" \
+                --model "$JUDGE_MODEL"
+          ); then
+            echo "::warning::Runtime identity capture failed for $PLUGIN; verdicts will omit runtime and tool-schema identity"
+            rm -f "$RUNTIME_IDENTITY"
+          fi
+          rm -rf "$IDENTITY_HOME"
+          IDENTITY_ARGS=()
+          if [ -s "$RUNTIME_IDENTITY" ]; then
+            IDENTITY_ARGS=(--execution-context "$RUNTIME_IDENTITY")
+          fi
+
           VALLY_LOG="$RUNNER_TEMP/vally-$PLUGIN.log"
           set +e
           vally experiment run "$EXPERIMENT_FILE" \
@@ -1206,6 +1233,8 @@ jobs:
           # compare` per skill (in the adapter) to produce the per-skill
           # results.json downstream jobs consume. The adapter auto-detects the
           # `plugin` variant when present. `vally` is on PATH here.
+          # Native session logs under RUN_DIR and the executor-retry tree supply
+          # the observed runtime, provider, effort, and context tier per trial.
           # Comparisons are serial and depend on a remote judge. Bound this
           # phase more tightly than the whole evaluation step so a stalled
           # comparison returns control before the step-level watchdog.
@@ -1219,6 +1248,8 @@ jobs:
               --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
               --model "$MODEL" \
               --judge-model "$JUDGE_MODEL" \
+              --session-log-root "$RESULTS_DIR/_executor-retry" \
+              "${IDENTITY_ARGS[@]}" \
               "${OVERFIT_ARGS[@]}"
           ADAPT_STATUS=$?
           set -e
