@@ -222,7 +222,8 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   # Deleting an evaluation input changes the harness, so infrastructure
   # detection includes deletions. Target extraction below keeps ACMR because
   # deleted skills, agents, and workflow packages cannot be evaluated.
-  $infraCandidateFiles = git diff --name-only --diff-filter=ACMRD $mergeBase $head
+  # --no-renames reports a renamed input's old path as a deletion.
+  $infraCandidateFiles = git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head
 
   # Check if any changed files are in infrastructure paths. The native
   # custom-agent lane executes eng/skill-validator/src, so those source

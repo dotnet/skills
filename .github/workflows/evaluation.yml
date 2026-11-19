@@ -185,8 +185,9 @@ jobs:
           $mergeBase = git merge-base $base $head
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
           # Deleting an evaluation input changes the harness; deleted skills
-          # or packages alone leave nothing to evaluate.
-          $infraCandidateFiles = git diff --name-only --diff-filter=ACMRD $mergeBase $head
+          # or packages alone leave nothing to evaluate. --no-renames reports a
+          # renamed input's old path as a deletion.
+          $infraCandidateFiles = git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
             Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
@@ -264,7 +265,7 @@ jobs:
           $head = "FETCH_HEAD"
           $mergeBase = git merge-base $base $head
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
-          $infraCandidateFiles = git diff --name-only --diff-filter=ACMRD $mergeBase $head
+          $infraCandidateFiles = git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
             Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |

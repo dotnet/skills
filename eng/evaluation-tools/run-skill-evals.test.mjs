@@ -123,7 +123,13 @@ if (args[0] === "experiment") {
     const path = join(run, "plugin", "results.jsonl");
     const records = readFileSync(path, "utf8").trim().split("\\n").map(JSON.parse);
     const record = records.find(r => r.type === "trial-result");
-    record.grade = { ...record.grade, status: "error" };
+    // Mutate the real persisted schema: an errored nested grader outcome.
+    const detail = record.gradeResult?.details?.[0];
+    if (!detail) {
+      console.error("Expected a Vally gradeResult with grader details");
+      process.exit(41);
+    }
+    detail.status = "error";
     writeFileSync(path, records.map(JSON.stringify).join("\\n") + "\\n");
   }
   if (mode === "unexpected") {

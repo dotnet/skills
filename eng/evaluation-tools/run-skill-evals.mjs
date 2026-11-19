@@ -134,7 +134,7 @@ function executorErrorsRecovered(runDir, retrySummaryPath) {
       if (!line.trim()) continue;
       const record = JSON.parse(line);
       if (record?.type === "trial-result"
-        && (record.status === "error" || (record.grade && hasGraderError(record.grade)))) {
+        && (record.status === "error" || (record.gradeResult && hasGraderError(record.gradeResult)))) {
         return false;
       }
     }

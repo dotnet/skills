@@ -228,6 +228,17 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("is_infra=true", self.output.read_text(encoding="utf-8"))
         base = head
+        # A rename must still expose the removed recognized input path.
+        self.git("mv", "eng/evaluation/nuget.config", "eng/evaluation/nuget.config.disabled")
+        head = self.commit_fixture("Rename feed configuration")
+        self.assertTrue(self.git("diff", "--name-status", base, head).startswith("R100"))
+        verify_status(base, head, "true")
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("is_infra=true", self.output.read_text(encoding="utf-8"))
+        base = head
         (self.root / "README.md").write_text("Documentation only\n", encoding="utf-8")
         head = self.commit_fixture("Change documentation")
         verify_status(base, head, "false")
