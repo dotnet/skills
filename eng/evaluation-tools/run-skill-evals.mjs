@@ -125,15 +125,30 @@ function normalizedEvalFile(path) {
 
 function hasExpectedEvidence(path, expected) {
   if (!existsSync(path) || readFileSync(path, "utf8").trim() === "") return false;
-  const evals = new Set();
+  const observed = [];
   for (const line of readFileSync(path, "utf8").split("\n")) {
     if (!line.trim()) continue;
     const record = JSON.parse(line);
     if (record?.type === "trial-result") {
-      evals.add(normalizedEvalFile(record.experiment?.evalFile));
+      const evalFile = normalizedEvalFile(record.experiment?.evalFile);
+      const stimulus = record.stimulus ?? record.gradeResult?.stimulusName ?? record.stimulusName;
+      const trialMatch = /::trial-(\d+)$/.exec(String(record.shardKey ?? ""));
+      const trialIndex = Number.isInteger(record.trialIndex)
+        ? record.trialIndex
+        : trialMatch ? Number(trialMatch[1]) : null;
+      if (evalFile && stimulus && Number.isInteger(trialIndex) && trialIndex >= 0) {
+        observed.push(JSON.stringify([evalFile, stimulus, trialIndex]));
+      }
     }
   }
-  return expected.every(item => evals.has(normalizedEvalFile(item.path)));
+  const expectedSlots = expected.flatMap(item =>
+    item.stimuli.flatMap(stimulus =>
+      Array.from({ length: item.runs }, (_, trialIndex) =>
+        JSON.stringify([normalizedEvalFile(item.path), stimulus, trialIndex]))));
+  const observedSet = new Set(observed);
+  return observed.length === expectedSlots.length
+    && observedSet.size === observed.length
+    && expectedSlots.every(slot => observedSet.has(slot));
 }
 
 // Vally exits 1 for any execution, grader or cleanup error. Treat that exit as
@@ -278,7 +293,16 @@ async function execute({ root, env, plugin, skill, workers, session }) {
       throw new Error(`Set explicit model and judge_model defaults for ${path}.`);
     }
     const group = groups.get(pluginName) ?? [];
-    group.push({ path, plugin: pluginName, skill: skillName, model: defaults.model, judge: defaults.judge_model });
+    group.push({
+      path,
+      plugin: pluginName,
+      skill: skillName,
+      model: defaults.model,
+      judge: defaults.judge_model,
+      runs: defaults.runs ?? 1,
+      stimuli: plan.effectiveSpec.stimuli.map(stimulus =>
+        typeof stimulus === "string" ? stimulus : stimulus.name ?? stimulus.stimulusName),
+    });
     groups.set(pluginName, group);
   }
   if (groups.size === 0) throw new Error("No skill evals selected.");
@@ -365,6 +389,11 @@ async function execute({ root, env, plugin, skill, workers, session }) {
       } else if (status === 1 && executorErrorsRecovered(runDir, retrySummary, expected)) {
         console.warn("Experiment exited 1 only for executor errors that the shared retry recovered; result accounting decides the outcome.");
         failure = 0;
+      }
+      if (!["baseline", "skilled", "plugin"].every(variant =>
+        hasExpectedEvidence(join(runDir, variant, "results.jsonl"), expected))) {
+        console.error("Experiment evidence is incomplete: every planned stimulus/trial slot must be present in baseline, skilled, and plugin arms.");
+        failure ||= 1;
       }
       if (status !== 0 && failure) {
         console.error(`Experiment exited ${status}; preserving and adapting partial evidence, not reporting success.`);

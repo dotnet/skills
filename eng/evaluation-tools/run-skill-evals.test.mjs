@@ -103,6 +103,21 @@ if (args[0] === "experiment") {
   const output = option("--output-dir");
   const run = join(output, readdirSync(output, { withFileTypes: true }).find(e => e.isDirectory()).name);
   if (mode === "partial") rmSync(join(run, "skilled", "results.jsonl"));
+  if (mode === "missing-plugin") rmSync(join(run, "plugin", "results.jsonl"));
+  if (mode === "missing-trial") {
+    const path = join(run, "plugin", "results.jsonl");
+    const records = readFileSync(path, "utf8").trim().split("\\n").map(JSON.parse);
+    const removed = records.findIndex(r => r.type === "trial-result");
+    if (removed >= 0) records.splice(removed, 1);
+    writeFileSync(path, records.map(JSON.stringify).join("\\n") + "\\n");
+  }
+  if (mode === "duplicate-slot") {
+    const path = join(run, "plugin", "results.jsonl");
+    const records = readFileSync(path, "utf8").trim().split("\\n").map(JSON.parse);
+    const record = records.find(r => r.type === "trial-result");
+    records.push(record);
+    writeFileSync(path, records.map(JSON.stringify).join("\\n") + "\\n");
+  }
   if (mode === "recover-missing-plugin") rmSync(join(run, "plugin", "results.jsonl"));
   if (mode === "missing-eval") {
     for (const variant of ["baseline", "skilled", "plugin"]) {
@@ -259,6 +274,9 @@ test("a full local invocation reconciles each plugin separately without includin
 
 for (const [mode, expectedStatus, message] of [
   ["partial", 1, /Result accounting failed/],
+  ["missing-plugin", 1, /Experiment evidence is incomplete/],
+  ["missing-trial", 1, /Experiment evidence is incomplete/],
+  ["duplicate-slot", 1, /Experiment evidence is incomplete/],
   ["unexpected", 1, /Result accounting failed/],
   ["judge-error", 1, /Result accounting failed/],
   ["nonzero", 23, /Experiment exited 23/],
