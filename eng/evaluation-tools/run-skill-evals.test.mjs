@@ -103,6 +103,7 @@ if (args[0] === "experiment") {
   const output = option("--output-dir");
   const run = join(output, readdirSync(output, { withFileTypes: true }).find(e => e.isDirectory()).name);
   if (mode === "partial") rmSync(join(run, "skilled", "results.jsonl"));
+  if (mode === "recover-missing-plugin") rmSync(join(run, "plugin", "results.jsonl"));
   if (mode === "missing-eval") {
     for (const variant of ["baseline", "skilled", "plugin"]) {
       const path = join(run, variant, "results.jsonl");
@@ -130,6 +131,14 @@ if (args[0] === "experiment") {
       process.exit(41);
     }
     detail.status = "error";
+    writeFileSync(path, records.map(JSON.stringify).join("\\n") + "\\n");
+  }
+  if (mode === "recover-missing-plugin" && !args.includes("--variant")) {
+    const path = join(run, "skilled", "results.jsonl");
+    const records = readFileSync(path, "utf8").trim().split("\\n").map(JSON.parse);
+    const record = records.find(r => r.type === "trial-result");
+    record.status = "error";
+    record.error = "Timeout after 60000ms waiting for session.idle";
     writeFileSync(path, records.map(JSON.stringify).join("\\n") + "\\n");
   }
   if (mode === "unexpected") {
@@ -257,6 +266,7 @@ for (const [mode, expectedStatus, message] of [
   // Exit 1 is explained only when every error was a recovered executor error.
   ["unexplained", 1, /Experiment exited 1; preserving/],
   ["recover-grader-error", 1, /Experiment exited 1; preserving/],
+  ["recover-missing-plugin", 1, /Experiment exited 1; preserving/],
 ]) {
   test(`local runner fails closed for ${mode} while preserving diagnostics`, t => {
     const root = fixture(t);
@@ -350,4 +360,19 @@ test("recognized executor failures use the shared bounded retry before accountin
   const retries = calls.filter(args => args.includes("--variant"));
   assert.equal(retries.length, 1);
   assert.equal(retries[0][retries[0].indexOf("--variant") + 1], "skilled");
+});
+
+test("recovered timeout with missing plugin evidence fails closed without publishing partial verdicts", t => {
+  const root = fixture(t);
+  const result = execute(root, ["alpha"], "recover-missing-plugin");
+  assert.equal(result.status, 1, result.output);
+  assert.match(result.output, /Experiment exited 1; preserving/);
+  assert.equal(existsSync(join(root, "results", "alpha", "target", "results.json")), false);
+});
+
+test("unexpected adapter output stays in invocation diagnostics and cannot overwrite persistent results", t => {
+  const root = fixture(t);
+  const result = execute(root, ["alpha"], "unexpected");
+  assert.equal(result.status, 1, result.output);
+  assert.equal(existsSync(join(root, "results", "alpha", "unexpected", "results.json")), false);
 });

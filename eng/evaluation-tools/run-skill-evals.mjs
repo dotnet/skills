@@ -119,17 +119,34 @@ function hasGraderError(result) {
   return result?.status === "error" || (result?.details?.some(hasGraderError) ?? false);
 }
 
+function normalizedEvalFile(path) {
+  return path?.replaceAll("\\", "/").replace(/^\.\/+/, "");
+}
+
+function hasExpectedEvidence(path, expected) {
+  if (!existsSync(path) || readFileSync(path, "utf8").trim() === "") return false;
+  const evals = new Set();
+  for (const line of readFileSync(path, "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    const record = JSON.parse(line);
+    if (record?.type === "trial-result") {
+      evals.add(normalizedEvalFile(record.experiment?.evalFile));
+    }
+  }
+  return expected.every(item => evals.has(normalizedEvalFile(item.path)));
+}
+
 // Vally exits 1 for any execution, grader or cleanup error. Treat that exit as
 // explained only when the shared retry recovered every executor error and the
 // merged evidence contains no remaining trial or grader error in any arm.
-function executorErrorsRecovered(runDir, retrySummaryPath) {
+function executorErrorsRecovered(runDir, retrySummaryPath, expected) {
   const summary = readJson(retrySummaryPath);
   if (!(summary.recoveredSlotCount > 0) || summary.unresolvedSlotCount !== 0 || summary.skippedReason) {
     return false;
   }
-  for (const entry of readdirSync(runDir, { withFileTypes: true })) {
-    const path = join(runDir, entry.name, "results.jsonl");
-    if (!entry.isDirectory() || !existsSync(path)) continue;
+  for (const variant of ["baseline", "skilled", "plugin"]) {
+    const path = join(runDir, variant, "results.jsonl");
+    if (!hasExpectedEvidence(path, expected)) return false;
     for (const line of readFileSync(path, "utf8").split("\n")) {
       if (!line.trim()) continue;
       const record = JSON.parse(line);
@@ -140,6 +157,15 @@ function executorErrorsRecovered(runDir, retrySummaryPath) {
     }
   }
   return true;
+}
+
+function publishResults(adaptedRoot, outputRoot, expected) {
+  for (const item of expected) {
+    const source = join(adaptedRoot, item.plugin, item.skill, "results.json");
+    const destination = join(outputRoot, item.plugin, item.skill, "results.json");
+    mkdirSync(dirname(destination), { recursive: true });
+    copyFileSync(source, destination);
+  }
 }
 
 function reconcile(outputRoot, expected, summaryPath) {
@@ -336,7 +362,7 @@ async function execute({ root, env, plugin, skill, workers, session }) {
       if (retryStatus !== 0) {
         console.error(`Executor retry exited ${retryStatus}; transient executor errors may remain unrecovered.`);
         failure ||= retryStatus;
-      } else if (status === 1 && executorErrorsRecovered(runDir, retrySummary)) {
+      } else if (status === 1 && executorErrorsRecovered(runDir, retrySummary, expected)) {
         console.warn("Experiment exited 1 only for executor errors that the shared retry recovered; result accounting decides the outcome.");
         failure = 0;
       }
@@ -344,18 +370,25 @@ async function execute({ root, env, plugin, skill, workers, session }) {
         console.error(`Experiment exited ${status}; preserving and adapting partial evidence, not reporting success.`);
       }
       // Never reconcile a summary left by an earlier group or invocation.
-      const adapterSummary = join(outputRoot, "adapter-summary.json");
-      rmSync(adapterSummary, { force: true });
+      const adaptedRoot = join(groupDir, "adapted-results");
+      const adapterSummary = join(adaptedRoot, "adapter-summary.json");
+      rmSync(adaptedRoot, { recursive: true, force: true });
       await requireSuccess("Result adapter", process.execPath, [
         join(adapterDir, "adapt.mjs"), "--experiment-dir", runDir,
-        "--output-root", outputRoot, "--repo-root", root,
+        "--output-root", adaptedRoot, "--repo-root", root,
         "--expected-evals", manifest, "--vally", command,
         "--model", expected[0].model, "--judge-model", expected[0].judge,
       ], context, 60);
       if (!existsSync(adapterSummary)) throw new Error("Result adapter did not write adapter-summary.json.");
       const summaryPath = join(groupDir, "adapter-summary.json");
       copyFileSync(adapterSummary, summaryPath);
-      verdicts.push(...reconcile(outputRoot, expected, summaryPath));
+      const groupVerdicts = reconcile(adaptedRoot, expected, summaryPath);
+      if (failure === 0) {
+        verdicts.push(...groupVerdicts);
+        publishResults(adaptedRoot, outputRoot, expected);
+      } else {
+        console.error(`Skipping persistent verdict publication for ${name} because the experiment exited ${failure}.`);
+      }
     } catch (error) {
       if (error.interrupted) throw error;
       console.error(`${name}: ${error.message}`);
