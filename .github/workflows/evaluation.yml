@@ -184,6 +184,9 @@ jobs:
           $head = "${{ github.event.pull_request.head.sha }}"
           $mergeBase = git merge-base $base $head
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+          # Deleting an evaluation input changes the harness; deleted skills
+          # or packages alone leave nothing to evaluate.
+          $infraCandidateFiles = git diff --name-only --diff-filter=ACMRD $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
             Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
@@ -192,11 +195,16 @@ jobs:
           # Evaluation pipeline changes need a re-eval. The native custom-agent
           # lane executes eng/skill-validator/src, so changes there are evaluator
           # infrastructure changes. Documentation files don't affect evaluation.
-          $hasInfraChanges = $changedFiles |
+          $hasInfraChanges = $infraCandidateFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
+              ($_ -match '^eng/evaluation-tools/') -or
+              ($_ -match '^eng/run-skill-evals\.sh$') -or
               ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/nuget\.config$') -or
               ($_ -match '^eng/skill-validator/src/') -or
+              ($_ -match '^eng/skill-validator/Directory\.Build\.props$') -or
+              ($_ -match '^global\.json$') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
@@ -256,16 +264,22 @@ jobs:
           $head = "FETCH_HEAD"
           $mergeBase = git merge-base $base $head
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+          $infraCandidateFiles = git diff --name-only --diff-filter=ACMRD $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
             Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
 
-          $hasInfraChanges = $changedFiles |
+          $hasInfraChanges = $infraCandidateFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
+              ($_ -match '^eng/evaluation-tools/') -or
+              ($_ -match '^eng/run-skill-evals\.sh$') -or
               ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/nuget\.config$') -or
               ($_ -match '^eng/skill-validator/src/') -or
+              ($_ -match '^eng/skill-validator/Directory\.Build\.props$') -or
+              ($_ -match '^global\.json$') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
