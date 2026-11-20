@@ -32,11 +32,16 @@ public class BaselineStoreTests
         Path.Combine(Path.GetTempPath(), $"sv-baseline-test-{Guid.NewGuid():N}.json");
 
     [TestMethod]
-    public void ExecutionContractChangesInvalidateLegacyBaselineIdentity()
+    [DataRow("")]
+    [DataRow("workspace-and-typed-shell-permissions-v3")]
+    [DataRow("absolute-trusted-shell-permissions-v4")]
+    [DataRow("literal-path-shell-permissions-v5")]
+    public void ExecutionContractChangesInvalidateLegacyBaselineIdentity(string previousContract)
     {
         var scenario = Scenario("legacy", "Inspect the project.");
         var inputs = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("\0no-setup\0")));
-        var legacyCriteria = $"turns=\0tokens=\0timeout={scenario.Timeout}\0";
+        var legacyCriteria = (previousContract.Length > 0 ? $"executor={previousContract}\0" : "")
+            + $"turns=\0tokens=\0timeout={scenario.Timeout}\0";
         var legacyTarget = Convert.ToHexStringLower(SHA256.HashData(
             Encoding.UTF8.GetBytes(inputs + "\0criteria\0" + legacyCriteria)));
 
@@ -287,6 +292,15 @@ public class BaselineStoreTests
         var withShellDenial = baseScenario with { DenyShell = true };
         var withRejectedAgent = baseScenario with { RejectAgents = ["owner"] };
         var withRejectedRetry = baseScenario with { RejectShellRetries = true };
+        var withAllowedShellCommand = baseScenario with { AllowShellCommands = ["node verify.mjs"] };
+        var withTrustedShellFile = baseScenario with
+        {
+            TrustedShellFiles =
+            [
+                new TrustedShellFile("verify.mjs",
+                    "a08ed6509d365725d5926ddd73cbd2d833afc0cfcc9dec40111ebc7e37c23308"),
+            ],
+        };
 
         var shaBase = BaselineStore.ComputeTargetSha(baseScenario, null);
 
@@ -298,6 +312,8 @@ public class BaselineStoreTests
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withShellDenial, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRejectedAgent, null));
         Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withRejectedRetry, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withAllowedShellCommand, null));
+        Assert.AreNotEqual(shaBase, BaselineStore.ComputeTargetSha(withTrustedShellFile, null));
         Assert.AreEqual(shaBase, BaselineStore.ComputeTargetSha(baseScenario with { DenyShell = false }, null));
 
         // Same criteria → stable identity.
