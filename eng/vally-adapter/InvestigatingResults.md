@@ -101,7 +101,31 @@ Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
 
-### Existing workspace files reported missing or native patches rejected
+### Native session persistence and historical workspace filesystem failures
+
+The current pinned toolchain is Vally/CLI 0.20.0 with Copilot SDK 1.0.26.
+Vally no longer supplies `LocalSessionFsHandler` or a session-fs provider factory.
+It uses native SDK persistence, then exports session history to the requested
+log root before disconnecting. The launcher must not import Vally 0.14's deleted
+internal handler or install a provider rooted at the export destination.
+
+The old workspace proxy and its staged module have been retired. The launcher
+version-checks the reviewed Vally contract and rejects any explicitly supplied
+`createSessionFsProvider` before startup, factory execution or session creation,
+including on resume and without a working directory. Reintroducing that route
+requires reassessing its workspace isolation contract, not widening a version
+allowlist. The shared SDK startup/readiness guard remains in place.
+
+`node --test eng/evaluation-tools/*.test.mjs` exercises the installed Vally
+executor's logged-session configuration through real SDK create/resume methods
+with a stub transport, checks provider rejection and runs the merged-tree
+`vally.mjs --version` launcher. These are credential-free compatibility checks,
+not model runs or a certification of native filesystem isolation. Native SDK
+persistence is upstream behavior; this change adds no host filesystem overlay
+and does not sandbox runtime, shell, log-export or custom tool I/O.
+
+The following describes historical Vally 0.14 evidence, not the current provider
+contract.
 
 With Vally 0.14 and Copilot runtime 1.0.80, native `view` can report
 `Path does not exist` for a file that a shell reader opens at the exact same
@@ -117,7 +141,7 @@ shell edits. Inspect `tool.execution_complete.data.error`, not just the shorter
 normalized tool result. This can affect one executor family more than another
 and inflate its turns/cost even when the final answer and comparison complete.
 
-The launcher installs a Vally-version-checked fail-closed guard for that local
+The historical launcher installed a Vally-version-checked fail-closed guard for that local
 provider during both session creation and resumption. Absolute workspace requests
 outside the provider's existing log root
 are rejected with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED` and an actionable
@@ -128,14 +152,14 @@ retain the original provider's behavior. Paths outside the workspace likewise
 go to the original provider; other provider implementations are not wrapped.
 This guard does not make the original log provider a security sandbox.
 
-**Integration effect:** native workspace reads and patches remain unavailable.
+**Historical integration effect:** native workspace reads and patches remained unavailable.
 Provider-level `exists` rejects, but SDK 1.0.11's adapter catches all `exists`
 errors and returns `{ exists: false }` without an error field. That upstream
 protocol limitation is not corrected here. Read/stat/mutation failures retain
 the actionable message with SDK error code `UNKNOWN`; inspect tool events rather
 than relying on existence probes alone. Shell fallback may still complete a task, but that is not evidence
 of repaired native functionality or successful harness/default certification.
-Tests cover explicit rejection, intermediate-parent swaps, unchanged session-log
+Historical tests covered explicit rejection, intermediate-parent swaps, unchanged session-log
 operations, and the SDK's synchronous factory/session/configuration contract:
 
 ```bash
@@ -161,7 +185,7 @@ equivalent OS isolation boundary around the Node provider and every workspace
 writer. A sandbox around only the CLI is not evidence that provider I/O is
 isolated. There is no trust flag, opt-in path, or environment override that
 re-enables the unsafe overlay. A verified alternative must be implemented and
-validated with swap-race coverage before the guard can be replaced.
+validated with swap-race coverage before such a provider can be reintroduced.
 
 Reassess this compatibility layer on a Vally/SDK upgrade. A local launcher fix
 does not retroactively repair earlier trajectories, and CI uses its trusted
@@ -169,12 +193,11 @@ harness revision; verify that revision before attributing the fix to an official
 run. Read actual `session.start.data.copilotVersion`, not just the installed
 package manifest or a shell CLI's version, when comparing runtime provenance.
 
-The trusted CI install stages `vally.mjs`, `sdk-startup.mjs`, and the sibling
-`workspace-session-fs.mjs` guard together. It runs the staged launcher with
+The trusted CI install stages `vally.mjs` and `sdk-startup.mjs` together. It runs the staged launcher with
 `--version` before token selection; a missing module fails installation rather
 than starting paid trials. Staging tests execute the workflow's copy commands
-and verify local import closure. This deployment check does not restore native
-workspace I/O or certify a default-branch revision.
+and verify local import closure. This deployment check does not certify native
+workspace I/O, confinement or a default-branch revision.
 
 ### Investigation steps
 
@@ -229,7 +252,8 @@ Direct negations and explicit evidence denials apply only to the immediately
 following assertion, with a bounded collector subject where applicable; a later
 affirmative or a claim in another field is still rejected.
 Negated collector/file subjects are scoped to their own collection assertion,
-not later clauses or independent statements.
+not later clauses or independent statements. A denial of a subject-level denial
+does not excuse the resulting positive-record claim.
 These checks use decoded, whitespace-normalized prose rather than JSON
 escapes, so a newline between `No` and `qualifying` is not a failure. The actual
 fixture must also be complete with an empty file inventory. The `No-op` action

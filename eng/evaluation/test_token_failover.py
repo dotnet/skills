@@ -2668,7 +2668,7 @@ esac
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             install_script,
         )
-        for filename in ("sdk-startup.mjs", "workspace-session-fs.mjs", "vally.mjs"):
+        for filename in ("sdk-startup.mjs", "vally.mjs"):
             self.assertIn(
                 f'"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/{filename}"',
                 install_script,
@@ -2708,7 +2708,7 @@ esac
             self.assertEqual(
                 {file.name for file in staged.iterdir()},
                 {"package.json", "package-lock.json", "vally.mjs",
-                 "sdk-startup.mjs", "workspace-session-fs.mjs"},
+                 "sdk-startup.mjs"},
             )
             pending = [staged / "vally.mjs"]
             visited = set()
@@ -2727,7 +2727,7 @@ esac
                 for dependency in imports:
                     if not dependency.startswith("./node_modules/"):
                         pending.append(module.parent / dependency)
-            self.assertIn(staged / "workspace-session-fs.mjs", visited)
+            self.assertIn(staged / "sdk-startup.mjs", visited)
 
     def test_evaluation_tool_manifest_has_secretless_smoke_test(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))

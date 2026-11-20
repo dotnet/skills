@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { CopilotClient } from '@github/copilot-sdk';
-import { LocalSessionFsHandler } from './node_modules/@microsoft/vally/dist/executor/local-session-fs-handler.js';
+import { CopilotSdkExecutor } from '@microsoft/vally/executor';
 import './sdk-startup.mjs';
 
 function deferred() {
@@ -134,82 +137,60 @@ test('ready clients still create sessions concurrently', async () => {
   assert.equal(calls.filter(c => c === 'spawn').length, 1);
 });
 
-async function workspaceRejectionTest(method) {
-  const { client, entered, release } = clientFixture();
-  const starting = client.start();
-  await entered.promise;
-  release.resolve();
-  await starting;
-  const root = await mkdtemp(path.join(process.cwd(), '.workspace-fs-test-'));
-  try {
-    const workspace = path.join(root, 'workspace');
-    const logs = path.join(root, 'logs');
-    await Promise.all([workspace, logs].map(file => mkdir(file)));
-    const file = path.join(workspace, 'reference.md');
-    await writeFile(file, 'actual reference\n');
-    const provider = new LocalSessionFsHandler(logs);
-    await assert.rejects(provider.stat(file), /escapes root/);
-    await assert.rejects(provider.readFile(file), /escapes root/);
-    let suppliedSession;
-    let installedProvider;
-    const config = {
-      workingDirectory: workspace,
-      createSessionFsProvider: session => { suppliedSession = session; return provider; },
-    };
-    client.setupSessionFs = (session, options) => {
-      installedProvider = options.createSessionFsProvider(session);
-      assert.equal(suppliedSession, session);
-      assert.equal(installedProvider.then, undefined);
-    };
-    const originalFactory = config.createSessionFsProvider;
-    const session = method === 'createSession'
-      ? await client.createSession(config)
-      : await client.resumeSession('resumed-trial', config);
-    assert.equal(config.createSessionFsProvider, originalFactory);
-    assert.equal(config.workingDirectory, workspace);
-    assert.equal(suppliedSession, session);
-    const rejection = { code: 'ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED' };
-    await assert.rejects(installedProvider.stat(file), rejection);
-    await assert.rejects(installedProvider.readFile(file), rejection);
-    await installedProvider.writeFile('events.jsonl', 'session log\n');
-    assert.equal(await installedProvider.readFile('events.jsonl'), 'session log\n');
-  } finally {
-    await rm(root, { recursive: true });
-  }
-}
-
 for (const method of ['createSession', 'resumeSession']) {
-  test(`${method} installs workspace rejection and preserves the synchronous provider factory and session argument`,
-    () => workspaceRejectionTest(method));
-
-  test(`${method} leaves non-local providers and caller configuration unchanged`, async () => {
-    const { client, entered, release } = clientFixture();
-    const starting = client.start();
-    await entered.promise;
-    release.resolve();
-    await starting;
-    const provider = {
-      readFile: async () => 'custom provider',
-    };
-    let suppliedSession;
-    let installedProvider;
+  test(`${method} rejects unsupported filesystem factories before startup or provider I/O`, async () => {
+    const { client, calls } = clientFixture();
+    let invoked = false;
     const config = {
       workingDirectory: process.cwd(),
-      createSessionFsProvider: session => { suppliedSession = session; return provider; },
+      createSessionFsProvider: () => { invoked = true; throw new Error('must not run'); },
     };
     const originalFactory = config.createSessionFsProvider;
-    client.setupSessionFs = (session, options) => {
-      installedProvider = options.createSessionFsProvider(session);
-      assert.equal(suppliedSession, session);
-      assert.equal(installedProvider, provider);
-      assert.equal(installedProvider.then, undefined);
-    };
-    const session = method === 'createSession'
-      ? await client.createSession(config)
-      : await client.resumeSession('custom-resumed-trial', config);
-    assert.equal(suppliedSession, session);
+    await assert.rejects(
+      method === 'createSession' ? client.createSession(config) : client.resumeSession('trial', config),
+      /filesystem providers are unsupported.*native SDK/);
+    assert.equal(invoked, false);
+    assert.deepEqual(calls, []);
     assert.equal(config.createSessionFsProvider, originalFactory);
     assert.equal(config.workingDirectory, process.cwd());
-    assert.equal(await installedProvider.readFile(path.join(process.cwd(), 'workspace-file')), 'custom provider');
+  });
+
+  test(`installed Vally logged ${method} configuration reaches the real SDK without a provider`, async () => {
+    const root = await mkdtemp(path.join(process.cwd(), '.vally-session-test-'));
+    const { client, release, calls } = clientFixture();
+    client.sessionFsConfig = null;
+    client.stop = async () => [];
+    release.resolve();
+    const executor = new CopilotSdkExecutor({ createClient: () => client, flushWindowMs: 0 });
+    let reached = false;
+    executor.runTurn = async (run, handle, stimulus, options, config, logRoot) => {
+      reached = true;
+      assert.equal(config.workingDirectory, root);
+      assert.equal(config.createSessionFsProvider, undefined);
+      assert.equal(logRoot, path.join(root, 'logs'));
+      assert.deepEqual(config.infiniteSessions, { enabled: false });
+      return method === 'createSession'
+        ? handle.client.createSession({ ...config, sessionId: 'native-trial' })
+        : handle.client.resumeSession('native-trial', config);
+    };
+    try {
+      const session = await executor.execute({ prompt: 'unused; no model invocation' }, {
+        model: 'unused', workDir: root, timeout: 5000,
+        sessionLog: { rootDir: path.join(root, 'logs'), sessionID: 'native-trial' },
+      });
+      assert.equal(reached, true);
+      assert.equal(session.sessionId, 'native-trial');
+      assert.equal(calls.filter(call => call === 'sessionFs.setProvider').length, 0);
+    } finally {
+      await executor.shutdown();
+      await rm(root, { recursive: true });
+    }
   });
 }
+
+test('merged-tree launcher loads the installed pinned CLI without credentials or model calls', async () => {
+  const { stdout } = await promisify(execFile)(
+    process.execPath, [fileURLToPath(new URL('./vally.mjs', import.meta.url)), '--version'],
+    { timeout: 30_000 });
+  assert.equal(stdout.trim(), '0.20.0');
+});

@@ -1,7 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { CopilotClient } from '@github/copilot-sdk';
-import { LocalSessionFsHandler } from './node_modules/@microsoft/vally/dist/executor/local-session-fs-handler.js';
-import { withWorkspaceIsolationGuard } from './workspace-session-fs.mjs';
 
 const sdkPackage = new URL('../package.json', import.meta.resolve('@github/copilot-sdk'));
 const { version } = JSON.parse(readFileSync(sdkPackage, 'utf8'));
@@ -10,8 +8,8 @@ if (!['1.0.11', '1.0.13', '1.0.14', '1.0.15', '1.0.26'].includes(version)) {
 }
 const { version: vallyVersion } = JSON.parse(readFileSync(
   new URL('./node_modules/@microsoft/vally/package.json', import.meta.url), 'utf8'));
-if (vallyVersion !== '0.14.0') {
-  throw new Error(`Reassess the evaluation workspace-filesystem compatibility layer for Vally ${vallyVersion}`);
+if (vallyVersion !== '0.20.0') {
+  throw new Error(`Reassess the evaluation native-session persistence contract for Vally ${vallyVersion}`);
 }
 
 // SDK 1.0.11, 1.0.13, and 1.0.14 can start multiple transports. Supported versions
@@ -34,20 +32,15 @@ CopilotClient.prototype.start = function (...args) {
 for (const method of ['createSession', 'resumeSession']) {
   const original = CopilotClient.prototype[method];
   CopilotClient.prototype[method] = async function (...args) {
-    await this.start();
     const configIndex = method === 'createSession' ? 0 : 1;
     const config = args[configIndex];
-    if (config?.createSessionFsProvider && config.workingDirectory) {
-      args[configIndex] = {
-        ...config,
-        createSessionFsProvider: (...factoryArgs) => {
-          const provider = config.createSessionFsProvider(...factoryArgs);
-          return provider instanceof LocalSessionFsHandler
-            ? withWorkspaceIsolationGuard(provider, config.workingDirectory)
-            : provider;
-        },
-      };
+    if (config?.createSessionFsProvider) {
+      throw new Error(
+        'Evaluation session filesystem providers are unsupported: Vally 0.20 uses native SDK ' +
+        'persistence and exports session history without a session-log filesystem provider. ' +
+        'Reassess workspace isolation before enabling a custom provider.');
     }
+    await this.start();
     return original.apply(this, args);
   };
 }
