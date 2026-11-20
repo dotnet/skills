@@ -98,15 +98,13 @@ stimuli:
         - src: fixtures/assertion-free/SmokeTests/ApiClient.cs
           dest: SmokeTests/ApiClient.cs
     graders:
+      # Match a count and its category in the same clause, in prose or a labeled row.
       - type: output-matches
         config:
-          pattern: (?i)(no assertion|zero assertion|assertion.free|without.*assert|missing.*assert|don.*assert|lack.*assert)
+          pattern: (?im)(?:^|[.,;!?]|\b(?:and|while|whereas|but)\b)(?=(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:5|five)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(?:8|eight)\b)(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:assertion[- ]free|(?:no|zero|without|lack(?:ing)?)\s+(?:any\s+)?assertions?|asserts?\s+nothing)\b
       - type: output-matches
         config:
-          pattern: (?i)\b(5|five)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(8|eight)\b
-      - type: output-matches
-        config:
-          pattern: (?i)\b(3|three)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(8|eight)\b
+          pattern: (?im)(?:^|[.,;!?]|\b(?:and|while|whereas|but)\b)(?=(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:3|three)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(?:8|eight)\b)(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:(?:Assert\.)?IsNotNull|(?:non|not)[- ]null|trivial[- ]only|trivial assertions?)\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -168,10 +166,10 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)\b(GetUser_NonExistent_ReturnsNull|missing[- ]user|nonexistent user|user not found)\b
-      # Look for the expected behavior, independently of where the method is named.
+      # Merely saying a test checks for null does not credit the expected outcome.
       - type: output-matches
         config:
-          pattern: (?i)\b(?:real verification|(?:verif(?:y|ies)|checks?|asserts?|expects?|promised|expected)\b[^.!?;\n]*\b(?:absence|null|missing[- ]user)|(?:absence|null|missing[- ]user)\b[^.!?;\n]*\b(?:expected|contract|meaningful|correct))\b
+          pattern: (?i)\b(?:(?:verif(?:y|ies)|checks?|asserts?)\s+(?:(?:the|its)\s+)?(?:expected|promised)\s+(?:absence|null|missing[- ]user)|(?:GetUser_NonExistent_ReturnsNull|absence|null|missing[- ]user)\b[^.!?;\n]*?\b(?:is|are|as)\s+(?:(?:the|a)\s+)?(?:expected|promised|correct|contract|meaningful|valid|real verification|first[- ]class))\b
       - type: exit-success
       - type: prompt
     rubric:

@@ -75,14 +75,32 @@ class AssertionQualityRegressions(unittest.TestCase):
                 response = f"{five} are assertion-free; {three} use only IsNotNull."
                 self.assertEqual([], grader_errors(item, response))
 
+    def test_smoke_grader_binds_counts_to_categories(self):
+        item = stimulus("Flag assertion-free tests and trivial-only assertions")
+        for report in (
+            "{free} of 8 tests are assertion-free; {trivial} of 8 use only IsNotNull.",
+            "Only IsNotNull: {trivial}/8\nNo assertions: {free}/8",
+            "{free}/8 have no assertions and {trivial}/8 use only a non-null check.",
+            "{trivial}/8 use only Assert.IsNotNull. {free}/8 have zero assertions.",
+        ):
+            with self.subTest(report=report):
+                self.assertEqual([], grader_errors(item, report.format(free=5, trivial=3)))
+                self.assertTrue(grader_errors(item, report.format(free=3, trivial=5)))
+
     def test_good_suite_grader_requires_credit_for_contractual_absence(self):
         item = stimulus("Recognize well-diversified assertion usage")
-        response = (
-            "This suite is not good, strong, diverse, or thorough. Every test is "
-            "assertion-free and should be replaced. GetUser_NonExistent_ReturnsNull "
-            "is weak because it only uses IsNull."
-        )
-        self.assertTrue(grader_errors(item, response))
+        for finding in (
+            "is weak because it only uses IsNull",
+            "is weak because it only checks for null",
+            "checks for null",
+        ):
+            with self.subTest(finding=finding):
+                response = (
+                    "This suite is not good, strong, diverse, or thorough. Every test is "
+                    "assertion-free and should be replaced. GetUser_NonExistent_ReturnsNull "
+                    f"{finding}."
+                )
+                self.assertTrue(grader_errors(item, response))
 
     def test_good_suite_grader_accepts_alternative_contract_explanations(self):
         item = stimulus("Recognize well-diversified assertion usage")
