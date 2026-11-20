@@ -729,9 +729,12 @@ test("preserves a native target-agent activation failure", () => {
     const artifacts = join(root, "artifacts");
     mkdirSync(artifacts);
     renameSync(output, join(artifacts, "vally-results-native"));
-    const status = outcomeStatus(artifacts, [{ name: "native", plugin: "demo", target_kind: "agent", agents_path: "plugins/demo/agents", skills_path: "" }]);
+    const status = outcomeStatus(artifacts, [{ name: "native", plugin: "demo", target_kind: "agent", agents_path: "plugins/demo/agents/router.agent.md", skills_path: "" }]);
     assert.equal(status.state, "failure");
     assert.match(status.description, /1 activation failures/);
+    assert.throws(() => outcomeStatus(artifacts, [{ name: "native", plugin: "demo",
+      target_kind: "agent", agents_path: "plugins/demo/agents/other.agent.md", skills_path: "" }]),
+    /does not belong/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
