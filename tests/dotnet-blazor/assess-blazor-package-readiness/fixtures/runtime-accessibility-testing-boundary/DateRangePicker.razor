@@ -1,0 +1,5 @@
+<div role="group" aria-label="Date range">
+  <button @onclick="Open" aria-expanded="@open">Choose dates</button>
+  @if (open) { <div role="dialog" aria-modal="true"><input aria-label="Start date" /><input aria-label="End date" /><button @onclick="Close">Apply</button></div> }
+</div>
+@code { bool open; void Open() => open = true; void Close() => open = false; }
