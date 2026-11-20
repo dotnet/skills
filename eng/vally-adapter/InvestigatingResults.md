@@ -431,12 +431,12 @@ reproduction that varies one factor at a time on the same commit and runtime:
    matching `--reasoning-effort`, then compare `implementationActivationOnlyFailures`
    and `failureClasses.continuation` per cell.
 
-Read the result as: a stop that follows one model across skill revisions and
-efforts is a model behavior; one that appears only on one runtime version or
-tool-schema hash is a runtime or provider-adapter behavior; one that follows a
-skill revision across models is a wording problem; and one that disappears when
-the skill body is pasted into the prompt implicates the skill-injection
-transcript.
+Read these patterns as hypotheses rather than causal conclusions. A stop that
+follows one model across skill revisions and efforts is model-associated; it
+may still come from that model's provider adapter or tool surface. Attribute it
+to the model only after independently controlling those factors, including the
+executor tool-schema hash. Similarly, runtime-, wording-, and transcript-associated
+changes require otherwise matched cells before assigning a cause.
 
 Issue [#1160](https://github.com/dotnet/skills/issues/1160) tracked a reported
 GPT-5.3 Codex stop after activating `code-testing-agent` on runtime 1.0.80. In
