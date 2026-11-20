@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Retry transient Vally executor timeouts without rerunning successful slots.
+ * Retry transient Vally executor failures without rerunning successful slots.
  *
  * Vally can rerun one eval and variant, but it cannot resume a partial
  * experiment. This tool runs that narrow retry and merges only successful
- * records whose first attempt timed out waiting for session.idle.
+ * records whose first attempt hit a recognized transient executor failure.
  */
 
 import {
@@ -26,7 +26,17 @@ import { pathToFileURL } from "node:url";
 import { normalizeEvalFile, splitVallyCommand } from "./adapt.mjs";
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-const TIMEOUT_PATTERN = /\bTimeout after \d+ms waiting for session\.idle\b/i;
+const SESSION_IDLE_TIMEOUT_PATTERN =
+  /\bTimeout after \d+ms waiting for session\.idle\b/i;
+const STIMULUS_WALL_CLOCK_TIMEOUT_PATTERN =
+  /^Stimulus '.+' timed out after \d+ ms during turn \d+ of \d+$/i;
+const SESSION_DISCONNECT_PATTERN =
+  /^(?:Trial failed:\s*)?Session disconnected while waiting for a response$/i;
+const TRANSIENT_EXECUTOR_ERROR_PATTERNS = [
+  SESSION_IDLE_TIMEOUT_PATTERN,
+  STIMULUS_WALL_CLOCK_TIMEOUT_PATTERN,
+  SESSION_DISCONNECT_PATTERN,
+];
 const REQUIRED_VARIANTS = new Set(["baseline", "skilled"]);
 
 const { values: opts } = parseArgs({
@@ -57,7 +67,7 @@ if (
   node retry-executor-timeouts.mjs --experiment-file <file> \
     --experiment-dir <run-dir> --retry-output-dir <dir> --summary <file> [options]
 
-Retries only trial-result records that timed out waiting for session.idle.
+Retries only trial-result records with a recognized transient executor failure.
 Each affected eval/variant group is rerun up to the configured bounded attempt
 limit. Successful first-attempt and recovered slots are never replaced, and
 unresolved retries remain errors for the adapter gate.
@@ -92,11 +102,12 @@ function slotKey(record) {
   return record.shardKey || "";
 }
 
-function isRetryableTimeout(record) {
+function isRetryableExecutorFailure(record) {
+  const error = typeof record?.error === "string" ? record.error.trim() : "";
   return (
     record?.type === "trial-result" &&
     record.status === "error" &&
-    TIMEOUT_PATTERN.test(record.error ?? "") &&
+    TRANSIENT_EXECUTOR_ERROR_PATTERNS.some((pattern) => pattern.test(error)) &&
     Boolean(evalFileOf(record)) &&
     Boolean(slotKey(record))
   );
@@ -111,7 +122,7 @@ function findRetryGroups(runDir) {
 
     const records = loadJsonl(resultsFile);
     const evalFiles = new Set(
-      records.filter(isRetryableTimeout).map((record) => evalFileOf(record)),
+      records.filter(isRetryableExecutorFailure).map((record) => evalFileOf(record)),
     );
     for (const evalFile of [...evalFiles].sort()) {
       groups.push({ variant: entry.name, evalFile, resultsFile });
@@ -153,7 +164,7 @@ function mergeRetryRecords(originalRecords, retryRecords, evalFile, retryAttempt
   const records = originalRecords.map((record) => {
     const key = slotKey(record);
     if (
-      !isRetryableTimeout(record) ||
+      !isRetryableExecutorFailure(record) ||
       evalFileOf(record) !== normalizedEvalFile ||
       originalCounts.get(key) !== 1
     ) {
@@ -235,10 +246,10 @@ function runRetry(group, index, retryAttempt, config) {
     : "";
   const retryRecords = existsSync(retryResultsFile) ? loadJsonl(retryResultsFile) : [];
   const originalRecords = loadJsonl(group.resultsFile);
-  const timeoutSlots = originalRecords
+  const retryableSlots = originalRecords
     .filter(
       (record) =>
-        isRetryableTimeout(record) && evalFileOf(record) === group.evalFile,
+        isRetryableExecutorFailure(record) && evalFileOf(record) === group.evalFile,
     )
     .map(slotKey);
   const { records, recovered } = mergeRetryRecords(
@@ -255,9 +266,9 @@ function runRetry(group, index, retryAttempt, config) {
     variant: group.variant,
     evalFile: group.evalFile,
     retryAttempt,
-    attemptedSlots: timeoutSlots,
+    attemptedSlots: retryableSlots,
     recoveredSlots: recovered,
-    unresolvedSlots: timeoutSlots.filter((key) => !recovered.includes(key)),
+    unresolvedSlots: retryableSlots.filter((key) => !recovered.includes(key)),
     retryExitCode: exitCode,
   };
 }
@@ -275,7 +286,7 @@ function countUnresolvedSlots(groups) {
       count +
       loadJsonl(group.resultsFile).filter(
         (record) =>
-          isRetryableTimeout(record) && evalFileOf(record) === group.evalFile,
+          isRetryableExecutorFailure(record) && evalFileOf(record) === group.evalFile,
       ).length,
     0,
   );
@@ -288,7 +299,7 @@ function retryExecutorTimeouts(config) {
       count +
       loadJsonl(group.resultsFile).filter(
         (record) =>
-          isRetryableTimeout(record) && evalFileOf(record) === group.evalFile,
+          isRetryableExecutorFailure(record) && evalFileOf(record) === group.evalFile,
       ).length,
     0,
   );
@@ -310,7 +321,7 @@ function retryExecutorTimeouts(config) {
 
   if (groups.length > config.maxGroups) {
     summary.skippedReason =
-      `Found ${groups.length} timeout groups, above the recovery limit of ` +
+      `Found ${groups.length} transient executor failure groups, above the recovery limit of ` +
       `${config.maxGroups}; treating this as a systemic failure.`;
     console.warn(summary.skippedReason);
   } else {
@@ -324,7 +335,8 @@ function retryExecutorTimeouts(config) {
         const pendingSlots = loadJsonl(group.resultsFile)
           .filter(
             (record) =>
-              isRetryableTimeout(record) && evalFileOf(record) === group.evalFile,
+              isRetryableExecutorFailure(record) &&
+              evalFileOf(record) === group.evalFile,
           )
           .map(slotKey);
         if (pendingSlots.length === 0) break;
@@ -342,7 +354,7 @@ function retryExecutorTimeouts(config) {
         summary.attemptedRetryCount++;
         writeSummary(summary, config.summary);
         console.log(
-          `Retrying transient executor timeout for ${group.variant}/${group.evalFile} ` +
+          `Retrying transient executor failure for ${group.variant}/${group.evalFile} ` +
             `(attempt ${retryAttempt})`,
         );
         const attempt = runRetry(group, index, retryAttempt, config);
@@ -358,7 +370,7 @@ function retryExecutorTimeouts(config) {
   summary.activeAttempt = null;
   writeSummary(summary, config.summary);
   console.log(
-    `Executor timeout recovery: ${summary.recoveredSlotCount} recovered, ` +
+    `Executor transient recovery: ${summary.recoveredSlotCount} recovered, ` +
       `${summary.unresolvedSlotCount} unresolved`,
   );
   return summary;
@@ -396,7 +408,7 @@ if (isMain) {
 
 export {
   findRetryGroups,
-  isRetryableTimeout,
+  isRetryableExecutorFailure,
   mergeRetryRecords,
   retryExecutorTimeouts,
 };

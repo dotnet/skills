@@ -7,6 +7,10 @@ stimuli:
   - name: Compare webapi vs webapp side by side
     prompt: "I'm deciding between the 'webapi' and 'webapp' templates for a new .NET project. Compare them side by side — show parameters, which supports authentication, AOT, Docker, and controllers, and the available frameworks. Then recommend one for a JSON REST backend."
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -35,12 +39,13 @@ stimuli:
       - The agent produced a side-by-side comparison table (not just two separate lists)
       - The comparison covered parameters, feature support (auth/AOT/Docker/controllers), and frameworks
       - The agent gave a clear recommendation for a JSON REST backend
-    constraints:
-      expect_tools:
-        - skill
   - name: Choose between blazor and blazorwasm
     prompt: "Which template should I use for an app that needs offline support: 'blazor' (Blazor Web App) or 'blazorwasm' (Blazor WebAssembly Standalone)? Compare the interactivity/hosting trade-offs and recommend one."
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -56,12 +61,14 @@ stimuli:
       - The comparison reflects each template's actual capabilities (not guessed)
       - The agent explained the hosting/interactivity trade-offs (server-rendered vs WebAssembly)
       - The agent connected the offline-support requirement to a concrete recommendation
-    constraints:
-      expect_tools:
-        - skill
   - name: Decide which template fits a background processing scenario
     prompt: "I need to run a long-lived background job that processes a queue. Which template should I use — 'worker' or 'console'? Compare them and justify the choice."
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -74,10 +81,6 @@ stimuli:
       - The agent compared worker and console templates side by side
       - The agent explained why the worker template fits a long-lived queue processor (hosted service lifecycle)
       - The agent did NOT create any project files
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Choose MVC or Razor Pages for an admin portal
     prompt: |
       I'm building a server-rendered internal admin portal with mostly CRUD pages,
@@ -86,6 +89,11 @@ stimuli:
       routing model, auth options, and supported frameworks. Recommend one for this
       situation without creating either project.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -105,10 +113,6 @@ stimuli:
       - The table covers the requested structure, routing, authentication, and framework dimensions
       - The recommendation accounts for both the current CRUD focus and likely growth
       - No project files are created
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Compare REST and gRPC service templates
     prompt: |
       For an internal service-to-service API, should I start from `webapi` or `grpc`?
@@ -116,6 +120,11 @@ stimuli:
       friendliness, streaming, AOT options, and generated project shape. Recommend
       one for high-throughput typed calls between .NET services.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -134,10 +143,6 @@ stimuli:
       - The comparison is grounded in the installed templates and accurately covers all requested dimensions
       - The recommendation connects typed, high-throughput .NET-to-.NET calls to the chosen template
       - Trade-offs such as browser compatibility and streaming are stated clearly
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Choose a Blazor or Razor Pages template
     prompt: |
       Compare `blazor` and `webapp` for a customer portal that needs rich interactive
@@ -145,6 +150,11 @@ stimuli:
       interactivity, authentication, and framework options side by side, then
       recommend a starting template.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -163,10 +173,6 @@ stimuli:
       - The response compares the actual interactivity, authentication, and framework choices exposed by both templates
       - The recommendation balances first-request rendering with the need for rich interactive forms
       - The answer uses a side-by-side presentation rather than unrelated summaries
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Select a test project template for an enterprise suite
     prompt: |
       My organization is choosing among the `xunit`, `nunit`, and `mstest` project
@@ -175,6 +181,10 @@ stimuli:
       Microsoft-supported tooling and Visual Studio integration; make a clear
       recommendation and don't create projects.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -194,6 +204,3 @@ stimuli:
       - The three options are compared on the same requested dimensions
       - The recommendation follows from the stated Microsoft tooling and Visual Studio priorities
       - No project files are created
-    constraints:
-      expect_tools:
-        - skill

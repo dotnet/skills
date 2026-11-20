@@ -1,0 +1,30 @@
+# Supplemental routing experiment for tests/dotnet/csharp-refactoring/coexistence.eval.yaml.
+# Unlike the normal isolated gate, the skilled arm installs the csharp-refactoring and
+# dotnet-breaking-changes pair, so its graders can prove when the second skill co-loads.
+# Vally resolves eval and skill paths relative to this file, so keep it at the repo root.
+name: csharp-refactoring-coexistence
+evals:
+  - tests/dotnet/csharp-refactoring/coexistence.eval.yaml
+overrides:
+  model: gpt-5.6-luna
+  judge_model: claude-haiku-4.5
+vary:
+  - /environment/skills
+baseline: baseline
+variants:
+  baseline:
+    environment:
+      skills: []
+  skilled:
+    environment:
+      skills:
+        - plugins/dotnet/skills/csharp-refactoring
+        - plugins/dotnet/skills/dotnet-breaking-changes
+  plugin:
+    environment:
+      skills:
+        - plugins/dotnet/skills/csharp-expert
+        - plugins/dotnet/skills/csharp-refactoring
+        - plugins/dotnet/skills/dotnet-breaking-changes
+        - plugins/dotnet/skills/msbuild
+        - plugins/dotnet/skills/setup-local-sdk

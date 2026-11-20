@@ -222,13 +222,12 @@ stimuli:
       - Preserved the observed assertion failure at limited confidence and named the truncated failure shard, absent crash upload, and unavailable history.
       - Made the final response inconclusive rather than claiming no crashes, no recurrence, or a complete failure inventory.
   - name: Keep a newer final result ahead of late preliminary evidence
-    expect_activation: true
     prompt: |
       Determine whether this collected update should produce any visible
       response. The evidence phase, current PR state, and existing comments
       are frozen under inputs/. Read RESULT_SCHEMA.md, write the proposed
       action to result.json, and explain the lifecycle decision.
-    tags: {capability: preliminary-final-ordering, risk: regressed-lifecycle, journey: handle-late-update}
+    tags: {capability: preliminary-final-ordering, risk: regressed-lifecycle, journey: handle-late-update, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/late, dest: inputs}, {src: fixtures/late/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -318,13 +317,12 @@ stimuli:
       - Proposed one inconclusive final replacement naming the missing failure shard.
       - Did not leave obsolete preliminary evidence as the current result or claim the earlier failure was fixed.
   - name: Avoid a visible response for an empty complete bundle
-    expect_activation: true
     prompt: |
       Review the collector metadata and current PR comments in inputs/.
       Does this evidence justify a visible update? Read RESULT_SCHEMA.md,
       write the proposed action to result.json, and briefly explain the
       distinction between no qualifying records and test success.
-    tags: {capability: empty-complete-noop, risk: false-success-comment, journey: triage-zero-findings}
+    tags: {capability: empty-complete-noop, risk: false-success-comment, journey: triage-zero-findings, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/empty, dest: inputs}, {src: fixtures/empty/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -379,13 +377,12 @@ stimuli:
       - Proposed one final replacement stating only that the collector recorded no qualifying findings for this build.
       - Did not claim the tests passed or earlier failures were fixed.
   - name: Reject findings for an obsolete tested merge
-    expect_activation: true
     prompt: |
       Determine what response is safe from the collected test evidence and
       latest PR read in inputs/. Read RESULT_SCHEMA.md, write result.json,
       and explain the proposed decision. Do not fetch new evidence or
       modify the repository.
-    tags: {capability: tested-revision-freshness, risk: wrong-merge-comment, journey: handle-tested-base-advance}
+    tags: {capability: tested-revision-freshness, risk: wrong-merge-comment, journey: handle-tested-base-advance, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/stale, dest: inputs}, {src: fixtures/stale/workflow-context.json, dest: workflow-context.json}]
     graders:

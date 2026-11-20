@@ -2,7 +2,7 @@
 
 /**
  * Convert the native SDK custom-agent evaluator output into the current
- * Vally-adapter result schema. Vally 0.14 cannot register custom agents, so
+ * Vally-adapter result schema. Current Vally cannot register custom agents, so
  * agent evals use skill-validator's Copilot SDK runner for execution and this
  * adapter keeps them and offline workflow-package runs in the same reporting
  * pipeline as skills, with distinct target and execution-lane identities.
@@ -551,7 +551,9 @@ function writeResult(outputRoot, evalFile, identity, verdict, model, judgeModel,
       timestamp: new Date().toISOString(),
       expectedEval,
       evaluationLane: identity.evaluationLane,
-      verdicts: [verdict],
+      // Also stamp evalFile on the verdict so it survives downstream merges that
+      // concatenate verdicts from many results.json files (e.g. dashboard publish).
+      verdicts: [{ ...verdict, evalFile }],
     }, null, 2),
   );
 }

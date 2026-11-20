@@ -357,7 +357,8 @@ stimuli:
     # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
     # identical to the baseline arm, so the head-to-head score becomes pure
     # judge noise rather than a measurement.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     environment:
       files:
         - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/ShoppingCart.cs
@@ -380,7 +381,8 @@ stimuli:
       Review my existing MSTest suite and classify every test as happy path,
       error path, boundary, or critical path. Add the corresponding
       TestCategory attributes and provide a count for each category.
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     graders:
       - type: prompt
     rubric:

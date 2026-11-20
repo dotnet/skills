@@ -55,7 +55,7 @@ function writeAgentEval(root, scenarioCount = 5, nonActivationScenarios = []) {
     const name = `Scenario ${index + 1}`;
     return `
   - name: ${name}
-${nonActivation.has(name) ? "    expect_activation: false\n" : ""}    prompt: Route this request.
+${nonActivation.has(name) ? '    tags:\n      expect_activation: "false"\n' : ""}    prompt: Route this request.
     rubric:
       - Completed the task`;
   });
@@ -375,6 +375,7 @@ test("derives the eval file from an absolute native agent path", () => {
       readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
     );
     assert.equal(adapted.evalFile, "tests/demo/agent.router/eval.yaml");
+    assert.equal(adapted.verdicts[0].evalFile, "tests/demo/agent.router/eval.yaml");
     assert.equal(adapted.expectedEval, true);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -489,6 +490,7 @@ stimuli:${stimuli.join("")}
       readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
     );
     assert.equal(adapted.evalFile, nestedEval);
+    assert.equal(adapted.verdicts[0].evalFile, nestedEval);
     assert.equal(adapted.verdicts[0].skillName, "agent.router");
   } finally {
     rmSync(root, { recursive: true, force: true });

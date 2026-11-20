@@ -226,7 +226,7 @@ safe-outputs:
               const severityLine = `**Severity:** ${severity}`;
               const correlationLine = `**Correlation:** ${correlation}`;
               const footer =
-                `<sub>🔍 [Investigation Run #${context.runNumber}](` +
+                `<sub>🔍 [Investigation Run #${context.runId}](` +
                 `https://github.com/${owner}/${repo}/actions/runs/${context.runId})` +
                 ` · Dispatched by health check · ${correlation}</sub>`;
               const exactSingleLine = (prefix, expected) => {
@@ -697,8 +697,11 @@ publish-investigation:
     {commits, PRs, issues, or "None found"}
 
     ---
-    <sub>🔍 [Investigation Run #{this_run_number}]({this_run_url}) · Dispatched by health check · {correlation_id}</sub>
+    <sub>🔍 [Investigation Run #{this_run_id}]({this_run_url}) · Dispatched by health check · {correlation_id}</sub>
 ```
+
+Use the numeric `workflow-run-id` from the GitHub context for
+`{this_run_id}` and in `{this_run_url}`.
 
 If `dry_run` is true, do not call `publish-investigation`.
 Call `noop` exactly once with a compact summary of the root cause, evidence

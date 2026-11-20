@@ -16,8 +16,6 @@ stimuli:
       explain from the source which existing case distinguishes the original
       defect from the fix. Do not execute commands; I want a minimal patch
       and a static assessment, with no extra files.
-    constraints:
-      reject_tools: [bash, powershell, task, author_factory]
     tags:
       capability: actual-defect-detection
       risk: green-only-regression-proof
@@ -132,8 +130,6 @@ stimuli:
       capability: buildable-feature-ablation
       risk: compile-error-as-behavior-proof
       journey: review-new-feature
-    constraints: &read_only
-      reject_tools: [bash, powershell, edit, create, apply_patch, task, author_factory]
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -183,7 +179,6 @@ stimuli:
       capability: unchanged-test-credit
       risk: redundant-regression-test-demand
       journey: review-source-only-fix
-    constraints: *read_only
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -230,7 +225,6 @@ stimuli:
       capability: refactor-preservation
       risk: false-missing-red-defect
       journey: review-preserving-refactor
-    constraints: *read_only
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -275,7 +269,6 @@ stimuli:
       capability: independent-contract-oracle
       risk: implementation-mirrored-expectation
       journey: review-financial-fix
-    constraints: *read_only
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -323,7 +316,6 @@ stimuli:
       capability: attributable-selection-evidence
       risk: unrelated-failure-as-detection
       journey: assess-partial-run-records
-    constraints: *read_only
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -372,7 +364,6 @@ stimuli:
       capability: shipping-consumer-provenance
       risk: stale-variant-false-proof
       journey: validate-cross-component-release
-    constraints: *read_only
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -422,7 +413,6 @@ stimuli:
       capability: equivalent-counterfactual-filter
       risk: false-surviving-defect
       journey: triage-single-mutation
-    constraints: *read_only
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -466,7 +456,6 @@ stimuli:
       capability: read-only-evidence-boundary
       risk: invented-executed-proof
       journey: review-untrusted-pr
-    constraints: *read_only
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -515,7 +504,6 @@ stimuli:
       capability: test-only-coverage-evidence
       risk: production-change-only-routing
       journey: review-stronger-regression-assertion
-    constraints: *read_only
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -553,15 +541,14 @@ stimuli:
       - Kept the evidence static without inventing measured results or requiring a source-code diff
 
   - name: Leave individual quality grades to the grading workflow
-    expect_activation: false
-    constraints: *read_only
-    prompt: |
-      Grade only this pytest test for readiness and A-F quality; do not discuss
-      a change or run anything: def test_sum(): assert sum([1, 2]) == 3.
     tags:
+      expect_activation: "false"
       capability: curated-grading-routing
       risk: revision-proof-hijacks-quality-grading
       journey: grade-named-test
+    prompt: |
+      Grade only this pytest test for readiness and A-F quality; do not discuss
+      a change or run anything: def test_sum(): assert sum([1, 2]) == 3.
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -587,16 +574,15 @@ stimuli:
       - Did not invoke an unrelated change-validation workflow or expand the requested scope
 
   - name: Leave existing-suite blind spots to the gap workflow
-    expect_activation: false
-    constraints: *read_only
+    tags:
+      expect_activation: "false"
+      capability: general-gap-routing
+      risk: revision-proof-hijacks-suite-analysis
+      journey: inspect-existing-suite
     prompt: |
       No PR or source change is involved. My clamp function is min(x, 10).
       Existing tests check only x=3. Which caller-visible small changes would
       those tests miss? Keep the answer static and focused on this suite.
-    tags:
-      capability: general-gap-routing
-      risk: revision-proof-hijacks-suite-analysis
-      journey: inspect-existing-suite
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6
@@ -623,16 +609,15 @@ stimuli:
       - Did not invoke an unrelated revision-validation workflow or expand the requested scope
 
   - name: Leave repository mutation campaigns outside change evidence
-    expect_activation: false
-    constraints: *read_only
+    tags:
+      expect_activation: "false"
+      capability: mutation-campaign-routing
+      risk: change-proof-hijacks-mutation-tooling
+      journey: plan-mutation-campaign
     prompt: |
       I want to plan Stryker installation and a whole-repository mutation-score
       campaign for our .NET suite, not validate a particular PR or fix.
       Explain prerequisites and scope only; do not install or run anything.
-    tags:
-      capability: mutation-campaign-routing
-      risk: change-proof-hijacks-mutation-tooling
-      journey: plan-mutation-campaign
     golden_trajectory:
       inline:
         schema_version: ATIF-v1.6

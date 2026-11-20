@@ -646,17 +646,26 @@ if (row.activationContract && (row.activationContract.evaluated !== true || row.
 
     container.innerHTML =
       `<div class="sv-controls">` +
+      `<label>Search plugins and skills <input id="sv-search" type="search" placeholder="Filter by name" autocomplete="off"></label>` +
       `<label>Executor model <select id="sv-model"><option value="">All</option>${models.map(m => `<option>${escapeHtml(m)}</option>`).join('')}</select></label>` +
       `<label>Judge model <select id="sv-judge"><option value="">All</option>${judges.map(m => `<option>${escapeHtml(m)}</option>`).join('')}</select></label>` +
       `<button type="button" id="sv-expand" class="sv-btn">Expand all</button>` +
       `<button type="button" id="sv-collapse" class="sv-btn">Collapse all</button>` +
       `<span class="sv-sub">Grouped Plugin → Skill → Model. Every headline value and suggestion comes from the same latest run and commit. Up to ${TRAILING_RUNS} earlier runs appear only as separate context in the drilldown. Reliability N / CI shows the number of runs and the likely range of the pass-rate difference for the latest run. Strong install or avoid recommendations require consistent side-by-side task results. Tokens = input+output. Models and commits are never blended.</span>` +
       `</div>` +
+      `<p id="sv-search-empty" class="sv-insufficient" role="status" style="display:none">No plugins or skills match the search.</p>` +
       `<div id="sv-table-wrap"></div>`;
 
+    const search = container.querySelector('#sv-search');
+    const empty = container.querySelector('#sv-search-empty');
     const modelSel = container.querySelector('#sv-model');
     const judgeSel = container.querySelector('#sv-judge');
     const wrap = container.querySelector('#sv-table-wrap');
+    const expand = container.querySelector('#sv-expand');
+    const collapse = container.querySelector('#sv-collapse');
+    let tree = [];
+    let savedTreeState = null;
+    let searchScheduled = false;
 
     // A Plugin/Skill group-header row. Metric columns are intentionally blank:
     // token/time deltas are RELATIVE to each model's own baseline, so they cannot
@@ -691,6 +700,7 @@ if (row.activationContract && (row.activationContract.evaluated !== true || row.
     }
 
     function setAll(open) {
+      if (search.value.trim()) return;
       // Reveal/hide plugin, skill and model rows. Model drill-down rows (sv-detail)
       // stay closed on "Expand all" — opening every drill-down at once buries the
       // table; the viewer opens a specific model to see its arms.
@@ -709,6 +719,7 @@ if (row.activationContract && (row.activationContract.evaluated !== true || row.
     function wireTree() {
       wrap.querySelectorAll('.expandable').forEach(tr => {
         tr.addEventListener('click', () => {
+          if (search.value.trim() && !tr.classList.contains('level-2')) return;
           const tid = tr.dataset.toggle;
           const icon = wrap.querySelector('#icon-' + tid);
           if (icon && icon.classList.contains('expanded')) {
@@ -723,10 +734,84 @@ if (row.activationContract && (row.activationContract.evaluated !== true || row.
       wrap.querySelectorAll('tr.level-0.expandable, tr.level-1.expandable').forEach(tr => openRow(tr.dataset.toggle));
     }
 
+    function applySearch() {
+      searchScheduled = false;
+      const query = search.value.trim().toLowerCase();
+      expand.disabled = collapse.disabled = !!query;
+      if (!query) {
+        if (savedTreeState) {
+          for (const plugin of tree) {
+            for (const node of [plugin, ...plugin.skills, ...plugin.skills.flatMap(skill => skill.models)]) {
+              const state = savedTreeState.get(node.key);
+              if (!state) continue;
+              node.element.style.display = state.display;
+              node.icon?.classList.toggle('expanded', state.expanded);
+              if (node.detail) node.detail.style.display = state.detailDisplay;
+            }
+            if (!plugin.icon?.classList.contains('expanded')) {
+              collapseChildren(plugin.element.dataset.toggle);
+            } else {
+              for (const skill of plugin.skills) {
+                if (!skill.icon?.classList.contains('expanded')) collapseChildren(skill.element.dataset.toggle);
+              }
+            }
+          }
+          savedTreeState = null;
+        }
+        empty.style.display = 'none';
+        return;
+      }
+
+      if (!savedTreeState) savedTreeState = new Map();
+      for (const plugin of tree) {
+        for (const node of [plugin, ...plugin.skills, ...plugin.skills.flatMap(skill => skill.models)]) {
+          if (!savedTreeState.has(node.key)) {
+            savedTreeState.set(node.key, {
+              display: node.element.style.display,
+              expanded: node.icon?.classList.contains('expanded'),
+              detailDisplay: node.detail?.style.display,
+            });
+          }
+        }
+      }
+
+      let found = false;
+      for (const plugin of tree) {
+        const pluginMatches = plugin.name.includes(query);
+        let visibleSkills = 0;
+        for (const skill of plugin.skills) {
+          const show = pluginMatches || skill.name.includes(query);
+          skill.element.style.display = show ? '' : 'none';
+          skill.icon?.classList.toggle('expanded', show);
+          for (const model of skill.models) {
+            model.element.style.display = show ? '' : 'none';
+            if (model.detail) model.detail.style.display = 'none';
+            model.icon?.classList.remove('expanded');
+          }
+          if (show) visibleSkills++;
+        }
+        plugin.element.style.display = visibleSkills ? '' : 'none';
+        plugin.icon?.classList.toggle('expanded', !!visibleSkills);
+        if (visibleSkills) found = true;
+      }
+      empty.style.display = found ? 'none' : '';
+    }
+
+    function scheduleSearch() {
+      if (searchScheduled) return;
+      searchScheduled = true;
+      window.requestAnimationFrame(applySearch);
+    }
+
     function draw() {
+      tree = [];
       const fm = modelSel.value, fj = judgeSel.value;
       const rows = allRows.filter(r => (!fm || r.model === fm) && (!fj || r.judge === fj));
-      if (rows.length === 0) { wrap.innerHTML = '<p style="color:#8b949e;padding:1rem;">No skills match the selected filters.</p>'; return; }
+      if (rows.length === 0) {
+        wrap.innerHTML = '<p style="color:#8b949e;padding:1rem;">No skills match the selected filters.</p>';
+        empty.style.display = 'none';
+        return;
+      }
 
       // Group into Plugin → Skill → model rows.
       const byPlugin = new Map();
@@ -742,9 +827,13 @@ if (row.activationContract && (row.activationContract.evaluated !== true || row.
         `<th class="num">Time Δ</th><th class="num" title="Number of counted runs and the likely range of the pass-rate difference between using and not using the skill.">Reliability N / CI</th><th class="num" title="How often runs completed successfully without and with the skill.">Reliability pass rate (base→skill)</th><th>What the results suggest</th></tr></thead><tbody>`;
 
       let uid = 0;
-      for (const plugin of [...byPlugin.keys()].sort()) {
+      const groups = [];
+      for (const plugin of [...byPlugin.keys()].sort((a, b) =>
+        (a === 'agentic-workflows') - (b === 'agentic-workflows') || (a < b ? -1 : a > b ? 1 : 0))) {
         const skills = byPlugin.get(plugin);
         const pid = `svp${uid++}`;
+        const pluginGroup = { name: plugin.toLowerCase(), key: JSON.stringify(['plugin', plugin]), id: pid, skills: [] };
+        groups.push(pluginGroup);
         const pRows = [];
         for (const arr of skills.values()) { for (const r of arr) pRows.push(r); }
         // One model in the whole plugin (e.g. filtered to a single executor+judge):
@@ -758,6 +847,8 @@ if (row.activationContract && (row.activationContract.evaluated !== true || row.
           const modelRows = skills.get(skill).slice()
             .sort((a, b) => a.model.localeCompare(b.model) || a.judge.localeCompare(b.judge));
           const sid = `svs${uid++}`;
+          const skillGroup = { name: skill.toLowerCase(), key: JSON.stringify(['skill', plugin, skill]), id: sid, models: [] };
+          pluginGroup.skills.push(skillGroup);
           const sRollup = modelRows.length === 1
             ? singleModelRollup(modelRows[0])
             : countRollup(modelRows);
@@ -765,6 +856,7 @@ if (row.activationContract && (row.activationContract.evaluated !== true || row.
 
           for (const row of modelRows) {
             const mid = `svm${uid++}`;
+            skillGroup.models.push({ id: mid, key: JSON.stringify(['model', plugin, skill, row.model, row.judge]) });
             const v = valueSentence(row);
             const costAvailable = costMultiplier(row) != null;
             const diluted = row.activation != null && row.activation < ACTIVATION_MIN;
@@ -777,19 +869,42 @@ if (row.activationContract && (row.activationContract.evaluated !== true || row.
               metricCell(row) +
               failureCell(row) +
               `<td class="${v.cls}">${v.text}</td></tr>` +
-              `<tr class="sv-detail child-of-${mid}" style="display:none"><td colspan="7">${drilldown(row)}</td></tr>`;
+              `<tr class="sv-detail child-of-${mid}" data-parent="${mid}" style="display:none"><td colspan="7">${drilldown(row)}</td></tr>`;
           }
         }
       }
       html += '</tbody></table>';
       wrap.innerHTML = html;
       wireTree();
+      const elements = new Map([...wrap.querySelectorAll('.expandable')].map(tr => [tr.dataset.toggle, tr]));
+      const details = new Map([...wrap.querySelectorAll('.sv-detail')].map(tr => [tr.dataset.parent, tr]));
+      const node = id => ({
+        element: elements.get(id),
+        icon: wrap.querySelector('#icon-' + id),
+      });
+      tree = groups.map(plugin => ({
+        name: plugin.name,
+        key: plugin.key,
+        ...node(plugin.id),
+        skills: plugin.skills.map(skill => ({
+          name: skill.name,
+          key: skill.key,
+          ...node(skill.id),
+          models: skill.models.map(model => ({
+            key: model.key,
+            ...node(model.id),
+            detail: details.get(model.id),
+          })),
+        })),
+      }));
+      applySearch();
     }
 
-    container.querySelector('#sv-expand').addEventListener('click', () => setAll(true));
-    container.querySelector('#sv-collapse').addEventListener('click', () => setAll(false));
+    expand.addEventListener('click', () => setAll(true));
+    collapse.addEventListener('click', () => setAll(false));
     modelSel.addEventListener('change', draw);
     judgeSel.addEventListener('change', draw);
+    search.addEventListener('input', scheduleSearch);
     draw();
   }
 

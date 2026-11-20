@@ -828,8 +828,8 @@ stimuli:
       The product search in DapperRepository.cs slows down as the catalog grows. It runs on SQL
       Server and must keep the existing arbitrary substring matching behavior. Review the supplied
       data access and recommend the smallest safe performance improvement.
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: boundary-non-ef-data-access
       risk: routing
       journey: redirect-dapper-query

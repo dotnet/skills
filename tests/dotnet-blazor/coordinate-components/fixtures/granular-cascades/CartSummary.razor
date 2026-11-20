@@ -1,0 +1,6 @@
+<p>Cart items: @State.CartItems</p>
+
+@code {
+    [CascadingParameter]
+    public AppState State { get; set; } = default!;
+}

@@ -36,6 +36,7 @@ Classify the user's request and route to the appropriate specialist:
 
 | User Intent | Route To |
 |------------|----------|
+| Binlog MCP won't connect, `CONNECTION_CLOSED`, or binlog tools are missing | This agent + `troubleshoot-binlog-mcp` skill |
 | Build failed, errors to diagnose | This agent + `binlog-failure-analysis` skill |
 | Build is slow, optimize performance | `build-perf` agent + `build-perf-baseline` skill (start with baseline) |
 | Review/clean up project files | `msbuild-code-review` agent (specialized code review) |
@@ -70,6 +71,8 @@ When answering questions about MSBuild syntax, properties, or behavior, use `#to
 This agent has access to a comprehensive set of troubleshooting and optimization skills:
 
 ### Build Failure Skills
+
+- `troubleshoot-binlog-mcp` — Binlog MCP startup/connection diagnosis, without requiring a binlog
 - `binlog-failure-analysis` — Binary log analysis for failure diagnosis
 - `binlog-generation` — Binary log generation conventions
 

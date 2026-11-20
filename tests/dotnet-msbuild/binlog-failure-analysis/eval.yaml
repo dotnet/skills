@@ -241,8 +241,8 @@ stimuli:
       Our Android app's Gradle build is failing in CI. I saved the full build output to
       gradle-build/gradle-build-output.txt — can you dig through it and tell me what
       broke?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: boundary-non-msbuild
       risk: medium
       journey: decline-off-target

@@ -46,8 +46,8 @@ stimuli:
     prompt: >-
       Csc is dominating our build. Review perf-report-csc-obvious.md and tell me
       what to optimize first.
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-clear-other-bottleneck
       risk: medium
       journey: avoid-misapplication
@@ -258,8 +258,8 @@ stimuli:
       Read perf-report-general-build.md and give me a general build-performance
       diagnosis for this repo. I want the main bottlenecks in priority order and
       the right optimization buckets.
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-general-build-perf
       risk: medium
       journey: avoid-over-broad-activation

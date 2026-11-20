@@ -35,6 +35,9 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 
 ### Alternate flow — text-log replay (when MCP is unavailable)
 
+Use `troubleshoot-binlog-mcp` if the user wants to repair the connection. If repair
+is blocked, declined, or unnecessary, continue performance analysis with replay.
+
 1. Replay to diagnostic log: `dotnet msbuild perf-baseline.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
 2. `grep 'Target Performance Summary' -A 50 full.log` → find dominant targets and their cumulative time
 3. `grep 'Task Performance Summary' -A 50 full.log` → find dominant tasks

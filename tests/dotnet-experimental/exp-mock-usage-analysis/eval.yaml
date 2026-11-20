@@ -1,7 +1,7 @@
 name: exp-mock-usage-analysis
 description: Evaluates the dotnet-experimental/exp-mock-usage-analysis skill
 type: capability
-config:
+defaults:
   timeout: 3m
 stimuli:
   - name: Detect unused and unreachable mock setups
@@ -151,6 +151,11 @@ stimuli:
         - src: fakeiteasy-mocks/NotificationDispatcher.cs
           dest: NotificationDispatcher.cs
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
       - type: output-matches
         config:
           pattern: (unused|unnecessary|never.*call|not.*invoke|push.*sms|sms.*push|wrong.*channel)
@@ -164,10 +169,6 @@ stimuli:
       - Used correct FakeItEasy terminology (A.Fake, A.CallTo, MustHaveHappened) rather than Moq or NSubstitute terms
       - Acknowledged that the template engine mock is correctly used across all tests since rendering is always called
         before dispatch
-    constraints:
-      reject_tools:
-        - bash
-        - edit
   - name: Detect excessive mock configuration sprawl
     prompt: |
       Each test in our report generator file is over 40 lines long and most of

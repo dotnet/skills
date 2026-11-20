@@ -281,8 +281,8 @@ stimuli:
       repeated-restores/perf-summary.txt. How should we safely remove the
       duplicates? We need a targeted pipeline fix, not another round of
       cold/warm/no-op measurements or a faster initial restore.
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: boundary-known-repeated-restores
       risk: medium
       journey: decline-off-target
@@ -334,8 +334,8 @@ stimuli:
       Our webpack build for the reporting widget is getting slow. Can you look
       at package.json and webpack.config.js and help us establish a
       performance baseline and speed it up?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: boundary-non-msbuild
       risk: medium
       journey: decline-off-target
