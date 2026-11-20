@@ -1,0 +1,651 @@
+diff --git a/fixtures/minimal-api-parent-fk/Endpoints/ProductEndpoints.cs b/fixtures/minimal-api-parent-fk/Endpoints/ProductEndpoints.cs
+new file mode 100644
+index 0000000..5d365eb
+--- /dev/null
++++ b/fixtures/minimal-api-parent-fk/Endpoints/ProductEndpoints.cs
+@@ -0,0 +1,322 @@
++using Microsoft.EntityFrameworkCore;
++using ParentChildApi.Data;
++using ParentChildApi.Models;
++
++namespace ParentChildApi.Endpoints;
++
++public static class ProductEndpoints
++{
++    public static IEndpointRouteBuilder MapProductEndpoints(this IEndpointRouteBuilder endpoints)
++    {
++        var categories = endpoints.MapGroup("/api/categories").WithTags("Categories");
++        categories.MapGet("", GetCategoriesAsync)
++            .WithName("GetCategories")
++            .WithSummary("List categories")
++            .WithDescription("Returns all categories ordered by name.")
++            .Produces<List<CategoryResponse>>(StatusCodes.Status200OK);
++        categories.MapGet("/{id:int}", GetCategoryByIdAsync)
++            .WithName("GetCategoryById")
++            .WithSummary("Get one category")
++            .WithDescription("Returns the requested category, or 404 when it does not exist.")
++            .Produces<CategoryResponse>(StatusCodes.Status200OK)
++            .Produces(StatusCodes.Status404NotFound);
++        categories.MapPost("", CreateCategoryAsync)
++            .WithName("CreateCategory")
++            .WithSummary("Create a category")
++            .WithDescription("Validates and creates a category with a server-assigned identifier.")
++            .Accepts<CategoryRequest>("application/json")
++            .Produces<CategoryResponse>(StatusCodes.Status201Created)
++            .ProducesValidationProblem();
++        categories.MapPut("/{id:int}", UpdateCategoryAsync)
++            .WithName("UpdateCategory")
++            .WithSummary("Update a category")
++            .WithDescription("Changes the name of an existing category.")
++            .Accepts<CategoryRequest>("application/json")
++            .Produces<CategoryResponse>(StatusCodes.Status200OK)
++            .ProducesValidationProblem()
++            .Produces(StatusCodes.Status404NotFound);
++        categories.MapDelete("/{id:int}", DeleteCategoryAsync)
++            .WithName("DeleteCategory")
++            .WithSummary("Delete a category")
++            .WithDescription("Deletes an empty category; categories with products return 409.")
++            .Produces(StatusCodes.Status204NoContent)
++            .Produces(StatusCodes.Status404NotFound)
++            .Produces(StatusCodes.Status409Conflict);
++
++        var products = endpoints.MapGroup("/api/products").WithTags("Products");
++        products.MapGet("", GetProductsAsync)
++            .WithName("GetProducts")
++            .WithSummary("List products")
++            .WithDescription("Returns all products with their category names.")
++            .Produces<List<ProductResponse>>(StatusCodes.Status200OK);
++        products.MapGet("/{id:int}", GetProductByIdAsync)
++            .WithName("GetProductById")
++            .WithSummary("Get one product")
++            .WithDescription("Returns the requested product and its category, or 404 when absent.")
++            .Produces<ProductResponse>(StatusCodes.Status200OK)
++            .Produces(StatusCodes.Status404NotFound);
++        products.MapPost("", CreateProductAsync)
++            .WithName("CreateProduct")
++            .WithSummary("Create a product")
++            .WithDescription("Validates the product and its required category before creation.")
++            .Accepts<ProductRequest>("application/json")
++            .Produces<ProductResponse>(StatusCodes.Status201Created)
++            .ProducesValidationProblem();
++        products.MapPut("/{id:int}", UpdateProductAsync)
++            .WithName("UpdateProduct")
++            .WithSummary("Update a product")
++            .WithDescription("Updates an existing product after validating its required category.")
++            .Accepts<ProductRequest>("application/json")
++            .Produces<ProductResponse>(StatusCodes.Status200OK)
++            .ProducesValidationProblem()
++            .Produces(StatusCodes.Status404NotFound);
++        products.MapDelete("/{id:int}", DeleteProductAsync)
++            .WithName("DeleteProduct")
++            .WithSummary("Delete a product")
++            .WithDescription("Deletes an existing product, or returns 404 for an unknown identifier.")
++            .Produces(StatusCodes.Status204NoContent)
++            .Produces(StatusCodes.Status404NotFound);
++
++        return endpoints;
++    }
++
++    private static async Task<IResult> GetCategoriesAsync(StoreDbContext dbContext)
++    {
++        var categories = await dbContext.Categories.AsNoTracking()
++            .OrderBy(category => category.Name)
++            .Select(category => new CategoryResponse(category.Id, category.Name))
++            .ToListAsync();
++
++        return TypedResults.Ok(categories);
++    }
++
++    private static async Task<IResult> GetCategoryByIdAsync(int id, StoreDbContext dbContext)
++    {
++        var category = await dbContext.Categories.AsNoTracking()
++            .Where(category => category.Id == id)
++            .Select(category => new CategoryResponse(category.Id, category.Name))
++            .SingleOrDefaultAsync();
++
++        return category is null ? TypedResults.NotFound() : TypedResults.Ok(category);
++    }
++
++    private static async Task<IResult> CreateCategoryAsync(
++        CategoryRequest request,
++        StoreDbContext dbContext)
++    {
++        var errors = Validate(request);
++        if (errors.Count > 0)
++        {
++            return TypedResults.ValidationProblem(errors);
++        }
++
++        var category = new Category { Name = request.Name.Trim() };
++        dbContext.Categories.Add(category);
++        await dbContext.SaveChangesAsync();
++
++        var response = new CategoryResponse(category.Id, category.Name);
++        return TypedResults.Created($"/api/categories/{category.Id}", response);
++    }
++
++    private static async Task<IResult> UpdateCategoryAsync(
++        int id,
++        CategoryRequest request,
++        StoreDbContext dbContext)
++    {
++        var category = await dbContext.Categories.FindAsync(id);
++        if (category is null)
++        {
++            return TypedResults.NotFound();
++        }
++
++        var errors = Validate(request);
++        if (errors.Count > 0)
++        {
++            return TypedResults.ValidationProblem(errors);
++        }
++
++        category.Name = request.Name.Trim();
++        await dbContext.SaveChangesAsync();
++
++        return TypedResults.Ok(new CategoryResponse(category.Id, category.Name));
++    }
++
++    private static async Task<IResult> DeleteCategoryAsync(int id, StoreDbContext dbContext)
++    {
++        var category = await dbContext.Categories.FindAsync(id);
++        if (category is null)
++        {
++            return TypedResults.NotFound();
++        }
++
++        if (await dbContext.Products.AnyAsync(product => product.CategoryId == id))
++        {
++            return TypedResults.Conflict(new
++            {
++                message = "Delete the category's products before deleting the category."
++            });
++        }
++
++        dbContext.Categories.Remove(category);
++        await dbContext.SaveChangesAsync();
++        return TypedResults.NoContent();
++    }
++
++    private static async Task<IResult> GetProductsAsync(StoreDbContext dbContext)
++    {
++        var products = await dbContext.Products.AsNoTracking()
++            .OrderBy(product => product.Name)
++            .Select(product => new ProductResponse(
++                product.Id,
++                product.Name,
++                product.Price,
++                product.CategoryId,
++                product.Category.Name))
++            .ToListAsync();
++
++        return TypedResults.Ok(products);
++    }
++
++    private static async Task<IResult> GetProductByIdAsync(int id, StoreDbContext dbContext)
++    {
++        var product = await dbContext.Products.AsNoTracking()
++            .Where(product => product.Id == id)
++            .Select(product => new ProductResponse(
++                product.Id,
++                product.Name,
++                product.Price,
++                product.CategoryId,
++                product.Category.Name))
++            .SingleOrDefaultAsync();
++
++        return product is null ? TypedResults.NotFound() : TypedResults.Ok(product);
++    }
++
++    private static async Task<IResult> CreateProductAsync(
++        ProductRequest request,
++        StoreDbContext dbContext)
++    {
++        var errors = Validate(request);
++        var category = await dbContext.Categories.FindAsync(request.CategoryId);
++        if (category is null)
++        {
++            errors[nameof(request.CategoryId)] = ["CategoryId must identify an existing category."];
++        }
++
++        if (errors.Count > 0)
++        {
++            return TypedResults.ValidationProblem(errors);
++        }
++
++        var product = new Product
++        {
++            Name = request.Name.Trim(),
++            Price = request.Price,
++            CategoryId = request.CategoryId
++        };
++        dbContext.Products.Add(product);
++        await dbContext.SaveChangesAsync();
++
++        var response = new ProductResponse(
++            product.Id,
++            product.Name,
++            product.Price,
++            product.CategoryId,
++            category!.Name);
++        return TypedResults.Created($"/api/products/{product.Id}", response);
++    }
++
++    private static async Task<IResult> UpdateProductAsync(
++        int id,
++        ProductRequest request,
++        StoreDbContext dbContext)
++    {
++        var product = await dbContext.Products.FindAsync(id);
++        if (product is null)
++        {
++            return TypedResults.NotFound();
++        }
++
++        var errors = Validate(request);
++        var category = await dbContext.Categories.FindAsync(request.CategoryId);
++        if (category is null)
++        {
++            errors[nameof(request.CategoryId)] = ["CategoryId must identify an existing category."];
++        }
++
++        if (errors.Count > 0)
++        {
++            return TypedResults.ValidationProblem(errors);
++        }
++
++        product.Name = request.Name.Trim();
++        product.Price = request.Price;
++        product.CategoryId = request.CategoryId;
++        await dbContext.SaveChangesAsync();
++
++        return TypedResults.Ok(new ProductResponse(
++            product.Id,
++            product.Name,
++            product.Price,
++            product.CategoryId,
++            category!.Name));
++    }
++
++    private static async Task<IResult> DeleteProductAsync(int id, StoreDbContext dbContext)
++    {
++        var product = await dbContext.Products.FindAsync(id);
++        if (product is null)
++        {
++            return TypedResults.NotFound();
++        }
++
++        dbContext.Products.Remove(product);
++        await dbContext.SaveChangesAsync();
++        return TypedResults.NoContent();
++    }
++
++    private static Dictionary<string, string[]> Validate(CategoryRequest request)
++    {
++        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
++        if (string.IsNullOrWhiteSpace(request.Name))
++        {
++            errors[nameof(request.Name)] = ["Name is required."];
++        }
++        else if (request.Name.Trim().Length > 100)
++        {
++            errors[nameof(request.Name)] = ["Name must be 100 characters or fewer."];
++        }
++
++        return errors;
++    }
++
++    private static Dictionary<string, string[]> Validate(ProductRequest request)
++    {
++        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
++        if (string.IsNullOrWhiteSpace(request.Name))
++        {
++            errors[nameof(request.Name)] = ["Name is required."];
++        }
++        else if (request.Name.Trim().Length > 200)
++        {
++            errors[nameof(request.Name)] = ["Name must be 200 characters or fewer."];
++        }
++
++        if (request.Price is < 0.01m or > 10000m)
++        {
++            errors[nameof(request.Price)] = ["Price must be between 0.01 and 10000."];
++        }
++
++        return errors;
++    }
++
++    public sealed record CategoryRequest(string Name);
++    public sealed record CategoryResponse(int Id, string Name);
++    public sealed record ProductRequest(string Name, decimal Price, int CategoryId);
++    public sealed record ProductResponse(
++        int Id,
++        string Name,
++        decimal Price,
++        int CategoryId,
++        string CategoryName);
++}
+diff --git a/fixtures/minimal-api-parent-fk/Migrations/20261012220500_InitialCreate.Designer.cs b/fixtures/minimal-api-parent-fk/Migrations/20261012220500_InitialCreate.Designer.cs
+new file mode 100644
+index 0000000..0b11ebf
+--- /dev/null
++++ b/fixtures/minimal-api-parent-fk/Migrations/20261012220500_InitialCreate.Designer.cs
+@@ -0,0 +1,65 @@
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++using ParentChildApi.Data;
++
++#nullable disable
++
++namespace ParentChildApi.Migrations;
++
++[DbContext(typeof(StoreDbContext))]
++[Migration("20261012220500_InitialCreate")]
++partial class InitialCreate
++{
++    protected override void BuildTargetModel(ModelBuilder modelBuilder)
++    {
++#pragma warning disable 612, 618
++        modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
++
++        modelBuilder.Entity("ParentChildApi.Models.Category", entity =>
++        {
++            entity.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("INTEGER");
++            entity.Property<string>("Name")
++                .IsRequired()
++                .HasMaxLength(100)
++                .HasColumnType("TEXT");
++            entity.HasKey("Id");
++            entity.ToTable("Categories");
++        });
++
++        modelBuilder.Entity("ParentChildApi.Models.Product", entity =>
++        {
++            entity.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("INTEGER");
++            entity.Property<int>("CategoryId").HasColumnType("INTEGER");
++            entity.Property<string>("Name")
++                .IsRequired()
++                .HasMaxLength(200)
++                .HasColumnType("TEXT");
++            entity.Property<decimal>("Price").HasColumnType("TEXT");
++            entity.HasKey("Id");
++            entity.HasIndex("CategoryId");
++            entity.ToTable("Products");
++        });
++
++        modelBuilder.Entity("ParentChildApi.Models.Product", entity =>
++        {
++            entity.HasOne("ParentChildApi.Models.Category", "Category")
++                .WithMany("Products")
++                .HasForeignKey("CategoryId")
++                .OnDelete(DeleteBehavior.Cascade)
++                .IsRequired();
++            entity.Navigation("Category");
++        });
++
++        modelBuilder.Entity("ParentChildApi.Models.Category", entity =>
++        {
++            entity.Navigation("Products");
++        });
++#pragma warning restore 612, 618
++    }
++}
+diff --git a/fixtures/minimal-api-parent-fk/Migrations/20261012220500_InitialCreate.cs b/fixtures/minimal-api-parent-fk/Migrations/20261012220500_InitialCreate.cs
+new file mode 100644
+index 0000000..43d44ba
+--- /dev/null
++++ b/fixtures/minimal-api-parent-fk/Migrations/20261012220500_InitialCreate.cs
+@@ -0,0 +1,56 @@
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace ParentChildApi.Migrations;
++
++public partial class InitialCreate : Migration
++{
++    protected override void Up(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.CreateTable(
++            name: "Categories",
++            columns: table => new
++            {
++                Id = table.Column<int>(type: "INTEGER", nullable: false)
++                    .Annotation("Sqlite:Autoincrement", true),
++                Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false)
++            },
++            constraints: table =>
++            {
++                table.PrimaryKey("PK_Categories", x => x.Id);
++            });
++
++        migrationBuilder.CreateTable(
++            name: "Products",
++            columns: table => new
++            {
++                Id = table.Column<int>(type: "INTEGER", nullable: false)
++                    .Annotation("Sqlite:Autoincrement", true),
++                Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
++                Price = table.Column<decimal>(type: "TEXT", nullable: false),
++                CategoryId = table.Column<int>(type: "INTEGER", nullable: false)
++            },
++            constraints: table =>
++            {
++                table.PrimaryKey("PK_Products", x => x.Id);
++                table.ForeignKey(
++                    name: "FK_Products_Categories_CategoryId",
++                    column: x => x.CategoryId,
++                    principalTable: "Categories",
++                    principalColumn: "Id",
++                    onDelete: ReferentialAction.Cascade);
++            });
++
++        migrationBuilder.CreateIndex(
++            name: "IX_Products_CategoryId",
++            table: "Products",
++            column: "CategoryId");
++    }
++
++    protected override void Down(MigrationBuilder migrationBuilder)
++    {
++        migrationBuilder.DropTable(name: "Products");
++        migrationBuilder.DropTable(name: "Categories");
++    }
++}
+diff --git a/fixtures/minimal-api-parent-fk/Migrations/StoreDbContextModelSnapshot.cs b/fixtures/minimal-api-parent-fk/Migrations/StoreDbContextModelSnapshot.cs
+new file mode 100644
+index 0000000..5fdaa07
+--- /dev/null
++++ b/fixtures/minimal-api-parent-fk/Migrations/StoreDbContextModelSnapshot.cs
+@@ -0,0 +1,63 @@
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++using ParentChildApi.Data;
++
++#nullable disable
++
++namespace ParentChildApi.Migrations;
++
++[DbContext(typeof(StoreDbContext))]
++partial class StoreDbContextModelSnapshot : ModelSnapshot
++{
++    protected override void BuildModel(ModelBuilder modelBuilder)
++    {
++#pragma warning disable 612, 618
++        modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
++
++        modelBuilder.Entity("ParentChildApi.Models.Category", entity =>
++        {
++            entity.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("INTEGER");
++            entity.Property<string>("Name")
++                .IsRequired()
++                .HasMaxLength(100)
++                .HasColumnType("TEXT");
++            entity.HasKey("Id");
++            entity.ToTable("Categories");
++        });
++
++        modelBuilder.Entity("ParentChildApi.Models.Product", entity =>
++        {
++            entity.Property<int>("Id")
++                .ValueGeneratedOnAdd()
++                .HasColumnType("INTEGER");
++            entity.Property<int>("CategoryId").HasColumnType("INTEGER");
++            entity.Property<string>("Name")
++                .IsRequired()
++                .HasMaxLength(200)
++                .HasColumnType("TEXT");
++            entity.Property<decimal>("Price").HasColumnType("TEXT");
++            entity.HasKey("Id");
++            entity.HasIndex("CategoryId");
++            entity.ToTable("Products");
++        });
++
++        modelBuilder.Entity("ParentChildApi.Models.Product", entity =>
++        {
++            entity.HasOne("ParentChildApi.Models.Category", "Category")
++                .WithMany("Products")
++                .HasForeignKey("CategoryId")
++                .OnDelete(DeleteBehavior.Cascade)
++                .IsRequired();
++            entity.Navigation("Category");
++        });
++
++        modelBuilder.Entity("ParentChildApi.Models.Category", entity =>
++        {
++            entity.Navigation("Products");
++        });
++#pragma warning restore 612, 618
++    }
++}
+diff --git a/fixtures/minimal-api-parent-fk/ParentChildApi.csproj b/fixtures/minimal-api-parent-fk/ParentChildApi.csproj
+index b03ad6a..6f6b697 100644
+--- a/fixtures/minimal-api-parent-fk/ParentChildApi.csproj
++++ b/fixtures/minimal-api-parent-fk/ParentChildApi.csproj
+@@ -8,6 +8,10 @@
+
+   <ItemGroup>
+     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
++    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
++      <PrivateAssets>all</PrivateAssets>
++      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
++    </PackageReference>
+     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
+   </ItemGroup>
+
+diff --git a/fixtures/minimal-api-parent-fk/ParentChildApi.http b/fixtures/minimal-api-parent-fk/ParentChildApi.http
+new file mode 100644
+index 0000000..32ce3d1
+--- /dev/null
++++ b/fixtures/minimal-api-parent-fk/ParentChildApi.http
+@@ -0,0 +1,61 @@
++@ParentChildApi_HostAddress = http://localhost:5083
++
++### Create a category before creating a product
++# @name createCategory
++POST {{ParentChildApi_HostAddress}}/api/categories
++Content-Type: application/json
++
++{
++  "name": "Hardware"
++}
++
++### List categories
++GET {{ParentChildApi_HostAddress}}/api/categories
++Accept: application/json
++
++### Get the created category
++GET {{ParentChildApi_HostAddress}}/api/categories/{{createCategory.response.body.$.id}}
++Accept: application/json
++
++### Update the created category
++PUT {{ParentChildApi_HostAddress}}/api/categories/{{createCategory.response.body.$.id}}
++Content-Type: application/json
++
++{
++  "name": "Computer hardware"
++}
++
++### Create a product with the returned category id
++# @name createProduct
++POST {{ParentChildApi_HostAddress}}/api/products
++Content-Type: application/json
++
++{
++  "name": "Mechanical keyboard",
++  "price": 89.99,
++  "categoryId": {{createCategory.response.body.$.id}}
++}
++
++### List products
++GET {{ParentChildApi_HostAddress}}/api/products
++Accept: application/json
++
++### Get the created product
++GET {{ParentChildApi_HostAddress}}/api/products/{{createProduct.response.body.$.id}}
++Accept: application/json
++
++### Update the created product
++PUT {{ParentChildApi_HostAddress}}/api/products/{{createProduct.response.body.$.id}}
++Content-Type: application/json
++
++{
++  "name": "Mechanical keyboard",
++  "price": 79.99,
++  "categoryId": {{createCategory.response.body.$.id}}
++}
++
++### Delete the created product
++DELETE {{ParentChildApi_HostAddress}}/api/products/{{createProduct.response.body.$.id}}
++
++### Delete the now-empty category
++DELETE {{ParentChildApi_HostAddress}}/api/categories/{{createCategory.response.body.$.id}}
+diff --git a/fixtures/minimal-api-parent-fk/Program.cs b/fixtures/minimal-api-parent-fk/Program.cs
+index ace4547..0fe2cd2 100644
+--- a/fixtures/minimal-api-parent-fk/Program.cs
++++ b/fixtures/minimal-api-parent-fk/Program.cs
+@@ -1,5 +1,6 @@
+-using ParentChildApi.Data;
+ using Microsoft.EntityFrameworkCore;
++using ParentChildApi.Data;
++using ParentChildApi.Endpoints;
+
+ var builder = WebApplication.CreateBuilder(args);
+
+@@ -15,5 +16,6 @@ if (app.Environment.IsDevelopment())
+ }
+
+ app.UseHttpsRedirection();
++app.MapProductEndpoints();
+
+ app.Run();
+diff --git a/fixtures/minimal-api-parent-fk/Properties/launchSettings.json b/fixtures/minimal-api-parent-fk/Properties/launchSettings.json
+new file mode 100644
+index 0000000..91f82bb
+--- /dev/null
++++ b/fixtures/minimal-api-parent-fk/Properties/launchSettings.json
+@@ -0,0 +1,14 @@
++{
++  "$schema": "https://json.schemastore.org/launchsettings.json",
++  "profiles": {
++    "http": {
++      "commandName": "Project",
++      "dotnetRunMessages": true,
++      "launchBrowser": false,
++      "applicationUrl": "http://localhost:5083",
++      "environmentVariables": {
++        "ASPNETCORE_ENVIRONMENT": "Development"
++      }
++    }
++  }
++}
