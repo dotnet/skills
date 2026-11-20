@@ -233,19 +233,32 @@ function postActivationStats(verdict) {
   const expected = scenarios.filter(
     (scenario) => scenario?.expectActivation !== false,
   );
-  const isolatedFailures = expected.reduce(
-    (sum, scenario) =>
-      sum + (scenario?.skillActivationIsolated?.failedActivationOnlyCompletions ?? 0),
+  const sum = (list, role, field) => list.reduce(
+    (total, scenario) => total + (scenario?.[role]?.[field] ?? 0),
     0,
   );
-  const pluginFailures = scenarios.reduce(
-    (sum, scenario) =>
-      sum + (scenario?.skillActivationPlugin?.failedActivationOnlyCompletions ?? 0),
-    0,
+  const isolatedFailures = sum(expected, "skillActivationIsolated", "failedActivationOnlyCompletions");
+  const pluginFailures = sum(scenarios, "skillActivationPlugin", "failedActivationOnlyCompletions");
+  // An implementation prompt that ends after only loading a skill delivered no
+  // work at all, so it is reported apart from advisory answers that may
+  // legitimately finish without further tool use (#1160).
+  const isolatedImplementationFailures = Math.min(
+    isolatedFailures,
+    sum(expected, "skillActivationIsolated", "implementationActivationOnlyFailures"),
+  );
+  const pluginImplementationFailures = Math.min(
+    pluginFailures,
+    sum(scenarios, "skillActivationPlugin", "implementationActivationOnlyFailures"),
   );
   return {
     isolatedFailures,
     pluginFailures,
+    isolatedImplementationFailures,
+    pluginImplementationFailures,
+    isolatedOtherFailures: isolatedFailures - isolatedImplementationFailures,
+    pluginOtherFailures: pluginFailures - pluginImplementationFailures,
+    hasImplementationFailures:
+      isolatedImplementationFailures > 0 || pluginImplementationFailures > 0,
     hasFailures: isolatedFailures > 0 || pluginFailures > 0,
   };
 }
@@ -409,14 +422,24 @@ function warningParts(verdict) {
   const activation = activationStats(verdict);
   if (activation?.hasMissing) warnings.push(`Activation: ${activationCell(verdict)}`);
   const postActivation = postActivationStats(verdict);
-  if (postActivation.isolatedFailures > 0) {
+  if (postActivation.isolatedImplementationFailures > 0) {
     warnings.push(
-      `Activation-only stop: isolated ${countNoun(postActivation.isolatedFailures, "failed run")}`,
+      `Implementation stop after skill activation: isolated ${countNoun(postActivation.isolatedImplementationFailures, "failed run")}`,
     );
   }
-  if (postActivation.pluginFailures > 0) {
+  if (postActivation.pluginImplementationFailures > 0) {
     warnings.push(
-      `Activation-only stop: plugin ${countNoun(postActivation.pluginFailures, "failed run")}`,
+      `Implementation stop after skill activation: plugin ${countNoun(postActivation.pluginImplementationFailures, "failed run")}`,
+    );
+  }
+  if (postActivation.isolatedOtherFailures > 0) {
+    warnings.push(
+      `Activation-only stop: isolated ${countNoun(postActivation.isolatedOtherFailures, "failed run")}`,
+    );
+  }
+  if (postActivation.pluginOtherFailures > 0) {
+    warnings.push(
+      `Activation-only stop: plugin ${countNoun(postActivation.pluginOtherFailures, "failed run")}`,
     );
   }
   const timeoutCount = (verdict.scenarios ?? []).filter(
@@ -463,6 +486,9 @@ function nextAction(verdict) {
     return "Narrow skill routing so the listed off-target scenarios stay dormant.";
   }
   const postActivation = postActivationStats(verdict);
+  if (postActivation.hasImplementationFailures) {
+    return "Inspect implementation prompts that ended after only loading the skill before rewriting skill content; compare executionContext across models to separate model, runtime, and skill causes.";
+  }
   if (postActivation.hasFailures) {
     return "Inspect activation-only failed runs before rewriting skill content; the model stopped after loading a skill.";
   }
@@ -497,7 +523,9 @@ function nextAction(verdict) {
   const actions = [];
   const activation = activationStats(verdict);
   if (activation?.hasMissing) actions.push("Fix activation gaps");
-  if (postActivationStats(verdict).hasFailures) {
+  if (postActivationStats(verdict).hasImplementationFailures) {
+    actions.push("Inspect implementation stops after activation");
+  } else if (postActivationStats(verdict).hasFailures) {
     actions.push("Inspect activation-only stops");
   }
   if ((verdict.scenarios ?? []).some((scenario) => scenario?.timedOut === true)) {
