@@ -101,7 +101,7 @@ What `code-testing-researcher` produces in `<TESTAGENT_DIR>/research.md`:
 | src/Contoso.Billing.psm1 | Get-InvoiceTotal, Get-InvoiceById, Set-InvoicePaid | High | Dependencies are scriptblocks, easy to fake; clock is injectable |
 
 ## Testing Patterns
-- No existing patterns; recommend Pester v5 `Describe` / `Context` / `It`, `BeforeAll` module import, `-TestCases` for total calculations, and scriptblock fakes for repository operations.
+- No existing patterns; recommend Pester v5 `Describe` / `Context` / `It`, top-level `using module ../src/Contoso.Billing.psd1` for the module-defined enum, `-TestCases` for total calculations, and scriptblock fakes for repository operations.
 ```
 
 ## Sample Plan Output
@@ -133,9 +133,9 @@ paid-state transition. Single phase since there is one module file.
 
 ```powershell
 # Tests/Contoso.Billing.Tests.ps1
-BeforeAll {
-    Import-Module (Join-Path $PSScriptRoot '..' 'src' 'Contoso.Billing.psd1') -Force -ErrorAction Stop
+using module ../src/Contoso.Billing.psd1
 
+BeforeAll {
     function New-TestInvoice {
         param(
             [int]$Id = 1,
@@ -182,7 +182,7 @@ Describe 'Contoso.Billing invoice functions' {
 
             $result = Get-InvoiceById -Id 42 -FindInvoice $findInvoice
 
-            $result | Should -BeSame $expected
+            [object]::ReferenceEquals($result, $expected) | Should -BeTrue
         }
 
         It 'throws when the invoice is missing' {
@@ -204,7 +204,7 @@ Describe 'Contoso.Billing invoice functions' {
 
             $invoice.Status | Should -Be ([InvoiceStatus]::Paid)
             $invoice.PaidDate | Should -Be $fixedNow
-            $script:updatedInvoice | Should -BeSame $invoice
+            [object]::ReferenceEquals($script:updatedInvoice, $invoice) | Should -BeTrue
         }
 
         It 'throws and does not update an already-paid invoice' {
@@ -215,6 +215,15 @@ Describe 'Contoso.Billing invoice functions' {
 
             { Set-InvoicePaid -Id 1 -FindInvoice $findInvoice -UpdateInvoice $updateInvoice } | Should -Throw '*already paid*'
             $script:updatedInvoice | Should -BeNullOrEmpty
+        }
+
+        It 'throws and does not update a missing invoice' {
+            $findInvoice = { $null }
+            $script:wasUpdated = $false
+            $updateInvoice = { param($Invoice) $script:wasUpdated = $true }
+
+            { Set-InvoicePaid -Id 999 -FindInvoice $findInvoice -UpdateInvoice $updateInvoice } | Should -Throw -ExpectedMessage 'Invoice 999 not found.'
+            $script:wasUpdated | Should -BeFalse
         }
     }
 }
@@ -227,12 +236,12 @@ When the implementer hits a Pester discovery or run issue, the fixer agent diagn
 **Test output:**
 
 ```text
-CommandNotFoundException: The term 'Get-InvoiceTotal' is not recognized
+Unable to find type [InvoiceStatus].
 ```
 
-**Fixer diagnosis:** The module import was placed at script top level. Import the module in `BeforeAll` so the Pester run phase sees the exported functions.
+**Fixer diagnosis:** Runtime `Import-Module` does not make a module-defined enum available while the test script is parsed. `using module` must appear at the top of the file and use a literal path relative to the test script.
 
-**Fix applied:** Move `Import-Module ... -Force` into `BeforeAll` (as shown above).
+**Fix applied:** Add top-level `using module ../src/Contoso.Billing.psd1` and remove the runtime import (as shown above). For identity assertions use `[object]::ReferenceEquals(...) | Should -BeTrue`; Pester v5 does not provide `Should -BeSame`.
 
 **Rerun:** `Invoke-Pester -Path ./Tests/Contoso.Billing.Tests.ps1 -Output Detailed` → SUCCESS
 
@@ -247,21 +256,21 @@ CommandNotFoundException: The term 'Get-InvoiceTotal' is not recognized
 ### Results
 | Metric         | Value |
 |----------------|-------|
-| Tests created  | 8     |
-| Tests passing  | 8     |
+| Tests created  | 9     |
+| Tests passing  | 9     |
 | Tests failing  | 0     |
 | Files created  | 1     |
 
 ### Files Created
-- `Tests/Contoso.Billing.Tests.ps1` (8 Pester examples, 3 data-driven total cases)
+- `Tests/Contoso.Billing.Tests.ps1` (9 Pester invocations: 6 ordinary examples and 3 data-driven total rows)
 
 ### Coverage
 - Get-InvoiceTotal — 3 happy path, 1 error case
 - Get-InvoiceById — found and missing branches
-- Set-InvoicePaid — success and already-paid branches
+- Set-InvoicePaid — success, already-paid and missing-invoice branches; error cases do not update the repository
 
 ### Build / Test Validation
 - Module load: ✅ `Import-Module ./src/Contoso.Billing.psd1 -Force -ErrorAction Stop`
-- Discovery: ✅ Pester found 8 tests
+- Discovery: ✅ Pester found 9 tests
 - Test run: ✅ `Invoke-Pester -Path ./Tests -Output Detailed`
 ```

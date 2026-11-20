@@ -1,0 +1,9 @@
+steps:
+  - script: dotnet restore Contoso.slnx
+    displayName: Restore
+  - script: dotnet test tests/Contoso.UnitTests/Contoso.UnitTests.csproj -c Release
+    displayName: Unit tests
+  - script: dotnet test tests/Contoso.IntegrationTests/Contoso.IntegrationTests.csproj -c Release
+    displayName: Integration tests
+  - script: dotnet test tests/Contoso.ContractTests/Contoso.ContractTests.csproj -c Release
+    displayName: Contract tests

@@ -120,6 +120,51 @@ Pester v5 runs in **two phases**: Discovery (collects test metadata) then Run (e
 - Use `foreach` loops for dynamic test generation only with `BeforeDiscovery` data
 - Use `TestDrive:` for file-based tests instead of touching repo files — Pester cleans it up automatically
 
+## Parameterized Test Display Names
+
+Apply [Report-safe test names and result validation](../../code-testing/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation).
+Use an explicit safe `Name`/`Case` in `-ForEach` or `-TestCases` data and expand
+only that field in the `It` title. Do not expand arbitrary `<Input>` or
+`<Expected>` values into discovery/report metadata.
+
+For a function whose contract reverses UTF-16 code units (not Unicode scalars),
+the reversed supplementary character is intentionally malformed UTF-16. Keep
+that expected value in the assertion, not the title:
+
+Use `Text` for the data field, not `Input`: `$Input` is PowerShell's automatic
+pipeline-input variable and can hide the intended case value inside `It`.
+
+```powershell
+BeforeDiscovery {
+    $cases = @(
+        @{
+            Name = 'supplementary code-unit reversal'
+            Text = [string]::Concat([char]0xD83D, [char]0xDE00)
+            Expected = [string]::Concat([char]0xDE00, [char]0xD83D)
+        }
+        @{
+            Name = 'isolated high surrogate'
+            Text = [string][char]0xD800
+            Expected = [string][char]0xD800
+        }
+    )
+}
+
+Describe 'Get-Reversed' {
+    BeforeAll {
+        Import-Module (Join-Path $PSScriptRoot '../tools/StringUtils.psm1') -Force
+    }
+
+    It 'reverses <Name>' -ForEach $cases {
+        Get-Reversed -Value $Text | Should -BeExactly $Expected
+    }
+}
+```
+
+Reuse the repository's configured Pester `TestResult` export path and format
+when present and parse the resulting artifact before reporting success. A
+passing `TotalCount`/`PassedCount` does not prove JUnit export succeeded.
+
 ## Common Errors
 
 | Error | Fix |

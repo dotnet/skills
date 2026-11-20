@@ -76,6 +76,30 @@ Use the repo's lint script first. Otherwise detect from `devDependencies` and co
 - Jest/Vitest default: `*.test.ts`, `*.spec.ts`, or files inside `__tests__/`
 - Place test files to mirror the existing project pattern
 
+## Parameterized Test Display Names
+
+Apply [Report-safe test names and result validation](../../code-testing/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation).
+For Jest `it.each`/`test.each`, interpolate only a safe label (`$Name` for object
+rows), or use a short behavior label with `%#` for the case index. Do not use
+`%p`, `%s`, or `$Input`/`$Expected` to render arbitrary data in the title.
+Harmless numeric placeholders such as `%i` remain fine.
+
+For a word counter whose contract treats form-feed as whitespace, keep the real
+U+000C input but give the case a safe name:
+
+```typescript
+it.each([
+  { Name: "form-feed separator", Input: "one\ftwo", Expected: 2 },
+  { Name: "space separator", Input: "one two", Expected: 2 },
+])("countWords: $Name", ({ Input, Expected }) => {
+  expect(countWords(Input)).toBe(Expected);
+});
+```
+
+The escape in `Input` becomes an actual control character at runtime; the title
+does not contain it. Reuse the configured reporter and validate its exported
+artifact when required/configured; do not install `jest-junit` just for this check.
+
 ## Common Errors
 
 | Error | Fix |

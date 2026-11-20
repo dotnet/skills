@@ -1,0 +1,63 @@
+diff --git a/TestProject.csproj b/TestProject.csproj
+--- a/TestProject.csproj
++++ b/TestProject.csproj
+@@ -1,14 +1,12 @@
+ <Project Sdk="Microsoft.NET.Sdk">
+   <PropertyGroup>
+     <TargetFramework>net8.0</TargetFramework>
+-    <OutputType>Exe</OutputType>
+     <ImplicitUsings>enable</ImplicitUsings>
+     <Nullable>enable</Nullable>
+   </PropertyGroup>
+   <ItemGroup>
+     <Compile Remove=".eval/**" />
+-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+-    <PackageReference Include="xunit.v3" Version="3.2.2" />
+-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
++    <PackageReference Include="MSTest" Version="4.4.1" />
+   </ItemGroup>
+ </Project>
+diff --git a/OwnerTests.cs b/OwnerTests.cs
+--- a/OwnerTests.cs
++++ b/OwnerTests.cs
+@@ -1,22 +1,24 @@
+-using Xunit;
+-
+-[assembly: Trait("Owner", "alice")]
++using Microsoft.VisualStudio.TestTools.UnitTesting;
++[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]
+-
++
+ namespace MigrationFixture;
+-
++
++[TestClass]
+ public class AssemblyOwnerTests
+ {
+-    [Fact]
+-    public void InheritsAlice() => Assert.Equal(4, 2 + 2);
++    [TestMethod]
++    [Owner("alice")]
++    public void InheritsAlice() => Assert.AreEqual(4, 2 + 2);
+ }
+-
++
+-[Trait("Owner", "alice")]
++[TestClass]
+ public class ClassOwnerTests
+ {
+-    [Fact]
+-    [Trait("Owner", "alice")]
+-    public void DeduplicatesAlice() => Assert.Equal(6, 3 + 3);
++    [TestMethod]
++    [Owner("alice")]
++    public void DeduplicatesAlice() => Assert.AreEqual(6, 3 + 3);
+-
++
+-    [Fact]
+-    public void InheritsClassAlice() => Assert.Equal(8, 4 + 4);
++    [TestMethod]
++    [Owner("alice")]
++    public void InheritsClassAlice() => Assert.AreEqual(8, 4 + 4);
+ }

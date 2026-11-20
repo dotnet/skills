@@ -459,8 +459,8 @@ stimuli:
 - name: Web CSS notch padding
   prompt: My responsive website overlaps the iPhone notch in Safari. How do I use CSS environment insets
     and viewport settings? This is HTML/CSS, not a native app.
-  expect_activation: false
   tags:
+    expect_activation: "false"
     capability: routing-boundary
     risk: off-target-activation
     journey: use-other-platform

@@ -139,6 +139,11 @@ build may instead receive TargetFramework globally; distinguish those cases.
 An outer cross-targeting build may still have no single TargetFramework. Check the intended
 instance, and preserve existing constants rather than replacing them.
 
+Move the dependent assignment, not an intentionally project-owned framework, and confirm its
+consumer has not already used the value before the new location. For unknown evaluated values,
+use the [property/item queries](../eval-performance.md), retaining the original global properties;
+preprocessed XML alone does not prove which conditions selected properties or items.
+
 **Item conditions are different:** items are evaluated after properties. These early-file
 patterns can be correct and must not be flagged merely for using TargetFramework:
 

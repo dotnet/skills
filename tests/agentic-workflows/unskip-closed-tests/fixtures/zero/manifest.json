@@ -1,0 +1,60 @@
+{
+  "schema_version": "1",
+  "repository": "fixture/repo",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "git_object_format": "sha1",
+  "config_digest": "49ea7b693a67dd367e3d4fbdcae49587e4b5859e35276047b5ce6538df59497d",
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "6a04ecfdcf6bbefe2ca0b2957dcd4640835ae1478a09a0b745425ae207e18dd4",
+      "stable_owner_id": "93f08752776c76cbfb2097b0393208b393caf137539f299f4bba31245686a28f",
+      "path": "repo/Tests.cs",
+      "blob_oid": "af8f90dd7ab0a3f2a4a6a229a3c599404c32a125",
+      "source_sha256": "37c2cda3030de9e8e18b3db23dbbc65ab80a25e2a870e2b7ed7063511f2fc3db",
+      "attribute_span": {
+        "start": 42,
+        "length": 52,
+        "start_line": 4,
+        "start_column": 6,
+        "end_line": 4,
+        "end_column": 58
+      },
+      "attribute_text_sha256": "e04473477b2290a0f6db6e6d25cf385132358598e7948dac5349b9bfa29d15bb",
+      "attribute_type": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+      "owner": {
+        "kind": "method",
+        "namespace": "Demo",
+        "containing_types": [
+          "Tests"
+        ],
+        "type_fqn": "Demo.Tests",
+        "declaration_id": "M:Demo.Tests.Count()",
+        "method_name": "Count",
+        "method_signature": "Count()",
+        "test_fqns": [
+          "Demo.Tests.Count"
+        ]
+      },
+      "canonical_issue_references": [
+        {
+          "kind": "issue",
+          "owner": "fixture",
+          "repo": "repo",
+          "number": 111,
+          "canonical": "fixture/repo#111",
+          "url": "https://github.com/fixture/repo/issues/111",
+          "eligibility": true,
+          "state": "closed",
+          "state_reason": "completed",
+          "merged_at": null
+        }
+      ],
+      "decision": {
+        "eligible": true,
+        "deferrals": []
+      }
+    }
+  ],
+  "manifest_digest": "7e1a84199d53d32f894f853208a20bf4e991c207a456d88a435382e6d88c9c51"
+}

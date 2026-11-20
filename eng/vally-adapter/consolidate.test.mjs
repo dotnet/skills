@@ -15,6 +15,21 @@ import { spawnSync } from "node:child_process";
 
 const script = join(dirname(fileURLToPath(import.meta.url)), "consolidate.mjs");
 
+test("workflow reports distinguish offline proposal evidence from publication", () => {
+  const markdown = render([{
+    skillName: "demo", skillKind: "workflow", state: "VALID_NO_CHANGE",
+    passed: false, scenarios: [{
+      scenarioName: "No actionable finding",
+      expectActivation: true,
+      agentActivationIsolated: { activated: true },
+      agentActivationPlugin: { activated: true },
+    }],
+  }]);
+  assert.match(markdown, /Skill, Agent, and Workflow Evaluation Results/);
+  assert.match(markdown, /offline prompt decisions/);
+  assert.match(markdown, /not live Actions jobs or publication/);
+});
+
 function render(verdicts, options = {}) {
   const documents = options.documents ?? [
     {

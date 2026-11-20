@@ -424,8 +424,8 @@ stimuli:
 - name: Static dashboard layout
   prompt: My MAUI dashboard always has exactly four fixed buttons, no data source or scrolling. Show a
     simple two-column layout; please do not introduce a list control.
-  expect_activation: false
   tags:
+    expect_activation: "false"
     capability: routing-boundary
     risk: off-target-activation
     journey: use-other-platform

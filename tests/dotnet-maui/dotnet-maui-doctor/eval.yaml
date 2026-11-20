@@ -389,7 +389,7 @@ stimuli:
         new file mode 100644
         --- /dev/null
         +++ b/resolve_requirements.py
-        @@ -0,0 +1,49 @@
+        @@ -0,0 +1,53 @@
         +import argparse
         +import json
         +from pathlib import Path
@@ -411,6 +411,10 @@ stimuli:
         +    package = f"microsoft.net.sdk.android.manifest-{band}".lower()
         +    catalog = json.loads(Path(catalog_path).read_text())
         +    deps = one_key(catalog[f"{package}/{version.lower()}"], "microsoft.net.sdk.android")
+        +    jdk = deps["jdk"]
+        +    for field in ("version", "recommendedVersion"):
+        +        if not isinstance(jdk[field], str) or not jdk[field].strip():
+        +            raise ValueError("Invalid JDK metadata")
         +    packages = []
         +    for item in deps["androidsdk"]["packages"]:
         +        optional = item["optional"]
@@ -444,8 +448,7 @@ stimuli:
     prompt: |
       My MAUI Android app builds and launches, but tapping Save throws a
       NullReferenceException inside my view model. How should I debug it?
-    expect_activation: false
-    tags: {capability: runtime-dormancy, risk: toolchain-hijack, journey: debug-app-logic}
+    tags: {capability: runtime-dormancy, risk: toolchain-hijack, journey: debug-app-logic, expect_activation: "false"}
     graders:
       - type: output-matches
         config: {pattern: '(?i)stack\s+(trace|frame)|call\s+stack|breakpoint|debugger|Exception Settings'}

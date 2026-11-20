@@ -58,7 +58,7 @@ on:
   workflow_dispatch:
     inputs:
       plugin:
-        description: "Specific plugin to evaluate (leave blank for all)"
+        description: "Plugin or agentic-workflows collection to evaluate (leave blank for all)"
         type: string
         required: false
       pr_number:
@@ -186,7 +186,7 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
 
           # Evaluation pipeline changes need a re-eval. The native custom-agent
@@ -195,7 +195,7 @@ jobs:
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety)\.ps1$') -or
+              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
               ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -258,13 +258,13 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety)\.ps1$') -or
+              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
               ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -898,7 +898,7 @@ jobs:
 
       - name: Download all result artifacts
         if: needs.evaluate.result != 'skipped'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: vally-results-*
           path: all-results/
@@ -1161,7 +1161,7 @@ jobs:
           persist-credentials: false
 
       - name: Download evaluation artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: vally-results-*
           path: all-results/
@@ -1373,7 +1373,7 @@ jobs:
       - name: Download evaluation artifacts
         id: download
         if: steps.auth.outcome == 'success' && steps.checkout.outcome == 'success'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: vally-results-*
           path: all-results/
@@ -1541,7 +1541,7 @@ jobs:
           persist-credentials: false
 
       - name: Download evaluation artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: vally-results-*
           path: all-results/
@@ -1561,6 +1561,7 @@ jobs:
       - name: Generate benchmark data
         run: |
           $sha = "${{ github.sha }}"
+          $executionId = "${{ github.run_id }}:${{ github.run_attempt }}"
           $commitMsg = git log -1 --format='%s' $sha
           $commitTimestamp = git log -1 --format='%aI' $sha
           $commitAuthor = git log -1 --format='%an' $sha
@@ -1650,6 +1651,7 @@ jobs:
                 PluginName     = $plugin
                 OutputDir      = "/tmp/eval-data/data"
                 CommitJson     = $commitJson
+                ExecutionId    = $executionId
                 RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
                 Source         = 'scheduled'
                 SkipTokenUsage = $true
@@ -1753,7 +1755,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 20
 

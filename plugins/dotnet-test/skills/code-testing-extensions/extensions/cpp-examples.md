@@ -137,6 +137,7 @@ repository lookup behavior, and the paid-state transition.
 #include "contoso/billing/invoice_service.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <chrono>
@@ -239,6 +240,11 @@ TEST_CASE("InvoiceService uses the repository", "[invoice-service]") {
 
         REQUIRE_THROWS_WITH(sut.mark_as_paid(2), ContainsSubstring("already paid"));
     }
+
+    SECTION("mark_as_paid rejects a missing invoice without updating") {
+        REQUIRE_THROWS_WITH(sut.mark_as_paid(999), ContainsSubstring("not found"));
+        REQUIRE_FALSE(repository.updated.has_value());
+    }
 }
 
 } // namespace contoso::billing
@@ -283,7 +289,7 @@ note: missing pure virtual method 'InvoiceRepository::update'
 ### Coverage
 - InvoiceService.calculate_total — tax, zero tax, rounding, empty input
 - InvoiceService.get_by_id — found and missing branches
-- InvoiceService.mark_as_paid — success and already-paid branches
+- InvoiceService.mark_as_paid — success, already-paid, and missing-invoice branches; missing invoices never update the repository
 
 ### Build / Test Validation
 - Configure: ✅ `cmake --preset ninja-debug`

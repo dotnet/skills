@@ -177,7 +177,8 @@ stimuli:
     prompt: |
       I need to add unit tests for my Calculator class. Can you generate
       comprehensive tests with good coverage?
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     environment:
       files:
         - src: fixtures/xunit-v2/CalcTests.csproj

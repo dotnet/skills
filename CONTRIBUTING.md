@@ -330,8 +330,8 @@ apply this order:
 6. **Prove mutation rejection.** A realistic broken mutation must fail the grader that is meant to
    detect it; otherwise the grader does not protect the behavior.
 7. **Cover restraint.** Migration and rewrite evals need an already-correct no-op case. Routing
-   boundaries need `expect_activation: false` dormancy cases that test recognition, restraint, and
-   redirection without `reject_skills`.
+   boundaries need `tags.expect_activation: "false"` dormancy cases that test recognition,
+   restraint, and redirection without a disallowed `skill-invocation` grader.
 8. **Size for the expected tie rate.** Five preference-eligible stimuli is only the eligibility
    floor. Add independent stimuli until the expected win, tie, and loss record can reach the sign
    test with useful power.
@@ -381,14 +381,12 @@ stimuli:
 ```
 
 > [!IMPORTANT]
-> `config:` is a deprecated alias for `defaults:`. The repository gate rejects the alias so every
-> eval uses one settings schema. Vally warns when `config:` appears alone and rejects a spec that
-> declares both keys. Replace `config:` with one `defaults:` block and preserve its settings.
+> `config:` is no longer supported. Use one `defaults:` block and preserve its settings.
 
-Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. Dormancy is an isolated-skill activation contract: unexpected activation blocks a pass, while the stimulus's retained comparison does not vote in preference. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
+Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add the quoted string tag `expect_activation: "false"` under that stimulus's `tags:` mapping. Dormancy is an isolated-skill activation contract: unexpected activation blocks a pass, while the stimulus's retained comparison does not vote in preference. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
 
 Custom-agent evals live at `tests/<plugin>/agent.<name>/eval.yaml` and use the
-same baseline / isolated / plugin roles and verdict policy. Vally 0.14 cannot
+same baseline / isolated / plugin roles and verdict policy. Vally does not
 register custom agents, so CI executes those specs through the native Copilot
 SDK runner: isolated runs register the target agent plus declared dependencies,
 and plugin runs register the complete production plugin skill/agent surface.
@@ -401,7 +399,7 @@ The pass gate gives each distinct stimulus one vote. Repeated runs collapse to o
 majority-direction vote and remain available as reliability evidence.
 
 1. **Preference-eligible distinct stimuli ≥ 5**, else the verdict is reported `underpowered` —
-   never a pass, never a regression. `expect_activation: false` dormancy contracts do not count
+   never a pass, never a regression. `tags.expect_activation: "false"` dormancy contracts do not count
    toward this preference floor.
 2. **p ≤ 0.05 on an exact one-sided sign test over *discordant* (non-tie) stimulus votes.** Ties are not
    discarded; they hold the discordant count down.
@@ -446,6 +444,11 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
   plugins/dotnet-msbuild/agents/msbuild.agent.md \
   --tests-dir tests/dotnet-msbuild --runs 1 --verdict-warn-only
 
+# Exercise one redistributable workflow package against offline fixtures
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
+  agentic-workflows/msbuild-quality-review/aw.yml \
+  --tests-dir tests/agentic-workflows --runs 1 --verdict-warn-only
+
 # Run every skill's tests
 ./eng/run-skill-evals.sh
 ```
@@ -461,6 +464,13 @@ Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`
 ### CI evaluation
 
 Tests do **not** run automatically on pull requests. When a PR changes skills, the `pr-status` job posts a pending commit status and a maintainer must trigger the evaluation, binding it to a specific reviewed commit — either by submitting a PR review ("Files changed" → "Review changes") whose body contains `/evaluate` (recommended, no SHA to copy), or by commenting `/evaluate <sha>`. A bare `/evaluate` comment only posts guidance. Results are posted as a PR comment and uploaded as build artifacts.
+
+The same discovery/reporting pipeline covers workflow packages and their specs
+under `tests/agentic-workflows/<package>/eval.yaml`. Manual dispatch with
+`plugin: agentic-workflows` selects that collection. These results measure
+offline workflow decisions/proposals using the real imported prompts and
+installed resources; they do not claim live Actions or publication validation.
+Keep package compilation and trusted-helper regression tests as separate gates.
 
 The [Skill Value dashboard](https://dotnet.github.io/skills/) provides historical
 results for each skill by executor and judge model.

@@ -580,6 +580,12 @@ executor evidence to `28595929` and reporting later grading checks separately.
 
 ### Native rooted filesystem provider and fail-closed unsupported hosts
 
+> **Retired (November 2026).** After merging main (Vally 0.20, Copilot SDK 1.0.26)
+> the helper described below was removed from this branch: Vally 0.20 constructs
+> its SDK client without a `sessionFs` provider, so there is no workspace hook
+> left to wrap. The text below is the historical record for Vally 0.14 and makes
+> no claim about current behavior.
+
 The harness owner confirmed an intermediate-parent symlink swap after path
 canonicalization can make the adapter read or overwrite an outside owned
 fixture. Canonical checks are not an atomic or adversarial confinement boundary.

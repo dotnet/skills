@@ -6,51 +6,129 @@ these probes for a supplied excerpt or valid Cobertura path.
 
 ## Step 1: Locate the solution or project
 
-Given the user's path (default: current directory), find the entry point:
+Given the user's path (default: current directory), find the entry point.
+If the user or the repository's documented coverage command selects a specific
+`.sln`, `.slnx`, `.slnf`, or `.csproj`, pass that exact file as `$root`; do not
+replace it with a discovered alternative. Directory discovery stops on multiple
+solutions or, when no solution exists, multiple projects. Request an explicit
+entry point rather than selecting the first.
 
 ```powershell
-$root = "<user-provided-path-or-current-directory>"
-
-# Prefer solution file; fall back to project file
-$sln = Get-ChildItem -Path $root -Filter "*.sln" -Recurse -Depth 2 -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if ($sln) {
-    Write-Host "ENTRY_TYPE:Solution"; Write-Host "ENTRY:$($sln.FullName)"
+$root = "<user-or-repository-selected-file-or-directory>"
+$requested = Get-Item -LiteralPath $root -ErrorAction Stop
+$entry = $null
+if (-not $requested.PSIsContainer) {
+    if ($requested.Extension -notin @('.sln', '.slnx', '.slnf', '.csproj')) {
+        throw "Unsupported entry point: $($requested.FullName)"
+    }
+    $entry = $requested
+    $root = $requested.DirectoryName
 } else {
-    $project = Get-ChildItem -Path $root -Filter "*.csproj" -Recurse -Depth 2 -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-    if ($project) {
-        Write-Host "ENTRY_TYPE:Project"; Write-Host "ENTRY:$($project.FullName)"
-    } else {
-        Write-Host "ENTRY_TYPE:NotFound"
+    $root = $requested.FullName
+    $candidates = @(Get-ChildItem -LiteralPath $root -File -Recurse -Depth 2 -ErrorAction Stop |
+        Where-Object { $_.Extension -in @('.sln', '.slnx') -and $_.FullName -notmatch '[/\\](obj|bin)[/\\]' })
+    if ($candidates.Count -eq 0) {
+        $candidates = @(Get-ChildItem -LiteralPath $root -Filter "*.csproj" -File -Recurse -Depth 2 -ErrorAction Stop |
+            Where-Object { $_.FullName -notmatch '[/\\](obj|bin)[/\\]' })
     }
+    if ($candidates.Count -gt 1) {
+        throw "Ambiguous entry point under $root. Specify one .sln, .slnx, .slnf, or .csproj: $($candidates.FullName -join ', ')"
+    }
+    if ($candidates.Count -eq 1) { $entry = $candidates[0] }
+}
+if ($entry) {
+    $entryType = if ($entry.Extension -eq '.csproj') { 'Project' } else { 'Solution' }
+    Write-Host "ENTRY_TYPE:$entryType"; Write-Host "ENTRY:$($entry.FullName)"
+} else {
+    Write-Host "ENTRY_TYPE:NotFound"
 }
 
-# Test projects: search path first, then git root, then parent
+# Test projects: search the requested directory, then its containing Git root only.
 $searchRoots = @($root)
-$gitRoot = (git -C $root rev-parse --show-toplevel 2>$null)
+$gitOutput = @(git -C $root rev-parse --show-toplevel 2>&1)
+if ($LASTEXITCODE -eq 0) {
+    $gitRoot = [string]$gitOutput[0]
+} else {
+    $gitError = $gitOutput | Out-String
+    if ($gitError -notmatch 'not a git repository \(or any of the parent directories\): \.git') {
+        throw "Git root lookup failed: $gitError"
+    }
+    $gitRoot = $null
+}
 if ($gitRoot) { $gitRoot = [System.IO.Path]::GetFullPath($gitRoot) }
-if ($gitRoot -and $gitRoot -ne $root) { $searchRoots += $gitRoot }
-$parentPath = Split-Path $root -Parent
-if ($parentPath -and $parentPath -ne $root -and $parentPath -ne $gitRoot) { $searchRoots += $parentPath }
+if ($gitRoot -and $gitRoot -ne $root) {
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $prefix = $gitRoot.TrimEnd($sep) + $sep
+    if (-not $root.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Git root is not a containing directory: $gitRoot"
+    }
+    $searchRoots += $gitRoot
+}
 
-$testProjects = @()
-foreach ($sr in $searchRoots) {
-    # Primary: match by .csproj content (test framework references)
-    $testProjects = @(Get-ChildItem -Path $sr -Filter "*.csproj" -Recurse -Depth 5 -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -notmatch '([/\\]obj[/\\]|[/\\]bin[/\\])' } |
-        Where-Object { (Select-String -Path $_.FullName -Pattern 'Microsoft\.NET\.Test\.Sdk|xunit|nunit|MSTest\.TestAdapter|"MSTest"|MSTest\.TestFramework|TUnit' -Quiet) })
-    if ($testProjects.Count -gt 0) {
-        if ($sr -ne $root) { Write-Host "SEARCHED:$sr" }
-        break
+function Get-SolutionProjects($solution) {
+    $text = Get-Content -LiteralPath $solution.FullName -Raw -ErrorAction Stop
+    if ($solution.Extension -eq '.slnx') {
+        $xml = [xml]$text
+        if ($xml.DocumentElement.Name -ne 'Solution') { throw "Invalid solution: $($solution.FullName)" }
+        $paths = @($xml.SelectNodes('//Project[@Path]') | ForEach-Object { $_.Path })
+    } elseif ($solution.Extension -eq '.sln') {
+        if ($text -notmatch 'Microsoft Visual Studio Solution File, Format Version') {
+            throw "Invalid solution: $($solution.FullName)"
+        }
+        $paths = @([regex]::Matches($text, '(?m)^Project\("[^"]+"\)\s*=\s*"[^"]*",\s*"([^"]+)",') |
+            ForEach-Object { $_.Groups[1].Value } |
+            Where-Object { [System.IO.Path]::GetExtension($_) -eq '.csproj' })
+    } else {
+        throw "Unsupported underlying solution: $($solution.FullName)"
+    }
+    foreach ($path in $paths) {
+        if ([System.IO.Path]::GetExtension($path) -eq '.csproj') {
+            $relative = $path.Replace('\', [System.IO.Path]::DirectorySeparatorChar)
+            [System.IO.Path]::GetFullPath((Join-Path $solution.DirectoryName $relative))
+        }
     }
 }
 
-# Fallback: match by file name convention
-if ($testProjects.Count -eq 0) {
+# Scope before reading/classifying projects: solution membership, filter membership,
+# or the single project that the selected test command actually targets.
+if ($entry) {
+    if ($entry.Extension -eq '.csproj') {
+        $projectPaths = @($entry.FullName)
+    } elseif ($entry.Extension -eq '.slnf') {
+        $filter = Get-Content -LiteralPath $entry.FullName -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        if (-not $filter.solution.path -or $null -eq $filter.solution.projects) {
+            throw "Invalid solution filter: $($entry.FullName)"
+        }
+        $solutionPath = $filter.solution.path.Replace('\', [System.IO.Path]::DirectorySeparatorChar)
+        $solution = Get-Item -LiteralPath (Join-Path $entry.DirectoryName $solutionPath) -ErrorAction Stop
+        $members = @(Get-SolutionProjects $solution)
+        $projectPaths = @($filter.solution.projects | ForEach-Object {
+            $relative = $_.Replace('\', [System.IO.Path]::DirectorySeparatorChar)
+            $project = Get-Item -LiteralPath (Join-Path $solution.DirectoryName $relative) -ErrorAction Stop
+            if ($members -notcontains $project.FullName) { throw "Filtered project is not in the solution: $($project.FullName)" }
+            $project.FullName
+        })
+    } else {
+        $projectPaths = @(Get-SolutionProjects $entry)
+    }
+    $projects = @($projectPaths | Select-Object -Unique | ForEach-Object {
+        Get-Item -LiteralPath $_ -ErrorAction Stop
+    })
+    $testProjects = @($projects | Where-Object {
+        (Select-String -LiteralPath $_.FullName -Pattern 'Microsoft\.NET\.Test\.Sdk|xunit|nunit|MSTest\.TestAdapter|"MSTest"|MSTest\.TestFramework|TUnit' -Quiet -ErrorAction Stop) -or
+        $_.Name -match '(?i)(test|spec)'
+    })
+} else {
+    $testProjects = @()
     foreach ($sr in $searchRoots) {
-        $testProjects = @(Get-ChildItem -Path $sr -Filter "*.csproj" -Recurse -Depth 5 -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match '(?i)(test|spec)' })
+        $projects = @(Get-ChildItem -LiteralPath $sr -Filter "*.csproj" -File -Recurse -Depth 5 -ErrorAction Stop |
+            Where-Object { $_.FullName -notmatch '[/\\](obj|bin)[/\\]' })
+        $testProjects = @($projects | Where-Object {
+            Select-String -LiteralPath $_.FullName -Pattern 'Microsoft\.NET\.Test\.Sdk|xunit|nunit|MSTest\.TestAdapter|"MSTest"|MSTest\.TestFramework|TUnit' -Quiet -ErrorAction Stop
+        })
+        if ($testProjects.Count -eq 0) {
+            $testProjects = @($projects | Where-Object { $_.Name -match '(?i)(test|spec)' })
+        }
         if ($testProjects.Count -gt 0) {
             if ($sr -ne $root) { Write-Host "SEARCHED:$sr" }
             break
@@ -62,7 +140,7 @@ $testProjects | ForEach-Object { Write-Host "TEST_PROJECT:$($_.FullName)" }
 
 # Project-system classification controls whether the automatic dotnet/provider path is safe.
 $classicTestProjects = @($testProjects | Where-Object {
-    $text = Get-Content $_.FullName -Raw
+    $text = Get-Content -LiteralPath $_.FullName -Raw -ErrorAction Stop
     $hasSdk = $text -match '<Project[^>]+\bSdk\s*=' -or $text -match '<Sdk\b'
     $hasPackagesConfig = Test-Path (Join-Path $_.DirectoryName "packages.config")
     $hasClassicSignals = $text -match '\bToolsVersion\s*=' -or
@@ -119,7 +197,18 @@ Write-Host "TEST_OUTPUT_ROOT:$testOutputRoot"
 
 - If `ENTRY_TYPE:NotFound` and SDK-style test projects were found → use the test projects directly as `dotnet test` entry points.
 - If `ENTRY_TYPE:NotFound` and classic test projects were found → use only the repository's documented coverage command; do not infer `dotnet test`.
-- If `ENTRY_TYPE:NotFound` and no test projects found → stop: `No .sln or test projects found under <path>. Provide the path to your .NET solution or project.`
+- If `ENTRY_TYPE:NotFound` and no test projects found → stop: `No .sln, .slnx, or test projects found under <path>. Provide the path to your .NET solution, filter, or project.`
+- A missing/unreadable requested path, failed lookup, or ambiguous entry point is a discovery blocker, not measured zero coverage or evidence of an empty suite. Do not continue collection after a discovery error.
+- Discovery is an inventory, not permission to expand collection scope. Pass the
+  exact selected entry point to `run-tests` and collect only its requested
+  project graph. Do not replace a selected `.csproj` or `.slnf` with every test
+  project found under the containing Git root. Apply the classic-project safety
+  rules below within that selected graph.
+- Selected-entry arrays contain only the projects targeted by that entry:
+  solution members, filter members, or one explicit project. Transitive build
+  dependencies are not additional test-run targets. For a generated or
+  nonstandard entry graph that these formats cannot represent, stop and use
+  the repository's evaluated target inventory rather than scanning siblings.
 - If `TEST_PROJECTS:0` and `EXISTING_COBERTURA_COUNT` > 0 (Step 2b) → continue with existing Cobertura XML analysis (no `dotnet test` run).
 - If `TEST_PROJECTS:0` and `EXISTING_COBERTURA_COUNT` == 0 → stop: `No test projects found (expected projects with 'Test' or 'Spec' in the name), and no existing Cobertura XML was provided. Add a test project or provide a Cobertura file path.`
 - If `CLASSIC_TEST_PROJECTS` is nonzero and no existing Cobertura XML is found,
@@ -156,8 +245,8 @@ If the user supplied a Cobertura XML path explicitly, use it. Otherwise probe we
 ```powershell
 # 1. Honor a user-supplied path first (highest priority)
 $coberturaFiles = @()
-if ($userSuppliedCoberturaPath -and (Test-Path $userSuppliedCoberturaPath)) {
-    $coberturaFiles = @(Get-Item $userSuppliedCoberturaPath)
+if ($userSuppliedCoberturaPath) {
+    $coberturaFiles = @(Get-Item -LiteralPath $userSuppliedCoberturaPath -ErrorAction Stop)
 }
 
 # 2. Otherwise scan TestResults/ at the repo/test root for any *.cobertura.xml
@@ -167,7 +256,7 @@ if ($coberturaFiles.Count -eq 0) {
         (Join-Path $root "TestResults")
     ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
     foreach ($sp in $searchPaths) {
-        $found = @(Get-ChildItem -Path $sp -Filter "*.cobertura.xml" -Recurse -ErrorAction SilentlyContinue |
+        $found = @(Get-ChildItem -LiteralPath $sp -Filter "*.cobertura.xml" -Recurse -ErrorAction Stop |
             Where-Object { $_.FullName -notmatch '[/\\]coverage-analysis[/\\]raw[/\\]' })
         if ($found.Count -gt 0) { $coberturaFiles = $found; break }
     }

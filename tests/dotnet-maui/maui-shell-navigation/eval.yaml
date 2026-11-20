@@ -500,8 +500,8 @@ stimuli:
 - name: Blazor route parameters
   prompt: My Blazor web app needs a /products/{id} route and a link to it. Show the Razor page and navigation.
     There is no native mobile host.
-  expect_activation: false
   tags:
+    expect_activation: "false"
     capability: routing-boundary
     risk: off-target-activation
     journey: use-other-platform

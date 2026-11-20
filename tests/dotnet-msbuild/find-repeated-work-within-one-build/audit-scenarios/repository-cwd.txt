@@ -1,0 +1,22 @@
+Invocation: dotnet msbuild Product.proj -m:8
+One invocation builds 24 projects: 12 in src/Main and 12 in vendor/Engine.
+Task Performance Summary: Exec 48000 ms, 24 calls.
+Each Exec takes 2000 ms and runs git rev-parse HEAD.
+Main and Engine are separate Git repositories with different HEAD commits.
+
+Directory.Build.targets excerpt:
+<Target Name="StampRevision" BeforeTargets="CoreCompile">
+  <Exec Command="git rev-parse HEAD"
+        WorkingDirectory="$(MSBuildProjectDirectory)"
+        ConsoleToMSBuild="true">
+    <Output TaskParameter="ConsoleOutput" PropertyName="Revision" />
+  </Exec>
+  <WriteLinesToFile File="$(IntermediateOutputPath)revision.txt"
+                    Lines="$(Revision)" WriteOnlyWhenDifferent="true" />
+</Target>
+
+Observed revision.txt values:
+src/Main/*: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+vendor/Engine/*: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+Only the first 12 projects share Main's repository. Engine is not a subdirectory
+of Main's Git worktree. There is no timeline or node-overlap information.

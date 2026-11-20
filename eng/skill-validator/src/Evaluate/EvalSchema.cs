@@ -111,6 +111,18 @@ public static class EvalSchema
                 }
             }
 
+            var toolCallConfigs = stimulus.Graders?
+                .Where(grader => grader.Type == "tool-calls" && grader.Config is not null)
+                .Select(grader => grader.Config!)
+                .ToList() ?? [];
+            var requiredTools = toolCallConfigs
+                .SelectMany(config => config.Required ?? [])
+                .Distinct()
+                .ToList();
+            var disallowedTools = toolCallConfigs
+                .SelectMany(config => config.Disallowed ?? [])
+                .Distinct()
+                .ToList();
             SetupConfig? setup = null;
             if (stimulus.Environment is not null)
             {
@@ -130,17 +142,35 @@ public static class EvalSchema
                 Assertions: assertions,
                 Rubric: stimulus.Rubric is { Count: > 0 } ? stimulus.Rubric : null,
                 Timeout: ParseDurationSeconds(stimulus.Constraints?.MaxDuration) ?? defaultTimeout,
-                ExpectTools: stimulus.Constraints?.ExpectTools,
-                RejectTools: stimulus.Constraints?.RejectTools,
+                ExpectTools: requiredTools.Count > 0
+                    ? requiredTools
+                    : stimulus.Constraints?.ExpectTools,
+                RejectTools: disallowedTools.Count > 0
+                    ? disallowedTools
+                    : stimulus.Constraints?.RejectTools,
                 MaxTurns: stimulus.Constraints?.MaxTurns,
                 MaxTokens: stimulus.Constraints?.MaxTokens,
-                ExpectActivation: stimulus.ExpectActivation ?? true,
-                DenyShell: stimulus.DenyShell,
+                ExpectActivation: ReadBooleanTag(stimulus.Tags, "expect_activation")
+                    ?? stimulus.ExpectActivation
+                    ?? true,
+                DenyShell: ReadBooleanTag(stimulus.Tags, "deny_shell")
+                    ?? stimulus.DenyShell,
                 RejectAgents: stimulus.Constraints?.RejectAgents,
                 RejectShellRetries: stimulus.Constraints?.RejectShellRetries ?? false));
         }
 
         return scenarios.Count > 0 ? new EvalConfig(scenarios) : null;
+    }
+
+    private static bool? ReadBooleanTag(Dictionary<string, object?>? tags, string name)
+    {
+        if (tags is null || !tags.TryGetValue(name, out var value) || value is null)
+            return null;
+
+        return bool.TryParse(value.ToString(), out var result)
+            ? result
+            : throw new InvalidOperationException(
+                $"Tag '{name}' must be the string 'true' or 'false', got '{value}'.");
     }
 
     /// <summary>
@@ -426,6 +456,7 @@ public static class EvalSchema
         public RawVallyEnvironment? Environment { get; set; }
         public List<RawVallyGrader>? Graders { get; set; }
         public List<string>? Rubric { get; set; }
+        public Dictionary<string, object?>? Tags { get; set; }
         public RawVallyConstraints? Constraints { get; set; }
         public bool? ExpectActivation { get; set; }
         public bool DenyShell { get; set; }
@@ -436,8 +467,7 @@ public static class EvalSchema
         public List<RawVallyFile>? Files { get; set; }
         public List<string>? Commands { get; set; }
         public List<string>? Skills { get; set; }
-        // Repository extension used by the native agent lane. Vally 0.14 does
-        // not support agent registration, so the SDK runner consumes this field.
+        // Repository extension used by the native custom-agent lane.
         public List<string>? Agents { get; set; }
     }
 
@@ -476,5 +506,7 @@ public static class EvalSchema
         public string? Timeout { get; set; }
         public string? StdoutContains { get; set; }
         public string? StdoutMatches { get; set; }
+        public List<string>? Required { get; set; }
+        public List<string>? Disallowed { get; set; }
     }
 }

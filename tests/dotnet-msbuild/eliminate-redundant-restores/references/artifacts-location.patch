@@ -1,0 +1,13 @@
+diff --git a/artifacts-location/ci.yml b/artifacts-location/ci.yml
+--- a/artifacts-location/ci.yml
++++ b/artifacts-location/ci.yml
+@@ -1,7 +1,7 @@
+ steps:
+-  - script: dotnet restore tests/Contoso.Tests/Contoso.Tests.csproj
++  - script: dotnet restore tests/Contoso.Tests/Contoso.Tests.csproj --artifacts-path artifacts
+     displayName: Restore
+-  - script: dotnet build tests/Contoso.Tests/Contoso.Tests.csproj -c Release --artifacts-path artifacts
++  - script: dotnet build tests/Contoso.Tests/Contoso.Tests.csproj -c Release --artifacts-path artifacts --no-restore
+     displayName: Build
+   - script: dotnet test tests/Contoso.Tests/Contoso.Tests.csproj -c Release --no-build --artifacts-path artifacts
+     displayName: Test

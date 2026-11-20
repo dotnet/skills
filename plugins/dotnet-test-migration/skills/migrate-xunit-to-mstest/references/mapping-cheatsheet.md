@@ -41,17 +41,17 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 | `[Fact(Skip = "reason")]` | `[TestMethod]` + `[Ignore("reason")]` (the `[Ignore]` attribute alone does not discover a test -- you still need `[TestMethod]`) |
 | `[Fact(Timeout = 5000)]` | `[TestMethod]` + `[Timeout(5000)]` (same -- `[Timeout]` is a modifier, not a discovery attribute) |
 | `[Trait("Category", "Unit")]` | `[TestCategory("Unit")]` |
-| `[Trait("Owner", "alice")]` | `[Owner("alice")]` (`Owner` is a reserved VSTest property and is rejected by `TestPropertyAttribute`) |
+| `[Trait("Owner", "alice")]` | `[Owner("alice")]` on each affected test method (`Owner` targets methods only; expand xUnit v3 class/assembly owner traits to their tests). `Owner` is a reserved VSTest property and is rejected by `TestPropertyAttribute` |
 | `[Collection("Db")]` | Step 8 + Step 11: `[DoNotParallelize]` (serialization) + `[ClassInitialize]` (sharing) -- preserve scope explicitly |
 | Custom `FactAttribute` subclass | Custom `TestMethodAttribute` subclass overriding `ExecuteAsync` (MSTest v4). See `writing-mstest-tests` and `migrate-mstest-v3-to-v4` for `CallerInfo` constructor pattern |
 | Custom `TheoryAttribute` subclass | Same -- subclass `TestMethodAttribute`; expose data via `ITestDataSource` |
 
 > Both `[TestCategory]` and `[TestProperty]` are **filterable** at runtime:
 > - `[TestCategory("Unit")]` -> `--filter "TestCategory=Unit"` (VSTest) / `--filter-trait "TestCategory=Unit"` (MTP); targets `Assembly`, `Class`, and `Method`
-> - `[Owner("alice")]` -> `--filter "Owner=alice"` (VSTest) / `--filter-trait "Owner=alice"` (MTP)
+> - `[Owner("alice")]` -> `--filter "Owner=alice"` (VSTest) / `--filter-trait "Owner=alice"` (MTP); targets `Method` only
 > - `[TestProperty("Key", "Value")]` -> `--filter "Key=Value"` (VSTest) / `--filter-trait "Key=Value"` (MTP); targets `Class` and `Method` only (no `AttributeTargets.Assembly`)
 >
-> Use `[TestCategory]` for the conventional category trait, `[Owner]` for the reserved owner property, and `[TestProperty]` for other key/value metadata at class/method scope. An `[assembly: Trait("Category", ...)]` in xUnit can be migrated to `[assembly: TestCategory(...)]`. An assembly-level `[Trait]` with an arbitrary key cannot map to `[assembly: TestProperty(...)]` -- collapse it to `[assembly: TestCategory(...)]` or move it down to every class (see Section 8).
+> Use `[TestCategory]` for the conventional category trait, method-level `[Owner]` for the reserved owner property, and `[TestProperty]` for other key/value metadata at class/method scope. An `[assembly: Trait("Category", ...)]` in xUnit can be migrated to `[assembly: TestCategory(...)]`. Expand class/assembly owner traits to method-level `[Owner]` on every affected test, preserving each value. An assembly-level `[Trait]` with another arbitrary key cannot map to `[assembly: TestProperty(...)]` -- collapse it to `[assembly: TestCategory(...)]` only if that preserves filtering semantics, or move it down to every class (see Section 8).
 >
 > **Conditional skips** (xUnit `[Trait("OS", "Windows")]` patterns that gate execution): MSTest 3.10+ offers dedicated condition attributes -- `[OSCondition]` and `[CICondition]` -- which are usually a better fit than overloading `[TestCategory]` for environmental gating. (There is no `ArchitectureCondition` or `NonParallelizableCondition` attribute in MSTest; for non-parallel intent use `[DoNotParallelize]`, and for architecture gating fall back to `if (RuntimeInformation.OSArchitecture != ...) Assert.Inconclusive(...)`.) See Section 3.9.
 
@@ -338,7 +338,15 @@ xUnit assembly attributes split into two groups: a few have direct MSTest equiva
 | `[assembly: TestFramework(...)]` | Remove |
 | `[assembly: CaptureConsole]` (xUnit v3) | Remove -- MSTest does not capture console by default |
 | `[assembly: Xunit.Trait("Category", "v")]` | `[assembly: TestCategory("v")]` (applies the category to every test in the assembly -- `TestCategoryAttribute` targets `Assembly`, `Class`, and `Method`) |
-| `[assembly: Xunit.Trait("k", "v")]` (non-category key) | **No direct equivalent at assembly scope** -- `TestPropertyAttribute` targets only `Class`/`Method`. Either collapse to `[assembly: TestCategory("v")]` if the value alone filters cleanly, or push down to every test class as `[TestProperty("k", "v")]` |
+| `[assembly: Xunit.Trait("Owner", "alice")]` | `[Owner("alice")]` on every affected test method; never at assembly or class scope |
+| `[assembly: Xunit.Trait("k", "v")]` (other non-category/non-owner key) | **No direct equivalent at assembly scope** -- `TestPropertyAttribute` targets only `Class`/`Method`. Either collapse to `[assembly: TestCategory("v")]` if the value alone filters cleanly, or push down to every test class as `[TestProperty("k", "v")]` |
+
+For owner traits, calculate each test's effective metadata before removing the
+xUnit attributes. Deduplicate identical owner values. If method, class, or
+assembly owners conflict, or an inherited/shared test method cannot preserve
+different effective owners across its classes, flag the mapping for manual
+review rather than silently choosing or overwriting an owner. Never route
+`Owner` through the generic `TestProperty` or category fallback.
 
 ## 9. Packages
 
@@ -408,6 +416,6 @@ With the pin in `global.json`, the project line simplifies to `<Project Sdk="MST
 | `Xunit.StaFact` (`[StaFact]`, `[WpfFact]`) | No equivalent -- manual STA thread or flag for review |
 | `Xunit.Priority` (`[TestCaseOrderer]`) | MSTest ordering is different -- flag for manual |
 | `Verify.Xunit` | `Verify.MSTest` (swap the package; same usage) |
-| `FluentAssertions` / `Shouldly` / `AwesomeAssertions` | Keep -- assertion libraries are framework-agnostic. (`AwesomeAssertions` is a fork of `FluentAssertions` and ships in the `FluentAssertions` namespace for API compat -- no source changes needed.) |
+| `FluentAssertions` / `Shouldly` / `AwesomeAssertions` | Keep the existing package and namespace -- assertion libraries are framework-agnostic. `AwesomeAssertions` uses the `AwesomeAssertions` namespace, not `FluentAssertions`. Only if the user explicitly requests a package swap, update matching `using`, `global using`, and project `<Using Include="...">` imports along with the package reference. |
 | `Moq` / `NSubstitute` / `FakeItEasy` | Keep -- mocking libraries are framework-agnostic |
 | `AutoFixture.Xunit2` (`[AutoData]`) | `AutoFixture` core works, but the auto-data attribute integration requires the xUnit-specific package -- flag for manual |

@@ -69,7 +69,8 @@ public class RejudgeCommandTests
                 stimuli:
                   - name: stay dormant
                     prompt: {Prompt}
-                    expect_activation: false
+                    tags:
+                      expect_activation: "false"
                 """);
         }
 

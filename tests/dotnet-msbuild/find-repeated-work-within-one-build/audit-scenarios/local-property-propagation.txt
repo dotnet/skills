@@ -1,0 +1,25 @@
+Invocation: dotnet msbuild Build.proj -m
+Task events: one sdkprobe --version in Build.proj, then one in each of 20 children.
+All 21 calls have identical inputs and return 4.2.0, 400 ms each.
+
+Build.proj:
+<Project DefaultTargets="BuildAll">
+  <ItemGroup><Child Include="src/**/*.csproj" /></ItemGroup>
+  <Target Name="BuildAll">
+    <Exec Command="sdkprobe --version" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="ToolVersion" />
+    </Exec>
+    <MSBuild Projects="@(Child)" Targets="Build" BuildInParallel="true" />
+  </Target>
+</Project>
+
+Directory.Build.targets, imported by every child:
+<Target Name="Version" BeforeTargets="CoreCompile">
+  <Exec Command="sdkprobe --version" Condition="'$(ToolVersion)' == ''"
+        ConsoleToMSBuild="true">
+    <Output TaskParameter="ConsoleOutput" PropertyName="ToolVersion" />
+  </Exec>
+  <Message Text="Using tool $(ToolVersion)" Importance="high" />
+</Target>
+Direct project and IDE builds, which do not use Build.proj, must still work.
+The probe implementation and output format cannot change. No timeline is supplied.

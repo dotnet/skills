@@ -1,0 +1,20 @@
+Invocation: dotnet msbuild Models.csproj -m
+Target GenerateModels has 120 input/output pairs. Only A.json, B.json and
+C.json are newer than their own generated outputs in this invocation.
+The other 117 generated files are present, current, and byte-correct.
+Task events: modelgen starts 3 times, 750 ms each.
+
+<Target Name="GenerateModels" BeforeTargets="CoreCompile"
+        Inputs="@(Model)" Outputs="@(Model->'obj/%(Filename).g.cs')">
+  <Exec Command="modelgen --input &quot;%(Model.FullPath)&quot; --output-dir obj" />
+</Target>
+<Target Name="CollectModels" BeforeTargets="CoreCompile"
+        DependsOnTargets="GenerateModels">
+  <ItemGroup><Compile Include="@(Model->'obj/%(Filename).g.cs')" /></ItemGroup>
+</Target>
+
+modelgen supports --input-list PATH, one path per UTF-8 line.
+It creates the same output for each input as the single-input mode.
+It rewrites any output it is asked to generate, including unchanged inputs.
+Each process spends 500 ms starting and 250 ms processing its one input.
+No actual post-change run or critical-path timeline is available.

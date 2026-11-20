@@ -29,6 +29,10 @@
 .PARAMETER CommitJson
     Optional JSON string with commit info (id, message, author, timestamp, url).
 
+.PARAMETER ExecutionId
+    Stable identity shared by every published judge view from one evaluation
+    workflow execution, such as the GitHub run ID and attempt.
+
 .PARAMETER PurgeStaleFiles
     When set, scans DataDir for plugin JSON files, purges entries older than the
     retention window, and deletes files that have no remaining entries.
@@ -70,6 +74,9 @@ param(
 
     [Parameter(ParameterSetName = 'Generate')]
     [string]$CommitJson,
+
+    [Parameter(ParameterSetName = 'Generate')]
+    [string]$ExecutionId,
 
     [Parameter(ParameterSetName = 'Generate')]
     [ValidateSet('scheduled', 'pr')]
@@ -163,6 +170,33 @@ function Get-MeanOrNull([double]$sum, [int]$count) {
 function Update-SkillValueIndex([string]$Directory) {
     if (-not (Test-Path $Directory)) { return }
 
+    function Get-EntryIdentity([object]$Entry) {
+        if ($Entry.executionId) {
+            return "execution:$($Entry.executionId):$($Entry.model)"
+        }
+        $commitId = if ($Entry.commit -and $Entry.commit.id) { $Entry.commit.id } else { "" }
+        return "legacy:$($Entry.date):$($Entry.model):$commitId"
+    }
+
+    function Set-NativeOutcomeEvidence([object]$Skill, [object]$Evidence) {
+        $completionRegressed = (
+            $Evidence.stateReason -and
+            $Evidence.stateReason.code -eq "native_completion_regression"
+        )
+        $targetActivationFailed = (
+            $Evidence.stateReason -and
+            $Evidence.stateReason.code -eq "target_agent_not_activated"
+        )
+        foreach ($property in @{
+            completionRegressed   = $completionRegressed
+            targetActivationFailed = $targetActivationFailed
+        }.GetEnumerator()) {
+            if (-not $Skill.PSObject.Properties[$property.Key]) {
+                $Skill | Add-Member -NotePropertyName $property.Key -NotePropertyValue $property.Value
+            }
+        }
+    }
+
     $entries = [System.Collections.Generic.List[object]]::new()
     $reservedFiles = @(
         "components.json",
@@ -177,12 +211,32 @@ function Update-SkillValueIndex([string]$Directory) {
     foreach ($file in $pluginFiles) {
         try {
             $data = Get-Content $file.FullName -Raw | ConvertFrom-Json
+            $qualityByIdentity = @{}
+            foreach ($qualityEntry in @($data.entries.Quality)) {
+                if ($null -eq $qualityEntry) { continue }
+                $qualityByIdentity[(Get-EntryIdentity $qualityEntry)] = $qualityEntry
+            }
             foreach ($entry in @($data.entries.SkillValue)) {
                 if ($null -eq $entry) { continue }
+                $qualityEntry = $qualityByIdentity[(Get-EntryIdentity $entry)]
+                if ($qualityEntry) {
+                    $evidenceBySkill = @{}
+                    foreach ($evidence in @($qualityEntry.verdictEvidence)) {
+                        if ($evidence -and $evidence.skillName) {
+                            $evidenceBySkill["$($evidence.skillName)"] = $evidence
+                        }
+                    }
+                    foreach ($skill in @($entry.skills)) {
+                        if ($skill -and $skill.skill -and $evidenceBySkill.ContainsKey("$($skill.skill)")) {
+                            Set-NativeOutcomeEvidence $skill $evidenceBySkill["$($skill.skill)"]
+                        }
+                    }
+                }
                 $entries.Add([ordered]@{
                     plugin     = $file.BaseName
                     commit     = $entry.commit
                     date       = $entry.date
+                    executionId = $entry.executionId
                     model      = $entry.model
                     judgeModel = $entry.judgeModel
                     skills     = $entry.skills
@@ -278,7 +332,9 @@ $verdictEvidence = [System.Collections.Generic.List[object]]::new()
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
     $isAgent = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "agent"
-    $isReferenceSkill = -not $isAgent -and (Test-ReferenceSkill -Plugin $PluginName -Skill $skillName)
+    $isWorkflow = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "workflow"
+    $usesAgentActivation = $isAgent -or $isWorkflow
+    $isReferenceSkill = -not $usesAgentActivation -and (Test-ReferenceSkill -Plugin $PluginName -Skill $skillName)
     $activationScenarios = [System.Collections.Generic.List[object]]::new()
     $judgeRationales = [System.Collections.Generic.List[object]]::new()
 
@@ -296,7 +352,7 @@ foreach ($verdict in $results.verdicts) {
         }
         # Agent results have exact target-agent activation. Skill results retain
         # the existing skillActivation fields and compatibility alias.
-        $sa = if ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated']) {
+        $sa = if ($isWorkflow -or ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated'])) {
             $scenario.agentActivationIsolated
         } elseif ($scenario.PSObject.Properties['skillActivationIsolated']) {
             $scenario.skillActivationIsolated
@@ -307,7 +363,7 @@ foreach ($verdict in $results.verdicts) {
             $notActivated = $true
         }
 
-        $saPluginForEvidence = if ($isAgent -and $scenario.PSObject.Properties['agentActivationPlugin']) {
+        $saPluginForEvidence = if ($isWorkflow -or ($isAgent -and $scenario.PSObject.Properties['agentActivationPlugin'])) {
             $scenario.agentActivationPlugin
         } elseif ($scenario.PSObject.Properties['skillActivationPlugin']) {
             $scenario.skillActivationPlugin
@@ -319,7 +375,7 @@ foreach ($verdict in $results.verdicts) {
         $invokedSkills = [object[]]@()
         $isolatedTools = [object[]]@()
         $pluginTools = [object[]]@()
-        if ($isAgent) {
+        if ($usesAgentActivation) {
             $invokedAgents = [object[]]@($sa.invokedAgents | Where-Object { $null -ne $_ })
             $delegatedAgents = [object[]]@($sa.delegatedAgents | Where-Object { $null -ne $_ })
             if ($scenario.PSObject.Properties['skillActivationIsolated']) {
@@ -349,7 +405,7 @@ foreach ($verdict in $results.verdicts) {
             } else {
                 0
             }
-            plugin       = if ($isAgent -and $null -ne $saPluginForEvidence) {
+            plugin       = if ($usesAgentActivation -and $null -ne $saPluginForEvidence) {
                 Get-ActivationStatus -Activation $saPluginForEvidence -ExpectActivation $expectActivation -IsReferenceSkill $false
             } elseif ($null -ne $saPluginForEvidence) {
                 Get-PluginActivityStatus -Activation $saPluginForEvidence
@@ -366,8 +422,8 @@ foreach ($verdict in $results.verdicts) {
             invokedSkills = $invokedSkills
             isolatedTools = $isolatedTools
             pluginTools = $pluginTools
-            isolatedCompleted = if ($isAgent) { $scenario.skilledIsolated.metrics.taskCompleted -eq $true } else { $null }
-            pluginCompleted = if ($isAgent -and $scenario.skilledPlugin) { $scenario.skilledPlugin.metrics.taskCompleted -eq $true } else { $null }
+            isolatedCompleted = if ($usesAgentActivation) { $scenario.skilledIsolated.metrics.taskCompleted -eq $true } else { $null }
+            pluginCompleted = if ($usesAgentActivation -and $scenario.skilledPlugin) { $scenario.skilledPlugin.metrics.taskCompleted -eq $true } else { $null }
         })
 
         # Prefer paired-judge evidence because it explains the W/T/L vote. Fall
@@ -631,10 +687,12 @@ foreach ($verdict in $results.verdicts) {
     $links = [System.Collections.Generic.List[object]]::new()
     if ($commit.id -and "$($commit.id)" -match '^[0-9a-fA-F]{7,40}$') {
         $revision = "$($commit.id)"
-        $sourceRelativePath = if ($isAgent) {
+        $pluginPattern = [Regex]::Escape($PluginName)
+        $sourceRelativePath = if ($isWorkflow) {
+            "agentic-workflows/$skillName/aw.yml"
+        } elseif ($isAgent) {
             $agentName = $skillName.Substring("agent.".Length)
             $declaredPath = "$($verdict.skillPath)" -replace '\\', '/'
-            $pluginPattern = [Regex]::Escape($PluginName)
             if ($declaredPath -match "^plugins/$pluginPattern/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.agent\.md$" -and
                 $declaredPath -notmatch '(^|/)\.\.(/|$)') {
                 $declaredPath
@@ -645,21 +703,26 @@ foreach ($verdict in $results.verdicts) {
             "plugins/$PluginName/skills/$skillName/SKILL.md"
         }
         $links.Add([ordered]@{
-            label = if ($isAgent) { "Agent source" } else { "Skill source" }
+            label = if ($isWorkflow) { "Workflow source" } elseif ($isAgent) { "Agent source" } else { "Skill source" }
             url   = "https://github.com/dotnet/skills/blob/$revision/$sourceRelativePath"
         })
-        $declaredEvalPath = if ($results.PSObject.Properties['evalFile']) {
-            "$($results.evalFile)" -replace '\\', '/'
-        } else {
-            ""
+        # The adapters stamp evalFile on each verdict, so prefer that. Merged
+        # per-plugin results files keep only the first source file's top-level
+        # evalFile, so trust the top-level value only for a single-verdict file
+        # (legacy results written before verdict-level evalFile existed).
+        $evalCandidates = @("$($verdict.evalFile)")
+        if (@($results.verdicts).Count -eq 1) {
+            $evalCandidates += "$($results.evalFile)"
         }
-        $evalRelativePath = if (
-            $declaredEvalPath -match "^tests/$pluginPattern/(?:[A-Za-z0-9._-]+/)+eval\.yaml$" -and
-            $declaredEvalPath -notmatch '(^|/)\.\.(/|$)'
-        ) {
-            $declaredEvalPath
-        } else {
-            "tests/$PluginName/$skillName/eval.yaml"
+        $evalRelativePath = $evalCandidates |
+            ForEach-Object { $_ -replace '\\', '/' } |
+            Where-Object {
+                $_ -match "^tests/$pluginPattern/(?:[A-Za-z0-9._-]+/)+eval\.yaml$" -and
+                $_ -notmatch '(^|/)\.\.(/|$)'
+            } |
+            Select-Object -First 1
+        if (-not $evalRelativePath) {
+            $evalRelativePath = "tests/$PluginName/$skillName/eval.yaml"
         }
         $links.Add([ordered]@{
             label = "Eval source"
@@ -672,7 +735,8 @@ foreach ($verdict in $results.verdicts) {
 
     $verdictEvidence.Add([ordered]@{
         skillName          = $skillName
-        skillKind          = if ($isAgent) { "agent" } elseif ($isReferenceSkill) { "reference" } else { "invocable" }
+        skillKind          = if ($isWorkflow) { "workflow" } elseif ($isAgent) { "agent" } elseif ($isReferenceSkill) { "reference" } else { "invocable" }
+        evaluationLane     = if ($verdict.PSObject.Properties['evaluationLane']) { $verdict.evaluationLane } else { $results.evaluationLane }
         state              = if ($verdict.PSObject.Properties['state']) { $verdict.state } else { $null }
         stateReason        = if ($verdict.PSObject.Properties['stateReason']) { $verdict.stateReason } else { $null }
         passed             = $verdict.passed -eq $true
@@ -697,6 +761,7 @@ $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 $qualityEntry = @{
     commit          = $commit
     date            = $now
+    executionId     = $ExecutionId
     tool            = "customBiggerIsBetter"
     model           = $model
     benches         = $qualityBenches.ToArray()
@@ -704,10 +769,11 @@ $qualityEntry = @{
 }
 
 $efficiencyEntry = @{
-    commit = $commit
-    date   = $now
-    tool   = "customSmallerIsBetter"
-    model  = $model
+    commit      = $commit
+    date        = $now
+    executionId = $ExecutionId
+    tool        = "customSmallerIsBetter"
+    model       = $model
     benches = $efficiencyBenches.ToArray()
 }
 
@@ -726,6 +792,7 @@ $skillValueSkills = [System.Collections.Generic.List[object]]::new()
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
     $isAgent = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "agent"
+    $isWorkflow = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "workflow"
 
     $activationExpected = 0   # scenarios where the skill is expected to fire
     $activationFired    = 0   # of those, how many actually fired in the treatment arm
@@ -763,6 +830,16 @@ foreach ($verdict in $results.verdicts) {
     } else {
         $null
     }
+    $targetActivationFailed = (
+        $verdict.PSObject.Properties['stateReason'] -and
+        $verdict.stateReason -and
+        $verdict.stateReason.code -eq "target_agent_not_activated"
+    )
+    $completionRegressed = (
+        $verdict.PSObject.Properties['stateReason'] -and
+        $verdict.stateReason -and
+        $verdict.stateReason.code -eq "native_completion_regression"
+    )
     $preference = if ($signTest) {
         @{
             count              = [int]$verdict.stimulusVoteCount
@@ -789,7 +866,7 @@ foreach ($verdict in $results.verdicts) {
         if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
             $expectActivation = $false
         }
-        $sa = if ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated']) {
+        $sa = if ($isWorkflow -or ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated'])) {
             $scenario.agentActivationIsolated
         } elseif ($scenario.PSObject.Properties['skillActivationIsolated']) {
             $scenario.skillActivationIsolated
@@ -902,17 +979,20 @@ foreach ($verdict in $results.verdicts) {
         baselineOnlyPass  = $baselineOnlyPass
         treatmentOnlyPass = $treatmentOnlyPass
         hasPassData      = ($passTotal -gt 0)
+        targetActivationFailed = $targetActivationFailed
+        completionRegressed = $completionRegressed
         activationContract = $activationContract
         preference       = $preference
     })
 }
 
 $skillValueEntry = @{
-    commit     = $commit
-    date       = $now
-    model      = $model
-    judgeModel = $results.judgeModel
-    skills     = $skillValueSkills.ToArray()
+    commit      = $commit
+    date        = $now
+    executionId = $ExecutionId
+    model       = $model
+    judgeModel  = $results.judgeModel
+    skills      = $skillValueSkills.ToArray()
 }
 
 

@@ -1,0 +1,7 @@
+steps:
+  - script: dotnet restore Contoso.slnx
+    displayName: Restore
+  - script: dotnet msbuild Contoso.slnx -t:Build -p:Configuration=Release
+    displayName: Build
+  - script: dotnet test Contoso.slnx -c Release --no-build
+    displayName: Test

@@ -394,8 +394,8 @@ stimuli:
 - name: Browser page lifecycle
   prompt: In my browser JavaScript editor, how do I use visibilitychange to pause animation when a tab
     is hidden? Please give browser code only.
-  expect_activation: false
   tags:
+    expect_activation: "false"
     capability: routing-boundary
     risk: off-target-activation
     journey: use-other-platform

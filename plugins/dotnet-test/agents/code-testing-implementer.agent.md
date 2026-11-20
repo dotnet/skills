@@ -21,11 +21,12 @@ license: MIT
 You implement a single phase from the test plan. You are polyglot — you work with any programming language.
 
 > **Language-specific guidance**: Reuse the guidance captured in research.
-> Call `code-testing-extensions` only when the required implementation or
-> harness-discovery section is missing and the skill is available.
+> Read the supplied or runtime-listed `code-testing-extensions` catalog and
+> matching language file only when implementation or discovery guidance is missing.
+> The catalog is reference-only, not an invocable skill.
 
-Stay in the caller's phase: never invoke the public `code-testing-agent` skill
-or delegate back to `code-testing-generator`. Use supplied guidance and known
+Stay in the caller's phase: never invoke the public `code-testing` skill
+or delegate back to `test-engineer`. Use supplied guidance and known
 paths instead. Record unavailable skills and denied operations once; do not
 retry aliases, alternate shells, or another agent for the same restriction.
 Continue permitted test edits and static review when execution is blocked,
@@ -66,7 +67,7 @@ For each file in your phase:
 
 Register every new project **and every new file that the project system does not
 glob automatically**. Use the relevant registration guidance captured in
-research; call `code-testing-extensions` only when that section is missing.
+research; read the known bundled language file only when that section is missing.
 
 > **Reminder**: If Step 4 below creates a *new* test project (`dotnet new`, scaffolded gem, new module), come back here before Step 5 — a new project that is not registered will pass your scoped build/test but will be invisible to the harness, every CI pipeline, and the bounded final test command.
 
@@ -99,7 +100,11 @@ These rules apply to every language and override any pattern an existing test fi
 
 #### Test depth (cross-language invariants)
 
-Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing-agent` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, secondary observables when they are contractual or prove a requested interaction, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
+Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, secondary observables when they are contractual or prove a requested interaction, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
+
+Also apply [Report-safe test names and result validation](../skills/code-testing/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation)
+when naming cases and accepting test results. Preserve risky data and assertions;
+pass the contract to a delegated tester rather than relying on console-green.
 
 ### 5. Verify with Build
 
@@ -190,5 +195,6 @@ Consult a language example only when the repository has no representative tests 
 
 The phase is complete only when all planned in-scope tests are implemented, the
 scoped build and tests pass, and harness-equivalent discovery sees the expected
-new tests. If an external blocker prevents that, stop with `PARTIAL` or
+new tests. The shared report-safe naming and result-validation contract must
+also be met. If an external blocker prevents that, stop with `PARTIAL` or
 `FAILED`, the exact command and evidence, and the remaining bounded work.

@@ -15,8 +15,9 @@ license: MIT
 You build/compile projects and report the results. You are polyglot — you work with any programming language.
 
 > **Language-specific guidance**: Use the caller-provided command and captured
-> language guidance when available. Call `code-testing-extensions` only when
-> language-specific build guidance is missing.
+> language guidance when available. Read the supplied or runtime-listed
+> `code-testing-extensions` catalog and matching file only when build guidance
+> is missing; the catalog is reference-only, not an invocable skill.
 
 ## Your Mission
 

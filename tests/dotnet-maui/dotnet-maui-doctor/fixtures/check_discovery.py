@@ -52,6 +52,21 @@ if __name__ == "__main__":
         assert json.loads(variant_output.read_text()) == expected(
             "9.0.200", "35.0.60", ["platforms;android-36"], "17.0.14", "[17.0,21.0)",
         ), "Hardcoded fixture answer or incorrect boolean handling"
+        valid_catalog = json.loads(variant_catalog.read_text())
+        entry = valid_catalog["microsoft.net.sdk.android.manifest-9.0.200/35.0.60"]
+        jdk = entry["microsoft.net.sdk.android"]["jdk"]
+        variant_set.write_text(json.dumps({"microsoft.net.sdk.android": "35.0.60/9.0.200"}))
+        for field in ("version", "recommendedVersion"):
+            for bad in (None, 42, {"value": "17"}, [], "", "  "):
+                original = jdk[field]
+                jdk[field] = bad
+                variant_catalog.write_text(json.dumps(valid_catalog))
+                variant_output.unlink(missing_ok=True)
+                result = run(variant_set, variant_catalog, variant_output)
+                assert result.returncode != 0, f"Malformed JDK {field} must fail closed"
+                assert not variant_output.exists(), "Malformed JDK metadata produced output"
+                jdk[field] = original
+        variant_catalog.write_text(json.dumps(valid_catalog))
         for broken in ({}, {"Microsoft.NET.Sdk.Android": "35.0.50"},
                        {"Microsoft.NET.Sdk.Android": "35.0.50/9.0.100/extra"},
                        {"Microsoft.NET.Sdk.Android": "99.0.0/99.0.100"}):

@@ -9,7 +9,7 @@ description: >
   identity, exception, hard-cast, and object[] checks;
   TestContext/lifecycle; timeout/cancellation; OS/CI conditions, retry, cleanup,
   parallelization, MSTest.Sdk project setup, and MSTESTxxxx. Honor the installed
-  MSTest version. DO NOT USE to design new test cases (code-testing-agent),
+  MSTest version. DO NOT USE to design new test cases (code-testing),
   perform report-only audits, create project files rather than explain MSTest
   setup, run tests, migrate frameworks, or handle non-MSTest/non-.NET code.
 license: MIT
@@ -76,7 +76,7 @@ permissions or the task's scope.
 ## Response Guidelines
 
 - **Specific API or pattern questions** (assertions, data-driven, lifecycle): Jump directly to the relevant workflow step. Do not follow the full workflow.
-- **Generate new tests from scratch**: Hand off to `code-testing-agent`; use this
+- **Generate new tests from scratch**: Hand off to `code-testing`; use this
   skill only as supporting MSTest API/version guidance.
 - **Review and fix existing tests**: Fix only the issues present. Do not add unrelated improvements.
 - **Assertion transformations**: Show the corrected call, then state the semantic

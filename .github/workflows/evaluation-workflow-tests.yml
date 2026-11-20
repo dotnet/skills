@@ -6,6 +6,7 @@ on:
       - ".github/workflows/evaluation.yml"
       - ".github/workflows/evaluation-run.yml"
       - ".github/workflows/evaluation-workflow-tests.yml"
+      - ".github/workflows/fork-infra-check.yml"
       - ".github/workflows/pr-triage.yml"
       - ".github/aw/actions-lock.json"
       - ".github/aw/shared/devops-health.lock.md"
@@ -19,20 +20,27 @@ on:
       - ".github/workflows/*.lock.yml"
       - ".github/scripts/**"
       - "eng/evaluation-tools/**"
-      - "eng/run-skill-evals.sh"
       - "eng/evaluation/test_token_failover.py"
       - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
       - "eng/evaluation/path-safety.ps1"
+      - "eng/evaluation/workflow-targets.ps1"
+      - "eng/evaluation/test_workflow_targets.py"
+      - "eng/evaluation/weekly-eval-insights.js"
+      - "eng/evaluation/weekly-eval-insights.test.js"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
+      - "tests/**/eval.yaml"
+      - "tests/**/fixtures/grading/**"
+      - "tests/dotnet/dotnet-breaking-changes/**"
   push:
     branches: [main]
     paths:
       - ".github/workflows/evaluation.yml"
       - ".github/workflows/evaluation-run.yml"
       - ".github/workflows/evaluation-workflow-tests.yml"
+      - ".github/workflows/fork-infra-check.yml"
       - ".github/workflows/pr-triage.yml"
       - ".github/aw/actions-lock.json"
       - ".github/aw/shared/devops-health.lock.md"
@@ -46,14 +54,19 @@ on:
       - ".github/workflows/*.lock.yml"
       - ".github/scripts/**"
       - "eng/evaluation-tools/**"
-      - "eng/run-skill-evals.sh"
       - "eng/evaluation/test_token_failover.py"
       - "eng/evaluation/test_pr_triage_retry.py"
       - "eng/evaluation/find-targets.ps1"
       - "eng/evaluation/path-safety.ps1"
+      - "eng/evaluation/workflow-targets.ps1"
+      - "eng/evaluation/test_workflow_targets.py"
+      - "eng/evaluation/weekly-eval-insights.js"
+      - "eng/evaluation/weekly-eval-insights.test.js"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
       - "eng/skill-validator/src/**"
+      - "tests/**/eval.yaml"
+      - "tests/**/fixtures/grading/**"
   workflow_dispatch:
 
 permissions:
@@ -70,31 +83,22 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
 
       - name: Run adapter fault-injection and report tests
-        run: node --test eng/vally-adapter/*.test.mjs eng/dashboard/*.test.js
+        run: >-
+          node --test
+          eng/vally-adapter/*.test.mjs
+          eng/dashboard/*.test.js
+          eng/evaluation/weekly-eval-insights.test.js
+
+      - name: Run eval grader-script regression tests
+        run: node --test tests/*/*/fixtures/grading/*.test.mjs
 
   evaluation-tools:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-latest
-            platform: linux
-            arch: x64
-          - runner: ubuntu-24.04-arm
-            platform: linux
-            arch: arm64
-          - runner: macos-15-intel
-            platform: darwin
-            arch: x64
-          - runner: macos-15
-            platform: darwin
-            arch: arm64
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout repository
@@ -103,15 +107,9 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-
-      - name: Setup Go for rooted workspace filesystem
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
-        with:
-          go-version: 1.27.1
-          cache: false
 
       - name: Install evaluation tools
         run: |
@@ -123,25 +121,17 @@ jobs:
 
       - name: Smoke test evaluation tools
         working-directory: eng/evaluation-tools
-        env:
-          EXPECTED_PLATFORM: ${{ matrix.platform }}
-          EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
-          node --input-type=module -e "import assert from 'node:assert/strict'; assert.equal(process.platform, process.env.EXPECTED_PLATFORM); assert.equal(process.arch, process.env.EXPECTED_ARCH)"
           node_modules/.bin/vally --version
           node vally.mjs --version
           node_modules/.bin/copilot --version
-          node --input-type=module -e "import.meta.resolve('@github/copilot-' + process.platform + '-' + process.arch + '/sdk')"
+          node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+
+      - name: Validate full eval corpus
+        run: node eng/evaluation-tools/lint-corpus.mjs tests
 
       - name: Test SDK startup ordering without model calls
-        # This native build is traversal-resistant; do not replace it with
-        # GOOS=js/WASI or a pathname-canonicalization implementation.
-        run: |
-          cd eng/evaluation-tools/workspace-root
-          GOTOOLCHAIN=go1.27.1 go test ./...
-          GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .
-          cd ../../..
-          node --test eng/evaluation-tools/*.test.mjs
+        run: node --test eng/evaluation-tools/*.test.mjs
 
   token-failover:
     runs-on: ubuntu-latest
@@ -152,7 +142,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
@@ -162,4 +152,5 @@ jobs:
       - name: Test evaluation workflow behavior
         run: |
           python eng/evaluation/test_token_failover.py
+          python eng/evaluation/test_workflow_targets.py
           python eng/evaluation/test_pr_triage_retry.py

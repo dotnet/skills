@@ -33,7 +33,12 @@ migration skills, but not this agent or its static handoff.
 
 ## Related plugins
 
-- **dotnet-test** — running, generating, and analyzing tests; testability improvement; coverage. The migration skills here reference shared `dotnet-test` skills by name (e.g., `platform-detection` for framework/platform detection, `writing-mstest-tests` for idiomatic MSTest polish, and `run-tests` for verification). Install `dotnet-test` alongside this plugin to get the full workflow.
+- **dotnet-test** — running, generating, repairing, and analyzing tests;
+  testability improvement; coverage; and the `test-engineer` handoff used after
+  migrations. The migration skills here reference shared `dotnet-test` skills
+  by name (for example `platform-detection`, `writing-mstest-tests`, and
+  `run-tests`). Install `dotnet-test` alongside this plugin to get the full
+  workflow.
 
 ## Prerequisites
 

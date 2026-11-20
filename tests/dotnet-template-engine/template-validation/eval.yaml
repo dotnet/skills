@@ -11,6 +11,10 @@ stimuli:
         - src: ./fixtures/validate-template-with-multiple-errors/.template.config/template.json
           dest: .template.config/template.json
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-contains
         config:
@@ -52,9 +56,6 @@ stimuli:
       - The agent found the computed symbol missing its 'value' expression
       - The agent found the generated symbol missing its 'generator' field
       - The agent found the post-action missing its 'actionId'
-    constraints:
-      expect_tools:
-        - skill
   - name: Validate correct template and suggest improvements
     prompt: Review the template at .template.config/template.json and tell me if it's ready to publish to NuGet.
     environment:
@@ -62,6 +63,11 @@ stimuli:
         - src: ./fixtures/validate-correct-template-and-suggest-improvements/.template.config/template.json
           dest: .template.config/template.json
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -76,10 +82,6 @@ stimuli:
       - The agent checked that shortName doesn't conflict with CLI commands
       - The agent noted the template is well-formed and ready to publish
       - The agent may suggest optional improvements (defaultName, description) without flagging errors
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Report a malformed template with its parse location
     prompt: |
       My custom template stopped installing after I edited
@@ -90,6 +92,11 @@ stimuli:
         - src: ./fixtures/malformed-template/.template.config/template.json
           dest: .template.config/template.json
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -105,10 +112,6 @@ stimuli:
       - The response identifies the malformed JSON and points to its location
       - It gives the specific edit needed to make the file parse
       - It does not continue with speculative semantic findings after parsing failed
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Validate discoverability metadata severity
     prompt: |
       Review `.template.config/template.json` before I publish this template.
@@ -118,6 +121,11 @@ stimuli:
         - src: ./fixtures/discoverability-metadata/.template.config/template.json
           dest: .template.config/template.json
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -136,10 +144,6 @@ stimuli:
       - Missing sourceName is reported as a warning and distinguished from optional discoverability metadata
       - Missing description and defaultName are treated as optional improvements rather than errors
       - Findings are severity-ordered and summarized accurately
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Check every short name in an alias array
     prompt: |
       This template has more than one short-name alias. Validate
@@ -150,6 +154,11 @@ stimuli:
         - src: ./fixtures/short-name-array/.template.config/template.json
           dest: .template.config/template.json
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -166,10 +175,6 @@ stimuli:
       - The reserved search alias is rejected based on the installed SDK's dotnet new subcommands
       - The non-conflicting alias is not incorrectly rejected
       - A concrete replacement for the conflicting alias is supplied
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Find incomplete symbol definitions
     prompt: |
       This template's custom parameters are not appearing in `dotnet new --help`.
@@ -180,6 +185,11 @@ stimuli:
         - src: ./fixtures/incomplete-symbols/.template.config/template.json
           dest: .template.config/template.json
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -196,10 +206,6 @@ stimuli:
       - The choice parameter's empty choices object is reported as an error
       - The response proposes actual choice entries rather than only restating that the object is empty
       - Findings do not invent unrelated source-condition or prefix-collision errors
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Review post-action and constraint completeness
     prompt: |
       Check `.template.config/template.json` before release. Pay particular
@@ -210,6 +216,10 @@ stimuli:
         - src: ./fixtures/post-action-and-constraint/.template.config/template.json
           dest: .template.config/template.json
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -229,6 +239,3 @@ stimuli:
       - The incomplete constraint is identified and given a specific args fix
       - The existing actionId and constraint type are not falsely reported as missing
       - The final totals match the findings
-    constraints:
-      expect_tools:
-        - skill

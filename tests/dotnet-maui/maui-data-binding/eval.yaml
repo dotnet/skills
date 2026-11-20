@@ -524,8 +524,8 @@ stimuli:
 - name: WPF binding diagnostics
   prompt: My Windows WPF TextBlock binding shows no text. How can I inspect the DataContext and binding
     diagnostics? The project is WPF, not MAUI.
-  expect_activation: false
   tags:
+    expect_activation: "false"
     capability: routing-boundary
     risk: off-target-activation
     journey: use-other-platform

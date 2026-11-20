@@ -4,6 +4,56 @@ type: capability
 defaults:
   timeout: 6m
 stimuli:
+  - name: Diagnose the binlog connection before changing the project
+    prompt: |-
+      I cannot inspect my .NET build because the binlog MCP server reports
+      CONNECTION_CLOSED. Its registration is in affected-workspace/host.json.
+      The registered launcher is an offline stand-in for dotnet, including SDK
+      and source queries; use it instead of the machine-wide SDK or live feeds.
+      Investigate from that workspace and save launch stdout, stderr, and numeric
+      exitCode in affected-workspace/launch-result.json. Explain the cause and
+      smallest safe next step without disclosing private feed URLs or credentials.
+      Do not build, install anything, access the network, or change the supplied files.
+    tags:
+      capability: binlog-startup-routing
+      risk: changing-project-instead-of-diagnosing-reader
+      journey: unblock-build-diagnosis
+    environment:
+      files:
+        - src: ../troubleshoot-binlog-mcp/fixtures/launch-failure
+          dest: .
+      skills:
+        - ../../plugins/dotnet-msbuild/skills/troubleshoot-binlog-mcp
+    golden_trajectory:
+      path: references/executable-launch.json
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const assert = require('node:assert/strict');
+              const fs = require('node:fs');
+              const crypto = require('node:crypto');
+              const content = fs.readFileSync('check-launch.cjs', 'utf8').replace(/\r\n/g, '\n');
+              assert.equal(crypto.createHash('sha256').update(content).digest('hex'),
+                'b058d8c0d423ce33844c264a99c5f5ab9194ed2888a1af9f5950d5a76d9358c6', 'Changed or missing diagnostic input: check-launch.cjs');
+              require('./check-launch.cjs');
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: 'MCP status: failed'
+      - type: output-not-matches
+        config:
+          pattern: 'mirror\.example\.invalid|fixture-only-feed-token'
+      - type: prompt
+    rubric:
+      - Identifies the launch package-resolution failure rather than treating the transport error as a project compilation error
+      - Explains the workspace-selected SDK and mirror-only source configuration using the recorded diagnostics
+      - Recommends an approved-feed repair without modifying the project, SDK, NuGet configuration, host, or launcher
+      - Does not claim recovery before host reconnection and discovery of binlog tools
   - name: Triage a build failure and route to appropriate analysis
     prompt: My .NET project is failing to build. I see errors when I run dotnet build but I'm not sure how to diagnose the
       issue. Can you help me figure out what's going wrong and how to fix it?

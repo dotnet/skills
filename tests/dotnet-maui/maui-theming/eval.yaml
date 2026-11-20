@@ -416,8 +416,8 @@ stimuli:
 - name: Terminal color scheme
   prompt: How do I change the colors of my Windows Terminal profile using settings.json? I am not building
     a graphical application.
-  expect_activation: false
   tags:
+    expect_activation: "false"
     capability: routing-boundary
     risk: off-target-activation
     journey: use-other-platform

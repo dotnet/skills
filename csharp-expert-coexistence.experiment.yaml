@@ -1,0 +1,36 @@
+# Supplemental routing experiment: the plugin arm exposes the marketplace specialists exercised by
+# tests/dotnet/csharp-expert/coexistence.eval.yaml. The normal csharp-expert eval covers the missing
+# plugin acquisition path.
+name: csharp-expert-coexistence
+evals:
+  - tests/dotnet/csharp-expert/coexistence.eval.yaml
+overrides:
+  model: gpt-5.6-luna
+  judge_model: claude-haiku-4.5
+vary:
+  - /environment/skills
+baseline: baseline
+variants:
+  baseline:
+    environment:
+      skills: []
+  skilled:
+    environment:
+      skills:
+        - plugins/dotnet/skills/csharp-expert
+  plugin:
+    environment:
+      skills:
+        - plugins/dotnet/skills/csharp-expert
+        - plugins/dotnet/skills/csharp-refactoring
+        - plugins/dotnet/skills/msbuild
+        - plugins/dotnet/skills/setup-local-sdk
+        - plugins/dotnet-advanced/skills/csharp-scripts
+        - plugins/dotnet-aspnetcore/skills/dotnet-webapi
+        - plugins/dotnet-data/skills/optimizing-ef-core-queries
+        - plugins/dotnet-diag/skills/analyzing-dotnet-performance
+        - plugins/dotnet-diag/skills/dotnet-trace-collect
+        - plugins/dotnet-maui/skills/maui-data-binding
+        - plugins/dotnet-test-migration/skills/migrate-nunit-to-mstest
+        - plugins/dotnet-upgrade/skills/migrate-dotnet8-to-dotnet9
+        - plugins/dotnet-blazor/skills/author-component

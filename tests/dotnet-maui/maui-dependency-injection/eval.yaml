@@ -521,8 +521,8 @@ stimuli:
       This is an ASP.NET Core minimal API, not a mobile or desktop UI.
       My AddScoped<OrderRepository>() is injected into an endpoint.
       Do I need to manually create a scope for each HTTP request?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: framework-boundary
       risk: inappropriate-manual-request-scope
       journey: web-api-review
@@ -557,8 +557,8 @@ stimuli:
       <Label Text="{Binding DisplayNmae}" />
       The ViewModel has public string DisplayName { get; } = "Ada".
       What is the smallest fix? Don't change service registrations.
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: binding-boundary
       risk: unnecessary-di-redesign
       journey: display-bug-repair

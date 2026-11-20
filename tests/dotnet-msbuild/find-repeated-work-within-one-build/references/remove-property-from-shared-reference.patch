@@ -1,0 +1,36 @@
+diff --git a/shared-project-instances/Api/Api.csproj b/shared-project-instances/Api/Api.csproj
+index d73ec1d..51733bb 100644
+--- a/shared-project-instances/Api/Api.csproj
++++ b/shared-project-instances/Api/Api.csproj
+@@ -4,6 +4,6 @@
+     <AssemblyTitle>Contoso $(ComponentName)</AssemblyTitle>
+   </PropertyGroup>
+   <ItemGroup>
+-    <ProjectReference Include="..\Core\Core.csproj" />
++    <ProjectReference Include="..\Core\Core.csproj" GlobalPropertiesToRemove="ComponentName" />
+   </ItemGroup>
+ </Project>
+diff --git a/shared-project-instances/Web/Web.csproj b/shared-project-instances/Web/Web.csproj
+index d73ec1d..51733bb 100644
+--- a/shared-project-instances/Web/Web.csproj
++++ b/shared-project-instances/Web/Web.csproj
+@@ -4,6 +4,6 @@
+     <AssemblyTitle>Contoso $(ComponentName)</AssemblyTitle>
+   </PropertyGroup>
+   <ItemGroup>
+-    <ProjectReference Include="..\Core\Core.csproj" />
++    <ProjectReference Include="..\Core\Core.csproj" GlobalPropertiesToRemove="ComponentName" />
+   </ItemGroup>
+ </Project>
+diff --git a/shared-project-instances/Worker/Worker.csproj b/shared-project-instances/Worker/Worker.csproj
+index d73ec1d..51733bb 100644
+--- a/shared-project-instances/Worker/Worker.csproj
++++ b/shared-project-instances/Worker/Worker.csproj
+@@ -4,6 +4,6 @@
+     <AssemblyTitle>Contoso $(ComponentName)</AssemblyTitle>
+   </PropertyGroup>
+   <ItemGroup>
+-    <ProjectReference Include="..\Core\Core.csproj" />
++    <ProjectReference Include="..\Core\Core.csproj" GlobalPropertiesToRemove="ComponentName" />
+   </ItemGroup>
+ </Project>

@@ -13,9 +13,10 @@ stimuli:
       files:
         - src: fixtures/TailSearch.cs
           dest: TailSearch.cs
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: exit-success
       - type: prompt
     rubric:
@@ -80,9 +81,10 @@ stimuli:
       files:
         - src: fixtures/LastMatch.cs
           dest: LastMatch.cs
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: exit-success
       - type: prompt
     rubric:
@@ -98,9 +100,10 @@ stimuli:
       files:
         - src: fixtures/ZeroBytes.cs
           dest: ZeroBytes.cs
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: exit-success
       - type: prompt
     rubric:
@@ -115,9 +118,10 @@ stimuli:
       files:
         - src: fixtures/AsciiLetters.cs
           dest: AsciiLetters.cs
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: exit-success
       - type: prompt
     rubric:
@@ -134,9 +138,10 @@ stimuli:
       files:
         - src: fixtures/ContainsZero.cs
           dest: ContainsZero.cs
-    constraints:
-      reject_tools: [bash, edit, create]
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
       - type: exit-success
       - type: prompt
     rubric:
@@ -304,7 +309,8 @@ stimuli:
       A profile of an ASP.NET Core endpoint attributes 62% of samples to parsing
       nested JSON into polymorphic objects and 21% to dictionary lookups. How
       should I approach optimizing it?
-    expect_activation: false
+    tags:
+      expect_activation: "false"
     graders:
       - type: exit-success
       - type: prompt

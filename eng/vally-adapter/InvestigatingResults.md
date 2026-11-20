@@ -1,15 +1,44 @@
 # Investigating Evaluation Results (Vally)
 
-This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill and custom-agent evaluation results. Skills are produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`; custom agents use the native Copilot SDK lane and `eng/vally-adapter/adapt-agent-results.mjs` because Vally 0.14 cannot register custom agents. Both lanes emit the same result schema.
+This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill and custom-agent evaluation results. Skills are produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`; custom agents use the native Copilot SDK lane and `eng/vally-adapter/adapt-agent-results.mjs` because Vally cannot register custom agents. Both lanes emit the same result schema.
 
 For the end-to-end architecture, decision policy, metric definitions, and
 historical examples, start with the
 [Skill evaluation infrastructure overview](./README.md).
 
+Workflow packages under `agentic-workflows/` use the native SDK adapter too.
+Their specs live at `tests/agentic-workflows/<package>/eval.yaml`; result identity
+is the package name with `skillKind: workflow` and
+`evaluationLane: workflow-prompt-sdk`. The baseline omits workflow guidance,
+the isolated arm uses the real imported workflow prompt and installed resources,
+and the package arm adds registered bundled agents. These are offline
+fixture-based decision/proposal evaluations, not live Actions jobs or published
+safe outputs. Compile/helper checks and consumer runtime evidence are separate.
+Missing context/import/resource errors invalidate the measurement; no-op
+scenarios still require primary `workflow.<package>` activation.
+The native runner enforces shell denial for all offline workflow model arms;
+this is not merely an instruction in the prompt. Published dashboard JSON keeps
+`skillKind: workflow`, its offline execution lane, exact persona activation, and
+package-manifest/eval source links.
+
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 
-Native agent stimuli may opt in to `deny_shell: true`. Unlike the post-run
-`reject_tools` constraint, this rejects actual shell execution in all arms
+The native agent parser stages `stimuli[].environment.files`, not a shared
+suite-level `environment.files` block. Declare required authentication helpers
+and other shared inputs in every stimulus that uses them. A missing
+`.eval/authenticated_artifacts.py` in a command grader is a spec-staging defect,
+not evidence of an agent content or preservation failure.
+
+Native executor sessions now supply the exact project workspace and staged
+reference-only catalog files. Consumers read those resources, not hidden
+skill-tool names, and normal shell hooks defer to typed SDK permissions rather
+than manufacturing an unsupported custom approval prompt. Explicit shell
+denial remains enforced. Baseline identity includes this execution contract:
+do not reuse recordings from the older workspace/permission behavior.
+
+Native agent stimuli may opt in with the quoted string tag
+`tags.deny_shell: "true"`. Unlike the post-run `tool-calls` grader, this rejects
+actual shell execution in all arms
 without changing file-tool permissions or the existing sandbox. Setup and
 post-run command graders still execute under evaluator control. A
 `ShellDenied` assertion requires an evaluator-recorded `evaluator.shell_denied`
@@ -79,9 +108,9 @@ workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
 ### SDK startup failures
 
 `Cannot set session filesystem provider while sessions are active` can indicate
-an SDK startup race, not a skill or judge failure. In SDK 1.0.11 and 1.0.13, concurrent
-startup calls can create multiple transports, and session creation can use a
-connection before its filesystem provider is ready. The trusted
+an SDK startup race, not a skill or judge failure. In SDK 1.0.11, 1.0.13, and 1.0.14, concurrent
+startup calls can create multiple transports. Supported versions through SDK 1.0.26 require
+session creation to wait until the filesystem provider is ready. The trusted
 `eng/evaluation-tools/vally.mjs` launcher loads a version-checked startup guard.
 It shares startup per client and waits for readiness before creating or resuming
 sessions. It does not reduce trial concurrency or suppress startup failures.
@@ -105,87 +134,15 @@ shell edits. Inspect `tool.execution_complete.data.error`, not just the shorter
 normalized tool result. This can affect one executor family more than another
 and inflate its turns/cost even when the final answer and comparison complete.
 
-The version-checked launcher now uses a native, traversal-resistant workspace
-provider on Linux/macOS amd64/arm64. It captures a directory descriptor before
-the agent starts; each operation inherits that descriptor into a pinned Go
-1.27.1 helper using `os.Root`. It never reopens an operation's workspace pathname
-after a JavaScript canonicalization check. Root-path replacement leaves the
-capability anchored to the original directory. Canonical ancestor aliases are
-validated against the captured descriptor at initialization, not before each
-operation. Workspace removal and cross-root rename are explicitly rejected.
-
-All ten workspace operations use rooted APIs. Metadata is obtained by passing
-an already-rooted file descriptor to Node's `fstat`, preserving the SDK's size,
-mtime and platform birthtime without pathname reopening. This metadata path
-requires a readable target. Helpers have bounded time/output limits and explicit
-errors; descriptors close on normal or forced SDK client shutdown. Relative
-session paths and absolute log-root paths (including nested log roots), outside
-delegation and other provider implementations retain their original behavior.
-The wrapper rejects any absolute operation path with a raw `..` component before
-normalization, including both rename operands and missing-helper calls, with
-`ERR_EVALUATION_WORKSPACE_PARENT_TRAVERSAL`. Lexically collapsing `symlink/..`
-could select a different file. This restriction also applies to absolute log or
-outside paths; relative session-log APIs remain unchanged.
-
-Workspace `writeFile` writes, syncs and closes an exclusively created temporary
-file in a captured parent-directory capability before rooted rename publishes
-it. Partial writes, short writes and disk errors before publication leave an
-existing target intact (or a new target absent). Existing permission bits are
-retained. Existing targets must first pass a rooted, non-truncating
-writable open; a writable directory alone cannot bypass a read-only target.
-Replacement changes inode identity: existing hard links continue to
-refer to the old file. Symlink/special-file write targets reject explicitly;
-read and append retain their existing rooted semantics. This is not an atomic
-read-modify-write transaction with other writers. Append can still partially
-mutate a file on failure; SDK 1.0.11 has no exported `SessionFsWriteFailure` or
-changed-target error field, so its generic adapter errors do not establish
-unchanged state. A helper timeout or lost response after publication is also
-indeterminate; inspect the target before retrying.
-
-Without the built helper, or on unsupported hosts, workspace extensions still
-reject with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED`; there is no trust flag
-or unsafe fallback. SDK 1.0.11 catches all provider `exists` errors and returns
-`{ exists: false }` without an error field. That upstream limitation remains:
-inspect read/stat/mutation error events rather than treating existence alone as
-permission or reliability evidence. Shell fallback does not prove native success.
-
-Build and test the helper before running the launcher directly:
-
-```bash
-cd eng/evaluation-tools/workspace-root
-GOTOOLCHAIN=go1.27.1 go test ./...
-GOTOOLCHAIN=go1.27.1 go build -o ../workspace-root-helper .
-cd ../../..
-node --test eng/evaluation-tools/*.test.mjs
-```
-
-CI builds the helper from the trusted workflow revision before token selection.
-The default local `eng/run-skill-evals.sh` now builds it and uses the pinned
-launcher rather than fetching an unpatched Vally through npx; a custom `VALLY`
-still explicitly selects its own toolchain. Offline lint/oracle need no provider
-and do not prove native functionality. Provider tests cover actual SDK
-read/stat/write, every operation, intermediate-parent swaps, entire-root
-replacement, missing-helper rejection, aliases and shutdown.
-
-The previous host-filesystem workspace overlay has been removed. Its separate
-canonicalization and pathname-based operation permitted an intermediate-parent
-symlink swap to redirect reads and mutations outside the workspace. Native
-`os.Root` descriptor-relative traversal addresses that class on the supported
-hosts; JavaScript checks alone do not. This is not a whole-host sandbox: Vally
-0.14's executor uses `approveAll`; tool permissions do not establish an
-independent adversarial boundary. The original log provider, shell tools and
-grader host are not hardened by this provider. Root authorization assumes trusted
-initial workspace setup. `os.Root` does not isolate privileged mount changes,
-devices, hard-link inode sharing, or compromised runtime binaries. Absolute
-symlinks are rejected; relative symlinks contained in the root work.
-See [Go's traversal-resistant filesystem guidance](https://go.dev/blog/osroot).
-GOOS=js/WASI implementations must not replace the native build.
-
-Reassess this compatibility layer on a Vally/SDK upgrade. A local launcher fix
-does not retroactively repair earlier trajectories, and CI uses its trusted
-harness revision; verify that revision before attributing the fix to an official
-run. Read actual `session.start.data.copilotVersion`, not just the installed
-package manifest or a shell CLI's version, when comparing runtime provenance.
+**Retired in this branch:** current main pins Vally 0.20, whose executor creates
+the SDK client without a `sessionFs` provider (`LocalSessionFsHandler` no longer
+exists), so this failure mode and the native rooted-filesystem helper written for
+Vally 0.14 no longer apply. The helper, its Go toolchain staging and the
+`ERR_EVALUATION_WORKSPACE_*` guards were removed rather than ported. This is not
+a claim of new confinement: native tools now use the SDK's own persistence, and
+`approveAll` is still not an adversarial boundary. If a similar `Path does not
+exist`/`escapes root` pattern reappears, inspect `tool.execution_complete.data.error`
+and the executor's session configuration before restoring any provider.
 
 ### Investigation steps
 
@@ -239,7 +196,7 @@ Verdict Evidence** table shows the latest retained result per executor model:
 the authoritative preference-eligible distinct-stimulus W/T/L vote, discordant
 count, exact one-sided sign-test p-value, and net win. It shows how many
 dormancy stimuli were retained but excluded from preference inference. The
-table also separates expected dormancy (`expect_activation: false`) and
+table also separates expected dormancy (`tags.expect_activation: "false"`) and
 non-model-invocable reference skills from missing or unexpected activation,
 and exposes compact paired-judge excerpts plus source links when the result
 contains them.
@@ -255,6 +212,16 @@ age is unavailable or the evidence is not older, it reports only the mismatch
 and asks the reader to verify the revision. A green notice means the commits
 match. If deployment metadata is unavailable, the dashboard reports the
 comparison as unknown rather than guessing.
+
+Retained Skill Value entries also carry a stable evaluation execution identity
+so repeated judge views do not multiply executor resource telemetry. Native
+target non-activation is preserved separately from the dormancy activation
+contract and cannot qualify as proven differentiation. Native objective
+completion regression is also retained separately and overrides favorable
+preference evidence. Weekly health reporting labels its ratio as
+**published-result reliability** because failed executions can produce no
+retained target output; complete expected-target coverage is reported as
+unavailable rather than inferred from retained rows.
 
 The 0–10 **Quality Score Triage** summary and trend charts remain useful for
 spotting changes in absolute grader scores. They do not decide pass/fail. Older
@@ -283,6 +250,7 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | Field | Description |
 |-------|-------------|
 | `skillName` / `skillPath` | Compatibility field names containing the evaluated target name and source path; `skillKind` disambiguates skills and agents |
+| `evalFile` | Normalized eval path, duplicated from the top level so it survives merges that concatenate `verdicts[]` from many files (the dashboard publish step does this; its merged file keeps only the first file's top-level `evalFile`) |
 | `state` | One of `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or `INVALID_INCONCLUSIVE` |
 | `stateReason` | Machine-readable `{ code, phase }`. Use this field for automation; do not parse `reason` |
 | `noChangeDiagnosis` | Canonical subtype for a `VALID_NO_CHANGE` preference result: `all_ties`, `mixed`, directional `*_tie_limited` / `*_unproven`, or `*_sparse`; renderers consume this key so PR and dashboard labels stay aligned |
@@ -344,7 +312,7 @@ Consumers that need the old all-stimulus view must read
 `excludedScenarioEvidence` alongside `scenarioEvidence`, or use
 `scenarios[]`/`comparisonTrialEvidence`.
 
-No eval syntax migration is required: existing `expect_activation: false`
+No eval syntax migration is required: existing `tags.expect_activation: "false"`
 annotations automatically become activation-contract-only evidence. The
 authoring floor is intentionally stricter because dormancy no longer counts
 toward five preference cases; `check_eval_quality.py` reports the eligible and
@@ -355,7 +323,7 @@ Dormancy excludes a stimulus only from preference inference and expected
 activation. It does not suppress objective task-completion evidence: if a
 native-agent baseline completes and the isolated target run does not, the
 adapter retains `native_completion_regression` even for
-`expect_activation: false`.
+`tags.expect_activation: "false"`.
 
 The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
 for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
@@ -372,7 +340,7 @@ so a rename, typo, or missing result cannot silently erase contract evidence.
 `measurementInvalidEvals` is the fail-closed subset: missing baseline or skilled
 records, unresolved judge or pairing failures, malformed reports, and other
 adapter failures. This includes an eval spec that the adapter cannot read:
-without that file it cannot enforce `expect_activation: false`, so it writes an
+without that file it cannot enforce `tags.expect_activation: "false"`, so it writes an
 `eval_spec_unreadable` invalid verdict instead of assuming that every stimulus
 should activate. The subset excludes only the explicit `underpowered`
 eval-design state. The workflow requires this list to be empty and also checks
@@ -432,23 +400,28 @@ runs that also fail their graders are surfaced as warnings.
 The agent crashed, the model was unavailable, evidence was missing, or the comparison judge failed. Check `stateReason`, `errors[]`, `adapter-summary.json`, and the variant's `results.jsonl`/session logs. These are invalid measurements, not skill regressions. If a required variant produced no records, the adapter writes an explicit invalid result with `missing_baseline_records` or `missing_skilled_records`.
 
 The workflow retries only required baseline or isolated-skilled executor records
-whose exact failure is a `session.idle` timeout. It reruns the affected eval and
-variant up to two bounded times while exact timeout slots remain unresolved,
-preserves all successful first-attempt and recovered slots, and replaces only
-matching failed `shardKey` slots from the same normalized eval path that
-succeed. A later pass cannot overwrite evidence recovered by an earlier pass.
+whose exact failure is a Vally stimulus wall-clock timeout, a `session.idle`
+timeout, or `Session disconnected while waiting for a response`. It reruns the
+affected eval and variant up to two bounded times while exact retryable slots
+remain unresolved, preserves all successful first-attempt and recovered slots,
+and replaces only matching failed `shardKey` slots from the same normalized
+eval path that succeed. A later pass cannot overwrite evidence recovered by an
+earlier pass.
 Every invocation uses a fresh output directory, so a retry that produces no
 current output cannot reuse stale evidence from an earlier invocation. Records
 without a `shardKey` remain invalid. Check
 `executor-retry-summary.json` and the raw record's `executorRetry` field for
-recovered attempts. A timeout that survives both targeted passes remains
-measurement-invalid. The summary is written before and after every retry so an
-outer watchdog termination still leaves the active attempt and the last
-completed accounting for diagnosis. The merged record retains the original
-experiment provenance; `executorRetry.retryRunId` identifies the successful retry run.
-Persistent timeouts, other executor failures, or more than three affected
-eval/variant groups remain measurement-invalid and keep the matrix leg red. The
-optional whole-plugin arm is report-only telemetry and is not retried.
+recovered attempts. A retryable failure that survives both targeted passes
+remains measurement-invalid. `No response was returned. Send your message again
+to retry.` remains ineligible because it can represent failures outside this
+bounded SDK transport class. The summary is written before and after every
+retry so an outer watchdog termination still leaves the active attempt and the
+last completed accounting for diagnosis. The merged record retains the original
+experiment provenance; `executorRetry.retryRunId` identifies the successful
+retry run. Persistent transient failures, other executor failures, or more than
+three affected eval/variant groups remain measurement-invalid and keep the
+matrix leg red. The optional whole-plugin arm is report-only telemetry and is
+not retried.
 
 If Vally writes a JSON record that cannot satisfy the comparison schema, the
 adapter emits `comparison_report_invalid` for that eval and continues the batch.
@@ -617,7 +590,7 @@ The agent didn't finish within the eval's `config.timeout`. Either the task is t
 
 ### 3. Activation contract failed (`stateReason.code == "activation_contract_failed"`)
 
-An explicit dormancy scenario (`expect_activation: false`) activated the
+An explicit dormancy scenario (`tags.expect_activation: "false"`) activated the
 isolated target skill. This is deterministic routing evidence, so it blocks a
 pass even though the scenario's judge preference is excluded from the sign
 test. Narrow the skill description or routing boundary. Plugin activation is
