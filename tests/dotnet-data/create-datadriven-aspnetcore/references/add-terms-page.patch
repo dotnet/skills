@@ -1,0 +1,26 @@
+diff --git a/fixtures/razor-pages-crud/Pages/Terms.cshtml b/fixtures/razor-pages-crud/Pages/Terms.cshtml
+new file mode 100644
+--- /dev/null
++++ b/fixtures/razor-pages-crud/Pages/Terms.cshtml
+@@ -0,0 +1,6 @@
++@page
++@model MyApp.Pages.TermsModel
++@{
++    ViewData["Title"] = "Terms";
++}
++<h1>@ViewData["Title"]</h1>
+diff --git a/fixtures/razor-pages-crud/Pages/Terms.cshtml.cs b/fixtures/razor-pages-crud/Pages/Terms.cshtml.cs
+new file mode 100644
+--- /dev/null
++++ b/fixtures/razor-pages-crud/Pages/Terms.cshtml.cs
+@@ -0,0 +1,10 @@
++using Microsoft.AspNetCore.Mvc.RazorPages;
++
++namespace MyApp.Pages;
++
++public class TermsModel : PageModel
++{
++    public void OnGet()
++    {
++    }
++}
