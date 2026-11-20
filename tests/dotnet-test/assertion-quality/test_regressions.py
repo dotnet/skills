@@ -68,13 +68,46 @@ class AssertionQualityRegressions(unittest.TestCase):
         )
         self.assertTrue(grader_errors(item, response))
 
+    def test_smoke_grader_accepts_equivalent_counts(self):
+        item = stimulus("Flag assertion-free tests and trivial-only assertions")
+        for five, three in (("5 out of 8", "3 out of 8"), ("Five of eight", "3/8")):
+            with self.subTest(five=five, three=three):
+                response = f"{five} are assertion-free; {three} use only IsNotNull."
+                self.assertEqual([], grader_errors(item, response))
+
     def test_good_suite_grader_requires_credit_for_contractual_absence(self):
         item = stimulus("Recognize well-diversified assertion usage")
         response = (
             "This suite is not good, strong, diverse, or thorough. Every test is "
-            "assertion-free and should be replaced."
+            "assertion-free and should be replaced. GetUser_NonExistent_ReturnsNull "
+            "is weak because it only uses IsNull."
         )
         self.assertTrue(grader_errors(item, response))
+
+    def test_good_suite_grader_accepts_alternative_contract_explanations(self):
+        item = stimulus("Recognize well-diversified assertion usage")
+        for explanation in (
+            "GetUser_NonExistent_ReturnsNull fully verifies its promised missing-user outcome with IsNull.",
+            "Returning null is the expected result of a missing-user lookup:\n"
+            "  `GetUser_NonExistent_ReturnsNull` checks exactly that.",
+        ):
+            with self.subTest(explanation=explanation):
+                self.assertEqual([], grader_errors(item, "A strong suite.\n\n" + explanation))
+
+    def test_calibration_grader_accepts_alternative_summary_and_column_order(self):
+        item = stimulus("Calibrate trivial checks without penalizing complete MSTest assertions")
+        lines = []
+        for line in golden_response(item).splitlines():
+            if line.startswith("|"):
+                _, method, assessment, why, _ = line.split("|")
+                line = f"|{assessment}|{method}|{why}|"
+            lines.append(line.replace("two of five methods are weak", "two of the five methods are weak"))
+        response = "\n".join(lines)
+        self.assertEqual([], grader_errors(item, response))
+        for method in ("Ping_ReturnsResponse", "HealthCheck_Healthy"):
+            with self.subTest(method=method):
+                wrong = response.replace(f"| Weak | `{method}`", f"| Meaningful | `{method}`")
+                self.assertTrue(grader_errors(item, wrong))
 
     def test_calibration_grader_rejects_both_false_positive_diagnoses(self):
         item = stimulus("Calibrate trivial checks without penalizing complete MSTest assertions")

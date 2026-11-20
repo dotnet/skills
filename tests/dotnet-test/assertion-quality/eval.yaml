@@ -100,16 +100,13 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (no assertion|zero assertion|assertion.free|without.*assert|missing.*assert|don.*assert|lack.*assert)
+          pattern: (?i)(no assertion|zero assertion|assertion.free|without.*assert|missing.*assert|don.*assert|lack.*assert)
       - type: output-matches
         config:
-          pattern: (5|five|62%|most|majority|several)
+          pattern: (?i)\b(5|five)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(8|eight)\b
       - type: output-matches
         config:
-          pattern: \b(5|five)\s+of\s+8\b
-      - type: output-matches
-        config:
-          pattern: \b(3|three)\s+of\s+8\b
+          pattern: (?i)\b(3|three)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(8|eight)\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -167,10 +164,14 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (good|strong|solid|diverse|well|thorough|comprehensive|varied)
+          pattern: (?i)(good|strong|solid|diverse|well|thorough|comprehensive|varied)
       - type: output-matches
         config:
-          pattern: GetUser_NonExistent_ReturnsNull.{0,100}real verification
+          pattern: (?i)\b(GetUser_NonExistent_ReturnsNull|missing[- ]user|nonexistent user|user not found)\b
+      # Look for the expected behavior, independently of where the method is named.
+      - type: output-matches
+        config:
+          pattern: (?i)\b(?:real verification|(?:verif(?:y|ies)|checks?|asserts?|expects?|promised|expected)\b[^.!?;\n]*\b(?:absence|null|missing[- ]user)|(?:absence|null|missing[- ]user)\b[^.!?;\n]*\b(?:expected|contract|meaningful|correct))\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -397,16 +398,16 @@ stimuli:
           pattern: HealthCheck_Healthy
       - type: output-matches
         config:
-          pattern: (trivial|weak|always.true|cannot fail|false confidence)
+          pattern: (?i)(trivial|weak|always.true|cannot fail|false confidence)
       - type: output-matches
         config:
-          pattern: (two|2) of (five|5) (methods|tests) are weak
+          pattern: (?im)^(?=[^\r\n]*\b(two|2)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(five|5)\b)[^\r\n]*\b(weak|trivial|false confidence)\b
       - type: output-matches
         config:
-          pattern: (?i)Ping_ReturnsResponse[^\r\n]*(trivial|weak)
+          pattern: (?im)^(?=[^\r\n]*\bPing_ReturnsResponse\b)[^\r\n]*\b(trivial|weak)\b
       - type: output-matches
         config:
-          pattern: (?i)HealthCheck_Healthy[^\r\n]*(trivial|weak|always.true)
+          pattern: (?im)^(?=[^\r\n]*\bHealthCheck_Healthy\b)[^\r\n]*\b(trivial|weak|always.true)\b
       - type: output-matches
         config:
           pattern: (ParseInvalid_ThrowsFormatException|Save_PersistsRecord|LoadExisting_ReturnsConfiguredValue)
