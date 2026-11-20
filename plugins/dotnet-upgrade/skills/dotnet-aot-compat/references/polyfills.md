@@ -6,9 +6,10 @@
 #if !NET
 namespace System.Diagnostics.CodeAnalysis
 {
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.ReturnValue |
-                    AttributeTargets.GenericParameter | AttributeTargets.Parameter |
-                    AttributeTargets.Property, Inherited = false)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.GenericParameter |
+                    AttributeTargets.Interface | AttributeTargets.Method | AttributeTargets.Parameter |
+                    AttributeTargets.Property | AttributeTargets.ReturnValue | AttributeTargets.Struct,
+                    Inherited = false)]
     internal sealed class DynamicallyAccessedMembersAttribute : Attribute
     {
         public DynamicallyAccessedMembersAttribute(DynamicallyAccessedMemberTypes memberTypes)
