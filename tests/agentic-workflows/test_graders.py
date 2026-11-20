@@ -441,6 +441,8 @@ class GraderTests(unittest.TestCase):
             "No failure, retry, hang, crash, or duration-regression records exist; one failure record is present.",
             "No records were collected; one failure record exists.",
             "No records were collected; one failure record was omitted.",
+            "No records were collected. It is not true that no collector recorded a failure record.",
+            "No records were collected. It is not true that no evidence file contains a failure record.",
         ):
             with self.subTest(reason=reason):
                 result = good_result("test/empty")

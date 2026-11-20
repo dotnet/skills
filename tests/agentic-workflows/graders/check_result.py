@@ -139,7 +139,12 @@ def contradicts_empty_bundle(text):
         r"(?:(?:the\s+)?(?:collector|bundle|metadata|evidence)\s+)?)$"
     )
     for match in re.finditer("(?:" + assertion + count + records + ")|(?:" + reverse + ")", text, re.IGNORECASE):
-        if not re.search(denial, text[:match.start()], re.IGNORECASE):
+        prefix = text[:match.start()]
+        denied = False
+        while preceding := re.search(denial, prefix, re.IGNORECASE):
+            denied = not denied
+            prefix = prefix[:preceding.start()]
+        if not denied:
             return True
     return False
 
