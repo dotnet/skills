@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { CopilotClient } from '@github/copilot-sdk';
+import { CopilotSdkExecutor } from '@microsoft/vally/executor';
 import './sdk-startup.mjs';
 
 function deferred() {
@@ -129,4 +135,62 @@ test('ready clients still create sessions concurrently', async () => {
   finish.resolve();
   await Promise.all(sessions);
   assert.equal(calls.filter(c => c === 'spawn').length, 1);
+});
+
+for (const method of ['createSession', 'resumeSession']) {
+  test(`${method} rejects unsupported filesystem factories before startup or provider I/O`, async () => {
+    const { client, calls } = clientFixture();
+    let invoked = false;
+    const config = {
+      workingDirectory: process.cwd(),
+      createSessionFsProvider: () => { invoked = true; throw new Error('must not run'); },
+    };
+    const originalFactory = config.createSessionFsProvider;
+    await assert.rejects(
+      method === 'createSession' ? client.createSession(config) : client.resumeSession('trial', config),
+      /filesystem providers are unsupported.*native SDK/);
+    assert.equal(invoked, false);
+    assert.deepEqual(calls, []);
+    assert.equal(config.createSessionFsProvider, originalFactory);
+    assert.equal(config.workingDirectory, process.cwd());
+  });
+
+  test(`installed Vally logged ${method} configuration reaches the real SDK without a provider`, async () => {
+    const root = await mkdtemp(path.join(process.cwd(), '.vally-session-test-'));
+    const { client, release, calls } = clientFixture();
+    client.sessionFsConfig = null;
+    client.stop = async () => [];
+    release.resolve();
+    const executor = new CopilotSdkExecutor({ createClient: () => client, flushWindowMs: 0 });
+    let reached = false;
+    executor.runTurn = async (run, handle, stimulus, options, config, logRoot) => {
+      reached = true;
+      assert.equal(config.workingDirectory, root);
+      assert.equal(config.createSessionFsProvider, undefined);
+      assert.equal(logRoot, path.join(root, 'logs'));
+      assert.deepEqual(config.infiniteSessions, { enabled: false });
+      return method === 'createSession'
+        ? handle.client.createSession({ ...config, sessionId: 'native-trial' })
+        : handle.client.resumeSession('native-trial', config);
+    };
+    try {
+      const session = await executor.execute({ prompt: 'unused; no model invocation' }, {
+        model: 'unused', workDir: root, timeout: 5000,
+        sessionLog: { rootDir: path.join(root, 'logs'), sessionID: 'native-trial' },
+      });
+      assert.equal(reached, true);
+      assert.equal(session.sessionId, 'native-trial');
+      assert.equal(calls.filter(call => call === 'sessionFs.setProvider').length, 0);
+    } finally {
+      await executor.shutdown();
+      await rm(root, { recursive: true });
+    }
+  });
+}
+
+test('merged-tree launcher loads the installed pinned CLI without credentials or model calls', async () => {
+  const { stdout } = await promisify(execFile)(
+    process.execPath, [fileURLToPath(new URL('./vally.mjs', import.meta.url)), '--version'],
+    { timeout: 30_000 });
+  assert.equal(stdout.trim(), '0.20.0');
 });

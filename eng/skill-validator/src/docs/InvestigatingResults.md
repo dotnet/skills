@@ -76,9 +76,12 @@ behavior against the corrected executor.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
 
-> Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
+> Current Vally 0.20 runs use SDK 1.0.26 and a version-checked startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup
 > calls. Session-provider errors are harness failures, not skill-quality verdicts.
+> Vally uses native SDK persistence and exports session history; the removed
+> Vally 0.14 local-provider adapter must not be reinstalled. Explicit session-fs
+> factories are rejected until their workspace isolation contract is reassessed.
 > This does not change the historical result schema documented below.
 
 > **Vally schema:** Vally adapter results use an independently owned and
