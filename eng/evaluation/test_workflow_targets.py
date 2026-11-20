@@ -115,6 +115,21 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual({entry["package_path"] for entry in self.entries()}, {"agentic-workflows/alpha/aw.yml"})
         self.assertEqual(git("worktree", "list", "--porcelain").count("worktree "), 1)
 
+    def test_pr_deleted_workflow_package_is_not_selected(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        shutil.rmtree(self.root / "agentic-workflows" / "beta")
+        shutil.rmtree(self.root / "tests" / "agentic-workflows" / "beta")
+        resource = self.root / "agentic-workflows" / "alpha" / "workflows" / "helper.json"
+        resource.parent.mkdir()
+        resource.write_text("{}\n", encoding="utf-8")
+        head = self.commit_fixture("Delete beta and change alpha")
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual({entry["package_path"] for entry in self.entries()}, {"agentic-workflows/alpha/aw.yml"})
+
     def test_pr_shared_workflow_inputs_select_all_packages(self):
         self.git("init", "--quiet")
         base = self.commit_fixture("Fixture base")
@@ -149,6 +164,84 @@ class WorkflowTargetsTests(unittest.TestCase):
         result = self.run_script(self.dispatch, PLUGIN="agentic-workflows", SKILL="alpha")
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("has no tests/agentic-workflows/alpha/eval.yaml", result.stderr)
+
+    def test_infrastructure_paths_select_evals_and_both_pr_status_gates(self):
+        plugin = self.root / "plugins" / "fixture"
+        (plugin / "skills" / "example").mkdir(parents=True)
+        (plugin / "plugin.json").write_text('{"name":"fixture"}', encoding="utf-8")
+        (plugin / "skills" / "example" / "SKILL.md").write_text(
+            "---\nname: example\ndescription: Fixture\n---\n", encoding="utf-8")
+        spec = self.root / "tests" / "fixture" / "example" / "eval.yaml"
+        spec.parent.mkdir(parents=True)
+        spec.write_text("name: example\nstimuli: []\n", encoding="utf-8")
+        paths = (
+            "eng/evaluation-tools/package-lock.json",
+            "eng/evaluation-tools/vally.mjs",
+            "eng/run-skill-evals.sh",
+            "eng/skill-validator/src/Evaluate/OverfittingJudge.cs",
+            "eng/skill-validator/Directory.Build.props",
+            "eng/evaluation/nuget.config",
+            "global.json",
+        )
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        workflow = yaml.safe_load(
+            (REPO_ROOT / ".github" / "workflows" / "evaluation.yml").read_text(encoding="utf-8"))
+        status_scripts = [
+            next(step["run"] for step in workflow["jobs"][job]["steps"]
+                 if step.get("id") == "discover")
+            for job in ("pr-status", "fork-pr-status")
+        ]
+
+        def verify_status(base, head, expected):
+            for status_script in status_scripts:
+                script = (status_script
+                          .replace("${{ github.event.pull_request.base.sha }}", base)
+                          .replace("${{ github.event.pull_request.head.sha }}", head)
+                          .replace('"FETCH_HEAD"', f'"{head}"'))
+                result = self.run_script(script)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn(f"needs_eval={expected}", self.output.read_text(encoding="utf-8"))
+
+        for relative in paths:
+            with self.subTest(relative=relative):
+                path = self.root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("{}\n" if relative == "global.json" else "changed input\n", encoding="utf-8")
+                head = self.commit_fixture("Change evaluation input")
+                result = self.run_script(
+                    "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+                    GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("is_infra=true", self.output.read_text(encoding="utf-8"))
+                self.assertTrue(any(entry["plugin"] == "fixture" for entry in self.entries()))
+                verify_status(base, head, "true")
+                base = head
+
+        # A deletion must still select evaluation; docs-only changes must not.
+        (self.root / "eng" / "run-skill-evals.sh").unlink()
+        head = self.commit_fixture("Delete local entry point")
+        verify_status(base, head, "true")
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("is_infra=true", self.output.read_text(encoding="utf-8"))
+        base = head
+        # A rename must still expose the removed recognized input path.
+        self.git("mv", "eng/evaluation/nuget.config", "eng/evaluation/nuget.config.disabled")
+        head = self.commit_fixture("Rename feed configuration")
+        self.assertTrue(self.git("diff", "--name-status", base, head).startswith("R100"))
+        verify_status(base, head, "true")
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("is_infra=true", self.output.read_text(encoding="utf-8"))
+        base = head
+        (self.root / "README.md").write_text("Documentation only\n", encoding="utf-8")
+        head = self.commit_fixture("Change documentation")
+        verify_status(base, head, "false")
 
     def test_runner_matrix_validation_binds_workflow_identity(self):
         if not shutil.which(BASH):

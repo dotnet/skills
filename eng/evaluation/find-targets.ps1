@@ -219,15 +219,25 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   try {
   $mergeBase = git merge-base $base $head
   $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+  # Deleting an evaluation input changes the harness, so infrastructure
+  # detection includes deletions. Target extraction below keeps ACMR because
+  # deleted skills, agents, and workflow packages cannot be evaluated.
+  # --no-renames reports a renamed input's old path as a deletion.
+  $infraCandidateFiles = git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head
 
   # Check if any changed files are in infrastructure paths. The native
   # custom-agent lane executes eng/skill-validator/src, so those source
   # changes are evaluation infrastructure changes.
-  $hasInfraChanges = $changedFiles |
+  $hasInfraChanges = $infraCandidateFiles |
     Where-Object {
       ($_ -match '^eng/vally-adapter/') -or
+      ($_ -match '^eng/evaluation-tools/') -or
+      ($_ -match '^eng/run-skill-evals\.sh$') -or
       ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+      ($_ -match '^eng/evaluation/nuget\.config$') -or
       ($_ -match '^eng/skill-validator/src/') -or
+      ($_ -match '^eng/skill-validator/Directory\.Build\.props$') -or
+      ($_ -match '^global\.json$') -or
       ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
       $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
     } |

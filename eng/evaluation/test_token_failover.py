@@ -2786,6 +2786,7 @@ esac
             "eng/evaluation/find-targets.ps1",
             "eng/evaluation/path-safety.ps1",
             "eng/evaluation/workflow-targets.ps1",
+            "eng/run-skill-evals.sh",
             "eng/skill-validator/Directory.Build.props",
             "eng/skill-validator/src/",
             "dotnet-skills.experiment.yaml",
@@ -2811,6 +2812,13 @@ esac
         advisory_path = ".github/workflows/fork-infra-check.yml"
         for event in ("pull_request", "push"):
             self.assertEqual(triggers[event]["paths"].count(advisory_path), 1)
+
+    def test_local_wrapper_changes_run_workflow_tests(self) -> None:
+        workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        for event in ("pull_request", "push"):
+            self.assertIn("eng/run-skill-evals.sh", triggers[event]["paths"])
+            self.assertIn("eng/evaluation-tools/**", triggers[event]["paths"])
 
     def test_path_safety_helper_changes_run_workflow_tests(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
