@@ -290,6 +290,14 @@ Include documentation that explains:
 
 Skills and agents are documentation driven, but we still treat them as production assets.
 
+Skill PRs receive a **PR action checklist** comment summarizing the PR description's unchecked
+tasks, current-commit validation, merge conflicts, review approval, and unresolved conversations.
+The bot updates that comment on PR updates and on a scheduled reconciliation every 30 minutes.
+The PR author (including a fork author) or a repository collaborator can
+comment **`/checklist`** to refresh it, for example after resolving a review conversation.
+This command only refreshes the summary; it does not run evaluations or change check results.
+Checks that have not reported yet are not listed, and branch protection remains authoritative.
+
 - Every change should include a validation section that a reviewer can follow.
 - If your change references commands, keep them cross platform when practical. If not, state the supported environment.
 - If your change depends on external services, document how a reviewer can validate without privileged access, or explain why validation is not possible.
