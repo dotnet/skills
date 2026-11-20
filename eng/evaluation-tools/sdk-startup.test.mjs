@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { CopilotClient } from '@github/copilot-sdk';
-import './sdk-startup.mjs';
+
+const sdkPackage = new URL('../package.json', import.meta.resolve('@github/copilot-sdk'));
+const { version } = JSON.parse(readFileSync(sdkPackage, 'utf8'));
+const nativeMethods = Object.fromEntries(
+  ['start', 'createSession', 'resumeSession'].map(method => [method, CopilotClient.prototype[method]]),
+);
+await import('./sdk-startup.mjs');
+
+test('SDK 1.0.29 retains its native startup and session methods', { skip: version !== '1.0.29' }, () => {
+  for (const [method, original] of Object.entries(nativeMethods)) {
+    assert.equal(CopilotClient.prototype[method], original);
+  }
+});
 
 function deferred() {
   let resolve;

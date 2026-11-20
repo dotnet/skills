@@ -500,17 +500,17 @@ if ($matrixProfile -in @('default','mid','sol','full','newer')) {
   }
   # §10.5 judge routing. Primary = cross-family (never the same model, and
   # a different family in every case here).
-  #   - Non-GPT executor legs (Claude/MAI) are judged by gpt-5.6-terra.
+  #   - Non-GPT executor legs (Claude/MAI) are judged by gpt-5.6-luna.
   #   - GPT executor legs are judged by claude-haiku-4.5.
   $judgeRoutes = @{
     'gpt-5.6-luna'            = @{ judge = 'claude-haiku-4.5' }
-    'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra' }
-    'mai-code-1.1-flash'      = @{ judge = 'gpt-5.6-terra' }
+    'claude-haiku-4.5'        = @{ judge = 'gpt-6.1-terra' }
+    'mai-code-1.1-flash'      = @{ judge = 'gpt-6.1-terra' }
     'gpt-5.3-codex'           = @{ judge = 'claude-haiku-4.5' }
     'gpt-5.6-sol'             = @{ judge = 'claude-haiku-4.5' }
     'gpt-6-astra'             = @{ judge = 'claude-haiku-4.5' }
-    'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra' }
-    'claude-opus-5'           = @{ judge = 'gpt-5.6-terra' }
+    'claude-sonnet-5'         = @{ judge = 'gpt-6.1-terra' }
+    'claude-opus-5'           = @{ judge = 'gpt-6.1-terra' }
   }
   $models = $profileModels[$matrixProfile]
   $expanded = @()
