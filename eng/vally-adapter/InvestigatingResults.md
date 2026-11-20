@@ -254,6 +254,11 @@ affirmative or a claim in another field is still rejected.
 Negated collector/file subjects are scoped to their own collection assertion,
 not later clauses or independent statements. A denial of a subject-level denial
 does not excuse the resulting positive-record claim.
+Absence statements must themselves be asserted: a local denial or an inability
+to conclude absence cannot establish an empty bundle. A negated absence
+contradicts the empty fixture even if another field asserts absence. Test-success
+phrases account for both prefix and suffix denials, so denying an explicit
+denial does not make an unsupported success claim acceptable.
 These checks use decoded, whitespace-normalized prose rather than JSON
 escapes, so a newline between `No` and `qualifying` is not a failure. The actual
 fixture must also be complete with an empty file inventory. The `No-op` action

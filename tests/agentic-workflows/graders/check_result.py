@@ -93,7 +93,15 @@ def normalize_prose(text):
     return re.sub(r"\s+", " ", normalized)
 
 
-def describes_empty_bundle(text):
+def count_prefix_denials(prefix, pattern):
+    count = 0
+    while match := re.search(pattern, prefix, re.IGNORECASE):
+        count += 1
+        prefix = prefix[:match.start()]
+    return count, prefix
+
+
+def describes_empty_bundle(text, *, negated=False):
     text = normalize_prose(text)
     aggregate = (
         r"\b(?:no|zero)\s+(?:"
@@ -117,17 +125,27 @@ def describes_empty_bundle(text):
         if listed and not all(re.search(r"\b" + item + r"\b", listed, re.IGNORECASE) for item in categories):
             continue
         before, after = text[:match.start()], text[match.end():]
-        if re.match(r"\s+to\s+(?:cite|report|analyze)\b" + boundary, after, re.IGNORECASE):
-            return True
-        if re.match(predicate, after, re.IGNORECASE):
-            return True
-        if re.search("(?:" + collection + ")|(?:" + existence + ")", before, re.IGNORECASE) and re.match(boundary, after, re.IGNORECASE):
+        preceding_predicate = re.search("(?:" + collection + ")|(?:" + existence + ")", before, re.IGNORECASE)
+        if not (
+            re.match(r"\s+to\s+(?:cite|report|analyze)\b" + boundary, after, re.IGNORECASE)
+            or re.match(predicate, after, re.IGNORECASE)
+            or (preceding_predicate and re.match(boundary, after, re.IGNORECASE))
+        ):
+            continue
+        prefix = before[:preceding_predicate.start()] if preceding_predicate else before
+        prefix = re.sub(r"\b(?:the\s+)?(?:collector|bundle|metadata|evidence)\s+$", "", prefix, flags=re.IGNORECASE)
+        denials, prefix = count_prefix_denials(prefix, r"\b(?:it is not true that|not|never)\s+[\"']?$")
+        if re.search(r"\b(?:(?:cannot|can't|does not|do not) (?:conclude|prove|establish|confirm)|no (?:evidence|proof) (?:that|of))\s+(?:that\s+)?[\"']?$", prefix, re.IGNORECASE):
+            continue
+        if bool(denials % 2) == negated:
             return True
     return False
 
 
 def contradicts_empty_bundle(text):
     text = normalize_prose(text)
+    if describes_empty_bundle(text, negated=True):
+        return True
     count = r"(?:a|an|one|two|three|[1-9][0-9]*)\s+"
     records = r"(?:(?:qualifying|test|collector|evidence|failure|retry|hang|crash|duration(?:-regression)?)\s+)*records?\b"
     assertion = r"\b(?:recorded|found|collected|contains?|includes?|reports?|lists?|supplies|observed|there (?:is|are|was|were))\s+"
@@ -139,12 +157,8 @@ def contradicts_empty_bundle(text):
         r"(?:(?:the\s+)?(?:collector|bundle|metadata|evidence)\s+)?)$"
     )
     for match in re.finditer("(?:" + assertion + count + records + ")|(?:" + reverse + ")", text, re.IGNORECASE):
-        prefix = text[:match.start()]
-        denied = False
-        while preceding := re.search(denial, prefix, re.IGNORECASE):
-            denied = not denied
-            prefix = prefix[:preceding.start()]
-        if not denied:
+        denials, _ = count_prefix_denials(text[:match.start()], denial)
+        if not denials % 2:
             return True
     return False
 
@@ -154,6 +168,7 @@ def check_test_success_claims(text):
     denial_before = (
         r"\b(?:"
         r"not (?:(?:an?|the|explicit|affirmative|verified) )*"
+        r"|it is not true that "
         r"|distinct from (?:(?:an?|the|explicit|affirmative|verified) )*"
         r"|(?:does not|do not|cannot|can't) (?:prove|establish|mean|show|imply|confirm|conclude) (?:that )?"
         r"|no (?:evidence|proof|confirmation) (?:that|of) "
@@ -162,11 +177,9 @@ def check_test_success_claims(text):
     denial_after = r"^[\"']? (?:is|was) (?:not|never) (?:proven|established|verified|supported|justified)\b"
     normalized = normalize_prose(text)
     for match in re.finditer(claims, normalized, re.IGNORECASE):
-        denied = (
-            re.search(denial_before, normalized[:match.start()], re.IGNORECASE)
-            or re.search(denial_after, normalized[match.end():], re.IGNORECASE)
-        )
-        require(denied, f"Unsupported test-success claim: {match[0]}")
+        denials, _ = count_prefix_denials(normalized[:match.start()], denial_before)
+        denials += bool(re.search(denial_after, normalized[match.end():], re.IGNORECASE))
+        require(denials % 2, f"Unsupported test-success claim: {match[0]}")
 
 
 def parse_options(arguments=None):

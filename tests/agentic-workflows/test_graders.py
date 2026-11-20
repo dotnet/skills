@@ -532,6 +532,37 @@ class GraderTests(unittest.TestCase):
                 self.assertNotEqual(0, checked.returncode)
                 self.assertIn("Claimed positive records", checked.stderr)
 
+    def test_scoped_absence_and_success_denials_through_shipping_command(self):
+        examples = (
+            ("No records were collected.", True),
+            ("It is not true that no records were collected.", False),
+            ("We cannot conclude that no records were collected.", False),
+            ("It is not true that the collector recorded no qualifying findings.", False),
+            ("We cannot conclude that the collector recorded no qualifying findings.", False),
+            ("No records were collected. It is not true that no records were collected.", False),
+            ("We cannot conclude that no records were collected. All tests passed.", False),
+            ("No records were collected. It is not true that all tests passed.", True),
+            ('No records were collected. "All tests passed" is not established.', True),
+            ('No records were collected. It is not true that "all tests passed" is not established.', False),
+            ("No records were collected. It is not true that it is not true that all tests passed.", False),
+            ("No records were collected. It is not true that all tests passed. All tests passed.", False),
+        )
+        for reason, accepted in examples:
+            with self.subTest(reason=reason):
+                result = good_result("test/empty")
+                result["reason"] = reason
+                checked = self.run_shipping_grader("test/empty", result)
+                self.assertEqual(accepted, checked.returncode == 0, checked.stderr)
+        for claim in (
+            "It is not true that no records were collected.",
+            'It is not true that "all tests passed" is not established.',
+        ):
+            result = good_result("test/empty")
+            result["reason"] = "No records were collected."
+            result["limitations"] = [claim]
+            checked = self.run_shipping_grader("test/empty", result)
+            self.assertNotEqual(0, checked.returncode)
+
     def test_explicit_denials_are_not_passing_test_claims(self):
         for denial in (
             "This is not an explicit 'all tests passed' result.",
@@ -549,6 +580,7 @@ class GraderTests(unittest.TestCase):
             "**All tests passed** is not established.",
             "There is no evidence that all tests passed.",
             "There is no proof that **all tests passed**.",
+            "It is not true that all tests passed.",
         ):
             for key in ("reason", "body", "limitations", "summary", "next_step"):
                 with self.subTest(denial=denial, key=key):
@@ -574,6 +606,7 @@ class GraderTests(unittest.TestCase):
             "We cannot conclude \u201call tests passed\u201d, but \u201call tests passed\u201d.",
             "\u201cAll tests passed\u201d is not established. Tests are clean.",
             "There is no evidence that some tests passed. All tests passed.",
+            'It is not true that "all tests passed" is not established.',
         )
         for claim in claims:
             for key in ("reason", "body", "limitations", "summary", "next_step"):
