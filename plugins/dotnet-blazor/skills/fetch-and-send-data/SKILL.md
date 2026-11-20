@@ -1,7 +1,7 @@
 ---
 license: MIT
 name: fetch-and-send-data
-description: Call APIs, load data into components, and handle the async lifecycle in Blazor. USE FOR fetching data from a backend, submitting data to an API, displaying loading/error states, registering HttpClient, building service abstractions for Auto/WebAssembly render modes. DO NOT USE for form validation (see collect-user-input), prerendering persistence (see support-prerendering), or project scaffolding (see create-blazor-project).
+description: Call APIs, load or submit remote data, and handle the async data lifecycle in Blazor. USE ONLY WHEN network/service access, loading/error state, HttpClient registration, cancellation, or Auto/WebAssembly service abstraction is the primary problem. NEVER USE when the data service already exists and the task is limited to input binding or displaying field-specific errors (use collect-user-input). DO NOT USE for prerendering persistence (see support-prerendering) or project scaffolding (see create-blazor-project).
 ---
 
 # Fetch and Send Data
