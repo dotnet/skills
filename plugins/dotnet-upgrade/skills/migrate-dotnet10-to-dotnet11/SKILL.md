@@ -6,12 +6,13 @@ description: >
   NOT for writing new programs.
   USE FOR: upgrading TargetFramework from net10.0 to net11.0, fixing build errors
   after updating the .NET 11 SDK, resolving source-breaking and behavioral changes
-  in .NET 11 runtime, C# 15 compiler, and EF Core 11, adapting to updated minimum
-  hardware requirements (x86-64-v2, Arm64 LSE), and updating CI/CD pipelines and
-  Dockerfiles for .NET 11.
+  in .NET 11 runtime, C# 15 compiler, ASP.NET Core 11, and EF Core 11, adapting to
+  updated minimum hardware requirements (x86-64-v2, Arm64 LSE), and updating CI/CD
+  pipelines and Dockerfiles for .NET 11.
   DO NOT USE FOR: .NET Framework migrations, upgrading from .NET 9 or earlier,
   greenfield .NET 11 projects, or cosmetic modernization unrelated to the upgrade.
-  NOTE: .NET 11 is in preview. Covers breaking changes through Preview 3.
+  Covers the common breaking changes documented for the .NET 11 GA release
+  (SDK 11.0.100).
 license: MIT
 ---
 
@@ -19,7 +20,7 @@ license: MIT
 
 Migrate a .NET 10 project or solution to .NET 11, systematically resolving all breaking changes. The outcome is a project targeting `net11.0` that builds cleanly, passes tests, and accounts for every behavioral, source-incompatible, and binary-incompatible change introduced in .NET 11.
 
-> **Note:** .NET 11 is currently in preview. This skill covers breaking changes documented through Preview 3.
+> **Note:** This skill covers the common breaking changes documented for the .NET 11 GA release, not every Learn entry (for example, .NET MAUI changes are not included). Also review new build warnings and run the application's tests.
 
 ## When to Use
 
@@ -67,6 +68,11 @@ Migrate a .NET 10 project or solution to .NET 11, systematically resolving all b
    - **`Microsoft.OpenApi` direct usage** → v3 API breaking changes in ASP.NET Core OpenAPI
    - **EF Core SQL Server with Entra ID auth** → SqlClient 7.0 auth dependency changes
    - **NativeAOT native libraries on Unix** → Output filename prefix changed
+   - **`double`/`float` to `decimal` conversions or `Math.Round(value, digits)`** (money, quantities, rates) → Conversion and rounding results changed at run time
+   - **Explicit `PackageReference` to one of the nine `Microsoft.Extensions` packages now in the shared framework** (listed in the core libraries reference) → NU1510
+   - **Blazor forms (`EditForm`, `EditContext`)** → `EditContext.Validate()` obsolete; hidden `.validation-message` placeholders in static SSR
+   - **Third-party Blazor component libraries** → Check for .NET 11 builds; removed obsolete Blazor APIs break older binaries at run time
+   - **Form POST endpoints** (Blazor SSR, Minimal APIs binding forms, MVC with antiforgery), especially when removing `app.UseAntiforgery()` or accepting cross-origin form posts → Automatic CSRF protection
 4. Record which reference documents are relevant (see the reference loading table in Step 3).
 5. Do a **clean build** (`dotnet build --no-incremental` or delete `bin`/`obj`) on the current `net10.0` target to establish a clean baseline. Record any pre-existing warnings.
 
@@ -97,12 +103,21 @@ Load reference documents based on the project's technology areas:
 | `references/csharp-compiler-dotnet10to11.md` | Always (C# 15 compiler breaking changes) |
 | `references/core-libraries-dotnet10to11.md` | Always (applies to all .NET 11 projects) |
 | `references/sdk-msbuild-dotnet10to11.md` | Always (SDK and build tooling changes) |
-| `references/aspnetcore-dotnet10to11.md` | Project uses ASP.NET Core (OpenAPI, Blazor) |
+| `references/aspnetcore-dotnet10to11.md` | Project uses ASP.NET Core (Blazor, forms and antiforgery, OpenAPI, Kestrel) |
 | `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core |
-| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS, or targets macOS |
-| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, or using NativeAOT |
+| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS or X.509 chain building, HttpClient metrics, or targets macOS |
+| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, using NativeAOT, or casting floating-point values to small integer types |
 
-Work through each build error systematically. Common patterns:
+**Check these first.** They are the most common new warnings in .NET 11 and fail builds that use `TreatWarningsAsErrors`:
+
+- **`EditContext.Validate()` is obsolete (CS0618):** Replace it with `await editContext.ValidateAsync()` and make the callers async; the change spreads upward through form components. A `Task<bool>` is never `false`, so rewrite checks like `editContext?.Validate() is false` rather than only swapping the method name. See `references/aspnetcore-dotnet10to11.md`.
+- **Blazor analyzers BL0011 to BL0016:** New warnings, enabled by default. BL0012 ignores other callers of the flagged method, so check every caller before removing a `StateHasChanged()` call. See the ASP.NET Core reference for BL0016 guard rules.
+- **NU1510:** Explicit `PackageReference` items for the nine `Microsoft.Extensions` packages that moved into the shared framework (such as `Microsoft.Extensions.Logging.Abstractions` and `Microsoft.Extensions.Options`). Remove them in projects that target only `net11.0`.
+- **Removed obsolete Blazor and MVC APIs:** `WebEventCallbackFactoryEventArgsExtensions`, `RemoteBrowserFileStreamOptions`, `SetCompatibilityVersion`, and others no longer exist. Use the replacements in the ASP.NET Core reference.
+- **New obsoletions SYSLIB0064, SYSLIB0065, and SYSLIB0066:** `RSACryptoServiceProvider.Encrypt/Decrypt(byte[], bool)`, the `AsnEncodedData.RawData` setter, and `IStartupValidator`.
+- **Test projects using `Newtonsoft.Json`:** `Microsoft.NET.Test.Sdk` no longer brings it in transitively. Add an explicit `PackageReference`.
+
+Then work through the remaining build errors systematically. Common patterns:
 
 1. **C# 15 Span collection expression safe-context** — Collection expressions of `Span<T>`/`ReadOnlySpan<T>` type now have `declaration-block` safe-context. Code assigning span collection expressions to variables in outer scopes will error. Use array type or move the expression to the correct scope.
 
@@ -128,7 +143,13 @@ Work through each build error systematically. Common patterns:
 
 ### Step 4: Address behavioral changes
 
-These changes compile successfully but alter runtime behavior. Review each one and determine impact:
+These changes compile successfully but alter runtime behavior. Review each one and determine impact.
+
+**Check these first.** They produce no build warning and only show at run time:
+
+- **Decimal and BigInteger floating-point conversions are correctly rounded:** `(decimal)1.23` (a `double`) was `1.23` in .NET 10 and is `1.229999999999999982236431606` in .NET 11. Search for `(decimal)` casts, `Convert.ToDecimal(`, and `new decimal(` on `double`/`float` inputs, especially in money code and decimal-place validation. Use `m` literals in code and test data, or round to 15 significant digits where the old result is required. Review `Math.Round(value, digits)` in the same pass: it now returns correctly rounded results. See `references/core-libraries-dotnet10to11.md`.
+- **Third-party Blazor component libraries:** libraries compiled against an earlier ASP.NET Core that still call removed obsolete Blazor APIs throw `TypeLoadException` or `MissingMethodException` when they render. Upgrade them to .NET 11 versions and run UI or render tests.
+- **Hidden `.validation-message` placeholders (Blazor static SSR):** a valid field now renders an empty `.validation-message` element with the `hidden` attribute. Scripts, CSS, and UI tests that treat its presence as "invalid" must use `.validation-message:not([hidden])`.
 
 1. **DeflateStream/GZipStream empty payload** — Now writes headers and footers even for empty payloads. If your code checks for zero-length output, update the check.
 
@@ -166,6 +187,10 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 18. **NativeAOT Unix native library `lib` prefix** — Output filenames now include `lib` prefix on Linux/macOS (e.g., `libMyLib.so`).
 
+19. **Automatic cross-origin CSRF protection (ASP.NET Core):** `WebApplication.CreateBuilder` adds middleware that checks `Sec-Fetch-Site` and `Origin` on form-handling endpoints. Apps that run `app.UseAntiforgery()` keep their .NET 10 behavior. Without token validation (for example after removing `UseAntiforgery()`), cross-origin form posts return `400 Bad Request`; allow legitimate callers with a CORS policy that calls `.AllowCredentials()`.
+
+20. **Also review** (details in the references): saturating floating-point to small integer casts, `IHost.RunAsync` failing when a `BackgroundService` fails, empty strings in chained configuration, DI disposal `AggregateException`, Unix named mutex scope, OpenAPI multiple response types per status code, stricter Kestrel HTTP/2 and HTTP/3 header rules, OpenTelemetry HTTP tags, the Linux AIA fetch limit, and NuGet restore no longer using higher versions from the global packages folder.
+
 ### Step 5: Update infrastructure
 
 1. **Dockerfiles**: Update base images from 10.0 to 11.0:
@@ -184,7 +209,7 @@ These changes compile successfully but alter runtime behavior. Review each one a
       "sdk": {
    -    "version": "10.0.100",
    -    "rollForward": "latestFeature"
-   +    "version": "11.0.100-preview.3",
+   +    "version": "11.0.100",
    +    "rollForward": "latestFeature"
       },
       "otherSettings": {
@@ -194,6 +219,8 @@ These changes compile successfully but alter runtime behavior. Review each one a
    ```
 
 3. **Hardware deployment targets**: Verify all deployment targets meet the updated minimum hardware requirements (x86-64-v2 for x86/x64, LSE for Windows Arm64).
+
+4. **Shared libraries also used by .NET Framework apps**: When multi-targeted libraries move their `Microsoft.Extensions.*` or `System.*` package references to 11.0.x, .NET Framework apps that maintain `bindingRedirect` entries by hand must redirect to the new assembly versions. Prefer automatic binding redirects; a build with no MSB3276 or MSB3277 warnings is a useful check. See https://learn.microsoft.com/en-us/dotnet/framework/configure-apps/redirect-assembly-versions
 
 ### Step 6: Verify
 
@@ -211,6 +238,9 @@ These changes compile successfully but alter runtime behavior. Review each one a
    - mTLS / client certificate chain validation
    - EF Core SQL Server with Entra ID authentication
    - NativeAOT output filenames on Unix
+   - Money and quantity calculations that convert `double` to `decimal` or use `Math.Round(value, digits)`
+   - Form POSTs (cross-origin posts, and requests through a reverse proxy) if token-based antiforgery is not used
+   - Blazor forms validation (`ValidateAsync`), validation message styling and scripts, and third-party component libraries
 5. Review the diff and ensure no unintended behavioral changes were introduced
 
 ## Reference Documents
@@ -222,7 +252,7 @@ The `references/` folder contains detailed breaking change information organized
 | `references/csharp-compiler-dotnet10to11.md` | Always (C# 15 compiler breaking changes) |
 | `references/core-libraries-dotnet10to11.md` | Always (applies to all .NET 11 projects) |
 | `references/sdk-msbuild-dotnet10to11.md` | Always (SDK and build tooling changes) |
-| `references/aspnetcore-dotnet10to11.md` | Project uses ASP.NET Core (OpenAPI, Blazor) |
+| `references/aspnetcore-dotnet10to11.md` | Project uses ASP.NET Core (Blazor, forms and antiforgery, OpenAPI, Kestrel) |
 | `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core |
-| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS, or targets macOS |
-| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, or using NativeAOT |
+| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS or X.509 chain building, HttpClient metrics, or targets macOS |
+| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, using NativeAOT, or casting floating-point values to small integer types |

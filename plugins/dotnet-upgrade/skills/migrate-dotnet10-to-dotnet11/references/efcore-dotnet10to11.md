@@ -2,8 +2,6 @@
 
 These breaking changes affect projects using Entity Framework Core 11. Source: https://learn.microsoft.com/en-us/ef/core/what-is-new/ef-core-11.0/breaking-changes
 
-> **Note:** .NET 11 is in preview. The changes below were introduced in **Preview 1 through Preview 3**. Additional EF Core breaking changes are expected in later previews.
-
 ## Medium-Impact Changes
 
 ### Sync I/O via the Azure Cosmos DB provider has been fully removed (Preview 1)

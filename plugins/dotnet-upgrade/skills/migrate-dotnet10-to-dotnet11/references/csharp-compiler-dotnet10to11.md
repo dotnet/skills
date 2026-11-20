@@ -2,8 +2,6 @@
 
 These breaking changes are introduced by the Roslyn compiler shipping with the .NET 11 SDK. They affect all projects targeting `net11.0` (which uses C# 15 by default). These are maintained separately from the runtime breaking changes at: https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/breaking-changes/compiler%20breaking%20changes%20-%20dotnet%2011
 
-> **Note:** .NET 11 is in preview. Additional compiler breaking changes may be introduced in later previews.
-
 ## Source-Incompatible Changes
 
 ### Span/ReadOnlySpan collection expression safe-context changed to `declaration-block`

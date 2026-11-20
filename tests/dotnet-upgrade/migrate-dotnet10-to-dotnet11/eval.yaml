@@ -5,6 +5,7 @@ defaults:
   timeout: 3m
 stimuli:
   - name: Console app with compression and TAR operations
+    tags: {capability: compression-tar-behavior, risk: silent-runtime-change, journey: migrate-console-app}
     prompt: >
       Help me migrate my .NET 10 console app to .NET 11. The app:
 
@@ -37,6 +38,7 @@ stimuli:
       - Notes ZipArchive.CreateAsync now eagerly loads entries, potentially affecting memory usage
       - Mentions MemoryStream maximum capacity update and changed exception behavior
   - name: C# 15 compiler breaking changes — Span safe-context, nameof, with()
+    tags: {capability: csharp15-span-nameof-with, risk: new-compile-error, journey: fix-compiler-errors}
     prompt: |
       I'm migrating a .NET 10 library to .NET 11 / C# 15 and getting new compiler errors. Here's the code:
 
@@ -90,6 +92,7 @@ stimuli:
       - Explains with() in collection expressions is now treated as constructor arguments in C# 15; recommends @with()
         to call the method
   - name: EF Core app with Cosmos DB provider using sync APIs
+    tags: {capability: efcore-cosmos-sync-io, risk: runtime-exception, journey: migrate-data-access}
     prompt: |
       I'm migrating a .NET 10 web API to .NET 11. The app uses EF Core with the Azure Cosmos DB provider.
       We have a repository pattern where some methods use synchronous LINQ:
@@ -138,6 +141,7 @@ stimuli:
         SaveChanges→SaveChangesAsync"
       - Notes the methods must return Task<T> and the callers must be updated to await
   - name: Deployment to older hardware with minimum requirement changes
+    tags: {capability: minimum-hardware-baseline, risk: startup-failure, journey: plan-deployment}
     prompt: |
       We're upgrading our .NET 10 microservices to .NET 11. We deploy to:
       - x86-64 Linux containers on a mix of hardware, some dating back to 2012
@@ -160,6 +164,7 @@ stimuli:
       - Confirms Raspberry Pi 4 (Arm64 Linux) is still supported — no change to Linux Arm64 minimum
       - Notes Surface Pro X (SQ1) supports LSE so Windows Arm64 requirement is met
   - name: Cryptography app using DSA on macOS
+    tags: {capability: dsa-macos-removal, risk: platform-exception, journey: migrate-crypto-code}
     prompt: |
       We have a .NET 10 library that verifies legacy DSA signatures. It runs on Linux, Windows,
       and macOS. After upgrading to .NET 11, the macOS builds fail at runtime when calling
@@ -178,6 +183,7 @@ stimuli:
       - Notes DSA still works on Windows and Linux
       - Recommends migrating to ECDSA or RSA
   - name: Basic TFM update with Docker and global.json
+    tags: {capability: tfm-and-infrastructure-update, risk: incomplete-upgrade, journey: update-build-infrastructure}
     prompt: |
       I have a .NET 10 ASP.NET Core web app with:
       - TargetFramework set to net10.0 in the csproj
@@ -202,6 +208,7 @@ stimuli:
       - Updates Dockerfile base images from 10.0 to 11.0
       - Recommends updating Microsoft.* package references to 11.0.x versions
   - name: C# 15 dynamic operator and ref readonly delegate issues
+    tags: {capability: csharp15-dynamic-ref-readonly, risk: new-compile-error, journey: fix-compiler-errors}
     prompt: |
       After upgrading to .NET 11 / C# 15, I'm getting two new compiler errors:
 
@@ -255,6 +262,7 @@ stimuli:
       - Recommends casting to concrete type or to dynamic
       - Explains ref readonly delegate synthesis requires InAttribute; recommends ensuring proper assembly references
   - name: BackgroundService exceptions and ZipArchive CRC32 validation
+    tags: {capability: backgroundservice-zip-crc, risk: host-crash, journey: migrate-worker-service}
     prompt: >
       I'm migrating a .NET 10 worker service to .NET 11. The app has several
       BackgroundService implementations. One of them occasionally throws exceptions
@@ -276,6 +284,7 @@ stimuli:
         try/catch in ExecuteAsync()
       - Explains ZipArchive now validates CRC32 checksums; corrupt or truncated archives throw InvalidDataException
   - name: EF Core SQL Server with Entra ID auth and Design package dependency
+    tags: {capability: efcore-sqlclient-design-package, risk: tooling-and-auth-failure, journey: migrate-data-access}
     prompt: |
       We're upgrading a .NET 10 web API to .NET 11. The project uses EF Core with SQL Server
       and connects via Entra ID managed identity (ActiveDirectoryManagedIdentity in the
@@ -300,6 +309,7 @@ stimuli:
       - Explains EF Core Tools no longer transitively depends on Design; recommends adding explicit PackageReference
         for Microsoft.EntityFrameworkCore.Design
   - name: ASP.NET Core app with OpenAPI customizations and Blazor Virtualize
+    tags: {capability: openapi-v3-virtualize, risk: new-compile-error, journey: migrate-web-app}
     prompt: |
       I'm upgrading a .NET 10 ASP.NET Core app to .NET 11. The app:
       - Uses Microsoft.AspNetCore.OpenApi with custom document transformers that directly
@@ -324,6 +334,7 @@ stimuli:
       - Notes the Virtualize default OverscanCount changed from 3 to 15; recommends setting OverscanCount explicitly
         if performance matters
   - name: mTLS and AIA certificate chain validation
+    tags: {capability: aia-client-cert-validation, risk: mtls-handshake-failure, journey: migrate-secure-service}
     prompt: >
       We have a .NET 10 gRPC service that uses mutual TLS. The server validates client
       certificates. The client certificates are signed by an intermediate CA that is not
@@ -340,3 +351,178 @@ stimuli:
       - Explains AIA certificate downloads are now disabled by default during client-certificate validation
       - Recommends pre-installing the full certificate chain, having clients send intermediates, or re-enabling
         AIA downloads via X509ChainPolicy
+  - name: Money code with double to decimal conversions and Math.Round
+    tags: {capability: decimal-conversion-rounding, risk: silent-numeric-change, journey: migrate-financial-library}
+    prompt: |
+      We're upgrading a .NET 10 invoicing library to .NET 11. Prices arrive from an external API
+      as `double` and we convert them like this:
+
+      ```csharp
+      public static decimal ToAmount(double price) => Convert.ToDecimal(price);
+
+      public static bool HasAtMostTwoDecimals(decimal amount) =>
+          decimal.Round(amount, 2) == amount;
+
+      public static double RoundRate(double rate) =>
+          Math.Round(rate, 2, MidpointRounding.AwayFromZero);
+      ```
+
+      Our unit tests use values such as `ToAmount(1.23)` and expect `1.23m`. The build is clean
+      after the upgrade. Is there anything in .NET 11 that could change these results?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (decimal|Convert\.ToDecimal|correctly rounded|significant digits|G15)
+      - type: output-matches
+        config:
+          pattern: (Math\.Round|rounding)
+      - type: prompt
+    rubric:
+      - Explains that double to decimal conversions are now correctly rounded in .NET 11, so Convert.ToDecimal(1.23)
+        no longer returns exactly 1.23 and the two-decimal check can fail
+      - Recommends decimal literals in code and test data, or explicit rounding to 15 significant digits (for example
+        format with G15 and parse back) where the previous result is required
+      - Mentions that Math.Round with digits now returns correctly rounded results and can change results such as
+        655.925 rounded to 2 digits
+  - name: Blazor forms with EditContext.Validate and new analyzer warnings
+    tags: {capability: blazor-validateasync-analyzers, risk: warnings-as-errors-break, journey: migrate-blazor-app}
+    prompt: |
+      I'm upgrading a .NET 10 Blazor Server app to .NET 11. We build with TreatWarningsAsErrors.
+      After the upgrade the build fails with warnings like:
+
+      - CS0618: 'EditContext.Validate()' is obsolete: 'Validate is obsolete. Use ValidateAsync instead.'
+      - BL0012: Unnecessary StateHasChanged call
+      - BL0016: JS interop call 'InvokeVoidAsync' is not guarded with a try/catch block
+
+      One of our components has `if (_editContext?.Validate() is false) return;` in a button click
+      handler. The method with the flagged StateHasChanged is also called from OnAfterRenderAsync.
+      How should I fix these?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: ValidateAsync
+      - type: output-matches
+        config:
+          pattern: (BL0012|StateHasChanged)
+      - type: output-matches
+        config:
+          pattern: (BL0016|try|catch|JSDisconnectedException)
+      - type: prompt
+    rubric:
+      - Recommends replacing Validate() with await ValidateAsync() and making the handler async
+      - Points out that `?.ValidateAsync() is false` does not work because a Task<bool> is never false, and shows a
+        correct rewrite
+      - Warns that BL0012 does not consider other callers, so the StateHasChanged call may still be needed on the
+        OnAfterRenderAsync path; recommends checking every caller before removing it
+      - Explains BL0016 is satisfied by an enclosing try/catch (or a shared helper that catches
+        JSDisconnectedException), not by changing the call
+  - name: Removing token antiforgery after the .NET 11 upgrade
+    tags: {capability: automatic-csrf-protection, risk: rejected-form-posts, journey: migrate-web-app}
+    prompt: >
+      We upgraded our ASP.NET Core app (built with WebApplication.CreateBuilder) from .NET 10 to
+      .NET 11. It calls AddAntiforgery() and app.UseAntiforgery(), and has a Minimal API endpoint
+      that binds [FromForm] data. A partner site on a different origin posts a form to that endpoint
+      with a valid antiforgery token, and that works today. We read that .NET 11 has built-in CSRF
+      protection, so we want to remove AddAntiforgery() and UseAntiforgery(). What will change, and
+      what do we need to do so the partner form keeps working?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (Sec-Fetch-Site|Origin)
+      - type: output-matches
+        config:
+          pattern: (CORS|AllowCredentials)
+      - type: prompt
+    rubric:
+      - Explains that .NET 11 adds automatic CSRF protection middleware that checks Sec-Fetch-Site and Origin on
+        form-binding endpoints, and that while UseAntiforgery runs the token result takes precedence
+      - Warns that after removing token-based antiforgery the cross-origin partner post will be rejected with 400
+      - Recommends a CORS policy for the partner origin that calls AllowCredentials, rather than disabling
+        CSRF protection globally
+      - Mentions reasons to keep token-based antiforgery, such as browsers that do not send Sec-Fetch-Site
+  - name: NU1510 and test project Newtonsoft.Json after upgrade
+    tags: {capability: shared-framework-packages-vstest, risk: restore-and-compile-failure, journey: fix-build-warnings}
+    prompt: |
+      Our solution targets only net11.0 now. With TreatWarningsAsErrors the build fails with NU1510
+      for these references in a class library:
+
+      ```xml
+      <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Options" Version="11.0.0" />
+      ```
+
+      Our xUnit test project also stopped compiling: it uses JsonConvert from Newtonsoft.Json, but we
+      never referenced that package directly. What happened?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (shared framework|NU1510|remove)
+      - type: output-matches
+        config:
+          pattern: (Newtonsoft|Microsoft\.NET\.Test\.Sdk|VSTest|transitive)
+      - type: prompt
+    rubric:
+      - Explains that these Microsoft.Extensions packages are now part of the shared framework in .NET 11, so explicit
+        references raise NU1510; recommends removing them for net11.0-only projects
+      - Explains that Microsoft.NET.Test.Sdk (VSTest) no longer brings in Newtonsoft.Json transitively; recommends
+        adding an explicit PackageReference
+  - name: No-op for code already unaffected by the .NET 11 changes
+    tags: {capability: restraint-unaffected-code, risk: fabricated-migration-fix, journey: migrate-web-app}
+    prompt: |
+      I'm upgrading this .NET 10 ASP.NET Core Web API to .NET 11. I've already changed the
+      TargetFramework to net11.0, and the build is clean with no warnings. Here is the only
+      business logic:
+
+      ```csharp
+      public static class Pricing
+      {
+          public static decimal Total(decimal unitPrice, int quantity, decimal taxRate) =>
+              decimal.Round(unitPrice * quantity * (1 + taxRate), 2, MidpointRounding.AwayFromZero);
+      }
+
+      app.MapPost("/quotes", (QuoteRequest request) =>
+          Results.Ok(new { Total = Pricing.Total(request.UnitPrice, request.Quantity, 0.25m) }));
+
+      public record QuoteRequest(decimal UnitPrice, int Quantity);
+      ```
+
+      The endpoint takes JSON and the app has no forms, Blazor, or JS interop. Do I need to
+      change this code for .NET 11?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (no|not|don't|doesn't).{0,60}(change|changes|affected|needed|required)
+      - type: prompt
+    rubric:
+      - Concludes that this code needs no changes for the .NET 11 decimal conversion or Math.Round changes, because it
+        uses decimal values and decimal.Round rather than double to decimal conversions or Math.Round on double
+      - Recognizes that the automatic CSRF protection does not affect a JSON-bound endpoint
+      - Does not fabricate required fixes for Blazor, EditContext, analyzers, or antiforgery that the code does not use
+      - May suggest optional verification steps such as running tests, but does not present them as required code
+        changes
+  - name: Stay dormant for a .NET 9 to .NET 10 upgrade
+    tags:
+      expect_activation: "false"
+      capability: dormancy
+      risk: wrong-version-guidance
+      journey: migrate-older-version
+    prompt: >
+      I'm upgrading a .NET 9 ASP.NET Core app to .NET 10. I changed the TargetFramework from
+      net9.0 to net10.0 and updated the Microsoft packages to 10.0.x. What breaking changes
+      should I look for?
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (\.NET 10|net10\.0)
+      - type: prompt
+    rubric:
+      - Answers in terms of the .NET 9 to .NET 10 upgrade
+      - The .NET 10 to .NET 11 migration skill stayed dormant and its references were not loaded
+      - Does not present .NET 11 breaking changes (such as the decimal conversion rounding, automatic CSRF protection,
+        or EditContext.Validate becoming obsolete) as things to fix for .NET 10
