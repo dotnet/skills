@@ -36,7 +36,7 @@ Migrate a .NET 8 project or solution to .NET 9, systematically resolving all bre
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Project or solution path | Yes | The `.csproj`, `.sln`, or `.slnx` entry point to migrate |
+| Project or solution path | Yes | The `.csproj`, `.fsproj`, `.sln`, or `.slnx` entry point to migrate |
 | Build command | No | How to build (e.g., `dotnet build`, a repo build script). Auto-detect if not provided |
 | Test command | No | How to run tests (e.g., `dotnet test`). Auto-detect if not provided |
 | Project type hints | No | Whether the project uses ASP.NET Core, EF Core, WinForms, WPF, containers, etc. Auto-detect from PackageReferences and SDK attributes if not provided |
@@ -49,7 +49,7 @@ Migrate a .NET 8 project or solution to .NET 9, systematically resolving all bre
 
 ### Step 1: Assess the project
 
-1. Identify how the project is built and tested. Look for build scripts, `.sln`/`.slnx` files, or individual `.csproj` files.
+1. Identify how the project is built and tested. Look for build scripts, `.sln`/`.slnx` files, or individual `.csproj`/`.fsproj` files.
 2. Run `dotnet --version` to confirm the .NET 9 SDK is installed. If it is not, stop and inform the user.
 3. Determine which technology areas the project uses by examining:
    - **SDK attribute**: `Microsoft.NET.Sdk.Web` → ASP.NET Core; `Microsoft.NET.Sdk.WindowsDesktop` with `<UseWPF>` or `<UseWindowsForms>` → WPF/WinForms
@@ -64,7 +64,7 @@ Migrate a .NET 8 project or solution to .NET 9, systematically resolving all bre
 
 ### Step 2: Update the Target Framework
 
-1. In each `.csproj` (or `Directory.Build.props` if centralized), change:
+1. In each `.csproj`/`.fsproj` (or `Directory.Build.props` if centralized), change:
    ```xml
    <TargetFramework>net8.0</TargetFramework>
    ```
@@ -88,7 +88,7 @@ Work through compilation errors and new warnings systematically. Load the approp
 
 | If the project uses… | Load reference |
 |-----------------------|----------------|
-| Any .NET 9 project | `references/csharp-compiler-dotnet8to9.md` |
+| Project uses C# | `references/csharp-compiler-dotnet8to9.md` |
 | Any .NET 9 project | `references/core-libraries-dotnet8to9.md` |
 | Any .NET 9 project | `references/sdk-msbuild-dotnet8to9.md` |
 | ASP.NET Core | `references/aspnet-core-dotnet8to9.md` |
@@ -220,7 +220,7 @@ The `references/` folder contains detailed breaking change information organized
 
 | Reference file | When to load |
 |----------------|-------------|
-| `references/csharp-compiler-dotnet8to9.md` | Always (C# 13 compiler breaking changes — InlineArray on records, iterator safe context, collection expression overloads) |
+| `references/csharp-compiler-dotnet8to9.md` | Project uses C# (C# 13 compiler breaking changes — InlineArray on records, iterator safe context, collection expression overloads) |
 | `references/core-libraries-dotnet8to9.md` | Always (applies to all .NET 9 projects) |
 | `references/sdk-msbuild-dotnet8to9.md` | Always (SDK and build tooling changes) |
 | `references/aspnet-core-dotnet8to9.md` | Project uses ASP.NET Core |
