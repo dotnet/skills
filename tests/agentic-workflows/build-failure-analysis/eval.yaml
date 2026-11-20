@@ -76,13 +76,12 @@ stimuli:
       - Connected CA2000 to the removed disposal and the WarningsAsErrors configuration.
       - Proposed disposing the stream on every path rather than disabling the analyzer.
   - name: Recognize a failed pipeline with a clean build
-    expect_activation: true
     prompt: |
       CI reports failure, and the collector snapshot is in inputs/. Is a
       build-related PR response justified? Inspect all available evidence,
       including target and process outcomes. Read RESULT_SCHEMA.md, write
       the proposed action to result.json, and briefly explain it.
-    tags: {capability: failure-scope, risk: fabricated-build-fix, journey: triage-pipeline-failure}
+    tags: {capability: failure-scope, risk: fabricated-build-fix, journey: triage-pipeline-failure, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/nonbuild, dest: inputs}, {src: fixtures/nonbuild/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -105,13 +104,12 @@ stimuli:
       - Chose no visible build analysis because compilation and target/process evidence are clean and the failed stage is tests.
       - Did not invent source fixes or describe the entire pipeline as successful.
   - name: Withhold conclusions when the failed leg has no log
-    expect_activation: true
     prompt: |
       Here is the failed CI build's collector snapshot in inputs/. Decide
       whether the available evidence supports a useful diagnosis. Read
       RESULT_SCHEMA.md, write the proposed action to result.json, and
       summarize any limitations without obtaining more artifacts.
-    tags: {capability: incomplete-leg-triage, risk: false-nonbuild-conclusion, journey: handle-missing-evidence}
+    tags: {capability: incomplete-leg-triage, risk: false-nonbuild-conclusion, journey: handle-missing-evidence, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/missingleg, dest: inputs}, {src: fixtures/missingleg/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -195,13 +193,12 @@ stimuli:
       - Recognized the generator's exit 137 and failed target as genuine build failure evidence despite no compiler errors.
       - Reported the process clue without asserting an unobserved out-of-memory cause or fabricating a code fix.
   - name: Suppress obsolete analysis after a head update
-    expect_activation: true
     prompt: |
       Decide what response, if any, is safe for this failed PR build.
       Inputs/ contains collected diagnostics, analyzed revision, and the
       latest PR read. Read RESULT_SCHEMA.md, write your proposed action
       to result.json, and explain the decision without changing source.
-    tags: {capability: head-freshness, risk: wrong-revision-suggestion, journey: handle-force-push}
+    tags: {capability: head-freshness, risk: wrong-revision-suggestion, journey: handle-force-push, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/stalehead, dest: inputs}, {src: fixtures/stalehead/workflow-context.json, dest: workflow-context.json}]
     graders:
@@ -225,13 +222,12 @@ stimuli:
       - Chose no-op because the current PR head differs from the analyzed head.
       - Did not propose publishing an obsolete comment or inline replacement.
   - name: Suppress obsolete analysis after the merge revision moves
-    expect_activation: true
     prompt: |
       The PR head is unchanged, but the supplied latest repository read
       may differ from the build snapshot. Review inputs/ and decide whether
       any response is safe. Read RESULT_SCHEMA.md, write result.json,
       and briefly explain your proposed action.
-    tags: {capability: merge-freshness, risk: stale-base-analysis, journey: handle-base-advance}
+    tags: {capability: merge-freshness, risk: stale-base-analysis, journey: handle-base-advance, expect_activation: "true"}
     environment:
       files: [*contract, *grader, {src: fixtures/stalemerge, dest: inputs}, {src: fixtures/stalemerge/workflow-context.json, dest: workflow-context.json}]
     graders:

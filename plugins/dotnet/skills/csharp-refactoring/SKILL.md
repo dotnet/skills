@@ -1,6 +1,6 @@
 ---
 name: csharp-refactoring
-description: "Safely refactors C#/.NET code without changing behavior. USE FOR any request to refactor, rename, move, extract, inline, merge, consolidate, deduplicate, split, or modernize C# code, including partial/generated declarations, wrappers, public APIs, serialization/reflection/configuration names, friend assemblies, conditional compilation, and multi-targeted projects. Also use when a request calls a feature, bug fix, package/framework upgrade, or public nullability change a refactor and the behavior-changing part must be separated or declined. DO NOT USE FOR ordinary feature or bug fixes not presented as refactoring; standalone upgrades after reclassification (use dotnet-upgrade); adding tests; or formatting-only work."
+description: "Safely refactors C#/.NET code without changing behavior. USE FOR any request to refactor, rename, move, extract, inline, merge, consolidate, deduplicate, split, or modernize C# code, even a small extract, inline, or rename, or merging near-identical types; green builds miss drift in #if branches, generated partials, and reflection/config names. When a changed member is visible outside the assembly (PublicAPI.*.txt, InternalsVisibleTo, shipped package), also invoke dotnet-breaking-changes; local/private renames do not need it. Also use when a request calls a feature, bug fix, package/framework upgrade, or public nullability change a refactor and the behavior-changing part must be separated or declined. DO NOT USE FOR ordinary feature or bug fixes not presented as refactoring; standalone upgrades after reclassification (use dotnet-upgrade); adding tests; or formatting-only work."
 license: MIT
 ---
 
@@ -35,7 +35,7 @@ For a whole request that is outside behavior-preserving refactoring:
 | Framework or NuGet version change | **Upgrade.** Do not edit or validate the upgrade here; hand off to `dotnet-upgrade`. |
 | New capability, flag, endpoint, tier, or behavior | **Feature.** Do not implement it here; hand off to the repository's feature workflow. |
 | Threshold, rate, output, or bug-result change | **Behavior change.** Defer it and hand off to the repository's bug-fix or behavior-change workflow; still complete any clearly separable structural operation. |
-| Tighten or loosen a shipped/public nullable annotation | **Source-contract change.** Leave the declaration and API record unchanged; hand off to the repository's API-contract workflow. |
+| Tighten or loosen a shipped/public nullable annotation | **Source-contract change.** Leave the declaration and API record unchanged; hand off to the `dotnet-breaking-changes` skill. |
 
 For a mixed request, never stop after classification. Perform the separable structural operation,
 explicitly defer the behavior/contract change, and never state `No files changed.` after completing
@@ -147,8 +147,12 @@ Keep the handoff concise and evidence-based:
 
 ## Cross-boundary hazards (only when it touches a boundary)
 
-If — and only if — the change touches a **public** symbol, a **multi-targeted** project, or
-`partial`/generated code, some breaks won't show up as a failing test. Search the repo for the surface
+If — and only if — the change touches a **public** symbol, an **internal** symbol exposed to a friend
+assembly through `InternalsVisibleTo`, a **multi-targeted** project, or `partial`/generated code, some
+breaks won't show up as a failing test. Before invoking `dotnet-breaking-changes`, apply its scope
+exclusions: skip it for local/private renames and for public-member renames in an executable whose
+callers all live in that project. Otherwise invoke it before editing; it owns the compatibility
+decisions, while this skill owns the structural steps. Search the repo for the surface
 that governs the symbol (don't assume): the public-API gate (`PublicAPI.Shipped/Unshipped.txt` for
 PublicApiAnalyzers, and/or `ApiCompat`/`<EnablePackageValidation>` — not interchangeable),
 `<TargetFrameworks>`/`#if` branches, and `InternalsVisibleTo`. Moving a public type to another assembly

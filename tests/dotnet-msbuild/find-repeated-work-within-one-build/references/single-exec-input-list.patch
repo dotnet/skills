@@ -1,0 +1,14 @@
+diff --git a/per-file-exec/Schemas.targets b/per-file-exec/Schemas.targets
+index a63d5cf..1c3298c 100644
+--- a/per-file-exec/Schemas.targets
++++ b/per-file-exec/Schemas.targets
+@@ -7,7 +7,8 @@
+           Inputs="@(SchemaFile)"
+           Outputs="@(SchemaFile->'$(IntermediateOutputPath)gen/%(Filename).g.cs')">
+     <MakeDir Directories="$(IntermediateOutputPath)gen" />
+-    <Exec Command="schemagen --input &quot;%(SchemaFile.FullPath)&quot; --output &quot;$(IntermediateOutputPath)gen/%(SchemaFile.Filename).g.cs&quot;" />
++    <WriteLinesToFile File="$(IntermediateOutputPath)gen/schemas.list" Lines="@(SchemaFile->'%(FullPath)')" Overwrite="true" />
++    <Exec Command="schemagen --input-list &quot;$(IntermediateOutputPath)gen/schemas.list&quot; --output-dir &quot;$(IntermediateOutputPath)gen&quot;" />
+     <ItemGroup>
+       <Compile Include="$(IntermediateOutputPath)gen/*.g.cs" />
+     </ItemGroup>

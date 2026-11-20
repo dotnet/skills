@@ -1,6 +1,6 @@
 ---
 name: binlog-failure-analysis
-description: "Analyze MSBuild binary logs to diagnose build failures. USE FOR: build errors that are unclear from console output, diagnosing cascading failures across multi-project builds, tracing MSBuild target execution order, and generally any MSBuild build issues. Requires an existing .binlog file. DO NOT USE FOR: generating binlogs (use binlog-generation), non-MSBuild build systems."
+description: "Analyze MSBuild binary logs to diagnose build failures. USE FOR: build errors that are unclear from console output, diagnosing cascading failures across multi-project builds, tracing MSBuild target execution order, and generally any MSBuild build issues. Requires an existing .binlog file. DO NOT USE FOR: generating binlogs (use binlog-generation), binlog MCP startup or connection failures (use troubleshoot-binlog-mcp), non-MSBuild build systems."
 license: MIT
 ---
 
@@ -9,7 +9,9 @@ license: MIT
 This skill diagnoses MSBuild build failures from a `.binlog` file. The preferred
 path uses the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the
 `binlog` MCP namespace) which is bundled with this plugin. If the MCP server is
-not available, fall back to the **binlog replay** workflow at the bottom.
+not available, use `troubleshoot-binlog-mcp` to diagnose startup when repair is wanted.
+If repair is blocked, declined, or unnecessary for this task, continue with the
+**binlog replay** workflow at the bottom.
 
 ## Primary workflow — binlog MCP
 

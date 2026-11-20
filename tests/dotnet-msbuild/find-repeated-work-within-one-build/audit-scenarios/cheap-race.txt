@@ -1,0 +1,18 @@
+Invocation: ./build.sh, which calls dotnet msbuild Build.proj -m:8
+Build wall-clock: 600000 ms.
+Task Performance Summary: Exec 80 ms, 8 calls.
+All eight stampgen calls have identical inputs; output bytes are build-invariant.
+Failure excerpt: CS2015: obj/shared.g.cs is a binary file instead of a text file.
+Concurrent writers intermittently truncate that file while another project reads it.
+
+Directory.Build.targets:
+<Target Name="SharedStamp" BeforeTargets="CoreCompile"
+        Condition="!Exists('$(RepoRoot)obj/shared.g.cs')">
+  <Exec Command="stampgen --output &quot;$(RepoRoot)obj/shared.g.cs&quot;" />
+</Target>
+<ItemGroup><Compile Include="$(RepoRoot)obj/shared.g.cs" /></ItemGroup>
+
+Every consumer must compile this same source file. Only build.sh is used for
+the parallel build. The generator exits nonzero on failure and overwrites on
+every invocation. On an unchanged rerun its bytes are identical; preserving the
+source timestamp avoids recompiling consumers. No output change is permitted.

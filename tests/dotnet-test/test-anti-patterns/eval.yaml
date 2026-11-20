@@ -53,6 +53,13 @@ stimuli:
 
               Summary: 3 Critical, 2 Warning. Fix the Critical assertion-free and swallowed-exception tests first. I did not edit any files.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: (no assertion|missing assertion|never assert|does.?n.?t assert|no.*verif)
@@ -86,12 +93,6 @@ stimuli:
       - The severity summary counts match the findings actually enumerated in the report; nothing is counted that
         is not listed, and nothing listed is left out of the counts
       - Recommendations are prioritized by severity, telling the user which findings to fix first
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Detect flakiness indicators and test coupling
     prompt: |
       I have a test suite that sometimes passes and sometimes fails depending
@@ -140,6 +141,13 @@ stimuli:
 
               Summary: 1 Critical, 2 Warning, 2 Info. Fix the shared static state first — it is the root of the order dependency. I did not edit any files.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: (static.*shared|shared.*state|_processedOrders|ordering|order.depend)
@@ -162,12 +170,6 @@ stimuli:
       - Recognized that CreateOrder_MultipleItems_Test is too large and tests multiple concerns
       - Identified that ProcessOrder_InvalidId_Throws fails because MSTest requires an exact exception type and
         Exception does not match the thrown InvalidOperationException
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Detect duplicated tests and magic values
     prompt: |
       My tests feel hard to maintain and there's a lot of repetition. Audit
@@ -210,6 +212,13 @@ stimuli:
 
               Summary: 2 Warning, 1 Info. I did not edit any files.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: (duplicat|repetit|data.?driven|DataRow|parameteriz)
@@ -225,12 +234,6 @@ stimuli:
       - Suggested using DataRow or DynamicData to parameterize the discount tests
       - Called out at least something the tests do correctly (e.g., specific assertions, clear expected values, good
         coverage of tiers)
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Recognize well-written tests without inventing false positives
     prompt: |
       I'm worried these tests might have problems. Audit
@@ -278,6 +281,13 @@ stimuli:
 
               Severity summary: no Critical, no Warning. If I had to nitpick, the only Info-level suggestion is to also assert the DeclineReason text in ProcessPayment_GatewayDeclines, but that is minor. I did not edit any files.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: (no (major|significant|critical|serious)|well.?written|good (shape|quality|structure)|clean|looks
@@ -301,12 +311,6 @@ stimuli:
       - Acknowledged positive patterns present in the tests (sealed class, specific exception types, data-driven tests,
         clear AAA structure, proper use of fakes)
       - If any suggestions were made, they were minor and correctly categorized as low severity
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Detect coverage-touching pattern across a service facade
     prompt: |
       We hit 95% code coverage on this service but keep finding bugs in
@@ -354,6 +358,13 @@ stimuli:
 
               Summary: 2 Critical (assertion-free plus trivial IsNotNull-only checks). Add behavioral assertions before trusting the coverage number. I did not edit any files.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: (no assert|missing assert|never verif|without.*assert|coverage.*touch|coverage.*inflat|surface.area|systematic.*call)
@@ -373,12 +384,6 @@ stimuli:
         export format, or bulk discount calculations would go undetected"
       - Suggested concrete assertions for at least some of the methods (e.g., verify price changed after UpdatePrice,
         verify product is gone after RemoveProduct, verify CSV format in ExportToCsv)
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Detect self-referential assertions in round-trip and identity tests
     prompt: |
       I inherited this test suite from another team. Coverage looks decent but
@@ -427,6 +432,13 @@ stimuli:
 
               Summary: 2 weak transformation tests, 2 round-trip tests to strengthen, 1 lossy-mapper defect exposed by a valid test, and 3 valid identity/value checks. I did not edit any files.
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
+
       - type: output-matches
         config:
           pattern: (NormalizeName|UpperCase.*ToUpper|ToString.*Parse|MapToDto)
@@ -445,12 +457,6 @@ stimuli:
         mutation-independence evidence rather than calling clone equality self-referential
       - Did not flag GetDisplayName or valid-email pass-through merely for returning their input when that is the
         production contract; any suggestion focused on missing formatting/invalid-input cases
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
-
   - name: Audit a pytest suite using Python-specific anti-pattern markers
     prompt: >
       Review the tests in this Python project and tell me what's wrong with them. Rank what you
@@ -574,6 +580,7 @@ stimuli:
 
   - name: Stay dormant for test trait distribution
     tags:
+      expect_activation: "false"
       capability: stay-dormant-for-test-trait-distribution
       risk: incorrect-skill-activation
       journey: route-sibling-request
@@ -581,7 +588,6 @@ stimuli:
       Classify every existing xUnit test as positive, negative, boundary, or
       critical path. Add the matching Trait("Category", "...") attributes and
       summarize how many tests fall into each group.
-    expect_activation: false
     graders:
       - type: prompt
     rubric:

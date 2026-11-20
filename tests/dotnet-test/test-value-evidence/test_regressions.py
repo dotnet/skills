@@ -548,8 +548,9 @@ class EvidenceCalibration(unittest.TestCase):
                         provenance &&= !graded.passed;
                     }
                 }
-                if (stimulus.constraints) {
-                    for (const toolName of stimulus.constraints.reject_tools) {
+                const restraintGrader = graders.find(g => g.type === 'tool-calls');
+                if (restraintGrader) {
+                    for (const toolName of restraintGrader.config.disallowed) {
                         const mutated = structuredClone(trajectory);
                         const toolCallId = 'forbidden-call';
                         mutated.events.push(
@@ -604,9 +605,6 @@ class EvidenceCalibration(unittest.TestCase):
     def test_all_advisory_cases_reject_execution_and_edits(self):
         for stimulus in SPEC["stimuli"][1:]:
             with self.subTest(stimulus=stimulus["name"]):
-                self.assertEqual({"bash", "powershell", "edit", "create",
-                                  "apply_patch", "task", "author_factory"},
-                                 set(stimulus["constraints"]["reject_tools"]))
                 restraint = next(grader for grader in stimulus["graders"]
                                  if grader["type"] == "tool-calls")
                 self.assertEqual({"bash", "powershell", "edit", "create",
@@ -626,7 +624,9 @@ class EvidenceCalibration(unittest.TestCase):
         for manifest in ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json"):
             data = yaml.safe_load((ROOT / "plugins" / "dotnet-test" / manifest).read_text(encoding="utf-8"))
             self.assertEqual(["./skills/"], data["skills"])
-        active = sum(item.get("expect_activation", True) for item in SPEC["stimuli"])
+        active = sum(
+            str(item.get("tags", {}).get("expect_activation", "true")).lower() != "false"
+            for item in SPEC["stimuli"])
         self.assertEqual(10, active)
         self.assertEqual(3, len(SPEC["stimuli"]) - active)
 

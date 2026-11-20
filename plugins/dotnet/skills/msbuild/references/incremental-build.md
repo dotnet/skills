@@ -242,7 +242,14 @@ Adapt the generator step and declared dependencies to the repository's real tool
   settings when they affect the real generator.
 - `WriteOnlyWhenDifferent` prevents the **state file** from causing churn on every
   build. Include every relevant property/input-set value in an unambiguous,
-  stable representation.
+  stable representation. Materialize valid state even when the initial input set
+  is empty; comparing two empty strings must not suppress a missing state file.
+- This state file records input identities and settings, not input contents.
+  Keep the actual files in `Inputs` for normal timestamp-based edit detection.
+  Do not describe a membership manifest as detecting content edits whose
+  timestamps were preserved. Use content hashing only when that is the required
+  contract; avoid a custom temporary-file/compare/copy scheme when
+  `WriteOnlyWhenDifferent` already supplies the needed behavior.
 - Generated output is overwritten when regeneration is necessary. If a real
   generator preserves output timestamps for identical content, use appropriate
   completion-state tracking so newer inputs do not make it execute forever;
@@ -255,6 +262,16 @@ Adapt the generator step and declared dependencies to the repository's real tool
   a file that does not yet exist.
 - For per-input generated outputs, detect removal and clean obsolete **owned**
   outputs as well as updating the input-set state.
+
+Verify initial generation, an unchanged skip, ordinary edits, older-file additions,
+removals, missing outputs, and the contract's empty-input behavior. Run every
+destructive check on a disposable copy of the project and its required imports,
+never on the original inputs, even if they would be restored afterward. Make the
+copy byte-for-byte; `Get-Content`/`Set-Content` round-trips can change encodings
+and line endings. If the copy cannot reproduce the build, report those checks as
+blocked. Compare original hashes before and after as a final confirmation, not as
+permission to mutate them.
+Explain separately what the manifest tracks and what the file timestamps track.
 
 ### Common Mistakes to Avoid
 

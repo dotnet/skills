@@ -740,8 +740,6 @@ stimuli:
     prompt: |
       Review already-minimal/ci.yml and tell me whether any step repeats work
       an earlier step already did and should be changed. Do not modify any file.
-    constraints:
-      reject_tools: [edit, create]
     tags:
       capability: no-redundancy-found
       risk: medium
@@ -770,6 +768,9 @@ stimuli:
 
               Verdict: no redundant restores
     graders:
+      - type: tool-calls
+        config:
+          disallowed: [edit, create]
       - type: run-command
         config:
           command: node
@@ -802,8 +803,8 @@ stimuli:
       On a fresh CI agent our dotnet restore takes about 4 minutes pulling
       packages from nuget.org, while later builds on the same agent are fast.
       What can we do to speed up that first restore?
-    expect_activation: false
     tags:
+      expect_activation: "false"
       capability: dormancy-cold-restore
       risk: routing
       journey: boundary-condition
