@@ -433,7 +433,7 @@ if ($evt -eq 'workflow_dispatch') {
   # input, a PR-gate auto-dispatch, or a whole-repo sweep) falls through
   # to the two DEFAULT cross-family models set above.
   $mp = "$env:MATRIX_PROFILE_INPUT"
-  if ($mp -and $mp -in @('default','mid','sol','full','newer')) {
+  if ($mp -and $mp -in @('default','mid','sol','full','newer','haiku-judge-trial')) {
     $matrixProfile = $mp
   }
 } elseif ($evalBody) {
