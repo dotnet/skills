@@ -428,8 +428,8 @@ def main():
                 # a real shell -- it names a literal file called "$PWD/..." in the
                 # current directory, not the actual output path. The no-overwrite
                 # grader must compare it literally (rejecting it as not matching the
-                # real output path) rather than blindly expanding $PWD/${PWD} inside
-                # any quote kind.
+                # real output path) rather than blindly expanding $PWD or its braced
+                # form inside any quote kind.
                 single_quoted_guard_operand = copy.deepcopy(plan)
                 single_quoted_guard_operand["commands"]["collect"] = [
                     "test ! -e " + chr(39) + "$PWD/after-navigation.gcdump" + chr(39)

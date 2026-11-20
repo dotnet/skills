@@ -349,8 +349,9 @@ stimuli:
                 def tokenize(s):
                     # posix=False keeps each words original quote characters
                     # in the raw token text (e.g. a single-quoted operand
-                    # stays as "${sq}...${sq}" rather than being silently
-                    # dequoted) so the quote kind can still be recovered
+                    # keeps its surrounding single-quote characters rather
+                    # than being silently dequoted) so the quote kind can
+                    # still be recovered
                     # below; posix=True mode discards that distinction
                     # entirely, making a literal single-quoted "$PWD/x" token
                     # indistinguishable from an expanding double-quoted one.
@@ -447,12 +448,13 @@ stimuli:
                 def norm(word):
                     # A single-quoted shell word is never subject to $VAR
                     # expansion by a real shell -- it must be compared
-                    # literally, not textually rewritten as if $PWD/${PWD}
-                    # inside it were variables. A bare/double-quoted word
-                    # does expand them. Comparing the wrong way lets a
-                    # single-quoted literal like "${sq}$PWD/x${sq}" (a file
-                    # named literally "$PWD/x" in the current directory)
-                    # pass as if it named the real output path.
+                    # literally, not textually rewritten as if $PWD or its
+                    # braced form inside it were variables. A bare/double-
+                    # quoted word does expand them. Comparing the wrong way
+                    # lets a single-quoted literal (a file named literally
+                    # "$PWD/x" in the current directory, written between two
+                    # single-quote characters) pass as if it named the real
+                    # output path.
                     quote = getattr(word, "quote", "bare")
                     if quote == "single":
                         return os.path.abspath(word)
