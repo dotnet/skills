@@ -1046,6 +1046,23 @@ def main():
                             totals["defect_rejections"] += 1
                     finally:
                         program.write_text(original_program)
+                if name == "maui-shell-navigation" and "golden_patch" in stimulus:
+                    program = workspace / "Program.cs"
+                    original_program = program.read_text()
+                    eager = original_program.replace(
+                        "public static class Menu\n{",
+                        "public static class Menu\n{\n    static readonly ContentPage Eager = new ContentPage();",
+                    ).replace("new DataTemplate(() => new ContentPage())", "new DataTemplate(() => Eager)")
+                    assert eager.count("() => Eager)") == 2 and "static readonly ContentPage Eager" in eager
+                    try:
+                        program.write_text(eager)
+                        result = command(["dotnet", "run", "--project", "Fixture.csproj",
+                                          "--no-restore", "--verbosity", "quiet"], workspace)
+                        assert result.returncode != 0 and "pages should be lazy" in result.stdout + result.stderr, (
+                            result.stdout, result.stderr)
+                        totals["defect_rejections"] += 1
+                    finally:
+                        program.write_text(original_program)
                 for supplied in supplied_skills:
                     if not supplied.is_file():
                         continue

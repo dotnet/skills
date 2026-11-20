@@ -12,8 +12,9 @@ public static class Checks
         Require(tab.Route == "status", "parent route changed");
         Require(tab.Items.Select(p => p.Route).SequenceEqual(new[] { "active", "archived" }),
             "subtabs require distinct stable routes");
-        Require(tab.Items.All(p => p.ContentTemplate is not null && p.Content is null),
-            "pages should be lazy");
+        Require(tab.Items.All(p => p.ContentTemplate is not null && p.Content is null
+                && !ReferenceEquals(p.ContentTemplate.CreateContent(), p.ContentTemplate.CreateContent())),
+            "pages should be lazy and created per template realization");
         Require(tab.Items.Select(p => p.Title).SequenceEqual(new[] { "Active", "Archived" }),
             "visible tab labels changed");
         Console.WriteLine("PASS: behavior-contract");

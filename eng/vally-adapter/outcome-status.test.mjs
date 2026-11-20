@@ -6,7 +6,10 @@ import { test } from "node:test";
 import { spawnSync } from "node:child_process";
 import { outcomeStatus } from "./outcome-status.mjs";
 
-const entries = [{ name: "plugin-model" }];
+const entries = [{
+  name: "plugin-model", plugin: "plugin", model: "model", target_kind: "skill",
+  skills_path: "plugins/plugin/skills", agents_path: "", eval_path: "",
+}];
 
 function fixture(t, states = ["VALID_PASS"]) {
   const root = mkdtempSync(join(tmpdir(), "outcome-status-"));
@@ -24,7 +27,7 @@ function fixture(t, states = ["VALID_PASS"]) {
   saveSummary();
   const results = states.map((state, i) => ({
     schemaVersion: 5, model: "model", verdicts: [{
-      skillName: `skill${i}`, skillPath: `plugin/skill${i}`, state,
+      skillName: `skill${i}`, skillPath: `plugins/plugin/skills/skill${i}`, state,
       conclusive: state !== "INVALID_INCONCLUSIVE",
       underpowered: state === "INVALID_INCONCLUSIVE",
       activationContract: { evaluated: true, passed: true },
@@ -72,9 +75,7 @@ test("target path and model cannot be duplicated under a different display name"
   f.results[1].verdicts[0].skillPath = f.results[0].verdicts[0].skillPath;
   f.saveResults();
   assert.throws(() => outcomeStatus(f.root, entries), /duplicate evaluation identity/);
-  f.results[1].model = "other-model";
-  f.saveResults();
-  assert.equal(outcomeStatus(f.root, entries).state, "success");
+  assert.throws(() => outcomeStatus(f.root, entries), /duplicate evaluation identity/);
 });
 
 test("every verdict requires explicit boolean validity fields", (t) => {
@@ -90,6 +91,25 @@ test("every verdict requires explicit boolean validity fields", (t) => {
       }
     }
   }
+});
+
+test("results must belong to the entry that owns their artifact", (t) => {
+  for (const mutate of [
+    (f) => { f.results[0].verdicts[0].skillPath = "plugins/other/skills/skill0"; },
+    (f) => { f.results[0].model = "other-model"; },
+    (f) => { f.results[0].verdicts[0].skillKind = "agent"; f.results[0].verdicts[0].skillPath = "plugins/plugin/agents/a.agent.md"; },
+  ]) {
+    const f = fixture(t);
+    mutate(f);
+    f.saveResults();
+    assert.throws(() => outcomeStatus(f.root, entries), /does not belong/, mutate.toString());
+  }
+  const narrow = fixture(t);
+  assert.throws(() => outcomeStatus(narrow.root, [{ ...entries[0],
+    skills_path: "plugins/plugin/skills/other" }]), /does not belong/);
+  assert.equal(outcomeStatus(narrow.root, [{ ...entries[0],
+    skills_path: "plugins/plugin/skills/skill0" }]).state, "success");
+  assert.throws(() => outcomeStatus(narrow.root, [{ name: entries[0].name }]), /does not belong/);
 });
 
 test("conclusive evidence requires an evaluated boolean activation contract", (t) => {

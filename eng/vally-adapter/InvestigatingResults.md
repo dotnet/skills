@@ -79,7 +79,7 @@ succeeded. Invalid or underpowered results without a proven regression produce
 an error, not an improvement claim. A conclusive `VALID_NO_CHANGE` is non-gating
 but is explicitly reported as unproven; only an all-`VALID_PASS` matrix is called
 improved. Preference-only losses remain report-only under the existing policy.
-Uniqueness is keyed on target path and model, not the display name. A powered,
+Each result must also belong to the matrix entry that owns its artifact: the entry's model, and its skills path, workflow package path or agent kind. A passing result for another target or model cannot stand in for the requested one. Uniqueness is keyed on target path and model, not the display name. A powered,
 conclusive native `target_agent_not_activated` reason is an activation failure
 even when the separate dormancy contract passes and state is `VALID_NO_CHANGE`.
 

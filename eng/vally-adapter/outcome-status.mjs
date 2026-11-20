@@ -15,6 +15,19 @@ function resultFiles(root) {
   });
 }
 
+function inScope(entry, verdict) {
+  const path = verdict.skillPath;
+  if (entry.target_kind === "workflow") {
+    return typeof entry.package_path === "string" && path === entry.package_path
+      && verdict.skillKind === "workflow";
+  }
+  if (entry.target_kind === "agent") return verdict.skillKind === "agent";
+  if (entry.target_kind !== "skill" || typeof entry.skills_path !== "string") return false;
+  const roots = entry.skills_path.split(/\s+/).filter(Boolean);
+  return roots.length > 0 && roots.some((root) => /\/skills$/.test(root)
+    ? path.startsWith(`${root}/`) : path === root);
+}
+
 export function outcomeStatus(root, entries) {
   if (!Array.isArray(entries) || entries.length === 0
     || entries.some((entry) => typeof entry?.name !== "string"
@@ -30,7 +43,8 @@ export function outcomeStatus(root, entries) {
   const verdicts = [];
   const identities = new Set();
   let summaryInvalid = 0;
-  for (const artifact of expectedArtifacts) {
+  for (const entry of entries) {
+    const artifact = `vally-results-${entry.name}`;
     const dir = join(root, artifact);
     const summary = readJson(join(dir, "adapter-summary.json"));
     const files = resultFiles(dir);
@@ -53,7 +67,12 @@ export function outcomeStatus(root, entries) {
         throw new Error(`Malformed evaluation result: ${path}`);
       }
       const verdict = data.verdicts[0];
-      const identity = [verdict.skillPath, verdict.model ?? data.model];
+      const model = verdict.model ?? data.model;
+      if ((typeof entry.model === "string" && entry.model !== model)
+        || typeof verdict.skillPath !== "string" || !inScope(entry, verdict)) {
+        throw new Error(`Result does not belong to its matrix entry: ${path}`);
+      }
+      const identity = [verdict.skillPath, model];
       if (typeof verdict.skillName !== "string" || !verdict.skillName
         || identity.some((part) => typeof part !== "string" || !part)
         || identities.has(JSON.stringify(identity))) {

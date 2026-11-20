@@ -729,7 +729,7 @@ test("preserves a native target-agent activation failure", () => {
     const artifacts = join(root, "artifacts");
     mkdirSync(artifacts);
     renameSync(output, join(artifacts, "vally-results-native"));
-    const status = outcomeStatus(artifacts, [{ name: "native" }]);
+    const status = outcomeStatus(artifacts, [{ name: "native", plugin: "demo", target_kind: "agent", agents_path: "plugins/demo/agents", skills_path: "" }]);
     assert.equal(status.state, "failure");
     assert.match(status.description, /1 activation failures/);
   } finally {
