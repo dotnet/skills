@@ -1,0 +1,60 @@
+{
+  "schema_version": "1",
+  "repository": "fixture/repo",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "git_object_format": "sha1",
+  "config_digest": "49ea7b693a67dd367e3d4fbdcae49587e4b5859e35276047b5ce6538df59497d",
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "a6f4e002e0a9abc2cc2972a25d0aca4a72d6add39fb31336c49294d7e2af294e",
+      "stable_owner_id": "7cb61875bc8fed40404f598bbf03ea84577a34afdf177c2f89e7657286ddeef0",
+      "path": "repo/Tests.cs",
+      "blob_oid": "31a797d1969330d70bbc53aaf29c2ffdb15fe539",
+      "source_sha256": "a769260e264d1e8cb9ac826201a3589b4057e0afebf0f18ac6e3a7e04fbf8f16",
+      "attribute_span": {
+        "start": 42,
+        "length": 69,
+        "start_line": 4,
+        "start_column": 6,
+        "end_line": 4,
+        "end_column": 75
+      },
+      "attribute_text_sha256": "dcd9f9d20fdc829c95a9fde4a2c2e7c71a4ee27da160cea62e7daa200c53d0e2",
+      "attribute_type": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+      "owner": {
+        "kind": "method",
+        "namespace": "Demo",
+        "containing_types": [
+          "Tests"
+        ],
+        "type_fqn": "Demo.Tests",
+        "declaration_id": "M:Demo.Tests.Connect()",
+        "method_name": "Connect",
+        "method_signature": "Connect()",
+        "test_fqns": [
+          "Demo.Tests.Connect"
+        ]
+      },
+      "canonical_issue_references": [
+        {
+          "kind": "issue",
+          "owner": "fixture",
+          "repo": "repo",
+          "number": 105,
+          "canonical": "fixture/repo#105",
+          "url": "https://github.com/fixture/repo/issues/105",
+          "eligibility": true,
+          "state": "closed",
+          "state_reason": "completed",
+          "merged_at": null
+        }
+      ],
+      "decision": {
+        "eligible": true,
+        "deferrals": []
+      }
+    }
+  ],
+  "manifest_digest": "b0d3869d6f02b3595dba4d9279261cbad1b18fe0a0970f1cab7af5f1fba888bf"
+}

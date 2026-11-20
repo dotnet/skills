@@ -1,0 +1,16 @@
+Performance summary from the CI run of Contoso.slnx
+(12 projects, every project multi-targets through Directory.Build.props; Time Elapsed 00:04:03.60)
+
+Task Performance Summary:
+    143310 ms  Csc                                        36 calls     3981 ms avg
+     29964 ms  ResolveAssemblyReferences                  36 calls      832 ms avg
+     14472 ms  Copy                                      211 calls       69 ms avg
+      9288 ms  GenerateDepsFile                           36 calls      258 ms avg
+      2736 ms  ResolvePackageAssets                       36 calls       76 ms avg
+
+Project Performance Summary:
+    243600 ms  Contoso.slnx                                1 calls
+     31480 ms  src\Contoso.Core\Contoso.Core.csproj        4 calls
+     27915 ms  src\Contoso.Data\Contoso.Data.csproj        4 calls
+     22140 ms  src\Contoso.Services\Contoso.Services.csproj 4 calls
+      ... 9 more projects, 4 calls each

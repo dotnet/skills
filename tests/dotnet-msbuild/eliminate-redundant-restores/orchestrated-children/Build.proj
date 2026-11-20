@@ -1,0 +1,20 @@
+<Project DefaultTargets="Build">
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ChildTargets Condition="'$(ChildTargets)' == ''">Restore;Build</ChildTargets>
+  </PropertyGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <Target Name="Build">
+    <Error Condition="'$(ChildTargets)' != 'Build' and '$(ChildTargets)' != 'Restore;Build'"
+           Text="ChildTargets must be Build or Restore;Build." />
+    <MSBuild Projects="src/Contoso.Core/Contoso.Core.csproj;tests/Contoso.Tests/Contoso.Tests.csproj"
+             Targets="Restore" Condition="'$(ChildTargets)' == 'Restore;Build'"
+             Properties="Configuration=$(Configuration);ExcludeRestorePackageImports=true" />
+    <MSBuild Projects="src/Contoso.Core/Contoso.Core.csproj;tests/Contoso.Tests/Contoso.Tests.csproj"
+             Targets="Build" Properties="Configuration=$(Configuration)" />
+    <MakeDir Directories="artifacts" />
+    <WriteLinesToFile File="artifacts/orchestrated.txt" Lines="children built" Overwrite="true" />
+  </Target>
+</Project>

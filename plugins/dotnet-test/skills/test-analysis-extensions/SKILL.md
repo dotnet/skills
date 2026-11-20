@@ -3,11 +3,11 @@ name: test-analysis-extensions
 description: >-
   Provides file paths to language-specific reference files for the test
   ANALYSIS skills (assertion-quality, test-anti-patterns, test-gap-analysis,
-  test-smell-detection, test-tagging). Call this skill to discover available
+  test-smell-detection, test-tagging). Read this catalog to discover available
   extension files (e.g., dotnet.md for .NET/MSTest/xUnit/NUnit/TUnit,
   python.md for pytest/unittest, typescript.md for Jest/Vitest/Mocha,
-  java.md for JUnit/TestNG, etc.). Do not use directly — invoked by the
-  test-quality-auditor agent and polyglot analysis skills that need
+  java.md for JUnit/TestNG, etc.). Do not invoke this reference-only skill —
+  its bundled files are read by the quality agent and analysis skills needing
   framework-specific lookup tables (test markers, assertion APIs, skip
   annotations, sleep patterns, mystery guest indicators, integration
   markers, setup/teardown, tag-support capability).
@@ -18,7 +18,10 @@ license: MIT
 
 # Test Analysis Extensions
 
-This skill provides access to per-language reference files used by the polyglot test analysis skills. Call this skill to get the list of available extension files, then read the one matching the target codebase's language and test framework.
+This reference-only catalog lists the bundled files used by test analysis.
+Consumers read the matching file directly; `disable-model-invocation: true`
+means this catalog must not be invoked through the model's skill tool.
+Resolve these resource paths relative to this catalog, not the project workspace.
 
 ## Available Extension Files
 

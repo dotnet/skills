@@ -1,0 +1,15 @@
+{
+  "description": "Tag() ignores the target and always reports net10, so only a net8 assertion on Tag() detects it. Current() is pinned to its correct per-target output, so tests of Current() cannot kill this mutant.",
+  "replace": [
+    {
+      "type": "PlatformInfo",
+      "declaration": "\\bstring\\s+Tag\\s*\\(\\s*\\)",
+      "with": "public static string Tag() => \"net10\";"
+    },
+    {
+      "type": "PlatformInfo",
+      "declaration": "\\bstring\\s+Current\\s*\\(\\s*\\)",
+      "with": "public static string Current()\n    {\n#if NET8_0\n        return \"platform:net8\";\n#else\n        return \"platform:net10\";\n#endif\n    }"
+    }
+  ]
+}

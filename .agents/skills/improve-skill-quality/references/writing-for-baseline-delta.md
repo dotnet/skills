@@ -91,7 +91,7 @@ A one-cell mapping steered frontier models into a behavior change: `TimeProvider
 before claiming success.
 
 `migrate-static-to-wrapper` lost trials for claiming "Build succeeded" after a restore failure;
-`code-testing-agent` had to be told to cite a clean run. (PR #945)
+`code-testing` had to be told to cite a clean run. (PR #945)
 
 ## 10. Prove already-correct inputs are left alone
 
@@ -112,7 +112,7 @@ references read only when needed — cost down, contract unchanged. (PR #971)
 
 **Rule:** Do not run a full research → plan → implement pipeline for one function.
 
-`code-testing-agent` was split into focused and broad paths so a single-function request skips
+`code-testing` was split into focused and broad paths so a single-function request skips
 `.testagent/` artifacts and extra passes. (PR #971)
 
 ## 13. Structure beats verbosity

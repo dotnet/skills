@@ -12,6 +12,10 @@ stimuli:
       content needed so only the selected provider's package reference is emitted.
       Include useful display names and descriptions.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -30,9 +34,6 @@ stimuli:
       - The parameter definition is complete, has the requested choices and default, and includes user-facing descriptions
       - Conditional template content includes exactly the package reference selected by the parameter
       - The response explains where each snippet belongs in the template source
-    constraints:
-      expect_tools:
-        - skill
   - name: Create template from existing project
     prompt: I have an existing xUnit test project at ./test-output/MyTests/MyTests.csproj. Create a reusable template from
       it so my team can use it for new test projects. The template should be called 'Team Test Project'.
@@ -43,6 +44,11 @@ stimuli:
         - src: ./fixtures/create-template-from-existing-project/test-output/MyTests/UnitTest1.cs
           dest: test-output/MyTests/UnitTest1.cs
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-contains
         config:
@@ -55,10 +61,6 @@ stimuli:
       - The agent preserved the project conventions (TreatWarningsAsErrors, package references with PrivateAssets)
       - The agent set the template name to 'Team Test Project'
       - The agent explained how to install and use the generated template
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Package project templates for NuGet distribution
     prompt: |
       I have two custom project templates under `templates/Worker` and
@@ -81,6 +83,11 @@ stimuli:
         - src: ./fixtures/package-project-templates/templates/WebApi/WebApi.csproj
           dest: templates/WebApi/WebApi.csproj
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -100,10 +107,6 @@ stimuli:
       - Package metadata marks the package for template distribution
       - Commands cover packing, installing the produced package, and verifying its templates
       - The response does not confuse template packaging with publishing an ordinary library package
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Add a safe restore post-action
     prompt: |
       I'm adding a restore post-action to a custom project template. Write the
@@ -112,6 +115,11 @@ stimuli:
       the action has the required identifier and description. Explain any token or
       argument used.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -130,10 +138,6 @@ stimuli:
       - The post-action is structurally complete and uses the restore action rather than an unrelated script
       - Manual instructions give users a concrete fallback when automatic execution is unavailable
       - The response explains how the generated project path is passed safely
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Restrict and classify an SDK-specific template
     prompt: |
       I'm authoring a project template that only works with the .NET SDK and emits
@@ -142,6 +146,11 @@ stimuli:
       searches can find it by language and project type. Use a current SDK-version
       constraint without pinning my template to one machine's exact patch version.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -160,10 +169,6 @@ stimuli:
       - The constraint is expressed with valid template-engine structure and does not hardcode a machine-specific SDK patch
       - Classifications and tags make the template discoverable as a C# web project
       - The response distinguishes host compatibility constraints from ordinary template parameters
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Author a reusable item template
     prompt: |
       Create the template.json for a `dotnet new` item template that generates a
@@ -172,6 +177,11 @@ stimuli:
       the template should be discoverable as a C# item template. Include the source
       file content and local install/dry-run commands.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
+
       - type: exit-success
       - type: output-matches
         config:
@@ -190,10 +200,6 @@ stimuli:
       - The complete configuration describes an item template rather than a project template
       - Name replacement covers both the generated class and file name
       - The supplied commands test the template without creating an unintended project structure
-    constraints:
-      expect_tools:
-        - skill
-
   - name: Preserve central package management conventions
     prompt: |
       Our repository uses `Directory.Packages.props`; project files contain
@@ -203,6 +209,10 @@ stimuli:
       and versionless PackageReference must be handled so generated projects keep
       using central package management.
     graders:
+      - type: tool-calls
+        config:
+          required:
+            - skill
       - type: exit-success
       - type: output-matches
         config:
@@ -225,6 +235,3 @@ stimuli:
       - The answer makes the generated project's dependency on the central props file explicit
       - The template configuration is complete enough to install and instantiate, not a generic stub
       - The packaging layout includes all files needed for the convention to survive
-    constraints:
-      expect_tools:
-        - skill

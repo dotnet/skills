@@ -229,6 +229,17 @@ class InvoiceServiceTest {
         assertEquals(null, repository.updated)
     }
 
+    @Test
+    fun `markAsPaid throws and does not update missing invoice`() {
+        val repository = FakeRepository()
+        val service = InvoiceService(repository)
+
+        val exception = assertThrows<NoSuchElementException> { service.markAsPaid(999) }
+
+        assertEquals("Invoice 999 not found.", exception.message)
+        assertEquals(null, repository.updated)
+    }
+
     private fun invoice(
         id: Int = 1,
         status: InvoiceStatus = InvoiceStatus.PENDING,
@@ -281,18 +292,18 @@ No tests found for given includes: [com.contoso.billing.InvoiceServiceTest]
 ### Results
 | Metric         | Value |
 |----------------|-------|
-| Tests created  | 8     |
-| Tests passing  | 8     |
+| Tests created  | 9     |
+| Tests passing  | 9     |
 | Tests failing  | 0     |
 | Files created  | 1     |
 
 ### Files Created
-- `src/test/kotlin/com/contoso/billing/InvoiceServiceTest.kt` (8 JUnit 5 tests, 3 parameterized cases)
+- `src/test/kotlin/com/contoso/billing/InvoiceServiceTest.kt` (9 JUnit 5 invocations: 6 ordinary `@Test` methods and 3 parameterized rows)
 
 ### Coverage
 - InvoiceService.calculateTotal — 3 happy path, 1 error case
 - InvoiceService.getById — found and missing branches
-- InvoiceService.markAsPaid — success and already-paid branches
+- InvoiceService.markAsPaid — success, already-paid and missing-invoice branches; error cases do not update the repository
 
 ### Build / Test Validation
 - Compile tests: ✅ `./gradlew compileTestKotlin --console=plain`

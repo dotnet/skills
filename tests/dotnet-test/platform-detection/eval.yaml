@@ -703,6 +703,12 @@ stimuli:
         - src: ./fixtures/sdk9-runner-bridge-library/TestProject.csproj
           dest: TestProject.csproj
     graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - bash
+            - edit
+            - create
       - type: output-matches
         config:
           pattern: (?im)^\s*\**\s*Configuration:\s*\**\s*incomplete
@@ -726,8 +732,3 @@ stimuli:
       - The requested classifications correctly report that the configuration cannot execute through a complete MTP bridge
       - The answer does not imply successful MTP execution from partial configuration
       - The requested lines appear before a concise explanation
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create

@@ -1,0 +1,27 @@
+{
+  "pr": {
+    "number": 17,
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "current_pr": {
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "trusted_playbook_available": true,
+  "changed_files": {
+    "repo/Settings.props": {
+      "lines": [
+        3
+      ],
+      "patch": "@@ -3 +3 @@\n-    <DefineConstants>$(DefineConstants);FEATURE</DefineConstants>\n+    <DefineConstants Condition=\"'$(TargetFramework)' == 'net8.0'\">$(DefineConstants);FEATURE</DefineConstants>"
+    }
+  },
+  "related_files": [
+    "repo/App.csproj"
+  ],
+  "excluded_paths": "",
+  "environment": {
+    "MSBUILD_QUALITY_REVIEW_EXCLUDED_PATHS": ""
+  }
+}

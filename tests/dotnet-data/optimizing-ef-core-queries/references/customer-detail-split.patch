@@ -1,0 +1,10 @@
+diff --git a/SalesOperationsService.cs b/SalesOperationsService.cs
+--- a/SalesOperationsService.cs
++++ b/SalesOperationsService.cs
+@@ -105,5 +105,6 @@ public class SalesOperationsService
+         return _db.Customers
+             .Include(c => c.Orders).ThenInclude(o => o.Lines)
+             .Include(c => c.Invoices)
++            .AsSplitQuery()
+             .First(c => c.Id == customerId);
+     }

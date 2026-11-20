@@ -1,0 +1,39 @@
+diff --git a/FullPipeline/Program.cs b/FullPipeline/Program.cs
+--- a/FullPipeline/Program.cs
++++ b/FullPipeline/Program.cs
+@@ -1,4 +1,5 @@
+ var builder = WebApplication.CreateBuilder(args);
++builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+ var app = builder.Build();
+ app.MapGet("/", () => "Hello World");
+ app.Run();
+diff --git a/FullPipeline/Services/SubscriptionManager.cs b/FullPipeline/Services/SubscriptionManager.cs
+--- a/FullPipeline/Services/SubscriptionManager.cs
++++ b/FullPipeline/Services/SubscriptionManager.cs
+@@ -3,11 +3,18 @@
+ public class SubscriptionManager
+ {
++    private readonly TimeProvider _timeProvider;
++
++    public SubscriptionManager(TimeProvider timeProvider)
++    {
++        _timeProvider = timeProvider;
++    }
++
+     public Subscription CreateTrial(string userId)
+     {
+         return new Subscription
+         {
+             UserId = userId,
+-            StartedAt = DateTime.UtcNow,
+-            ExpiresAt = DateTime.UtcNow.AddDays(14),
++            StartedAt = _timeProvider.GetUtcNow().UtcDateTime,
++            ExpiresAt = _timeProvider.GetUtcNow().UtcDateTime.AddDays(14),
+             Plan = "trial"
+         };
+@@ -16,4 +23,4 @@
+     public bool IsActive(Subscription sub)
+     {
+-        return DateTime.UtcNow < sub.ExpiresAt;
++        return _timeProvider.GetUtcNow().UtcDateTime < sub.ExpiresAt;
+     }

@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Data.Common;
+using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Contoso.Sales.Operations;
 
 namespace Contoso.Sales.Operations.Benchmarks;
@@ -163,13 +166,13 @@ internal static class Program
 
     private static Result BenchGetOrdersOverTotal() => BenchRead(
         Seed.Orders,
-        db => CanonOrderRows(new BaselineSalesOperationsService(db).GetOrdersOverTotal(Seed.MinTotal)),
-        db => CanonOrderRows(new SalesOperationsService(db).GetOrdersOverTotal(Seed.MinTotal)));
+        db => CanonOrderRowsUnordered(new BaselineSalesOperationsService(db).GetOrdersOverTotal(Seed.MinTotal)),
+        db => CanonOrderRowsUnordered(new SalesOperationsService(db).GetOrdersOverTotal(Seed.MinTotal)));
 
     private static Result BenchGetPendingOrders() => BenchRead(
         Seed.Orders,
-        db => CanonOrderRows(new BaselineSalesOperationsService(db).GetPendingOrders()),
-        db => CanonOrderRows(new SalesOperationsService(db).GetPendingOrders()));
+        db => CanonOrderRowsOrdered(new BaselineSalesOperationsService(db).GetPendingOrders()),
+        db => CanonOrderRowsOrdered(new SalesOperationsService(db).GetPendingOrders()));
 
     private static Result BenchSearchProducts() => BenchRead(
         Seed.Products,
@@ -268,12 +271,12 @@ internal static class Program
             }
 
             using var verify = Timing.NewContext(conn);
-            return CanonPrices(verify, Seed.TargetCategoryId);
+            return CanonPrices(verify);
         }
 
         var baseline = RunOn(db => new BaselineSalesOperationsService(db).ApplyCategoryDiscount(Seed.TargetCategoryId, factor));
         var optimized = RunOn(db => new SalesOperationsService(db).ApplyCategoryDiscount(Seed.TargetCategoryId, factor));
-        var equal = baseline == optimized;
+        var equal = baseline == optimized && UsesSingleSetBasedCategoryUpdate(factor);
 
         // Reseed a fresh database for every timed call and interleave the two arms.
         const int warmup = 1;
@@ -292,6 +295,22 @@ internal static class Program
         }
 
         return new Result(Timing.Median(baselineSamples), Timing.Median(optimizedSamples), equal);
+    }
+
+    private static bool UsesSingleSetBasedCategoryUpdate(decimal factor)
+    {
+        using var conn = Timing.OpenSharedConnection();
+        Seed.Products(conn);
+        var commands = new CommandShapeCounter();
+        var options = new DbContextOptionsBuilder<SalesDbContext>()
+            .UseSqlite(conn)
+            .AddInterceptors(commands)
+            .Options;
+        using var db = new SalesDbContext(options);
+        new SalesOperationsService(db).ApplyCategoryDiscount(Seed.TargetCategoryId, factor);
+
+        return commands.Commands.Count == 1 &&
+            Regex.IsMatch(commands.Commands[0], @"\bUPDATE\b", RegexOptions.IgnoreCase);
     }
 
     private static double TimeOneMutation(Action<SalesDbContext> run)
@@ -337,8 +356,24 @@ internal static class Program
             .OrderBy(r => r.CustomerName, StringComparer.Ordinal)
             .Select(r => $"{r.CustomerName}:{r.OrderCount}:{Money(r.Revenue)}"));
 
-    private static string CanonDetail(Customer c) =>
-        $"orders={c.Orders.Count};lines={c.Orders.Sum(o => o.Lines.Count)};invoices={c.Invoices.Count};revenue={Money(c.Orders.Sum(o => o.Total))}";
+    private static string CanonDetail(Customer c)
+    {
+        var orders = string.Join(";", c.Orders
+            .OrderBy(o => o.Id)
+            .Select(o =>
+            {
+                var lines = string.Join(",", o.Lines
+                    .OrderBy(line => line.Id)
+                    .Select(line =>
+                        $"{line.Id}:{line.OrderId}:{line.Sku}:{line.Quantity}:{Money(line.UnitPrice)}"));
+                return $"{o.Id}:{o.CustomerId}:{o.CreatedAt.Ticks}:{Money(o.Total)}:{o.Status}:[{lines}]";
+            }));
+        var invoices = string.Join(";", c.Invoices
+            .OrderBy(invoice => invoice.Id)
+            .Select(invoice =>
+                $"{invoice.Id}:{invoice.CustomerId}:{Money(invoice.Amount)}:{invoice.Paid}"));
+        return $"{c.Id}:{c.Name}:{c.Region}|orders=[{orders}]|invoices=[{invoices}]";
+    }
 
     private static string CanonInvoices(List<Invoice> invoices) =>
         $"count={invoices.Count};amount={Money(invoices.Sum(i => i.Amount))}";
@@ -346,20 +381,88 @@ internal static class Program
     private static string CanonCards(List<ProductCard> cards) =>
         string.Join("|", cards.OrderBy(c => c.Id).Select(CanonCard));
 
-    private static string CanonOrderRows(List<OrderRow> rows) =>
+    private static string CanonOrderRowsUnordered(List<OrderRow> rows) =>
         string.Join("|", rows
             .OrderBy(r => r.OrderId)
             .Select(r => $"{r.OrderId}:{r.CreatedAt.Ticks}:{Money(r.Total)}"));
 
+    private static string CanonOrderRowsOrdered(List<OrderRow> rows) =>
+        string.Join("|", rows.Select(r => $"{r.OrderId}:{r.CreatedAt.Ticks}:{Money(r.Total)}"));
+
     private static string CanonCard(ProductCard c) => $"{c.Id}:{c.Name}:{Money(c.Price)}";
 
-    private static string CanonPrices(SalesDbContext db, int categoryId) =>
+    private static string CanonPrices(SalesDbContext db) =>
         string.Join("|", db.Products
-            .Where(p => p.CategoryId == categoryId)
             .OrderBy(p => p.Id)
-            .Select(p => new { p.Price, p.UpdatedAt })
+            .Select(p => new { p.Id, p.CategoryId, p.Price, p.UpdatedAt })
             .ToList()
-            .Select(p => $"{Money(p.Price)}:{(p.UpdatedAt != new DateTime(2024, 1, 1) ? 1 : 0)}"));
+            .Select(p =>
+                $"{p.Id}:{p.CategoryId}:{Money(p.Price)}:{(p.UpdatedAt != SeedProductUpdatedAt(p.Id) ? 1 : 0)}"));
+
+    private static DateTime SeedProductUpdatedAt(int id) =>
+        new DateTime(2024, 1, 1).AddMinutes(id);
+
+    private sealed class CommandShapeCounter : DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = new();
+
+        public override InterceptionResult<DbDataReader> ReaderExecuting(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result)
+        {
+            Commands.Add(command.CommandText);
+            return result;
+        }
+
+        public override InterceptionResult<int> NonQueryExecuting(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result)
+        {
+            Commands.Add(command.CommandText);
+            return result;
+        }
+
+        public override InterceptionResult<object> ScalarExecuting(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<object> result)
+        {
+            Commands.Add(command.CommandText);
+            return result;
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
+
+        public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
+
+        public override ValueTask<InterceptionResult<object>> ScalarExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<object> result,
+            CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
+    }
 }
 
 internal readonly record struct Result(double BaselineMs, double OptimizedMs, bool Equivalent);

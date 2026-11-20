@@ -16,6 +16,8 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     private readonly string _stateRoot;
     private readonly string _workspaceRoot;
     private readonly string[] _allowedAbsoluteRoots;
+    private readonly string[] _writableAbsoluteRoots;
+    private readonly bool _offlineWorkflow;
     // The SDK can report "timeout while waiting for mutex to become available"
     // when multiple session-state writes race on the same JSONL file, so serialize
     // writes per resolved path inside the handler as well.
@@ -25,18 +27,28 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     public LocalSessionFsHandler(
         string stateRoot,
         string workspaceRoot,
-        IEnumerable<string> allowedAbsoluteRoots)
+        IEnumerable<string> allowedAbsoluteRoots,
+        bool offlineWorkflow = false,
+        IEnumerable<string>? writableAbsoluteRoots = null)
     {
         _stateRoot = NormalizeRoot(stateRoot);
         _workspaceRoot = NormalizeRoot(workspaceRoot);
+        _offlineWorkflow = offlineWorkflow;
+        var pathComparer = OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
         _allowedAbsoluteRoots = allowedAbsoluteRoots
             .Select(NormalizeRoot)
-            .Distinct(OperatingSystem.IsWindows()
-                ? StringComparer.OrdinalIgnoreCase
-                : StringComparer.Ordinal)
+            .Distinct(pathComparer)
+            .ToArray();
+        _writableAbsoluteRoots = (writableAbsoluteRoots ?? [])
+            .Select(NormalizeRoot)
+            .Distinct(pathComparer)
             .ToArray();
         if (_allowedAbsoluteRoots.Length == 0)
             throw new ArgumentException("At least one absolute-path root is required.", nameof(allowedAbsoluteRoots));
+        if (_writableAbsoluteRoots.Any(root => !_allowedAbsoluteRoots.Contains(root, pathComparer)))
+            throw new ArgumentException("Writable roots must also be allowed absolute-path roots.", nameof(writableAbsoluteRoots));
         Directory.CreateDirectory(_stateRoot);
         Directory.CreateDirectory(_workspaceRoot);
     }
@@ -59,6 +71,42 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
             || normalized.StartsWith(
                 "session-state" + Path.DirectorySeparatorChar,
                 StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static bool IsWorkflowProposalPath(string? path, string workDir)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+        try
+        {
+            var full = Path.GetFullPath(Path.Combine(workDir, path));
+            var proposal = Path.Combine(Path.GetFullPath(workDir), "result.json");
+            return full.Equals(proposal, OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private void EnsureWritable(ResolvedPath resolved)
+    {
+        if (_offlineWorkflow && !IsEvaluatorStateRoot(resolved.Root)
+            && !IsWorkflowProposalPath(resolved.FullPath, _workspaceRoot))
+        {
+            throw new UnauthorizedAccessException(
+                "Offline workflow inputs and resources are read-only; only result.json may be written.");
+        }
+    }
+
+    private bool IsEvaluatorStateRoot(string root)
+    {
+        var comparer = OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
+        return comparer.Equals(root, _stateRoot)
+            || _writableAbsoluteRoots.Contains(root, comparer);
     }
 
     /// <summary>Resolve an SDK-provided path to an absolute local path, guarding against traversal.</summary>
@@ -134,6 +182,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     protected override Task WriteFileAsync(string path, string content, int? mode, CancellationToken cancellationToken)
     {
         var resolved = ResolvePathInfo(path);
+        EnsureWritable(resolved);
         return ExecuteWithPathLockAsync(resolved.FullPath, () =>
             SecureFileSystem.WriteAllTextAsync(
                 resolved.Root,
@@ -146,6 +195,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     protected override Task AppendFileAsync(string path, string content, int? mode, CancellationToken cancellationToken)
     {
         var resolved = ResolvePathInfo(path);
+        EnsureWritable(resolved);
         return ExecuteWithPathLockAsync(resolved.FullPath, () =>
             SecureFileSystem.WriteAllTextAsync(
                 resolved.Root,
@@ -183,6 +233,12 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     protected override Task MakeDirectoryAsync(string path, bool recursive, int? mode, CancellationToken cancellationToken)
     {
         var resolved = ResolvePathInfo(path);
+        if (_offlineWorkflow && !IsEvaluatorStateRoot(resolved.Root))
+        {
+            if (Directory.Exists(resolved.FullPath))
+                return Task.CompletedTask;
+            throw new UnauthorizedAccessException("Offline workflow directories are read-only.");
+        }
         SecureFileSystem.CreateDirectory(resolved.Root, resolved.FullPath);
         return Task.CompletedTask;
     }
@@ -219,6 +275,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     protected override Task RemoveAsync(string path, bool recursive, bool force, CancellationToken cancellationToken)
     {
         var resolved = ResolvePathInfo(path);
+        EnsureWritable(resolved);
         SecureFileSystem.Remove(
             resolved.Root,
             resolved.FullPath,
@@ -230,6 +287,8 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     {
         var resolvedSrc = ResolvePathInfo(src);
         var resolvedDest = ResolvePathInfo(dest);
+        EnsureWritable(resolvedSrc);
+        EnsureWritable(resolvedDest);
         SecureFileSystem.Rename(
             resolvedSrc.Root,
             resolvedSrc.FullPath,

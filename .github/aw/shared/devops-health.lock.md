@@ -360,7 +360,21 @@ Do not create per-finding islands or HTML-comment row markers.
 
 ### 7.1 API Rate Limits
 - Use targeted, date-filtered queries to minimize API calls
-- The `github` MCP toolset handles pagination automatically
+- Paginate every high-volume workflow-run inventory explicitly with
+  `actions_list`, `method: list_workflow_runs`, `perPage: 100`, and page
+  numbers starting at `1`
+- Do not send `workflow_runs_filter` for complete inventories. GitHub limits
+  filtered workflow-run searches to 1,000 results, and the pinned MCP tool does
+  not expose the REST `created` filter needed to partition that cap safely
+- Use `resource_id` only when the check is scoped to one workflow. Filter
+  branch, status, event, and cutoff locally after each unfiltered page
+- Continue until a page contains fewer than the requested 100 entries or its
+  oldest `created_at` reaches the requested cutoff
+- Process pages incrementally and deduplicate workflow runs by run ID
+- Stop after 100 total pages for one observation scope. If the inventory does
+  not reach the requested cutoff within that budget, mark only that scope
+  unavailable
+- Never mark a scope unavailable only because page 1 contains 100 entries
 - Include at most two dispatch inputs in the single publication request
 
 ### 7.2 Issue Body Size

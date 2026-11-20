@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup><BuildDependsOn>Compile;Pack</BuildDependsOn></PropertyGroup>
+  <Import Project="Extension.targets" />
+  <Target Name="Compile"><Message Text="Compile" /></Target>
+  <Target Name="Pack"><Message Text="Pack" /></Target>
+  <Target Name="Build" DependsOnTargets="$(BuildDependsOn)" />
+</Project>

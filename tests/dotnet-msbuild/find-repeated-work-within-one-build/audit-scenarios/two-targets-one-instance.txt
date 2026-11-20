@@ -1,0 +1,21 @@
+Invocation: dotnet msbuild App.csproj -target:Build,Pack
+One project instance, one framework, one global-property set.
+Task events: git rev-parse HEAD runs twice, 1500 ms each, with identical cwd
+and full 40-character output. One call is in StampAssembly; one in StampPackage.
+
+<Target Name="StampAssembly" BeforeTargets="CoreCompile">
+  <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true">
+    <Output TaskParameter="ConsoleOutput" PropertyName="AssemblyRevision" />
+  </Exec>
+  <Message Text="Assembly revision $(AssemblyRevision)" Importance="high" />
+</Target>
+<Target Name="StampPackage" BeforeTargets="GenerateNuspec">
+  <Exec Command="git rev-parse HEAD" ConsoleToMSBuild="true">
+    <Output TaskParameter="ConsoleOutput" PropertyName="PackageRevision" />
+  </Exec>
+  <Message Text="Package revision $(PackageRevision)" Importance="high" />
+</Target>
+
+Both consumers need the same value. Build-only and Pack-only invocations must
+remain valid. The repository cannot change during this invocation.
+No timeline was exported. There is no second project to share state with.

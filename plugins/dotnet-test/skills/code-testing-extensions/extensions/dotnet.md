@@ -109,14 +109,34 @@ A new `.csproj` is **invisible** to `dotnet test <solution>`, to `dotnet test` r
 
 ### Harness Discovery Check
 
-Before reporting success, run the **harness-equivalent** discovery command from the repo root and confirm the test count went up by at least the number of tests you generated. The harness (CI, msbench, coverage tools) does not know which `.csproj` you targeted — it runs the solution-level command, so a test that passes via `dotnet test MyProject.Tests.csproj` is still worthless if `dotnet test <solution> --list-tests` doesn't enumerate it.
+Before reporting success, run the **harness-equivalent** discovery command from the repo root against the exact researched entry point and confirm it enumerates the new tests. Passing a project directly does not prove that the solution/filter command used by CI discovers it.
 
-```bash
-# From repo root, against the solution identified in <TESTAGENT_DIR>/research.md
-dotnet test <solution> --list-tests --no-build 2>&1 | grep -c '^    [A-Za-z]'
-```
+Select the command mode from the repository's actual runner configuration,
+`global.json` `test.runner`, evaluated project properties, and installed SDK
+using `platform-detection`. An SDK 10+ installation alone does not select
+native MTP.
 
-If the delta is `0`, the new project isn't in the solution. Run `dotnet sln <solution> add <test-project.csproj>` and re-run the check. Do **not** report success until the harness command sees your new tests.
+| Command mode / executed runner | Discovery command after a successful build |
+|---|---|
+| VSTest mode / VSTest | `dotnet test <solution> --list-tests --no-build` |
+| VSTest mode / bridged MTP | `dotnet test <solution> --no-build -- --list-tests` |
+| SDK 10+ native MTP mode / MTP | `dotnet test --solution <solution> --list-tests --no-build` |
+
+Preserve the repository's configuration, target framework, and filtering
+switches. For project entry points, use `--project <test-project>` in native
+MTP mode and the positional project in VSTest mode.
+
+Run discovery directly and require exit code zero before inspecting its output
+or runner-owned discovery artifact. Do not pipe it into `grep -c`, `wc`, or a
+counting command that hides the runner's exit status. Compare test identities
+and counts using the actual runner format; MTP output need not have VSTest's
+indentation. Where a count is meaningful, compare the same command before and
+after and require the expected delta.
+
+If tests are missing, inspect registration, filters, compile items, and runner
+configuration before repairing the proven missing edge. A zero delta alone
+does not prove a project is absent. Do **not** report success until the harness
+command sees your new tests.
 
 For a classic non-SDK project, use the repository's normal build and discovery
 command instead of the example above. The minimum acceptable check is:

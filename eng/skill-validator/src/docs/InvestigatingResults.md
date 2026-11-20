@@ -7,19 +7,61 @@
 > document describes the raw `skill-validator evaluate` output retained under
 > `_agent-evaluation/` for custom-agent diagnosis and for historical results.
 >
-> The current Vally workflow makes one targeted recovery attempt for executor
-> `session.idle` timeouts before adaptation. See
-> `executor-retry-summary.json` in the result artifact and the current guide for
-> the bounded retry and fail-closed rules.
+> The current Vally workflow makes up to two targeted retry passes before
+> adaptation when a required baseline or isolated-skilled record has an exact
+> Vally stimulus wall-clock timeout, a `session.idle` timeout, or the Copilot
+> SDK `Session disconnected while waiting for a response` error. See
+> `executor-retry-summary.json` and the raw record's `executorRetry` field in
+> the result artifact for recovery evidence, and the current guide for the
+> bounded retry and fail-closed rules.
 > Native-agent `RunMetrics.errorCount` is diagnostic and may include recovered
 > tool-call failures. Adaptation invalidates a scenario only for terminal
 > evidence: an explicit execution error, a missing or timed-out required arm, a
 > failed run, or a missing pairwise result.
 
+Executor sessions append the exact scenario workspace to the system context.
+Do not resolve fixture paths against a staged skill's base directory or the
+shared evaluator root. Normal shell pre-tool hooks defer to the SDK's typed
+shell permission request: forcing an `ask` decision there creates a separate
+custom permission request without shell-path metadata and causes an
+`Unsupported permission request during evaluation` denial. Explicit
+`deny_shell` and offline-workflow policies still reject the tool before
+execution, including nested sessions; normal path, network, and link checks
+remain in the permission callback.
+
+PowerShell permission requests may omit `possiblePaths` even for an explicit
+project argument. The executor recovers paths only for a single static
+`dotnet build`, `test`, or `run` invocation with known options, then applies the
+same workspace allowlist. Compound commands, computed paths, arbitrary MSBuild
+properties, response-file tokens, home-expanded path operands, unknown options,
+and outside projects remain rejected. VSTest substring filters may still use
+`~`; it is rejected in path operands, not globally. Submit
+validation commands separately rather than combining them with shell control
+flow.
+
+Reference-only skill catalogs remain excluded from model invocation. Executor
+context lists their actual staged file paths so consumers can read bundled
+language guidance without a failing skill-tool call. The workspace and typed
+permission contract version participates in baseline identity; recompute
+baselines recorded before this contract rather than comparing old denial
+behavior against the corrected executor.
+
 > The workflow token preflight tries another pool candidate for HTTP 429 or 402
 > quota exhaustion and for the paired heading and token-environment lines in
 > the Copilot CLI's no-authentication setup block. Unrelated service and
 > configuration failures remain terminal.
+
+> Before token selection or evaluation starts, the workflow serially warms up
+> first-use state for every .NET SDK installed on the runner. This prevents
+> parallel fixture setup from racing in the .NET CLI's first-use
+> `NuGet-Migrations` initialization. `dotnet --list-sdks` returning no versions
+> fails the job with `dotnet --list-sdks reported no installed SDKs`. A warm-up
+> that does not create the SDK-specific sentinel fails with
+> `First-use sentinel missing for .NET SDK <version> after warm-up`. Both are
+> evaluation-infrastructure failures that occur before model sessions and
+> result artifacts exist; do not classify them as skill regressions. Diagnose
+> the runner's SDK installation or .NET CLI first-use state, then rerun the
+> evaluation without changing the skill.
 
 > PR session replay publishing is auxiliary. A missing or invalid
 > `SKILLS_DATA_TOKEN`, or one that cannot authenticate for a non-mutating
@@ -34,7 +76,7 @@
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
 
-> Current Vally runs use a version-checked SDK 1.0.11/1.0.13 startup guard. It waits for
+> Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup
 > calls. Session-provider errors are harness failures, not skill-quality verdicts.
 > This does not change the historical result schema documented below.
@@ -49,7 +91,7 @@
 > exact expected-eval manifest with observed and written results.
 > Native-agent baseline-pass/isolated-fail completion evidence can produce
 > `VALID_REGRESSION` even when preference evidence has fewer than five eligible
-> stimuli, including on an `expect_activation: false` scenario. Execution,
+> stimuli, including on a `tags.expect_activation: "false"` scenario. Execution,
 > timeout, missing-arm, and comparison-invalid evidence still takes precedence.
 > Both completion values must be explicit booleans; a missing isolated
 > completion value remains measurement-invalid instead of becoming a regression.
@@ -62,6 +104,71 @@
 > exit code, even when it can still write a partial diagnostic summary.
 
 This guide is intended primarily for AI agents investigating skill evaluation failures, though humans will find it useful too. It documents the `results.json` schema, common failure patterns, and recommended fixes.
+
+## Workflow-package evaluation
+
+Individual gh-aw package manifests are accepted by `skill-validator evaluate`.
+Their raw results use `skillKind: workflow`; CI adaptation sets
+`evaluationLane: workflow-prompt-sdk`. The baseline has no workflow instructions
+or package resources. The isolated arm loads the real workflow and imported
+Markdown bodies with installed resources; the package arm additionally registers
+the bundled agents. The synthetic primary persona is `workflow.<package>` so it
+does not collide with a bundled agent with the package's name.
+
+This lane measures offline decisions and proposed outputs, **not** live Actions
+bootstrap jobs, collector execution, authentication, or GitHub publication.
+Keep compiled-package and trusted-helper checks separate from prompt-quality
+results. Do not interpret an agent's publication claim as execution evidence.
+Shell execution is denied by runtime permission and pre-tool hooks in every
+baseline, isolated, package, and nested model session. File tools remain
+available for evidence inspection and proposal creation; only `result.json` is
+writable in an offline model workspace. Permission hooks and filesystem-provider
+callbacks prevent writes, appends, renames, removals, and new directories from
+altering evidence or installed package resources, including resources outside
+`.github/`. Evaluator-owned session-state I/O, setup,
+and deterministic grader commands are separate from model tool permissions.
+SDK pre-tool events may omit argument paths; the filesystem provider still
+validates every resolved mutation rather than treating missing metadata as a
+write authorization.
+Workflow scenarios record an internal offline-policy marker in baseline criteria
+so cached baselines from a shell-enabled policy are not reused. This is separate
+from an explicit `deny_shell` stimulus constraint, which deliberately requires a
+denial attempt to prove that its negative path was exercised. Ordinary offline
+scenarios need not request a forbidden tool to complete successfully.
+The proposal-only write scope also participates in baseline identity so
+shell-denied but resource-writable baselines cannot be reused.
+
+A missing import/resource or an unresolved prompt expression is a setup failure.
+Provide expression values as strings in the fixture `workflow-context.json`,
+keyed by the exact trimmed expression, for example
+`{"github.event.pull_request.base.sha":"0123456789abcdef"}`. Never substitute
+empty defaults for missing context. A justified workflow noop is an active
+decision scenario, not a `tags.expect_activation: "false"` routing scenario.
+
+All required arms, structured-output graders, pairwise evidence, expected-result
+accounting, and existing completion/activation gates still apply. Saved session
+hashes include the manifest and every installed resource, not just the main
+workflow. Rejudge retains workflow identity. Runtime gh-aw `graders:` metrics
+remain in the actual workflow run's artifacts and are not these A/B verdicts.
+
+Each raw run retains the proposed `result.json` text as
+`metrics.workflowProposalJson` and appends it to `metrics.agentOutput` before
+judging. This prevents a short "done" response from hiding the actual proposal
+from comparison or later investigation. Missing or malformed proposals are
+completion evidence for deterministic graders, not successful defaults. Linked
+files and proposals larger than 1 MiB fail evidence capture explicitly.
+
+Shared `tests/agentic-workflows/` root contracts and grader changes require
+evaluation and select every workflow package; package-local edits remain scoped
+to their owning package. Both same-repository and fork PR status gates recognize
+shared inputs. Fixture integrity uses POSIX relative-path ordering and LF-normalized
+content so Windows and Linux authenticate the same inputs; a digest mismatch is
+not a model-quality failure and must not be bypassed.
+
+The dashboard data generator preserves workflow kind and execution-lane metadata,
+uses exact workflow-persona activation in both benchmark and value aggregates,
+and links to the evaluated package manifest and eval spec. Missing persona
+activation stays unknown rather than borrowing sibling-skill activity.
 
 ## Using this guide with an AI agent
 
@@ -122,7 +229,7 @@ Each verdict contains:
 | Field | Description |
 |-------|-------------|
 | `schemaOwner` / `schemaVersion` | The same legacy schema identity, repeated so standalone `verdict.json` files are self-describing |
-| `skillKind` | `skill` or `agent`; native custom-agent runs set `agent` before CI adaptation |
+| `skillKind` | `skill`, `agent`, or `workflow`; workflow packages use the offline native prompt lane |
 | `skillName` | Compatibility field containing the skill or custom-agent name |
 | `passed` | Overall pass/fail |
 | `scenarios[]` | Array of per-scenario comparisons |
@@ -186,10 +293,12 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > The evaluator captures `GH_TOKEN` or `GITHUB_TOKEN` for its SDK client, then
 > removes both aliases from the process and every setup-command or command-grader
 > child environment.
-> The session filesystem provider stores `session-state/*` under the private
-> config directory, resolves relative file-tool paths from the scenario
-> workspace, limits absolute paths to the private evaluator root, and rejects
-> any reparse-point or symbolic-link component that escapes the selected root.
+> The session filesystem provider stores relative `session-state/*` paths under
+> the private config directory, permits SDK state I/O under the exact absolute
+> client session-state root in the private evaluator root, resolves relative
+> file-tool paths from the scenario workspace, limits all other absolute paths to explicit
+> per-session roots, and rejects any reparse-point or symbolic-link component
+> that escapes the selected root.
 > Evaluator clients use a process-private directory under the system temp
 > directory as their SDK filesystem root because the shared client is created
 > before per-scenario `sv-*` workspaces. Fixtures and staged skills are created
@@ -224,7 +333,8 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > When `args` is absent, the command remains a shell string so existing quoting,
 > redirection, and compound-command behavior stays compatible.
 
-> **Denied-shell native scenarios:** A stimulus with `deny_shell: true` keeps
+> **Denied-shell native scenarios:** A stimulus with the quoted string tag
+> `tags.deny_shell: "true"` keeps
 > shell tools available but rejects their execution through evaluator-owned
 > pre-tool and permission callbacks in every arm, including nested-agent
 > callbacks. Run-command aliases such as `execute`, `bash`, and `powershell`
@@ -326,8 +436,8 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 | Option | Description |
 |--------|-------------|
 | `timeout` | Maximum wall-clock time per run in seconds. Default is 120 seconds if omitted. Increase when skilled runs time out. |
-| `reject_tools` | Array of tool names that will cause the run to fail if they are used (e.g., `["bash", "edit"]`). This is enforced as a post-run assertion in the validator (it does not sandbox or block the tool calls), and is useful to force the agent to explain rather than explore/build, leveling the playing field between baseline and skilled runs. |
-| `deny_shell` | Native lane only: opt-in boolean on a stimulus (or legacy scenario). Rejects actual shell execution while preserving independent file permissions, and requires an evaluator-recorded rejection before the denial scenario can pass. Default: `false`. |
+| `tool-calls.config.disallowed` | Vally grader list of tool names that will cause the run to fail if they are used (for example, `["bash", "edit"]`). This is a post-run assertion; it does not sandbox or block the calls. |
+| `tags.deny_shell` | Native lane only: quoted string tag (`"true"` or `"false"`). `"true"` rejects actual shell execution while preserving independent file permissions and requires an evaluator-recorded rejection before the scenario can pass. |
 | `setup.files` | Array of files to create before the run. Gives the agent concrete code to work with, reducing variance from different scaffolding strategies. |
 
 ## Common failure patterns
@@ -345,7 +455,7 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 **Fixes:**
 - **Increase `timeout`** in `eval.yaml` — 180s is often not enough for scenarios that involve code generation. Try 360s.
 - **Restructure the prompt** to discourage bash exploration (e.g., "Show me the code" rather than "Create a project")
-- **Add `reject_tools: ["bash"]`** if the scenario should be answerable without shell commands
+- **Add a `tool-calls` grader with `config.disallowed: ["bash"]`** if the scenario should be answerable without shell commands
 
 **In CI:** a required arm that times out makes the whole eval
 measurement-invalid, even when every other scenario produced clean evidence. The
@@ -494,7 +604,9 @@ empty set and report a clean run.
 > - Mark reference / agent-orchestrated skills that are never meant to be
 >   model-invoked from a user prompt with `disable-model-invocation: true`.
 >   The CLI drops them from the menu entirely, freeing budget for the skills
->   that should be discoverable. (They remain invocable by explicit name.)
+>   that should be discoverable. Consumers read their supplied or staged catalog
+>   files and bundled references directly; these reference-only skills are not
+>   callable through the model's skill tool, even by explicit name.
 > - Reduce the plugin's aggregate skill-menu footprint so its model-invocable
 >   skills fit under the budget. The `check` command enforces this via
 >   `SkillProfiler.MaxRenderedSkillMenuLength` (15,000), summing each
@@ -542,7 +654,7 @@ empty set and report a clean run.
 **Cause:** The model already knows this topic well from training data. The skill can't improve on an already-excellent answer, and the overhead of loading the skill (extra tokens, tool calls) causes a net regression.
 
 **Fixes:**
-- **Add a `reject_tools` constraint** (e.g., `["bash", "edit"]`) so the eval fails if either baseline or skilled agent uses those tools — this keeps the comparison focused on answer quality instead of tool-induced overhead
+- **Add a `tool-calls` grader with `config.disallowed`** (for example, `["bash", "edit"]`) so the eval fails if either baseline or skilled agent uses those tools. This keeps the comparison focused on answer quality instead of tool-induced overhead.
 - **Make the scenario harder** so the baseline struggles — add complexity, edge cases, or constraints that require the skill's specific knowledge
 - **Rewrite the prompt** to be purely diagnostic (e.g., "Don't modify any files — just explain the root cause") to prevent the agent from spending time on tool calls
 - **Remove the scenario** if the model consistently scores 5.0/5 without the skill — it isn't testing the skill's value
@@ -554,7 +666,7 @@ Most failing scenarios match 2–3 patterns simultaneously (e.g., timeout + toke
 1. **Timeouts (#1)** — if the model can't finish, nothing else matters. Increase timeout first.
 2. **Skill not activated (#5)** — if the skill never loaded, fix the description before tuning anything else.
 3. **Baseline already bad (#2)** — if the baseline scores ≤2.0/5, the scenario may need simplification regardless of the skill.
-4. **Baseline already good (#8)** — if the baseline scores ≥4.5/5, consider adding `reject_tools`, making the scenario harder, or removing it.
+4. **Baseline already good (#8)** — if the baseline scores ≥4.5/5, consider adding a disallowed `tool-calls` grader, making the scenario harder, or removing it.
 5. **High variance (#3)** — if `perRunScores` are unstable, a single eval run is unreliable. Re-run before concluding the skill is broken.
 6. **Rubric/judgment issues (#6, #7)** — once the runs are stable, tune the rubric.
 7. **Token overhead (#4)** — only optimize if quality is already good but the weighted score is marginally negative.
@@ -575,7 +687,7 @@ When investigating failures, the goal is to **make the skill more useful to user
 - Relaxing rubric criteria so both runs score higher for less
 - Rewriting rubric items to match what the skill *happens* to produce rather than what a good answer *should* contain
 - Softening prompt expectations to avoid exposing a real skill weakness
-- Adding `reject_tools` to hide behavioral divergences between baseline and skilled runs (e.g., baseline explains while skilled run edits files — constraining tools makes the scores converge but doesn't fix the underlying issue)
+- Adding disallowed tool-call checks to hide behavioral divergences between baseline and skilled runs (for example, baseline explains while the skilled run edits files). Constraining tools makes the scores converge but does not fix the underlying issue.
 
 ### Gray area (use judgment)
 

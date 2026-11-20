@@ -185,8 +185,11 @@ or why the available evidence cannot verify an exact fix.}
 {commits, PRs, issues, or "None found"}
 
 ---
-<sub>🔍 [Investigation Run #{run_number}]({run_url}) · Dispatched by health check · {correlation_id}</sub>
+<sub>🔍 [Investigation Run #{workflow_run_id}]({run_url}) · Dispatched by health check · {correlation_id}</sub>
 ```
+
+Use the numeric `workflow-run-id` from the GitHub context for
+`{workflow_run_id}` and in `{run_url}`.
 
 ### Confidence Level Guidelines
 

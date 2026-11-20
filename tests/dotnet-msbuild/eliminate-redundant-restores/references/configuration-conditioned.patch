@@ -1,0 +1,13 @@
+diff --git a/configuration-conditioned/ci.yml b/configuration-conditioned/ci.yml
+--- a/configuration-conditioned/ci.yml
++++ b/configuration-conditioned/ci.yml
+@@ -1,7 +1,7 @@
+ steps:
+-  - script: dotnet restore tests/Contoso.Tests/Contoso.Tests.csproj
++  - script: dotnet restore tests/Contoso.Tests/Contoso.Tests.csproj -p:Configuration=Release
+     displayName: Restore
+-  - script: dotnet build tests/Contoso.Tests/Contoso.Tests.csproj -c Release
++  - script: dotnet build tests/Contoso.Tests/Contoso.Tests.csproj -c Release --no-restore
+     displayName: Build
+   - script: dotnet test tests/Contoso.Tests/Contoso.Tests.csproj -c Release --no-build
+     displayName: Test

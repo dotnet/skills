@@ -1,0 +1,60 @@
+{
+  "schema_version": "1",
+  "repository": "fixture/repo",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "git_object_format": "sha1",
+  "config_digest": "49ea7b693a67dd367e3d4fbdcae49587e4b5859e35276047b5ce6538df59497d",
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "candidate_id": "82806cf9c1deb91a358e9bd71324a0a56bc34f18b6cedd47dd361325d079fdad",
+      "stable_owner_id": "32b92be85729b323acf7b5a795485e81dfcb12c4d1d9b74d2c1e6957682cea3f",
+      "path": "repo/Tests.cs",
+      "blob_oid": "a1a6717ec6071d74d53227d1d897075a5513c8e1",
+      "source_sha256": "96a34e894da16b831fef70022c2c79ec441fa61586f9364eba27e894c127bd78",
+      "attribute_span": {
+        "start": 43,
+        "length": 52,
+        "start_line": 4,
+        "start_column": 6,
+        "end_line": 4,
+        "end_column": 58
+      },
+      "attribute_text_sha256": "097f130ae95da5c3ad89b3dcc8f068cb2806a06dd91b5a2e0642384bd4c3da73",
+      "attribute_type": "Microsoft.VisualStudio.TestTools.UnitTesting.IgnoreAttribute",
+      "owner": {
+        "kind": "method",
+        "namespace": "Demo",
+        "containing_types": [
+          "Different"
+        ],
+        "type_fqn": "Demo.Different",
+        "declaration_id": "M:Demo.Different.Count()",
+        "method_name": "Count",
+        "method_signature": "Count()",
+        "test_fqns": [
+          "Demo.Different.Count"
+        ]
+      },
+      "canonical_issue_references": [
+        {
+          "kind": "issue",
+          "owner": "fixture",
+          "repo": "repo",
+          "number": 108,
+          "canonical": "fixture/repo#108",
+          "url": "https://github.com/fixture/repo/issues/108",
+          "eligibility": true,
+          "state": "closed",
+          "state_reason": "completed",
+          "merged_at": null
+        }
+      ],
+      "decision": {
+        "eligible": true,
+        "deferrals": []
+      }
+    }
+  ],
+  "manifest_digest": "0a17f78318b73fcf4ce389618b04b93519df314e8e7358f4e8b7fb404d658000"
+}

@@ -210,6 +210,14 @@ RSpec.describe ContosoBilling::InvoiceService do
       expect { service.mark_as_paid(1) }.to raise_error(StandardError, /already paid/)
       expect(repository).not_to have_received(:update)
     end
+
+    it 'raises KeyError and does not update a missing invoice' do
+      allow(repository).to receive(:find).with(999).and_return(nil)
+      allow(repository).to receive(:update)
+
+      expect { service.mark_as_paid(999) }.to raise_error(KeyError, 'Invoice 999 not found.')
+      expect(repository).not_to have_received(:update)
+    end
   end
 end
 ```
@@ -257,18 +265,18 @@ The InvoiceRepository class does not implement the instance method: find_by_id
 ### Results
 | Metric         | Value |
 |----------------|-------|
-| Tests created  | 9     |
-| Tests passing  | 9     |
+| Tests created  | 10    |
+| Tests passing  | 10    |
 | Tests failing  | 0     |
 | Files created  | 1     |
 
 ### Files Created
-- `spec/contoso_billing/invoice_service_spec.rb` (9 RSpec examples)
+- `spec/contoso_billing/invoice_service_spec.rb` (10 RSpec examples)
 
 ### Coverage
 - InvoiceService#calculate_total — 3 happy path, 2 error cases
 - InvoiceService#get_by_id — found and missing branches
-- InvoiceService#mark_as_paid — success and already-paid branches
+- InvoiceService#mark_as_paid — success, already-paid and missing-invoice branches; error cases do not update the repository
 
 ### Build / Test Validation
 - Syntax: ✅ `ruby -c spec/contoso_billing/invoice_service_spec.rb`

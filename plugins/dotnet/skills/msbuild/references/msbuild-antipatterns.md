@@ -8,6 +8,10 @@ Confirm evaluated behavior and exceptions before editing. Preserve framework/pac
 intentional overrides, item metadata, and public/output contracts. Legacy project-system
 migration is a separate task, not an automatic consequence of finding verbose XML.
 
+For framework-conditioned shared XML, check
+[property versus item evaluation in AP-21](antipatterns/additional-antipatterns.md#ap-21-an-early-property-condition-reads-targetframework-too-soon)
+before treating an early import as proof that both conditions are wrong.
+
 ## AP-01: Exec for operations with built-in tasks
 
 **Smell:** shell `mkdir`, `copy`, or `del` commands in a target.
@@ -151,6 +155,10 @@ preserved. `Update` modifies an existing item; it does not add a missing one.
 **F# is order-dependent.** Keep explicit `.fsproj` compile items in dependency order. An `.fsi`
 signature must immediately precede its matching `.fs`; the entry point is last. Do not apply C#
 implicit-glob cleanup to F#.
+
+The standard F# SDK already disables default compile items. Do not prescribe
+`EnableDefaultCompileItems=false` as a required repair without evidence that the selected
+SDK/imports actually enable unwanted defaults.
 
 ## AP-06: Package DLL HintPaths instead of package references
 

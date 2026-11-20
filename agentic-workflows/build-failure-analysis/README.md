@@ -62,6 +62,34 @@ Commit both the installed Markdown source and generated `.lock.yml` in the consu
 repository. Future package updates can be pulled with `gh aw update
 build-failure-analysis`; the updater uses a three-way merge to preserve local changes.
 
+## Offline decision evaluation
+
+From a `dotnet/skills` checkout:
+
+```powershell
+dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate `
+  agentic-workflows/build-failure-analysis/aw.yml `
+  --tests-dir tests/agentic-workflows --runs 1 --verdict-warn-only
+```
+
+The ten scenarios use committed binary-log query snapshots, matching source,
+collector context, and simulated current PR state. The native prompt lane
+loads the packaged prompt/import bodies and agent, stages runtime resources
+at their installed `.github` paths, and grades proposed actions in
+`result.json`. It covers cross-leg grouping, warning promotion, missing logs,
+partial evidence, silent process failures, feed uncertainty, non-build
+no-ops, and head/merge freshness.
+
+This is offline decision evidence, not binary-log MCP execution, artifact
+retrieval, an Actions bootstrap, or safe-output publication. See
+[`tests/agentic-workflows`](../../tests/agentic-workflows/README.md) for the
+result contract and deterministic grader regression command. Results are
+labelled `skillKind=workflow`, `evaluationLane=workflow-prompt-sdk`.
+The lane is **not gh-aw Actions E2E**. Only main/imported Markdown bodies are
+composed as prompts; frontmatter jobs/steps are not executed. Each case stages
+flat string-valued expression context plus simulated runtime-variable and
+collector evidence.
+
 ## Provenance
 
 This package vendors the workflow, shared imports, and analyst agent from

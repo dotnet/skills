@@ -1,0 +1,18 @@
+Invocation: dotnet msbuild Build.proj -m:8
+Build wall-clock: 120000 ms.
+Task Performance Summary: Exec 20000 ms, 10 calls.
+The ten inventory-tool --version calls have identical inputs and outputs.
+They belong to the Inventory branch; their consumers finish at t=25000 ms.
+
+Timeline:
+Build starts both branches at t=0.
+Inventory branch: version probes and reporting, t=0..25000 ms.
+Compiler branch: required compile/link work, t=0..120000 ms.
+Final join waits for both branches. Inventory uses otherwise idle nodes and
+has no resource contention or dependency edge to the Compiler branch.
+No cache, artifact or value from Inventory is consumed by Compiler.
+
+The proposed wrapper probe takes 2000 ms before both branches start.
+An alternative computes it once at the start of the Inventory branch.
+Either way, all ten consumers need the unchanged version string.
+There has been no post-change build or measurement.

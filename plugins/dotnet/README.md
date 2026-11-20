@@ -19,8 +19,10 @@ Prerequisites:
 
 ## Skills
 
+- [csharp-expert](skills/csharp-expert/SKILL.md)
 - [csharp-refactoring](skills/csharp-refactoring/SKILL.md)
-- [msbuild](skills/msbuild/SKILL.md)
+- [msbuild](skills/msbuild/SKILL.md) — routed MSBuild diagnosis, performance, and authoring guidance
+- [dotnet-breaking-changes](skills/dotnet-breaking-changes/SKILL.md)
 - [setup-local-sdk](skills/setup-local-sdk/SKILL.md)
 
 ### MSBuild entry and specialist skills
@@ -50,3 +52,42 @@ and outcomes without prescribing which overlapping skill must win selection.
 Point `EXPERIMENT_FILE` at that experiment when running `eng/run-skill-evals.sh dotnet msbuild`.
 Inspect its activation traces for duplicate workflows and out-of-scope activation;
 the isolated arm's dormancy contract alone does not prove cross-plugin routing.
+
+### C# expert marketplace routing
+
+`csharp-expert` routes a .NET request to an installed specialist or identifies the smallest
+`dotnet/skills` marketplace plugin that supplies a missing specialist. Its normal eval covers
+solution detection, marketplace acquisition, fallback behavior, and dormancy.
+
+The supplemental
+[`csharp-expert-coexistence.experiment.yaml`](../../csharp-expert-coexistence.experiment.yaml)
+and
+[`csharp-expert-coexistence.claude.experiment.yaml`](../../csharp-expert-coexistence.claude.experiment.yaml)
+load representative marketplace specialists in the plugin arm for GPT- and Claude-family executors.
+Run either without a skill filter:
+
+```bash
+EXPERIMENT_FILE=./csharp-expert-coexistence.experiment.yaml ./eng/run-skill-evals.sh
+EXPERIMENT_FILE=./csharp-expert-coexistence.claude.experiment.yaml ./eng/run-skill-evals.sh
+```
+
+Inspect the plugin-arm activation traces to confirm that installed specialists are invoked without
+installation advice. This is trace evidence rather than a shared output grader because the
+target-only arm may legitimately identify a missing specialist after completing a safe fallback.
+
+### Refactoring and compatibility co-loading
+
+`csharp-refactoring` owns structural edits and hands compatibility decisions to
+`dotnet-breaking-changes` when the edit crosses a consumer boundary, including an `internal`
+member exposed through `InternalsVisibleTo`. The supplemental
+[`csharp-refactoring-coexistence.experiment.yaml`](../../csharp-refactoring-coexistence.experiment.yaml)
+and
+[`csharp-refactoring-coexistence.claude.experiment.yaml`](../../csharp-refactoring-coexistence.claude.experiment.yaml)
+install both skills in the skilled arm and the full `dotnet` plugin in the plugin arm. Their
+`skill-invocation` graders require both skills for a single-target friend-visible rename and reject
+`dotnet-breaking-changes` for a private single-target app rename:
+
+```bash
+EXPERIMENT_FILE=./csharp-refactoring-coexistence.experiment.yaml ./eng/run-skill-evals.sh
+EXPERIMENT_FILE=./csharp-refactoring-coexistence.claude.experiment.yaml ./eng/run-skill-evals.sh
+```

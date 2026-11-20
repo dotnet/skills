@@ -1,0 +1,18 @@
+diff --git a/ManualClock/Program.cs b/ManualClock/Program.cs
+--- a/ManualClock/Program.cs
++++ b/ManualClock/Program.cs
+@@ -3,2 +3,2 @@
+-var stamps = new TimestampReader().ReadPair();
++var stamps = new TimestampReader(TimeProvider.System).ReadPair();
+ Console.WriteLine($"{stamps.First:O} / {stamps.Second:O}");
+diff --git a/ManualClock/TimestampReader.cs b/ManualClock/TimestampReader.cs
+--- a/ManualClock/TimestampReader.cs
++++ b/ManualClock/TimestampReader.cs
+@@ -3,5 +3,5 @@
+-public sealed class TimestampReader
++public sealed class TimestampReader(TimeProvider timeProvider)
+ {
+     public (DateTime First, DateTime Second) ReadPair() =>
+-        (DateTime.UtcNow, DateTime.UtcNow);
++        (timeProvider.GetUtcNow().UtcDateTime, timeProvider.GetUtcNow().UtcDateTime);
+ }
