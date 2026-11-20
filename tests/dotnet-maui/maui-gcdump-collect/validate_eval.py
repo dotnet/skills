@@ -390,6 +390,93 @@ def main():
                                for c in commands), "export ANDROID_SERIAL=R58M123; (route)"
                     equivalent_count += 1
                     plan_path.write_text(original)
+                    # The reviewer-reported form: ANDROID_SERIAL is exported in a
+                    # separate, semicolon-terminated statement BEFORE the
+                    # no-overwrite guard clause rather than as a direct prefix on
+                    # the guard/invocation itself. The guard clause ("test ! -e
+                    # ...") must still be correctly isolated from that earlier,
+                    # already-completed export statement -- not fused into one
+                    # combined "chain" that no longer matches the expected guard
+                    # shape -- and the export itself must still resolve.
+                    semicolon_export_before_guard = copy.deepcopy(plan)
+                    semicolon_export_before_guard["commands"]["collect"] = [
+                        "export ANDROID_SERIAL=R58M123; " + cmd.replace(
+                            "ANDROID_SERIAL=R58M123 dotnet-gcdump collect",
+                            "dotnet-gcdump collect")
+                        for cmd in plan["commands"]["collect"]
+                    ]
+                    plan_path.write_text(json.dumps(semicolon_export_before_guard))
+                    assert all(run(c, workspace, shell=True).returncode == 0
+                               for c in commands), (
+                        "export ANDROID_SERIAL=R58M123; guard (collect)"
+                    )
+                    equivalent_count += 1
+                    plan_path.write_text(original)
+                    # The documented standalone finer-control router alternative
+                    # (references/android.md): a separately-started
+                    # "dotnet-dsrouter android" router (not the self-managing
+                    # "--dsrouter android" collect-route shape at all), with
+                    # collect attaching by a captured PID instead of a device
+                    # serial, and cleanup explicitly stopping the router it
+                    # started. This full alternate plan shape must be accepted.
+                    standalone_plan = copy.deepcopy(plan)
+                    standalone_plan["commands"]["route"] = [
+                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android"
+                    ]
+                    standalone_plan["commands"]["collect"] = [
+                        'PID=$(dotnet-gcdump ps | head -n1); '
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect -p "$PID" '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    standalone_plan["commands"]["cleanup"] = [
+                        "kill $ROUTER_PID 2>/dev/null; echo done"
+                    ]
+                    plan_path.write_text(json.dumps(standalone_plan))
+                    assert all(run(c, workspace, shell=True).returncode == 0
+                               for c in commands), "standalone router accepted plan"
+                    equivalent_count += 1
+                    plan_path.write_text(original)
+                    # Reusing the self-managing --dsrouter route/collect PAIR
+                    # once collect already attaches by PID (no --dsrouter at
+                    # all expected in standalone mode) must still be rejected.
+                    standalone_still_dsrouter = copy.deepcopy(standalone_plan)
+                    standalone_still_dsrouter["commands"]["collect"] = [
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect --dsrouter android -p "$PID" '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    mutations.append(standalone_still_dsrouter)
+                    # Attaching by the DEVICE/app PID (the already-banned
+                    # literal "-p 2841" host-attach confusion) must still be
+                    # rejected even inside an otherwise standalone-shaped plan.
+                    standalone_device_pid = copy.deepcopy(standalone_plan)
+                    standalone_device_pid["commands"]["collect"] = [
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect -p 2841 '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    mutations.append(standalone_device_pid)
+                    # Any hardcoded bare-digit PID guess (not captured/
+                    # correlated to the router this same plan started) must
+                    # be rejected, not only the specific device-app PID 2841.
+                    standalone_guessed_pid = copy.deepcopy(standalone_plan)
+                    standalone_guessed_pid["commands"]["collect"] = [
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect -p 31337 '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    mutations.append(standalone_guessed_pid)
+                    # A standalone router is a separate, long-lived process
+                    # that --dsrouter android never starts and never tears
+                    # down automatically; cleanup that omits stopping/killing
+                    # it (or even mentioning the router at all) must still be
+                    # rejected.
+                    standalone_no_cleanup = copy.deepcopy(standalone_plan)
+                    standalone_no_cleanup["commands"]["cleanup"] = [
+                        "echo done"
+                    ]
+                    mutations.append(standalone_no_cleanup)
                 if stimulus["tags"]["capability"] == "ios-live-usb-route":
                     # The self-managing --dsrouter ios route always targets the
                     # physical device's usbmux port 9000 with no offset; a plan
@@ -571,6 +658,25 @@ def main():
                     cmd + '; true' for cmd in plan["commands"]["validate"]
                 ]
                 mutations.append(masked_report_semicolon_true)
+                # Piping report's own output into another command (e.g. "| cat")
+                # makes the clause's real exit status that of the LAST pipeline
+                # stage, not report's own, even though the report text itself is
+                # still textually present and neither "|| true" nor "|| :" nor a
+                # trailing ";"-joined follow-up appears anywhere.
+                masked_report_piped = copy.deepcopy(plan)
+                masked_report_piped["commands"]["validate"] = [
+                    cmd + ' | cat' for cmd in plan["commands"]["validate"]
+                ]
+                mutations.append(masked_report_piped)
+                # A report command ending in a bare trailing "&" is backgrounded:
+                # the shell reports status 0 immediately regardless of whether
+                # the backgrounded report later succeeds or fails, so its real
+                # outcome can never propagate to the overall validate step.
+                masked_report_backgrounded = copy.deepcopy(plan)
+                masked_report_backgrounded["commands"]["validate"] = [
+                    cmd + ' &' for cmd in plan["commands"]["validate"]
+                ]
+                mutations.append(masked_report_backgrounded)
                 for mutant in mutations:
                     plan_path.write_text(json.dumps(mutant))
                     assert any(run(c, workspace, shell=True).returncode != 0

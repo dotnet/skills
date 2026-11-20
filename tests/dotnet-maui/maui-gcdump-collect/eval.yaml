@@ -48,16 +48,34 @@ stimuli:
             q = "\n".join(c["collect"])
             v = "\n".join(c["validate"])
             x = "\n".join(c["cleanup"])
+            sq = chr(39)
+            dq = chr(34)
             route_mode = re.search(r"--dsrouter\s+(\S+)", r)
-            collect_mode = re.search(r"--dsrouter\s+(\S+)", q)
-            assert route_mode and collect_mode and route_mode.group(1) == collect_mode.group(1) == "android"
-            assert "after-navigation.gcdump" in r and "after-navigation.gcdump" in q
+            # The prompt explicitly permits EITHER the default self-managing
+            # "dotnet-gcdump ... --dsrouter android" route (route and collect
+            # share one --dsrouter-mode invocation) OR a separately-started
+            # finer-control "dotnet-dsrouter android" router attached to by
+            # PID (references/android.md, the "Route and approved preparation"
+            # section) -- the self-managing route own artifact-in-route,
+            # serial-resolution and forbidden-IPC assumptions must not be
+            # applied verbatim to the standalone-router alternative.
+            standalone_router = re.search(r"(?<!--)\bdotnet-dsrouter\s+android\b", r) is not None
+            assert (route_mode and route_mode.group(1) == "android") or standalone_router, "route must establish the device route via either the self-managing " + dq + "dotnet-gcdump collect --dsrouter android" + dq + " command or the standalone " + dq + "dotnet-dsrouter android" + dq + " finer-control router"
+            if route_mode and route_mode.group(1) == "android":
+                collect_mode = re.search(r"--dsrouter\s+(\S+)", q)
+                assert collect_mode and collect_mode.group(1) == "android", "collect must reuse the SAME self-managing --dsrouter android mode route established"
+                assert "after-navigation.gcdump" in r and "after-navigation.gcdump" in q
+            else:
+                assert "--dsrouter" not in q, "collect must attach to the already-started standalone router by PID (dotnet-gcdump collect -p <PID>), not also start a second self-managing --dsrouter route"
+                assert re.search(r"dotnet-gcdump\s+collect\b", q) and re.search(r"(?:^|\s)-p\s+\S", q), "a standalone-router collect must attach via " + dq + "dotnet-gcdump collect -p <PID>" + dq + ", correlated to the router this plan itself started"
+                pid_match = re.search(r"-p\s+(\S+)", q)
+                assert pid_match and not pid_match.group(1).strip(dq + sq).isdigit(), "the attach PID must come from a captured, correlated value (e.g. a variable set from " + dq + "dotnet-gcdump ps" + dq + " or the printed router PID), not a hardcoded guess"
+                assert "after-navigation.gcdump" in q
+                assert re.search(r"(?i)\b(stop|kill|terminate)\b", x) or "dotnet-dsrouter" in x, "a standalone finer-control router is a separate long-lived process that --dsrouter android never starts -- cleanup must stop it explicitly, unlike the self-managing route which tears itself down automatically"
             assert "dotnet-gcdump collect" in q and "--timeout" in q
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v
             a = r + q + v + x
             did = p["device_id"]
-            sq = chr(39)
-            dq = chr(34)
             
             def split_clauses(text):
                 # Split into the top-level clauses real POSIX sequencing
@@ -116,7 +134,18 @@ stimuli:
                     cur.append(c)
                     i += 1
                 clauses.append((sep, "".join(cur)))
-                return [(s, c.strip()) for s, c in clauses if c.strip()]
+                filtered = [(s, c.strip()) for s, c in clauses if c.strip()]
+                # A trailing "&" with nothing after it backgrounds the
+                # preceding clause and leaves an empty final clause that the
+                # filter above would otherwise silently drop, losing the only
+                # record that the real last clause was backgrounded -- a bare
+                # trailing ";" (or no trailing operator at all) is still a
+                # safe terminator with nothing left to run, so only "&" needs
+                # to be re-attached as an empty marker entry for callers
+                # (e.g. report_status_propagates) to detect.
+                if clauses and clauses[-1][0] == "&" and not clauses[-1][1].strip():
+                    filtered.append(("&", ""))
+                return filtered
             
             assign_re = re.compile(
                 r"^(export\s+)?([A-Za-z_][A-Za-z0-9_]*)="
@@ -186,7 +215,7 @@ stimuli:
                     return before_vals.get(ref, "")
                 return val
             
-            def invocation_values(name, text):
+            def invocation_values(name, text, invocation_pattern=r"dotnet-gcdump\s+collect\b"):
                 # Walk clauses in true left-to-right execution order,
                 # tracking each variables resolved value and whether it has
                 # ever been exported, and return a value for EVERY clause
@@ -239,7 +268,7 @@ stimuli:
                         n: (resolve_value(v, k, before_vals, clause_assigned_names), exp)
                         for n, v, k, exp in assigns
                     }
-                    if re.search(r"dotnet-gcdump\s+collect\b", rest):
+                    if re.search(invocation_pattern, rest):
                         if name in resolved:
                             found.append(resolved[name][0])
                         elif name in global_exported:
@@ -266,7 +295,7 @@ stimuli:
                                     global_exported.add(n)
                 return found
             
-            def resolves(name, commands_list, expected):
+            def resolves(name, commands_list, expected, invocation_pattern=r"dotnet-gcdump\s+collect\b"):
                 # Each "commands" array entry is evaluated with its OWN
                 # fresh state, never carried over from a prior entry: a JSON
                 # array of separate command strings guarantees nothing about
@@ -277,11 +306,59 @@ stimuli:
                 # single paste and is handled by invocation_values above.
                 found_any = False
                 for entry in commands_list:
-                    for val in invocation_values(name, entry):
+                    for val in invocation_values(name, entry, invocation_pattern):
                         found_any = True
                         if val is None or val != expected:
                             return False
                 return found_any
+            
+            def pipe_safe_report(clause):
+                # Split THIS ONE clause on bare top-level "|" (not "||",
+                # which split_clauses already consumed at the clause-
+                # boundary level above) while still respecting quotes and
+                # "(" ")" depth, and require any "dotnet-gcdump report"
+                # invocation to be the LAST stage of the pipeline -- without
+                # "set -o pipefail" (not assumed here) a pipelines real
+                # exit status is only that of its LAST stage, so piping
+                # report output into anything else (e.g. "| cat") would
+                # hide a real report/parse failure behind that trailing
+                # exit status of that trailing command, unrelated to report.
+                segs, cur, depth, quote = [], [], 0, None
+                i, n = 0, len(clause)
+                while i < n:
+                    ch = clause[i]
+                    if quote:
+                        cur.append(ch)
+                        if ch == quote:
+                            quote = None
+                        i += 1
+                        continue
+                    if ch in (dq, sq):
+                        quote = ch
+                        cur.append(ch)
+                        i += 1
+                        continue
+                    if ch == "(":
+                        depth += 1
+                        cur.append(ch)
+                        i += 1
+                        continue
+                    if ch == ")":
+                        depth = max(0, depth - 1)
+                        cur.append(ch)
+                        i += 1
+                        continue
+                    if depth == 0 and ch == "|" and clause[i:i + 2] != "||":
+                        segs.append("".join(cur))
+                        cur = []
+                        i += 1
+                        continue
+                    cur.append(ch)
+                    i += 1
+                segs.append("".join(cur))
+                if len(segs) == 1:
+                    return True
+                return not any(re.search(r"dotnet-gcdump\s+report\b", s) for s in segs[:-1])
             
             def report_status_propagates(validate_text):
                 # "dotnet-gcdump report ...; true" already satisfies the
@@ -293,17 +370,23 @@ stimuli:
                 # own text, or trailed solely by "&&"-joined clauses (each
                 # only runs if everything before it -- including report --
                 # already succeeded, so a report failure still short-circuits
-                # them and surfaces as the failure).
+                # them and surfaces as the failure). A report piped into a
+                # later command within the SAME clause (e.g. "report x |
+                # cat") or backgrounded with a trailing "&" is equally
+                # unsafe even when it is textually the last/only clause.
                 clauses = split_clauses(validate_text)
                 reported = False
                 for idx, (sep, clause) in enumerate(clauses):
                     if re.search(r"dotnet-gcdump\s+report\b", clause):
+                        if not pipe_safe_report(clause):
+                            return False
                         reported = True
                         if any(nsep not in ("&&",) for nsep, _ in clauses[idx + 1:]):
                             return False
                 return reported
             
-            assert resolves("ANDROID_SERIAL", c["route"], did) and resolves("ANDROID_SERIAL", c["collect"], did), "route/collect must bind the selected device via a literal ANDROID_SERIAL prefix on the invocation itself, or a " + dq + "$VAR" + dq + " reference to a value assigned -- and, if in a separate, non-prefix statement, EXPORTED -- strictly before the invocation, UNCONDITIONALLY, within that SAME commands-array entry, in true left-to-right shell execution order: a single-quoted reference, a non-exported separate-statement assignment, an assignment reached only via " + dq + "&&" + dq + " or " + dq + "||" + dq + " (not provably executed), an assignment in a different commands-array entry, or a same-clause sibling assignment (left unspecified by POSIX itself, and divergent across real shells) never reliably reaches the invocations actual environment, since neither --dsrouter nor collect accepts a serial flag"
+            route_invocation_pattern = r"dotnet-dsrouter\s+android\b" if standalone_router else r"dotnet-gcdump\s+collect\b"
+            assert resolves("ANDROID_SERIAL", c["route"], did, route_invocation_pattern) and (standalone_router or resolves("ANDROID_SERIAL", c["collect"], did)), "route must always bind the selected device via a literal ANDROID_SERIAL prefix on the invocation itself, or a " + dq + "$VAR" + dq + " reference to a value assigned -- and, if in a separate, non-prefix statement, EXPORTED -- strictly before the invocation, UNCONDITIONALLY, within that SAME commands-array entry, in true left-to-right shell execution order: a single-quoted reference, a non-exported separate-statement assignment, an assignment reached only via " + dq + "&&" + dq + " or " + dq + "||" + dq + " (not provably executed), an assignment in a different commands-array entry, or a same-clause sibling assignment (left unspecified by POSIX itself, and divergent across real shells) never reliably reaches the invocations actual environment; the self-managing collect must bind it the same way since --dsrouter accepts no serial flag, but a standalone-router collect attaches by PID instead and is device-correlated through the router it was started against, not a serial"
             assert report_status_propagates(v), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted"
             assert not any(t in a for t in ("server-server", "adb reverse", "adb -s", "setprop debug.mono.profile", "-ipcs", "-tcps", "AndroidEnableProfiler"))
             assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a
@@ -525,6 +608,18 @@ stimuli:
                 # executability) does not block recognition of the actual guard.
                 if not matched and prefix[-1:] == ["&&"]:
                     chain = prefix[:-1]
+                    # An earlier, semicolon-separated statement preceding the
+                    # "&&" chain (e.g. "export ANDROID_SERIAL=R58M123; test !
+                    # -e ... && <invoke>") is a SEPARATE, already-completed
+                    # command, not part of this guard own "&&"-joined
+                    # clause -- restrict the chain to tokens after the LAST
+                    # top-level ";" (respecting "(" ")" depth, same as
+                    # top_level_clauses) before splitting it on "&&", so that
+                    # unrelated earlier statements cannot fuse into the guard
+                    # clause and make an otherwise-valid guard fail the exact
+                    # token-count/shape match in guard_tests_output.
+                    chain_clauses = top_level_clauses(chain)
+                    chain = chain_clauses[-1] if chain_clauses else []
                     # split chain by top-level "&&" tokens into clauses
                     clauses = [[]]
                     for t in chain:
@@ -779,7 +874,57 @@ stimuli:
                     cur.append(ch)
                     i += 1
                 clauses.append((sep, "".join(cur)))
-                return [(s, cl.strip()) for s, cl in clauses if cl.strip()]
+                filtered = [(s, cl.strip()) for s, cl in clauses if cl.strip()]
+                # See the Android stimulus above: re-attach an empty marker
+                # for a trailing "&" with nothing after it so callers can
+                # still detect that the real last clause was backgrounded,
+                # without affecting a safe bare trailing ";" or no operator.
+                if clauses and clauses[-1][0] == "&" and not clauses[-1][1].strip():
+                    filtered.append(("&", ""))
+                return filtered
+            
+            def pipe_safe_report(clause):
+                # See the Android stimulus above: require any
+                # "dotnet-gcdump report" invocation to be the LAST stage of
+                # any "|" pipeline within its own clause, since a pipelines
+                # real exit status (without "set -o pipefail", not assumed
+                # here) is only that of its last stage.
+                segs, cur, depth, quote = [], [], 0, None
+                i, n = 0, len(clause)
+                while i < n:
+                    ch = clause[i]
+                    if quote:
+                        cur.append(ch)
+                        if ch == quote:
+                            quote = None
+                        i += 1
+                        continue
+                    if ch in (dq, sq):
+                        quote = ch
+                        cur.append(ch)
+                        i += 1
+                        continue
+                    if ch == "(":
+                        depth += 1
+                        cur.append(ch)
+                        i += 1
+                        continue
+                    if ch == ")":
+                        depth = max(0, depth - 1)
+                        cur.append(ch)
+                        i += 1
+                        continue
+                    if depth == 0 and ch == "|" and clause[i:i + 2] != "||":
+                        segs.append("".join(cur))
+                        cur = []
+                        i += 1
+                        continue
+                    cur.append(ch)
+                    i += 1
+                segs.append("".join(cur))
+                if len(segs) == 1:
+                    return True
+                return not any(re.search(r"dotnet-gcdump\s+report\b", s) for s in segs[:-1])
             
             def report_status_propagates(validate_text):
                 # A trailing ";"/"&"-joined clause after the report
@@ -789,11 +934,16 @@ stimuli:
                 # success even with no "|| true"/"|| :" present. Only
                 # accept the report clause being last, or trailed solely by
                 # "&&"-joined clauses (each only runs if everything before
-                # it, including report, already succeeded).
+                # it, including report, already succeeded). A report piped
+                # into a later command (e.g. "report x | cat") or
+                # backgrounded with a trailing "&" is equally unsafe even
+                # when it is textually the last/only clause.
                 clauses = split_clauses(validate_text)
                 reported = False
                 for idx, (sep, clause) in enumerate(clauses):
                     if re.search(r"dotnet-gcdump\s+report\b", clause):
+                        if not pipe_safe_report(clause):
+                            return False
                         reported = True
                         if any(nsep not in ("&&",) for nsep, _ in clauses[idx + 1:]):
                             return False
