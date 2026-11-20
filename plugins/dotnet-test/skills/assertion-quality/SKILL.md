@@ -23,7 +23,7 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 |---------|---------|-------------|
 | Trivial assertions | Test contains only `Assert.IsNotNull(result)` / `assert result is not None` / `expect(x).toBeDefined()` | Test passes but doesn't verify correctness |
 | Single-value obsession | Always check one field or return value | Bugs in unasserted logic slip through |
-| No negative assertions | Never check what shouldn't happen | Regressions sneak in through false positives |
+| Relevant negative behavior is untested | The contract includes rejected or absent outcomes, but no test checks them | Regressions can make invalid input succeed or forbidden effects occur |
 | No state checks | Don't verify object state changes | Missed side-effects or lifecycle issues |
 | No structural checks | Only assert top-level value | Bugs in nested objects go unnoticed |
 | Assertion-free tests | Tests that call but don't verify | Code coverage lies; false security |
@@ -100,9 +100,9 @@ Calculate these metrics for the test suite:
 - **Average assertions per test**: Total assertions / total test methods
 - **Assertion type spread**: Number of distinct assertion categories used across the suite (out of 12)
 - **Tests with zero assertions**: Count and percentage of test methods with no assertions at all
-- **Tests with only trivial assertions**: Count and percentage of tests where every assertion is only a null check or `Assert.IsTrue(true)` — trivial means no meaningful value verification
-- **Tests with self-referential assertions**: Count and percentage of tests whose assertions compare an input to a round-tripped or identity-transformed version of itself (e.g., `Assert.AreEqual(input, Parse(input.ToString()))`) or assert a field against itself (`Assert.AreEqual(dto.Name, dto.Name)`). These are tautological — they verify the plumbing, not the behavior.
-- **Tests with negative assertions**: Count and percentage (target: at least 10% of tests should verify what should NOT happen)
+- **Tests with only trivial assertions**: Count and percentage of tests whose checks do not verify their stated contract. A lone null check is weak when it only proves a value exists, but can fully verify an expected-absence contract.
+- **Tests with self-referential assertions**: Count only assertions whose expected result is derived from the same actual value, such as `Assert.AreEqual(dto.Name, dto.Name)`, or whose input cannot distinguish the claimed transformation from a no-op. A round-trip equality check is valid when the contract is round-trip preservation and the input exercises a real transformation.
+- **Tests with negative assertions**: Count relevant checks for rejected, absent, or forbidden outcomes. Do not target a fixed percentage; recommend one only when a specific behavior in the available contract is otherwise unprotected.
 - **Tests with exception assertions**: Count and percentage
 - **Tests with state/side-effect assertions**: Count and percentage
 - **Tests with structural/deep assertions**: Count and percentage
@@ -118,7 +118,7 @@ Before reporting, calibrate findings:
   meaningful, name the behavior it pins. If you cannot give such a
   counterexample from the test and available production contract, do not
   speculate that the assertion is weak.
-- **Trivial means truly trivial.** A null/None/nil check alone is trivial (`Assert.IsNotNull(result)`, `assert result is not None`, `expect(x).toBeDefined()`). But a null check followed by a meaningful value assertion is not trivial — the null check is a guard before the real assertion. Only flag a test as "trivial" if it has no meaningful value assertions.
+- **Judge null checks against the contract.** A lone `IsNotNull` is weak when the test promises a particular result but never verifies it. A lone `IsNull` can completely verify a promised absence, and `toBeDefined()` can verify a contract that excludes `undefined`. A null guard before further checks does not make the overall test trivial.
 - **Use exact Jest semantics.** `toBeDefined()` rejects only `undefined`;
   `null` does satisfy it, but mention that only when `null` is a realistic
   contract-breaking result. `toMatchObject(expected)` verifies the expected
@@ -135,7 +135,7 @@ Before reporting, calibrate findings:
 - **Snapshot assertions** (`.toMatchSnapshot()`, `syrupy`, `SnapshotTesting`) count as Structural/Deep assertions. Flag stale or never-updated snapshots separately.
 - **Property-based tests** (`@given` Hypothesis, `proptest!`, `forAll` Kotest) generate assertions implicitly through generated cases — count the inner assertion logic, not the outer scaffold.
 - **Don't conflate diversity with volume.** A test with 20 equality assertions has high volume but low diversity. A test with one equality, one null check, and one exception assertion has low volume but good diversity.
-- **Self-referential assertions are not meaningful equality checks.** Asserting that an output equals an input round-trip looks like a real equality assertion but is tautological when the operation under test is expected to be identity. Flag these separately from normal equality assertions. If the test's *purpose* is to verify a round-trip (serialize/deserialize, encode/decode), the assertion is valid — but it should be accompanied by assertions on non-trivial inputs that exercise the transformation.
+- **Distinguish identity from transformation.** Comparing an actual value with itself is tautological. Comparing an input with a round-trip result can be meaningful when preservation is the contract and the input exercises parsing, encoding, serialization, or another transformation. Flag it only when the production contract or test data shows the check cannot distinguish the intended behavior from a defect; do not require unrelated assertions just to increase variety.
 - **Match recommendations to the named behavior.** Formatting tests should pin the
   exact formatted representation, validation tests need rejected inputs, and round-trip
   tests need inputs that exercise escaping, null/empty handling, or another transformation
@@ -163,7 +163,7 @@ Present the analysis in this structure:
    | Assertion type spread         | 5/12   | Low        |
    | Tests with zero assertions    | 3 (12%)| Concerning |
    | Tests with only trivial asserts | 4 (16%)| Acceptable |
-   | Tests with negative assertions | 2 (8%) | Below target |
+   | Tests for relevant rejected/absent outcomes | 2 (8%) | Review against the production contract |
    | Single-category tests         | 15 (60%)| High       |
    ```
 
@@ -204,7 +204,7 @@ Present the analysis in this structure:
 | Pitfall | Solution |
 |---------|----------|
 | Penalizing exception tests for low assertion count | Exception assertions are complete on their own — skip count warnings for these |
-| Flagging null/None/nil checks before value checks as trivial | Only flag tests where the null/None/nil check is the ONLY assertion |
+| Calling every null/None/nil-only test trivial | Check whether presence or absence is itself the promised outcome |
 | Counting any Boolean assertion as trivial | Only always-true assertions (`Assert.IsTrue(true)`, `assert True`, `expect(true).toBe(true)`) are trivial |
 | Ignoring framework differences | Each framework has distinct assertion APIs — always read the matching language extension first. MSTest's `Assert.AreEqual`, xUnit's `Assert.Equal`, NUnit's `Is.EqualTo`, pytest's bare `assert ==`, Jest's `expect().toBe()`, Go's `if … { t.Error… }` all map to the **Equality** category |
 | Treating bare assertion forms as missing-framework | Bare `assert` (pytest), `if got != want { t.Error... }` (Go), and `assert!()` (Rust) are canonical — count them in the right category |
