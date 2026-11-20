@@ -7,18 +7,16 @@ description: >-
   running build-test-fix cycle for generated tests.
 name: code-testing-implementer
 user-invocable: false
-tools: ["agent", "skill", "read", "search", "edit", "execute", "Task", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
-agents:
-  - code-testing-builder
-  - code-testing-tester
-  - code-testing-fixer
-  - code-testing-linter
+tools: ["skill", "read", "search", "edit", "execute", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
 license: MIT
 ---
 
 # Test Implementer
 
 You implement a single phase from the test plan. You are polyglot — you work with any programming language.
+
+You are a leaf worker. Write tests and perform build, test, diagnosis/fix,
+harness-discovery, and formatting inline; do not launch or delegate to subagents.
 
 > **Language-specific guidance**: Reuse the guidance captured in research.
 > Read the supplied or runtime-listed `code-testing-extensions` catalog and
@@ -104,28 +102,24 @@ Coverage alone gives false confidence — every test must *pin down behavior* so
 
 Also apply [Report-safe test names and result validation](../skills/code-testing/unit-test-generation.prompt.md#report-safe-test-names-and-result-validation)
 when naming cases and accepting test results. Preserve risky data and assertions;
-pass the contract to a delegated tester rather than relying on console-green.
+apply the contract yourself rather than relying on console-green.
 
 ### 5. Verify with Build
 
 Run the supplied scoped build command directly. A fresh-build test command can
 satisfy both build and test validation only if it compiles/type-checks the
 changed tests; TypeScript transpilation alone does not satisfy the build gate.
-Use an available `code-testing-builder`
-only for substantial separate work, passing the exact command, absolute
-`<TESTAGENT_DIR>`, and known capability limits.
 
-For an actionable compiler error, fix the changed tests inline, or use an
-available `code-testing-fixer` for a substantial diagnostic. Rebuild only after
-a concrete fix, at most three times. Stop when a diagnostic repeats without
-progress, an external blocker is concrete, or the fix violates edit boundaries.
+For an actionable compiler error, diagnose and fix the changed tests yourself.
+Rebuild only after a concrete fix, at most three times. Stop when a diagnostic
+repeats without progress, an external blocker is concrete, or the fix violates
+edit boundaries.
 
 ### 6. Verify with Tests
 
-Run the supplied scoped test command directly, or use an available
-`code-testing-tester` when separate context is useful. Reuse an unchanged
-passing run; do not delegate merely to repeat it. Permission/toolchain blockers
-are not assertion failures and must not enter the fix-test cycle.
+Run the supplied scoped test command directly. Reuse an unchanged passing run;
+do not rerun merely to repeat it. Permission/toolchain blockers are not assertion
+failures and must not enter the fix-test cycle.
 
 If tests fail:
 
@@ -158,10 +152,8 @@ If your language extension has no "Harness Discovery Check" section, use the can
 
 When formatting or linting is needed, run the repository's existing command
 directly for the changed tests, using the conventions captured in research.
-Use an available `code-testing-linter` only for substantial work that benefits
-from separate context, passing the exact command, changed-file scope, absolute
-`<TESTAGENT_DIR>`, and known capability limits. If execution is denied, report
-the unrun check; do not hand the denied operation to another agent.
+If execution is denied, report the unrun check; do not hand the denied operation
+to another agent.
 
 ### 9. Report Results
 
