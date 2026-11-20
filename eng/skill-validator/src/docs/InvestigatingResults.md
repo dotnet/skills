@@ -7,6 +7,23 @@
 > document describes the raw `skill-validator evaluate` output retained under
 > `_agent-evaluation/` for custom-agent diagnosis and for historical results.
 >
+> Executor success alone is not a quality pass. The current trusted workflow
+> checks complete schema-5 adapted results: objective regressions and activation
+> breaches fail the commit status, while invalid/underpowered evidence is an
+> error. Conclusive no-change remains non-gating but unproven. Older workflows
+> reported executor success as "Evaluation passed" even with objective losses;
+> their green status/triage ping must not override the detailed result artifacts.
+> Updated gating requires the fix on the trusted workflow ref and never
+> retroactively rescales historical results or measures unlanded runner changes.
+> Outcome tooling is explicitly checked out from the repository default branch,
+> including for review events. Missing/non-boolean `conclusive` or `underpowered`
+> fields are malformed evidence, not an implicit quality pass.
+> Conclusive evidence also requires an evaluated activation contract with a
+> boolean `passed`; absent, malformed or unevaluated contracts cannot pass.
+> Target path/model identities must be unique regardless of display name.
+> A conclusive, powered native `target_agent_not_activated` reason fails the
+> activation gate even if its separate dormancy contract passes.
+>
 > The current Vally workflow makes up to two targeted retry passes before
 > adaptation when a required baseline or isolated-skilled record has an exact
 > Vally stimulus wall-clock timeout, a `session.idle` timeout, or the Copilot
@@ -80,6 +97,9 @@ behavior against the corrected executor.
 > filesystem-provider setup before sessions start and shares concurrent startup
 > calls. Session-provider errors are harness failures, not skill-quality verdicts.
 > This does not change the historical result schema documented below.
+> The native rooted-filesystem helper written for Vally 0.14 was retired: Vally
+> 0.20 no longer installs a session filesystem provider, so there is no workspace
+> hook to wrap. See the current Vally guide.
 
 > **Vally schema:** Vally adapter results use an independently owned and
 > versioned schema. Consult the current Vally investigation guide for its

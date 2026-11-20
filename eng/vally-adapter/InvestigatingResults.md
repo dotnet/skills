@@ -64,6 +64,33 @@ evidence merely because its rejection events survived.
 
 > Note: the linter (`skill-validator check`) is a **separate** workflow (`skill-check.yml`) and is unrelated to these eval results.
 
+### Commit status is an outcome gate, not just execution health
+
+The trusted `report-status` job checks every expected `vally-results-*` matrix
+artifact through `outcome-status.mjs`. Missing, malformed, duplicate or incomplete
+accounting produces an error, including missing or non-boolean `conclusive` and
+`underpowered` fields. Conclusive evidence also requires an explicitly evaluated
+activation contract with a boolean `passed`; an omitted, malformed or unevaluated
+contract cannot clear the gate. The status job explicitly checks out the repository's
+default branch, not a review event's PR merge commit, before running tooling with
+the status-writing token. An objective `VALID_REGRESSION` or explicit
+activation-contract failure produces failure, even when the executor job
+succeeded. Invalid or underpowered results without a proven regression produce
+an error, not an improvement claim. A conclusive `VALID_NO_CHANGE` is non-gating
+but is explicitly reported as unproven; only an all-`VALID_PASS` matrix is called
+improved. Preference-only losses remain report-only under the existing policy.
+Each result must also belong to the matrix entry that owns its artifact: the entry's model, and its skills path, workflow package path or agent kind. A passing result for another target or model cannot stand in for the requested one. Uniqueness is keyed on target path and model, not the display name. A powered,
+conclusive native `target_agent_not_activated` reason is an activation failure
+even when the separate dormancy contract passes and state is `VALID_NO_CHANGE`.
+
+Older trusted workflows mapped executor success directly to "Evaluation passed".
+In particular, the October 16 runs for PRs #1277 and #1280 reported five/six
+objective regressions and eight/four invalid or underpowered results despite a
+green status and subsequent maintainer ping. Read their authoritative detailed
+results, not those historical pings. The correction does not rescore old votes,
+retroactively change statuses, or certify unmeasured PR harness changes: the
+trusted workflow must contain this gate before it can apply to a new run.
+
 ## Using this guide with an AI agent
 
 When an evaluation has a non-pass or warning, the PR comment includes a ready-to-use prompt. Copy it to your AI agent. The agent downloads the artifacts, reads this guide, analyzes the `results.json` files, and suggests fixes.
@@ -90,6 +117,32 @@ sessions. It does not reduce trial concurrency or suppress startup failures.
 Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
 `node --test eng/evaluation-tools/*.test.mjs` before removing it.
+
+### Existing workspace files reported missing or native patches rejected
+
+With Vally 0.14 and Copilot runtime 1.0.80, native `view` can report
+`Path does not exist` for a file that a shell reader opens at the exact same
+absolute path. This is not necessarily a missing fixture/reference. Instrumented
+provider calls reproduce the cause: native `view` calls the session-fs provider's
+`stat` with the workspace path, but Vally's `LocalSessionFsHandler` confines paths
+to the separate session-log root and rejects the request as a root escape.
+
+The same mismatch affects native `apply_patch` writes. A read-only repair makes
+`view` work but leaves editing broken: SDK events can show repeated
+`Session filesystem path escapes root` failures before the model falls back to
+shell edits. Inspect `tool.execution_complete.data.error`, not just the shorter
+normalized tool result. This can affect one executor family more than another
+and inflate its turns/cost even when the final answer and comparison complete.
+
+**Retired in this branch:** current main pins Vally 0.20, whose executor creates
+the SDK client without a `sessionFs` provider (`LocalSessionFsHandler` no longer
+exists), so this failure mode and the native rooted-filesystem helper written for
+Vally 0.14 no longer apply. The helper, its Go toolchain staging and the
+`ERR_EVALUATION_WORKSPACE_*` guards were removed rather than ported. This is not
+a claim of new confinement: native tools now use the SDK's own persistence, and
+`approveAll` is still not an adversarial boundary. If a similar `Path does not
+exist`/`escapes root` pattern reappears, inspect `tool.execution_complete.data.error`
+and the executor's session configuration before restoring any provider.
 
 ### Investigation steps
 

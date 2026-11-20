@@ -1,36 +1,21 @@
-# macOS Platform Requirements
+# macOS requirements by target
 
-## Required Components
+Use the project-resolved SDK and workloads, not the latest release by default.
+Check host OS/architecture compatibility for the selected SDK and Xcode.
 
-| Component | Requirement | Notes |
-|-----------|-------------|-------|
-| macOS | Recent version | ARM64 or Intel |
-| .NET SDK | Active support | Query releases-index.json for latest |
-| Xcode | Per WorkloadDependencies | From [Apple Developer Downloads](https://developer.apple.com/download/all/) |
-| Command Line Tools | Match Xcode | `xcode-select --install` |
+| Requested target | Relevant dependencies |
+|---|---|
+| Android | `maui-android`, compatible JDK and Android SDK packages |
+| iOS | `maui-ios`, compatible full Xcode with iOS SDK |
+| Mac Catalyst | `maui-maccatalyst`, compatible Xcode with matching SDK |
+| Full MAUI setup | `maui` convenience workload plus dependencies for requested targets |
 
-## Required Workloads
+Workload dependencies bring required platform packs; don't redundantly install
+every workload ID. Microsoft OpenJDK is recommended/tested for Android; inspect
+the actual selected JDK before judging a different vendor.
 
-| Workload | Required | Purpose |
-|----------|----------|---------|
-| `maui` | ✅ Yes | Core MAUI framework |
-| `android` | ✅ Yes | Android targets |
-| `ios` | ✅ Yes | iOS targets |
-| `maccatalyst` | Recommended | Mac Catalyst targets |
-
-## Android Development
-
-| Component | Source | Notes |
-|-----------|--------|-------|
-| Java JDK | `jdk.version` from WorkloadDependencies | Microsoft OpenJDK **only** |
-| Android SDK | `androidsdk` from WorkloadDependencies | Use packages array |
-| Platform Tools | `androidsdk.packages` | ADB, fastboot |
-| Build Tools | `androidsdk.buildToolsVersion` | AAPT2, dx |
-
-## iOS/macOS Development
-
-| Component | Source | Notes |
-|-----------|--------|-------|
-| Xcode | `xcode.version` from WorkloadDependencies | From iOS workload manifest |
-| iOS SDK | `sdk.version` from WorkloadDependencies | Bundled with Xcode |
-| iOS Simulator | Any | At least one device |
+Xcode is **not** required for an Android-only check. Standalone Apple Command
+Line Tools are not a substitute for full Xcode when building iOS/Mac Catalyst.
+Use the corresponding Apple manifest's `xcode.version` and version-specific
+release guidance. Simulators are needed for requested simulator deployment,
+not every build; device signing is a separate concern.
