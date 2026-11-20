@@ -116,7 +116,7 @@ def main():
         quality.check_unquoted_rubric_code_tokens(relative_spec, raw)
         quality.check_stimulus_names(relative_spec, doc)
         quality.check_skill_constraints(relative_spec, doc)
-        preference = [s for s in doc["stimuli"] if s.get("expect_activation") is not False]
+        preference = [s for s in doc["stimuli"] if quality.stimulus_expects_activation(s)]
         assert len({s["name"] for s in preference}) >= quality.MIN_STIMULI
         untracked = [e for e in quality.errors if "not tracked by git" in e]
         defects = [e for e in quality.errors if e not in untracked]
@@ -274,6 +274,43 @@ def main():
                     # this to make a textual walk see a decoy assignment that
                     # never executes; the grader must REJECT it rather than
                     # trust any assignment reached only via "&&"/"||".
+                    # An assignment that is itself backgrounded with "&" runs
+                    # in a detached child subshell whose exports never reach
+                    # the real parent shell; confirmed against a real
+                    # "sh -c" probe where "export ANDROID_SERIAL=R58M123 &
+                    # wait" leaves the parent's ANDROID_SERIAL empty. A plan
+                    # could rely on this to make a textual walk see a
+                    # trusted assignment that a real shell never actually
+                    # applies to the later invocation.
+                    backgrounded_assignment = copy.deepcopy(plan)
+                    backgrounded_assignment["commands"]["route"] = [
+                        cmd.replace("ANDROID_SERIAL=R58M123 dotnet-gcdump collect",
+                                    "export ANDROID_SERIAL=R58M123 & wait; "
+                                    "dotnet-gcdump collect")
+                        for cmd in plan["commands"]["route"]
+                    ]
+                    mutations.append(backgrounded_assignment)
+                    # A conditional reassignment reached via "&&"/"||" DOES
+                    # actually execute whenever the determinate side is
+                    # taken: confirmed against real "sh -c" probes where
+                    # both "true && export ANDROID_SERIAL=WRONG" and "false
+                    # || export ANDROID_SERIAL=WRONG" leave ANDROID_SERIAL
+                    # set to WRONG, overwriting an earlier correct
+                    # unconditional binding. An earlier trusted value must
+                    # not survive a later conditionally-reached reassignment
+                    # that a real shell would actually apply.
+                    for conditional_reassign in (
+                        "true && export ANDROID_SERIAL=WRONG; ",
+                        "false || export ANDROID_SERIAL=WRONG; ",
+                    ):
+                        conditional_reassignment_invalidates = copy.deepcopy(plan)
+                        conditional_reassignment_invalidates["commands"]["route"] = [
+                            "export ANDROID_SERIAL=R58M123; "
+                            + conditional_reassign
+                            + cmd.replace("ANDROID_SERIAL=R58M123 ", "")
+                            for cmd in plan["commands"]["route"]
+                        ]
+                        mutations.append(conditional_reassignment_invalidates)
                     conditional_skip_decoy = copy.deepcopy(plan)
                     conditional_skip_decoy["commands"]["route"] = [
                         cmd.replace(
@@ -387,6 +424,26 @@ def main():
                     'test ! -e "$PWD/unrelated.gcdump" && ' + capture
                 ]
                 mutations.append(wrong_path)
+                # A single-quoted guard operand is never subject to $VAR expansion by
+                # a real shell -- it names a literal file called "$PWD/..." in the
+                # current directory, not the actual output path. The no-overwrite
+                # grader must compare it literally (rejecting it as not matching the
+                # real output path) rather than blindly expanding $PWD/${PWD} inside
+                # any quote kind.
+                single_quoted_guard_operand = copy.deepcopy(plan)
+                single_quoted_guard_operand["commands"]["collect"] = [
+                    "test ! -e " + chr(39) + "$PWD/after-navigation.gcdump" + chr(39)
+                    + " && " + capture
+                ]
+                mutations.append(single_quoted_guard_operand)
+                # A second, unguarded invocation chained after the first with "&&"
+                # still reaches the collector once the guard passes, and that second
+                # call can silently overwrite or replace the first invocation's
+                # output; the grader must reject any collect-array element invoking
+                # the collector more than once, not only inspect the first match.
+                duplicate_invocation = copy.deepcopy(plan)
+                duplicate_invocation["commands"]["collect"] = [capture + " && " + capture]
+                mutations.append(duplicate_invocation)
                 # Trailing shell control operators after the invocation can mask its
                 # real exit status even though the guard itself is genuine; these must
                 # still be rejected. "&& cleanup" and a bare trailing ";" are NOT in
@@ -466,6 +523,18 @@ def main():
                     '{ (exit 1); }; ' + capture
                 ]
                 mutations.append(masked_form_c_subshell_exit)
+                # Form C with "exit 1 | true": confirmed against a real "sh -c"
+                # probe that a pipeline's own exit status is its LAST stage's, not
+                # an earlier "exit N" stage's, so "exit 1 | true" always exits 0 --
+                # the enclosing script never actually terminates and the trailing
+                # bare ";" still sequences to the collector regardless, same as the
+                # subshell-exit defect above but via a pipe instead of "(...)".
+                masked_form_c_piped_exit = copy.deepcopy(plan)
+                masked_form_c_piped_exit["commands"]["collect"] = [
+                    '[ ! -e "$PWD/after-navigation.gcdump" ] || '
+                    '{ exit 1 | true; }; ' + capture
+                ]
+                mutations.append(masked_form_c_piped_exit)
                 # Form C with "exit 0": the guard genuinely stops the collector (exit
                 # always terminates the script), but reporting success for a skipped
                 # capture is still a defect the no-overwrite grader must reject.
@@ -491,6 +560,17 @@ def main():
                     cmd + ' || true' for cmd in plan["commands"]["validate"]
                 ]
                 mutations.append(masked_report)
+                # A "; true"-joined follow-up masks a real report failure just as
+                # effectively as "|| true" (both leave the overall clause status
+                # success regardless of report's own exit code) but contains neither
+                # the "|| true" nor "|| :" substrings the first grader's literal
+                # checks look for, so only the report_status_propagates helper can
+                # reject it.
+                masked_report_semicolon_true = copy.deepcopy(plan)
+                masked_report_semicolon_true["commands"]["validate"] = [
+                    cmd + '; true' for cmd in plan["commands"]["validate"]
+                ]
+                mutations.append(masked_report_semicolon_true)
                 for mutant in mutations:
                     plan_path.write_text(json.dumps(mutant))
                     assert any(run(c, workspace, shell=True).returncode != 0

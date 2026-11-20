@@ -145,7 +145,7 @@ stimuli:
                     rest = rest[m.end():]
                 return assigns, rest.strip()
             
-            def resolve_value(val, kind, before_vals):
+            def resolve_value(val, kind, before_vals, clause_assigned_names):
                 # A single-quoted value is never subject to $VAR expansion in
                 # a real shell -- compared literally. A bare/double-quoted
                 # "$NAME" reference expands against the variable state as it
@@ -166,10 +166,24 @@ stimuli:
                 # assignments and an unresolved reference expands to an
                 # empty string exactly like the real shells that do not see
                 # it.
+                # A bare/double-quoted "$NAME" reference that names a
+                # variable ALSO being assigned within this SAME clause (a
+                # sibling prefix, not a strictly earlier clause) is the exact
+                # unspecified case above and must resolve as unresolved --
+                # regardless of whether before_vals happens to already hold
+                # an unrelated, earlier, correctly-established value for that
+                # same name from a prior clause. Several real shells (dash,
+                # zsh, ksh) would actually see the siblings own new value
+                # here, not that stale earlier one, so trusting the earlier
+                # value would be just as non-portable as trusting the
+                # sibling.
                 if kind == "single":
                     return val
                 if val.startswith("$"):
-                    return before_vals.get(val[1:], "")
+                    ref = val[1:]
+                    if ref in clause_assigned_names:
+                        return ""
+                    return before_vals.get(ref, "")
                 return val
             
             def invocation_values(name, text):
@@ -205,12 +219,26 @@ stimuli:
                 # else exit 1; fi"); strip exactly one such leading keyword
                 # before looking for prefix assignments, since the keyword
                 # itself is not part of the invoked commands own prefix.
+                # A clause that is itself backgrounded (its OWN following
+                # separator -- not the one preceding it -- is "&") runs its
+                # assignments inside a child subshell that never reaches the
+                # real parent shell this skill actually inherits from, so
+                # that state must not persist either, even though the clause
+                # ran unconditionally in textual sequence (e.g. "export
+                # ANDROID_SERIAL=R58M123 & wait; <collect>" never actually
+                # sets the parent shells ANDROID_SERIAL).
                 keyword_re = re.compile(r"^(?:then|else|do)\s+")
+                clauses = split_clauses(text)
                 global_vals, global_exported, found = {}, set(), []
-                for sep, clause in split_clauses(text):
+                for idx, (sep, clause) in enumerate(clauses):
+                    following = clauses[idx + 1][0] if idx + 1 < len(clauses) else None
                     assigns, rest = leading_assigns(keyword_re.sub("", clause, count=1))
                     before_vals = dict(global_vals)
-                    resolved = {n: (resolve_value(v, k, before_vals), exp) for n, v, k, exp in assigns}
+                    clause_assigned_names = {n for n, _, _, _ in assigns}
+                    resolved = {
+                        n: (resolve_value(v, k, before_vals, clause_assigned_names), exp)
+                        for n, v, k, exp in assigns
+                    }
                     if re.search(r"dotnet-gcdump\s+collect\b", rest):
                         if name in resolved:
                             found.append(resolved[name][0])
@@ -218,11 +246,24 @@ stimuli:
                             found.append(global_vals.get(name))
                         else:
                             found.append(None)
-                    if not rest and sep not in ("&&", "||"):
-                        for n, (rv, exp) in resolved.items():
-                            global_vals[n] = rv
-                            if exp:
-                                global_exported.add(n)
+                    if not rest:
+                        if sep in ("&&", "||"):
+                            # This assignment-only clause might or might not
+                            # actually run (a prior exit status this static
+                            # check cannot know decides that) -- but if it
+                            # DOES run, it really does overwrite any earlier
+                            # trusted value for the same name, so that
+                            # earlier value can no longer be trusted either.
+                            # Never persist the new value and never keep
+                            # trusting the old one.
+                            for n in resolved:
+                                global_vals.pop(n, None)
+                                global_exported.discard(n)
+                        elif following != "&":
+                            for n, (rv, exp) in resolved.items():
+                                global_vals[n] = rv
+                                if exp:
+                                    global_exported.add(n)
                 return found
             
             def resolves(name, commands_list, expected):
@@ -242,7 +283,28 @@ stimuli:
                             return False
                 return found_any
             
+            def report_status_propagates(validate_text):
+                # "dotnet-gcdump report ...; true" already satisfies the
+                # substring checks above (no "|| true"/"|| :" present) but a
+                # trailing ";"/"&"-joined clause after the report invocation
+                # runs regardless of whether report itself failed, silently
+                # converting a real report failure into overall success.
+                # Only accept the report clause being the LAST clause in its
+                # own text, or trailed solely by "&&"-joined clauses (each
+                # only runs if everything before it -- including report --
+                # already succeeded, so a report failure still short-circuits
+                # them and surfaces as the failure).
+                clauses = split_clauses(validate_text)
+                reported = False
+                for idx, (sep, clause) in enumerate(clauses):
+                    if re.search(r"dotnet-gcdump\s+report\b", clause):
+                        reported = True
+                        if any(nsep not in ("&&",) for nsep, _ in clauses[idx + 1:]):
+                            return False
+                return reported
+            
             assert resolves("ANDROID_SERIAL", c["route"], did) and resolves("ANDROID_SERIAL", c["collect"], did), "route/collect must bind the selected device via a literal ANDROID_SERIAL prefix on the invocation itself, or a " + dq + "$VAR" + dq + " reference to a value assigned -- and, if in a separate, non-prefix statement, EXPORTED -- strictly before the invocation, UNCONDITIONALLY, within that SAME commands-array entry, in true left-to-right shell execution order: a single-quoted reference, a non-exported separate-statement assignment, an assignment reached only via " + dq + "&&" + dq + " or " + dq + "||" + dq + " (not provably executed), an assignment in a different commands-array entry, or a same-clause sibling assignment (left unspecified by POSIX itself, and divergent across real shells) never reliably reaches the invocations actual environment, since neither --dsrouter nor collect accepts a serial flag"
+            assert report_status_propagates(v), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted"
             assert not any(t in a for t in ("server-server", "adb reverse", "adb -s", "setprop debug.mono.profile", "-ipcs", "-tcps", "AndroidEnableProfiler"))
             assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a
             assert pathlib.Path("android-session.txt").read_text() == """Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 10.0.750501, installed on host; the --dsrouter switch is present.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n"""
@@ -267,15 +329,44 @@ stimuli:
           command: |
             python3 -c 'import json, os, shlex, re
             
+            class Word(str):
+                # A plain str subclass that additionally remembers how this
+                # one shell word was originally quoted ("single", "double",
+                # or "bare"). Equality/hashing/comparisons against a plain
+                # string still work normally (str.__eq__ is inherited
+                # unchanged); only code that explicitly reads ".quote" sees
+                # the extra information.
+                def __new__(cls, value, quote):
+                    obj = str.__new__(cls, value)
+                    obj.quote = quote
+                    return obj
+            
             def check(path):
                 p = json.load(open(path))
                 commands = p["commands"]["collect"]
                 assert isinstance(commands, list) and commands, "collect must be a non-empty list"
             
                 def tokenize(s):
-                    lex = shlex.shlex(s, posix=True, punctuation_chars=True)
+                    # posix=False keeps each words original quote characters
+                    # in the raw token text (e.g. a single-quoted operand
+                    # stays as "${sq}...${sq}" rather than being silently
+                    # dequoted) so the quote kind can still be recovered
+                    # below; posix=True mode discards that distinction
+                    # entirely, making a literal single-quoted "$PWD/x" token
+                    # indistinguishable from an expanding double-quoted one.
+                    lex = shlex.shlex(s, posix=False, punctuation_chars=True)
                     lex.whitespace_split = True
-                    return expand_puncts(list(lex))
+                    raw = expand_puncts(list(lex))
+                    dq, sq = chr(34), chr(39)
+                    out = []
+                    for t in raw:
+                        if len(t) >= 2 and t[0] == dq and t[-1] == dq:
+                            out.append(Word(t[1:-1], "double"))
+                        elif len(t) >= 2 and t[0] == sq and t[-1] == sq:
+                            out.append(Word(t[1:-1], "single"))
+                        else:
+                            out.append(Word(t, "bare"))
+                    return out
             
                 def expand_puncts(toks):
                     # shlex fuses adjacent punctuation characters with no
@@ -330,22 +421,42 @@ stimuli:
                     # A genuinely nonzero "exit N" only guarantees the real
                     # enclosing script terminates right there if it is the
                     # FIRST thing a top-level (bare ";"-separated) clause
-                    # does: an "exit" gated behind "||"/"&&" only runs if an
+                    # does, AND nothing else trails it in that same clause:
+                    # an "exit" gated behind "||"/"&&" only runs if an
                     # earlier command in the same clause fails/succeeds
                     # (e.g. "printf msg || exit 1" never reaches exit when
-                    # printf itself succeeds, which it normally does), and an
+                    # printf itself succeeds, which it normally does); an
                     # "exit" wrapped in "(...)" only terminates that inner
-                    # subshell, not the actual script -- both must be
-                    # rejected. Requiring "exit" to be clause[0] excludes
-                    # both: a clause opening with "(" or any other command
-                    # cannot satisfy it.
+                    # subshell, not the actual script; and an "exit N | cmd"
+                    # pipeline runs exit in a subshell stage of the pipe, so
+                    # the pipelines own real exit status becomes that of its
+                    # LAST stage ("cmd"), not exit N, meaning the enclosing
+                    # script still does not actually terminate -- all three
+                    # must be rejected. Requiring the clause to be EXACTLY
+                    # "exit N" (two tokens, nothing more) excludes all of
+                    # them: a clause opening with "(" or any other command
+                    # cannot satisfy it, and a clause with any trailing
+                    # operator/command after "exit N" is longer than two
+                    # tokens.
                     for clause in top_level_clauses(block_tokens):
-                        if (len(clause) >= 2 and clause[0] == "exit"
+                        if (len(clause) == 2 and clause[0] == "exit"
                                 and clause[1].isdigit() and 1 <= int(clause[1]) <= 255):
                             return True
                     return False
             
-                norm = lambda value: os.path.abspath(value.replace("$" + "{PWD}", os.getcwd()).replace("$PWD", os.getcwd()))
+                def norm(word):
+                    # A single-quoted shell word is never subject to $VAR
+                    # expansion by a real shell -- it must be compared
+                    # literally, not textually rewritten as if $PWD/${PWD}
+                    # inside it were variables. A bare/double-quoted word
+                    # does expand them. Comparing the wrong way lets a
+                    # single-quoted literal like "${sq}$PWD/x${sq}" (a file
+                    # named literally "$PWD/x" in the current directory)
+                    # pass as if it named the real output path.
+                    quote = getattr(word, "quote", "bare")
+                    if quote == "single":
+                        return os.path.abspath(word)
+                    return os.path.abspath(word.replace("$" + "{PWD}", os.getcwd()).replace("$PWD", os.getcwd()))
             
                 # Locate the single array element that actually invokes the collector,
                 # accepting either the literal binary name or a variable resolved from it
@@ -357,15 +468,24 @@ stimuli:
                     assert isinstance(elem, str)
                     tokens = tokenize(elem)
                     literal_positions = [j for j, t in enumerate(tokens) if t == "dotnet-gcdump" and j + 1 < len(tokens) and tokens[j + 1] == "collect"]
-                    var_pos = None
+                    var_positions = []
                     m = re.search(r"(\w+)=.*dotnet-gcdump", elem)
                     if m:
                         var = m.group(1)
                         for j, t in enumerate(tokens):
                             if t.strip(chr(34) + chr(39)) == "$" + var and j + 1 < len(tokens) and tokens[j + 1] == "collect":
-                                var_pos = j
-                                break
-                    pos = literal_positions[0] if literal_positions else var_pos
+                                var_positions.append(j)
+                    # Count EVERY invocation this one element actually makes,
+                    # not just the first: a guarded chain like "<guard> &&
+                    # collect && collect" still reaches a second, unguarded
+                    # invocation once the guard passes, and that second call
+                    # can silently overwrite or replace the output the first
+                    # one already produced. Reject any element invoking the
+                    # collector more than once rather than only inspecting
+                    # the first match.
+                    positions = literal_positions + var_positions
+                    assert len(positions) <= 1, "An element invoking the collector more than once can overwrite or mask the earlier invocations outcome"
+                    pos = positions[0] if positions else None
                     if pos is not None:
                         assert invoke_idx is None, "Exactly one collect element may invoke the collector"
                         invoke_idx = i
@@ -596,19 +716,97 @@ stimuli:
           path: capture-plan.json
       - type: run-command
         config:
-          command: >-
-            python3 -c 'import json,pathlib,re; p=json.loads(pathlib.Path("capture-plan.json").read_text());
-            assert p["status"]=="planned" and p["device_id"]=="00008110-001234567890001E" and p["physical_capture_verified"] is False;
-            c=p["commands"]; assert all(isinstance(c[k],list) and c[k] and all(isinstance(s,str) for s in c[k]) for k in ("route","collect","validate","cleanup"));
-            r="\n".join(c["route"]); q="\n".join(c["collect"]); v="\n".join(c["validate"]); a=r+q+v+"\n".join(c["cleanup"]);
-            assert "server-client" in r and "-tcpc" in r and "127.0.0.1:9001" in r and "--forward-port" in r and re.search(r"(?i)\bios\b", r) and "capture-diag.sock" in r;
-            assert "--diagnostic-port" in q and "capture-diag.sock" in q and ",connect" in q;
-            assert "after-navigation.gcdump" in q;
-            assert "dotnet-gcdump collect" in q and "--timeout" in q;
-            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v;
-            assert all(t not in a for t in ("--dsrouter","mlaunch","--launchdev","--installdev","--launchsim","ios-sim","simctl","adb ","0.0.0.0","-p 519"));
-            assert pathlib.Path("ios-session.txt").read_text()=="""Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102, matching iOS workload/Xcode; dotnet-gcdump and dotnet-dsrouter 10.0.750501 (the --dsrouter switch is present).\nProject: Catalog.csproj, net10.0-ios, ios-arm64, Mono AOT (PublishAot=false), Release.\nSigned development .app has the real static diagnostics_tracing component, not the stub.\nOne physical USB iPhone: UDID 00008110-001234567890001E; trusted, unlocked, Developer Mode enabled.\nBundle: com.example.catalog; device PID 519 is not a host diagnostics PID.\nThe app is already running with DiagnosticConfiguration=127.0.0.1:9001,nosuspend,listen from its last approved dotnet run launch.\nNo host router is currently running; no app restart or install is permitted.\nReserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n""";
-            print("iOS live plan and input preservation valid")'
+          command: |
+            python3 -c '
+            import json, pathlib, re
+            
+            p = json.loads(pathlib.Path("capture-plan.json").read_text())
+            assert p["status"] == "planned" and p["device_id"] == "00008110-001234567890001E" and p["physical_capture_verified"] is False
+            c = p["commands"]
+            assert all(isinstance(c[k], list) and c[k] and all(isinstance(s, str) for s in c[k]) for k in ("route", "collect", "validate", "cleanup"))
+            r = "\n".join(c["route"])
+            q = "\n".join(c["collect"])
+            v = "\n".join(c["validate"])
+            a = r + q + v + "\n".join(c["cleanup"])
+            dq = chr(34)
+            sq = chr(39)
+            
+            def split_clauses(text):
+                # Same top-level-clause splitter used by the Android
+                # stimulus above: ";"/"&&"/"||"/"&"/newline delimit clauses
+                # outside quotes/parens, recording the separator that
+                # precedes each one.
+                clauses, cur, depth, quote, sep = [], [], 0, None, None
+                i, n = 0, len(text)
+                while i < n:
+                    ch = text[i]
+                    if quote:
+                        cur.append(ch)
+                        if ch == quote:
+                            quote = None
+                        i += 1
+                        continue
+                    if ch in (dq, sq):
+                        quote = ch
+                        cur.append(ch)
+                        i += 1
+                        continue
+                    if ch == "(":
+                        depth += 1
+                        cur.append(ch)
+                        i += 1
+                        continue
+                    if ch == ")":
+                        depth = max(0, depth - 1)
+                        cur.append(ch)
+                        i += 1
+                        continue
+                    if depth == 0:
+                        if text[i:i + 2] in ("&&", "||"):
+                            clauses.append((sep, "".join(cur)))
+                            cur = []
+                            sep = text[i:i + 2]
+                            i += 2
+                            continue
+                        if ch in (";", "&", "\n"):
+                            clauses.append((sep, "".join(cur)))
+                            cur = []
+                            sep = ch
+                            i += 1
+                            continue
+                    cur.append(ch)
+                    i += 1
+                clauses.append((sep, "".join(cur)))
+                return [(s, cl.strip()) for s, cl in clauses if cl.strip()]
+            
+            def report_status_propagates(validate_text):
+                # A trailing ";"/"&"-joined clause after the report
+                # invocation runs regardless of whether report itself
+                # failed (e.g. "dotnet-gcdump report out.gcdump; true"),
+                # silently converting a real report failure into overall
+                # success even with no "|| true"/"|| :" present. Only
+                # accept the report clause being last, or trailed solely by
+                # "&&"-joined clauses (each only runs if everything before
+                # it, including report, already succeeded).
+                clauses = split_clauses(validate_text)
+                reported = False
+                for idx, (sep, clause) in enumerate(clauses):
+                    if re.search(r"dotnet-gcdump\s+report\b", clause):
+                        reported = True
+                        if any(nsep not in ("&&",) for nsep, _ in clauses[idx + 1:]):
+                            return False
+                return reported
+            
+            assert "server-client" in r and "-tcpc" in r and "127.0.0.1:9001" in r and "--forward-port" in r and re.search(r"(?i)\bios\b", r) and "capture-diag.sock" in r
+            assert "--diagnostic-port" in q and "capture-diag.sock" in q and ",connect" in q
+            assert "after-navigation.gcdump" in q
+            assert "dotnet-gcdump collect" in q and "--timeout" in q
+            assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v
+            assert report_status_propagates(v), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted"
+            assert all(t not in a for t in ("--dsrouter", "mlaunch", "--launchdev", "--installdev", "--launchsim", "ios-sim", "simctl", "adb ", "0.0.0.0", "-p 519"))
+            assert pathlib.Path("ios-session.txt").read_text() == """Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102, matching iOS workload/Xcode; dotnet-gcdump and dotnet-dsrouter 10.0.750501 (the --dsrouter switch is present).\nProject: Catalog.csproj, net10.0-ios, ios-arm64, Mono AOT (PublishAot=false), Release.\nSigned development .app has the real static diagnostics_tracing component, not the stub.\nOne physical USB iPhone: UDID 00008110-001234567890001E; trusted, unlocked, Developer Mode enabled.\nBundle: com.example.catalog; device PID 519 is not a host diagnostics PID.\nThe app is already running with DiagnosticConfiguration=127.0.0.1:9001,nosuspend,listen from its last approved dotnet run launch.\nNo host router is currently running; no app restart or install is permitted.\nReserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n"""
+            print("iOS live plan and input preservation valid")
+            '
       - type: output-matches
         config:
           pattern: (?i)(not verified|not.*captur|no.*captur|pending.*device)
@@ -1021,7 +1219,6 @@ stimuli:
               another consented attempt. Physical-device capture not verified.
 
   - name: Leave a validated snapshot alone
-    expect_activation: false
     prompt: |
       Our operator already collected the requested phone snapshot, the collector
       exited 0, and dotnet-gcdump report after.gcdump produced type statistics.
@@ -1032,6 +1229,7 @@ stimuli:
       capability: completed-capture-noop
       risk: unnecessary-recollection
       journey: close-handoff
+      expect_activation: "false"
     graders:
       - type: output-matches
         config:
@@ -1056,7 +1254,6 @@ stimuli:
             message: Based on the operator's supplied evidence, collection is complete; no remaining collection action. No independent verification is implied.
 
   - name: Do not apply Mono recipe to NativeAOT iPhone
-    expect_activation: false
     prompt: |
       Our physical iPhone MAUI Release app uses PublishAot=true, NativeAOT, not
       Mono. Can we use the Mono diagnostic component and its adb property to
@@ -1066,6 +1263,7 @@ stimuli:
       capability: nativeaot-boundary
       risk: incompatible-runtime
       journey: choose-runtime-workflow
+      expect_activation: "false"
     graders:
       - type: output-matches
         config:
@@ -1090,7 +1288,6 @@ stimuli:
             message: No. NativeAOT is not Mono; a Mono diagnostic component cannot retrofit support into that binary, and adb is Android tooling, not iOS transport. Verify NativeAOT-specific diagnostic capabilities for your exact platform/runtime; no supported gcdump path is implied here.
 
   - name: Keep simulator-only CPU tracing separate
-    expect_activation: false
     prompt: |
       My MAUI app is running only on the iOS simulator. I want CPU time samples
       to open as a flame graph, not a memory dump and not a physical device
@@ -1100,6 +1297,7 @@ stimuli:
       capability: simulator-tracing-boundary
       risk: wrong-artifact-workflow
       journey: choose-cpu-artifact
+      expect_activation: "false"
     graders:
       - type: output-matches
         config:
@@ -1121,7 +1319,6 @@ stimuli:
             message: Choose a CPU sampling trace, typically .nettrace with a Speedscope flame-graph export. This is simulator tracing, not a physical-device managed heap collection.
 
   - name: Keep existing crash dump analysis separate
-    expect_activation: false
     prompt: |
       I already have a CoreCLR service crash.dmp from a Linux server. The task
       is to inspect its failing thread and exception. No mobile app or device
@@ -1131,6 +1328,7 @@ stimuli:
       capability: existing-coreclr-dump-boundary
       risk: collection-hijack
       journey: analyze-crash
+      expect_activation: "false"
     graders:
       - type: output-matches
         config:
@@ -1152,7 +1350,6 @@ stimuli:
             message: Use an existing-dump analysis workflow, such as dotnet-dump analyze with SOS exception/thread inspection for a compatible CoreCLR dump. No new collection or mobile setup is needed.
 
   - name: Do not expose production store diagnostics
-    expect_activation: false
     prompt: |
       Our only available artifact is the production App Store iPhone binary,
       no development build or diagnostics component. We're not permitted to
@@ -1163,6 +1360,7 @@ stimuli:
       capability: production-permission-boundary
       risk: unauthorized-heap-access
       journey: stop-unapproved-diagnostics
+      expect_activation: "false"
     graders:
       - type: output-matches
         config:
