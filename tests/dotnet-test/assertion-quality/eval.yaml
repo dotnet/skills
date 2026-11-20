@@ -98,12 +98,13 @@ stimuli:
         - src: fixtures/assertion-free/SmokeTests/ApiClient.cs
           dest: SmokeTests/ApiClient.cs
     graders:
+      # Match a count and its category in the same clause, in prose or a labeled row.
       - type: output-matches
         config:
-          pattern: (no assertion|zero assertion|assertion.free|without.*assert|missing.*assert|don.*assert|lack.*assert)
+          pattern: (?im)(?:^|[.,;!?]|\b(?:and|while|whereas|but)\b)(?=(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:5|five)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(?:8|eight)\b)(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:assertion[- ]free|(?:no|zero|without|lack(?:ing)?)\s+(?:any\s+)?assertions?|asserts?\s+nothing)\b
       - type: output-matches
         config:
-          pattern: (5|five|62%|most|majority|several)
+          pattern: (?im)(?:^|[.,;!?]|\b(?:and|while|whereas|but)\b)(?=(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:3|three)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(?:8|eight)\b)(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:(?:Assert\.)?IsNotNull|(?:non|not)[- ]null|trivial[- ]only|trivial assertions?)\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -161,7 +162,14 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (good|strong|solid|diverse|well|thorough|comprehensive|varied)
+          pattern: (?i)(good|strong|solid|diverse|well|thorough|comprehensive|varied)
+      - type: output-matches
+        config:
+          pattern: (?i)\b(GetUser_NonExistent_ReturnsNull|missing[- ]user|nonexistent user|user not found)\b
+      # Merely saying a test checks for null does not credit the expected outcome.
+      - type: output-matches
+        config:
+          pattern: (?i)\b(?:(?:verif(?:y|ies)|checks?|asserts?)\s+(?:(?:the|its)\s+)?(?:expected|promised)\s+(?:absence|null|missing[- ]user)|(?:GetUser_NonExistent_ReturnsNull|absence|null|missing[- ]user)\b[^.!?;\n]*?\b(?:is|are|as)\s+(?:(?:the|a)\s+)?(?:expected|promised|correct|contract|meaningful|valid|real verification|first[- ]class))\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -199,8 +207,16 @@ stimuli:
         config:
           disallowed:
             - bash
+            - powershell
+            - execute
+            - shell
+            - run_shell_command
+            - local_shell
             - edit
             - create
+            - delete
+            - remove
+            - apply_patch
       - type: output-matches
         config:
           pattern: (self.referent|tautolog|identity|input.*equals.*output|circular|same.*value|trivial.*round.?trip|round.?trip|set.*get|write.*read|proves
@@ -325,6 +341,26 @@ stimuli:
       capability: calibrate-trivial-checks-without-penalizing-complete-mstest-assertions
       risk: false-positive-assertion-review
       journey: audit-test-assertions
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: assertion-quality-calibration-boundaries
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I reviewed all five methods. Two create false confidence; the other three protect their stated behavior.
+
+              | Test | Assessment | Why |
+              |------|------------|-----|
+              | `LoadExisting_ReturnsConfiguredValue` | Meaningful | The null check guards exact assertions for `Environment == "prod"` and `RetryCount == 3`. |
+              | `ParseInvalid_ThrowsFormatException` | Meaningful | The exact `FormatException` is the behavior this method promises to verify. |
+              | `Save_PersistsRecord` | Meaningful | `Contains("order-42")` verifies that the save changed observable store state. |
+              | `Ping_ReturnsResponse` | Weak | `IsNotNull` accepts any non-null response; it does not check the expected `"healthy"` result. |
+              | `HealthCheck_Healthy` | Weak | `Assert.IsTrue(true)` is unconditional and passes even if the health check is broken. |
+
+              Overall, two of five methods are weak. Add an exact response assertion for Ping and invoke a real health predicate instead of asserting a literal `true`; keep the complete value, exception, and state checks.
     prompt: |
       Review `CalibratedAssertions.Tests/CalibrationTests.cs` and separate the
       tests that can catch a real regression from those that create false
@@ -341,8 +377,16 @@ stimuli:
         config:
           disallowed:
             - bash
+            - powershell
+            - execute
+            - shell
+            - run_shell_command
+            - local_shell
             - edit
             - create
+            - delete
+            - remove
+            - apply_patch
 
       - type: output-matches
         config:
@@ -352,7 +396,16 @@ stimuli:
           pattern: HealthCheck_Healthy
       - type: output-matches
         config:
-          pattern: (trivial|weak|always.true|cannot fail|false confidence)
+          pattern: (?i)(trivial|weak|always.true|cannot fail|false confidence)
+      - type: output-matches
+        config:
+          pattern: (?im)^(?=[^\r\n]*\b(two|2)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(five|5)\b)[^\r\n]*\b(weak|trivial|false confidence)\b
+      - type: output-matches
+        config:
+          pattern: (?im)^(?=[^\r\n]*\bPing_ReturnsResponse\b)[^\r\n]*\b(trivial|weak)\b
+      - type: output-matches
+        config:
+          pattern: (?im)^(?=[^\r\n]*\bHealthCheck_Healthy\b)[^\r\n]*\b(trivial|weak|always.true)\b
       - type: output-matches
         config:
           pattern: (ParseInvalid_ThrowsFormatException|Save_PersistsRecord|LoadExisting_ReturnsConfiguredValue)

@@ -503,8 +503,16 @@ stimuli:
         config: &readonly_tool_calls
           disallowed:
             - bash
+            - powershell
+            - execute
+            - shell
+            - run_shell_command
+            - local_shell
             - edit
             - create
+            - delete
+            - remove
+            - apply_patch
             - task
             - agent
       - type: output-matches
@@ -596,7 +604,7 @@ stimuli:
       - The complete single-field test is Pass with A or B quality under the existing assertion rubric because no actionable improvement is established
       - The standard cost is assessed independently from the returned express field and other subtotal or validation scenarios
       - No change is manufactured to justify the secondary letter grade
-      - No sibling assertions, production execution, test runs, edits, or audit delegation are used
+      - No sibling assertions, production execution, test runs, edits, or agent/subagent calls are used; directly loading a relevant skill or reference is not delegation
   - name: Distinguish inferred boundary detection from executed mutation results
     prompt: |
       Grade only ShippingTests.test_free_shipping_starts_at_threshold in
@@ -661,7 +669,7 @@ stimuli:
       - At subtotal 100 the original cost is 0 and the inclusive mutant cost is 10, so the current equality assertion detects the changed outcome
       - The result remains Pass with A or B quality under the existing assertion rubric; untested neighboring scenarios are not automatically actionable against this threshold-specific claim
       - Detection is explicitly inferred rather than executed, with no empirical totals or mutation percentage
-      - No tests, production imports, mutation execution, file changes, or audit delegation occur
+      - No tests, production imports, mutation execution, or file changes occur; directly loading a relevant skill or reference is not delegation, and no agent/subagent is launched
   - name: Exclude an equivalent guard from improvement recommendations
     prompt: |
       Grade only ShippingTests.test_empty_quantity_raises_value_error in
@@ -782,7 +790,7 @@ stimuli:
       - The intentional positivity assertion receives B quality and Pass without an invented exact-cost recommendation
       - A change from one positive cost to another is not called a survivor against the contracted positivity-only outcome
       - The test is neither credited with the sibling exact-cost assertions nor penalized for not owning their different claim
-      - No files are modified and no tests, commands, mutations, or delegated audits are executed
+      - No files are modified and no tests, commands, mutations, or agent/subagent calls occur; directly loading a relevant skill or reference is not delegation
   - name: Keep suite-wide health reviews outside per-test decisions
     prompt: |
       Audit the shipping test suite as a whole for maintainability and common
