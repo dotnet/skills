@@ -67,11 +67,33 @@ stimuli:
                 assert "after-navigation.gcdump" in r and "after-navigation.gcdump" in q
             else:
                 assert "--dsrouter" not in q, "collect must attach to the already-started standalone router by PID (dotnet-gcdump collect -p <PID>), not also start a second self-managing --dsrouter route"
-                assert re.search(r"dotnet-gcdump\s+collect\b", q) and re.search(r"(?:^|\s)-p\s+\S", q), "a standalone-router collect must attach via " + dq + "dotnet-gcdump collect -p <PID>" + dq + ", correlated to the router this plan itself started"
-                pid_match = re.search(r"-p\s+(\S+)", q)
-                assert pid_match and not pid_match.group(1).strip(dq + sq).isdigit(), "the attach PID must come from a captured, correlated value (e.g. a variable set from " + dq + "dotnet-gcdump ps" + dq + " or the printed router PID), not a hardcoded guess"
                 assert "after-navigation.gcdump" in q
+                # "--process-id" is the exact long-form synonym "-p" documented by
+                # "dotnet-gcdump collect --help" (confirmed against the installed
+                # 10.0.750501 CLI), so a plan spelling it out in full must be
+                # accepted on equal footing with the short flag.
+                assert re.search(r"dotnet-gcdump\s+collect\b", q) and re.search(r"(?:^|\s)(?:-p|--process-id)\s+\S", q), "a standalone-router collect must attach via " + dq + "dotnet-gcdump collect -p <PID>" + dq + " (or its " + dq + "--process-id" + dq + " synonym), correlated to the router this plan itself started"
+                pid_match = re.search(r"(?:-p|--process-id)\s+(\S+)", q)
+                assert pid_match and not pid_match.group(1).strip(dq + sq).isdigit(), "the attach PID must come from a captured, correlated value (e.g. a variable set from " + dq + "dotnet-gcdump ps" + dq + " or the printed router PID), not a hardcoded guess"
+                pid_var = pid_match.group(1).strip(dq + sq).lstrip("$").strip("{}")
+                # The device-app PID (2841) already banned above as "identity
+                # information, not a host PID" is itself a correlated-looking
+                # value if blindly reused; the PID this standalone attach needs is
+                # the LOCAL process id "dotnet-gcdump ps" reports for the device
+                # connection once "dotnet-dsrouter android" has it, not a bare
+                # first/last listing row (which carries no numeric-extraction
+                # signal) and not a row for an unrelated process (which carries
+                # no correlation to the catalog app this plan itself connected).
+                pid_capture = re.search(re.escape(pid_var) + r"\s*=\s*\$\(([^()]*dotnet-gcdump\s+ps\b[^()]*)\)", q)
+                assert pid_capture, "the attach PID variable must be assigned from a " + dq + "dotnet-gcdump ps" + dq + " command substitution in this same collect text, not left unset"
+                pid_capture_body = pid_capture.group(1)
+                assert "com.example.catalog" in pid_capture_body, "the " + dq + "dotnet-gcdump ps" + dq + " capture must be correlated to the selected device/app connection (e.g. filtered by its known package identity), not an unfiltered listing that could match an unrelated process"
+                assert re.search(r"awk\s+[" + sq + dq + r"]?\{?\s*print\s+\$1\b", pid_capture_body) or re.search(r"\bcut\s+-f\s*1\b", pid_capture_body) or re.search(r"\bgrep\s+-oE?\s+[" + sq + dq + r"]?\^?\\?\[0-9", pid_capture_body), "the " + dq + "dotnet-gcdump ps" + dq + " capture must be narrowed to a single numeric field (e.g. awk " + sq + "{print $1}" + sq + ", cut -f1, or grep -oE), not a bare/unfiltered row"
                 assert re.search(r"(?i)\b(stop|kill|terminate)\b", x) or "dotnet-dsrouter" in x, "a standalone finer-control router is a separate long-lived process that --dsrouter android never starts -- cleanup must stop it explicitly, unlike the self-managing route which tears itself down automatically"
+                cleanup_ref = re.search(r"\b(?:stop|kill|terminate)\s+\$\{?(\w+)\}?", x, re.IGNORECASE)
+                if cleanup_ref:
+                    cleanup_var = cleanup_ref.group(1)
+                    assert re.search(re.escape(cleanup_var) + r"\s*=", r + q), "cleanup references $" + cleanup_var + " but nothing in route/collect ever assigns it -- cleanup must stop the actual router identity this plan itself started/captured, not an undefined reference"
             assert "dotnet-gcdump collect" in q and "--timeout" in q
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v
             a = r + q + v + x
@@ -360,34 +382,44 @@ stimuli:
                     return True
                 return not any(re.search(r"dotnet-gcdump\s+report\b", s) for s in segs[:-1])
             
-            def report_status_propagates(validate_text):
-                # "dotnet-gcdump report ...; true" already satisfies the
-                # substring checks above (no "|| true"/"|| :" present) but a
-                # trailing ";"/"&"-joined clause after the report invocation
-                # runs regardless of whether report itself failed, silently
-                # converting a real report failure into overall success.
-                # Only accept the report clause being the LAST clause in its
-                # own text, or trailed solely by "&&"-joined clauses (each
-                # only runs if everything before it -- including report --
-                # already succeeded, so a report failure still short-circuits
-                # them and surfaces as the failure). A report piped into a
-                # later command within the SAME clause (e.g. "report x |
-                # cat") or backgrounded with a trailing "&" is equally
-                # unsafe even when it is textually the last/only clause.
-                clauses = split_clauses(validate_text)
+            def report_status_propagates(validate_entries):
+                # Each commands-array entry is its OWN separate shell
+                # invocation with fresh state (see resolves() below) -- joining
+                # every entry into one script before splitting into clauses
+                # would let an unrelated LATER entry (e.g. a standalone
+                # "test -s ..." sanity check submitted as its own array
+                # element) look like a trailing clause that masks an EARLIER
+                # entrys own, already-safe "dotnet-gcdump report" invocation,
+                # even though the two entries never share a single real exit
+                # status. Evaluate every entry independently instead, while
+                # still catching masking WITHIN a single entrys own text.
                 reported = False
-                for idx, (sep, clause) in enumerate(clauses):
-                    if re.search(r"dotnet-gcdump\s+report\b", clause):
-                        if not pipe_safe_report(clause):
-                            return False
-                        reported = True
-                        if any(nsep not in ("&&",) for nsep, _ in clauses[idx + 1:]):
-                            return False
+                for entry in validate_entries:
+                    clauses = split_clauses(entry)
+                    for idx, (sep, clause) in enumerate(clauses):
+                        if re.search(r"dotnet-gcdump\s+report\b", clause):
+                            # A report invocation reached only via a
+                            # preceding "||" only runs when an earlier
+                            # command in the SAME entry already failed -- if
+                            # that earlier command instead succeeds, report
+                            # never runs at all and the entrys overall
+                            # status reflects the earlier commands success,
+                            # silently skipping the parse this check exists
+                            # to guarantee (e.g. "test -s FILE ||
+                            # dotnet-gcdump report FILE" skips the parse
+                            # whenever the file is already nonempty).
+                            if sep == "||":
+                                return False
+                            if not pipe_safe_report(clause):
+                                return False
+                            reported = True
+                            if any(nsep not in ("&&",) for nsep, _ in clauses[idx + 1:]):
+                                return False
                 return reported
             
             route_invocation_pattern = r"dotnet-dsrouter\s+android\b" if standalone_router else r"dotnet-gcdump\s+collect\b"
             assert resolves("ANDROID_SERIAL", c["route"], did, route_invocation_pattern) and (standalone_router or resolves("ANDROID_SERIAL", c["collect"], did)), "route must always bind the selected device via a literal ANDROID_SERIAL prefix on the invocation itself, or a " + dq + "$VAR" + dq + " reference to a value assigned -- and, if in a separate, non-prefix statement, EXPORTED -- strictly before the invocation, UNCONDITIONALLY, within that SAME commands-array entry, in true left-to-right shell execution order: a single-quoted reference, a non-exported separate-statement assignment, an assignment reached only via " + dq + "&&" + dq + " or " + dq + "||" + dq + " (not provably executed), an assignment in a different commands-array entry, or a same-clause sibling assignment (left unspecified by POSIX itself, and divergent across real shells) never reliably reaches the invocations actual environment; the self-managing collect must bind it the same way since --dsrouter accepts no serial flag, but a standalone-router collect attaches by PID instead and is device-correlated through the router it was started against, not a serial"
-            assert report_status_propagates(v), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted"
+            assert report_status_propagates(c["validate"]), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted, and report must be reached unconditionally within its own entry (not only via a preceding " + dq + "||" + dq + ")"
             assert not any(t in a for t in ("server-server", "adb reverse", "adb -s", "setprop debug.mono.profile", "-ipcs", "-tcps", "AndroidEnableProfiler"))
             assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a
             assert pathlib.Path("android-session.txt").read_text() == """Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 10.0.750501, installed on host; the --dsrouter switch is present.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n"""
@@ -424,6 +456,53 @@ stimuli:
                     obj.quote = quote
                     return obj
             
+            def normalize_newlines(s):
+                # shlex with whitespace_split=True treats a bare newline as
+                # ordinary whitespace and silently discards it, so a script
+                # written across two source lines with no explicit ";" ever
+                # gets tokenized as a SINGLE uninterrupted command -- even
+                # though a real shell terminates the first line there exactly
+                # as it would at a ";". Rewrite every unquoted, non-escaped
+                # newline into a literal ";" before tokenizing (so the
+                # existing ";"-based clause splitting below still applies),
+                # while an escaped "backslash-newline" line continuation
+                # (which a real shell joins into the SAME logical line, no
+                # new clause) is instead dropped entirely, and a newline
+                # that occurs inside a single- or double-quoted word is left
+                # untouched since it is part of that words literal content,
+                # not a statement separator.
+                dq, sq = chr(34), chr(39)
+                out = []
+                quote = None
+                i, n = 0, len(s)
+                while i < n:
+                    ch = s[i]
+                    if quote:
+                        out.append(ch)
+                        if ch == quote:
+                            quote = None
+                        elif quote == dq and ch == "\\" and i + 1 < n:
+                            out.append(s[i + 1])
+                            i += 2
+                            continue
+                        i += 1
+                        continue
+                    if ch in (dq, sq):
+                        quote = ch
+                        out.append(ch)
+                        i += 1
+                        continue
+                    if ch == "\\" and i + 1 < n and s[i + 1] == "\n":
+                        i += 2
+                        continue
+                    if ch == "\n":
+                        out.append(";")
+                        i += 1
+                        continue
+                    out.append(ch)
+                    i += 1
+                return "".join(out)
+            
             def check(path):
                 p = json.load(open(path))
                 commands = p["commands"]["collect"]
@@ -438,7 +517,7 @@ stimuli:
                     # below; posix=True mode discards that distinction
                     # entirely, making a literal single-quoted "$PWD/x" token
                     # indistinguishable from an expanding double-quoted one.
-                    lex = shlex.shlex(s, posix=False, punctuation_chars=True)
+                    lex = shlex.shlex(normalize_newlines(s), posix=False, punctuation_chars=True)
                     lex.whitespace_split = True
                     raw = expand_puncts(list(lex))
                     dq, sq = chr(34), chr(39)
@@ -926,27 +1005,34 @@ stimuli:
                     return True
                 return not any(re.search(r"dotnet-gcdump\s+report\b", s) for s in segs[:-1])
             
-            def report_status_propagates(validate_text):
-                # A trailing ";"/"&"-joined clause after the report
-                # invocation runs regardless of whether report itself
-                # failed (e.g. "dotnet-gcdump report out.gcdump; true"),
-                # silently converting a real report failure into overall
-                # success even with no "|| true"/"|| :" present. Only
-                # accept the report clause being last, or trailed solely by
-                # "&&"-joined clauses (each only runs if everything before
-                # it, including report, already succeeded). A report piped
-                # into a later command (e.g. "report x | cat") or
-                # backgrounded with a trailing "&" is equally unsafe even
-                # when it is textually the last/only clause.
-                clauses = split_clauses(validate_text)
+            def report_status_propagates(validate_entries):
+                # Each commands-array entry is its OWN separate shell
+                # invocation with fresh state -- joining every entry into
+                # one script before splitting into clauses would let an
+                # unrelated LATER entry look like a trailing clause that
+                # masks an EARLIER entrys own, already-safe "dotnet-gcdump
+                # report" invocation, even though the two entries never
+                # share a single real exit status. Evaluate every entry
+                # independently instead, while still catching masking
+                # WITHIN a single entrys own text.
                 reported = False
-                for idx, (sep, clause) in enumerate(clauses):
-                    if re.search(r"dotnet-gcdump\s+report\b", clause):
-                        if not pipe_safe_report(clause):
-                            return False
-                        reported = True
-                        if any(nsep not in ("&&",) for nsep, _ in clauses[idx + 1:]):
-                            return False
+                for entry in validate_entries:
+                    clauses = split_clauses(entry)
+                    for idx, (sep, clause) in enumerate(clauses):
+                        if re.search(r"dotnet-gcdump\s+report\b", clause):
+                            # A report invocation reached only via a
+                            # preceding "||" only runs when an earlier
+                            # command in the SAME entry already failed --
+                            # if that earlier command instead succeeds,
+                            # report never runs at all, silently skipping
+                            # the parse this check exists to guarantee.
+                            if sep == "||":
+                                return False
+                            if not pipe_safe_report(clause):
+                                return False
+                            reported = True
+                            if any(nsep not in ("&&",) for nsep, _ in clauses[idx + 1:]):
+                                return False
                 return reported
             
             assert "server-client" in r and "-tcpc" in r and "127.0.0.1:9001" in r and "--forward-port" in r and re.search(r"(?i)\bios\b", r) and "capture-diag.sock" in r
@@ -954,7 +1040,7 @@ stimuli:
             assert "after-navigation.gcdump" in q
             assert "dotnet-gcdump collect" in q and "--timeout" in q
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v
-            assert report_status_propagates(v), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted"
+            assert report_status_propagates(c["validate"]), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted, and report must be reached unconditionally within its own entry (not only via a preceding " + dq + "||" + dq + ")"
             assert all(t not in a for t in ("--dsrouter", "mlaunch", "--launchdev", "--installdev", "--launchsim", "ios-sim", "simctl", "adb ", "0.0.0.0", "-p 519"))
             assert pathlib.Path("ios-session.txt").read_text() == """Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102, matching iOS workload/Xcode; dotnet-gcdump and dotnet-dsrouter 10.0.750501 (the --dsrouter switch is present).\nProject: Catalog.csproj, net10.0-ios, ios-arm64, Mono AOT (PublishAot=false), Release.\nSigned development .app has the real static diagnostics_tracing component, not the stub.\nOne physical USB iPhone: UDID 00008110-001234567890001E; trusted, unlocked, Developer Mode enabled.\nBundle: com.example.catalog; device PID 519 is not a host diagnostics PID.\nThe app is already running with DiagnosticConfiguration=127.0.0.1:9001,nosuspend,listen from its last approved dotnet run launch.\nNo host router is currently running; no app restart or install is permitted.\nReserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n"""
             print("iOS live plan and input preservation valid")

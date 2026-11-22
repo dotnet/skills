@@ -421,10 +421,11 @@ def main():
                     # started. This full alternate plan shape must be accepted.
                     standalone_plan = copy.deepcopy(plan)
                     standalone_plan["commands"]["route"] = [
-                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android"
+                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android & ROUTER_PID=$!"
                     ]
                     standalone_plan["commands"]["collect"] = [
-                        'PID=$(dotnet-gcdump ps | head -n1); '
+                        'PID=$(dotnet-gcdump ps | grep com.example.catalog | '
+                        'awk \'{print $1}\'); '
                         'test ! -e "$PWD/after-navigation.gcdump" && '
                         'dotnet-gcdump collect -p "$PID" '
                         '--output "$PWD/after-navigation.gcdump" --timeout 60'
@@ -437,6 +438,73 @@ def main():
                                for c in commands), "standalone router accepted plan"
                     equivalent_count += 1
                     plan_path.write_text(original)
+                    # The documented "--process-id" long-form synonym for "-p"
+                    # (confirmed against the installed 10.0.750501
+                    # "dotnet-gcdump collect --help" output) must be accepted
+                    # on equal footing with the short flag.
+                    standalone_process_id_synonym = copy.deepcopy(standalone_plan)
+                    standalone_process_id_synonym["commands"]["collect"] = [
+                        'PID=$(dotnet-gcdump ps | grep com.example.catalog | '
+                        'awk \'{print $1}\'); '
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect --process-id "$PID" '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    plan_path.write_text(json.dumps(standalone_process_id_synonym))
+                    assert all(run(c, workspace, shell=True).returncode == 0
+                               for c in commands), "--process-id synonym accepted plan"
+                    equivalent_count += 1
+                    plan_path.write_text(original)
+                    # An attach PID variable left completely unset anywhere in
+                    # route/collect (no "dotnet-gcdump ps"-based assignment at
+                    # all) must still be rejected -- a bare "$UNSET_PID"
+                    # reference proves nothing about which process is attached.
+                    standalone_unset_pid = copy.deepcopy(standalone_plan)
+                    standalone_unset_pid["commands"]["collect"] = [
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect -p "$UNSET_PID" '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    mutations.append(standalone_unset_pid)
+                    # A blind, unfiltered, unnarrowed "dotnet-gcdump ps" row (a
+                    # bare "head -n1") carries neither a numeric-field-extraction
+                    # signal nor any correlation to the specific connected
+                    # package -- it could just as easily be an unrelated
+                    # processs entire row -- so it must still be rejected even
+                    # though a PID variable IS assigned from "dotnet-gcdump ps".
+                    standalone_whole_row_pid = copy.deepcopy(standalone_plan)
+                    standalone_whole_row_pid["commands"]["collect"] = [
+                        'PID=$(dotnet-gcdump ps | head -n1); '
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect -p "$PID" '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    mutations.append(standalone_whole_row_pid)
+                    # A numeric-field-narrowed capture that is filtered to an
+                    # UNRELATED process (not the connected com.example.catalog
+                    # package this plan targets) is just as uncorrelated as the
+                    # whole-row case above, despite looking superficially
+                    # well-formed.
+                    standalone_unrelated_process_pid = copy.deepcopy(standalone_plan)
+                    standalone_unrelated_process_pid["commands"]["collect"] = [
+                        'PID=$(dotnet-gcdump ps | grep com.other.unrelated | '
+                        'awk \'{print $1}\'); '
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect -p "$PID" '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    mutations.append(standalone_unrelated_process_pid)
+                    # Cleanup referencing a PID variable that is never actually
+                    # assigned anywhere in route/collect (a dangling reference)
+                    # must still be rejected even though the capture itself is
+                    # otherwise correlated and the cleanup command mentions
+                    # "kill" -- it is not provably stopping the router this
+                    # plan actually started.
+                    standalone_undefined_cleanup_identity = copy.deepcopy(standalone_plan)
+                    standalone_undefined_cleanup_identity["commands"]["route"] = [
+                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android"
+                    ]
+                    mutations.append(standalone_undefined_cleanup_identity)
                     # Reusing the self-managing --dsrouter route/collect PAIR
                     # once collect already attaches by PID (no --dsrouter at
                     # all expected in standalone mode) must still be rejected.
@@ -503,6 +571,7 @@ def main():
                 missing_validation["commands"]["validate"] = []
                 mutations.append(missing_validation)
                 unguarded = copy.deepcopy(plan)
+                guard = plan["commands"]["collect"][0].split(" && ", 1)[0]
                 capture = plan["commands"]["collect"][0].split(" && ", 1)[1]
                 unguarded["commands"]["collect"] = [capture]
                 mutations.append(unguarded)
@@ -528,8 +597,16 @@ def main():
                 # call can silently overwrite or replace the first invocation's
                 # output; the grader must reject any collect-array element invoking
                 # the collector more than once, not only inspect the first match.
+                # The leading guard is kept intact here (unlike the "unguarded"
+                # mutation above) so this specifically isolates and proves the
+                # duplicate-invocation rejection -- without it, this mutation would
+                # already be rejected by the separate "missing guard" check even if
+                # the duplicate-invocation rule itself were silently removed, so it
+                # would not actually prove that rule does anything.
                 duplicate_invocation = copy.deepcopy(plan)
-                duplicate_invocation["commands"]["collect"] = [capture + " && " + capture]
+                duplicate_invocation["commands"]["collect"] = [
+                    guard + " && " + capture + " && " + capture
+                ]
                 mutations.append(duplicate_invocation)
                 # Trailing shell control operators after the invocation can mask its
                 # real exit status even though the guard itself is genuine; these must
@@ -542,6 +619,15 @@ def main():
                     capture + ' || true',
                     capture + '; echo done',
                     capture + ' | cat',
+                    # The tokenizer must treat an unquoted, unescaped newline as a
+                    # real statement separator, same as ";": a real shell runs this
+                    # as TWO top-level statements, so the overall text's exit status
+                    # is "printf"'s own (which normally succeeds), not the guarded
+                    # collector's, regardless of whether the collector itself ran or
+                    # failed -- the same unconditional-trailing-clause defect as the
+                    # "; echo done" mutation above, just spelled with a real newline
+                    # instead of a ";".
+                    capture + '\nprintf "captured\\n"',
                 ):
                     masked = copy.deepcopy(plan)
                     masked["commands"]["collect"] = [
@@ -677,6 +763,18 @@ def main():
                     cmd + ' &' for cmd in plan["commands"]["validate"]
                 ]
                 mutations.append(masked_report_backgrounded)
+                # "test -s FILE || dotnet-gcdump report FILE" only runs report when
+                # the non-empty check ALREADY failed; whenever the file is genuinely
+                # nonempty (the normal successful-capture case) report never runs at
+                # all, silently skipping the parse this validation step exists to
+                # guarantee, even though neither "|| true"/"|| :" nor a trailing
+                # follow-up appears anywhere in the text.
+                masked_report_conditional_skip = copy.deepcopy(plan)
+                masked_report_conditional_skip["commands"]["validate"] = [
+                    'test -s "$PWD/after-navigation.gcdump" || ' + cmd
+                    for cmd in plan["commands"]["validate"]
+                ]
+                mutations.append(masked_report_conditional_skip)
                 for mutant in mutations:
                     plan_path.write_text(json.dumps(mutant))
                     assert any(run(c, workspace, shell=True).returncode != 0
@@ -714,6 +812,22 @@ def main():
                     assert all(run(c, workspace, shell=True).returncode == 0
                                for c in commands), guarded_capture
                     equivalent_count += 1
+                plan_path.write_text(original)
+                # Two SEPARATE validate-array entries -- the existing, already-safe
+                # report invocation as one entry, and an entirely independent sanity
+                # check as another -- must not be treated as one continuous script
+                # joined across the array boundary: each entry is its own real
+                # shell invocation with fresh state (established elsewhere by the
+                # "resolves" per-entry contract), so the second entry can never mask
+                # the first entry's own already-safe report status.
+                independent_validate_entries = copy.deepcopy(plan)
+                independent_validate_entries["commands"]["validate"] = list(
+                    plan["commands"]["validate"]
+                ) + ['test -s "$PWD/after-navigation.gcdump"']
+                plan_path.write_text(json.dumps(independent_validate_entries))
+                assert all(run(c, workspace, shell=True).returncode == 0
+                           for c in commands), "independent validate-array entries"
+                equivalent_count += 1
                 plan_path.write_text(original)
                 input_path = workspace / stimulus["environment"]["files"][0]["dest"]
                 before = input_path.read_text()
