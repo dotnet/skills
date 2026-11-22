@@ -9,7 +9,11 @@ The workflow is read-only. It does not build pull request code, modify files, cr
 issues, or open pull requests. Each run emits at most one `COMMENT` review and reports at
 most 10 findings. It uses `pull_request_target` so GitHub executes the workflow and
 generated lock from the trusted base branch; pull request content is read only through
-the restricted GitHub tools and is never checked out or executed.
+the restricted GitHub tools and is never checked out or executed. Because the agent
+runs with Copilot auth and `copilot-requests: write`, only pull requests from authors
+with `admin`, `maintainer` or `write` role trigger it. Contributions from external
+authors are intentionally not reviewed by this agent; they are covered by the
+repository's other pull request checks and human review.
 
 ## Install
 
