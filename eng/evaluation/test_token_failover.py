@@ -2164,7 +2164,6 @@ None found.
         )
 
         setup_sha = "2fbab69bfca02bebd76cd0fc43f2d12acfed994f"
-        lock_sha = "53d0749e19424a918acd82b4d140264ce48f2f14"
         self.assertEqual(
             {
                 key: entry["sha"]
@@ -2172,10 +2171,10 @@ None found.
                 if key.startswith("github/gh-aw-actions/")
             },
             {
-                "github/gh-aw-actions/setup@v1.2.2": lock_sha,
-                "github/gh-aw-actions/setup-cli@v1.2.2": lock_sha,
+                f"github/gh-aw-actions/setup@{setup_sha}": setup_sha,
+                f"github/gh-aw-actions/setup-cli@{setup_sha}": setup_sha,
             },
-            "cached gh-aw action annotations must track the v1.2.2 runtime",
+            "cached gh-aw action annotations must preserve the explicit SHA pins",
         )
 
         expected_containers = {
