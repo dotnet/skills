@@ -817,14 +817,14 @@ class TokenFailoverTests(unittest.TestCase):
                 "mai-code-1.1-flash", "gpt-5.3-codex",
             ]),
             ("workflow_dispatch", "", "newer", "", [
-                "gpt-6-astra", "claude-opus-5",
+                "gpt-6.2-astra", "claude-opus-5.5",
             ]),
             ("schedule", "", "", "0 7 * * 1,3,5", ["claude-sonnet-5", "gpt-5.6-luna"]),
             ("schedule", "", "", "0 7 * * 2,6", [
                 "claude-haiku-4.5", "mai-code-1.1-flash", "gpt-5.3-codex",
             ]),
             ("schedule", "", "", "0 7 * * 0", [
-                "gpt-6-astra", "claude-opus-5",
+                "gpt-6.2-astra", "claude-opus-5.5",
             ]),
             ("schedule", "", "", "0 7 * * 4", ["gpt-5.6-sol"]),
             ("issue_comment", "/evaluate --sol", "", "", ["gpt-5.6-sol"]),
@@ -845,7 +845,7 @@ class TokenFailoverTests(unittest.TestCase):
                 self.assertEqual([entry["model"] for entry in entries], models)
                 for entry in entries:
                     is_gpt = entry["model"].startswith("gpt-")
-                    self.assertEqual(entry["judge"], "claude-haiku-4.5" if is_gpt else "gpt-5.6-terra")
+                    self.assertEqual(entry["judge"], "claude-haiku-4.5" if is_gpt else "gpt-6.1-terra")
                     self.assertNotIn("judge2", entry)
                     self.assertNotEqual(entry["judge"], entry["model"])
 
@@ -1081,7 +1081,7 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIsNotNone(component)
         production_fingerprint = (
             "pipeline:evaluation:evaluate-/-vally-"
-            "(dotnet-blazor--claude-opus-5):"
+            "(dotnet-blazor--claude-opus-5.5):"
             "run-vally-evaluations:failure"
         )
         self.assertRegex(
