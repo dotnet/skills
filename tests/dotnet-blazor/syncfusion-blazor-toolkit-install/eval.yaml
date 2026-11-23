@@ -615,7 +615,7 @@ stimuli:
                   ? /^(<\/?ItemGroup>|<PackageReference\s+Include="Syncfusion\.Blazor\.Toolkit"[^>]*>)$/
                   : name === "_Imports.razor"
                     ? /^@using\s+Syncfusion\.Blazor\.Toolkit$/
-                    : /^(using\s+Syncfusion\.Blazor\.Toolkit\s*;|(builder\.)?Services\.AddSyncfusionBlazorToolkit\(\s*\)\s*;|\/\/.*(Syncfusion|Toolkit).*)$/;
+                    : /^(using\s+Syncfusion\.Blazor\.Toolkit\s*;\s*(?:\/\/.*)?|(builder\.)?Services\.AddSyncfusionBlazorToolkit\(\s*\)\s*;\s*(?:\/\/.*)?|\/\/.*(Syncfusion|Toolkit).*)$/;
                 const norm = (text) => text.replace(/^\uFEFF/, "").split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== "" && !permitted.test(l));
                 const before = norm(git("show", "baseline:" + f));
                 const after = norm(fs.readFileSync(f, "utf8"));
