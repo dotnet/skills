@@ -426,8 +426,10 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
           $Matches[1]
         }
       } | Sort-Object -Unique | Where-Object {
-        (Test-Path (Join-Path $contentRoot "agentic-workflows" $_ "aw.yml") -PathType Leaf) -and
-        (Test-Path (Join-Path $contentRoot "tests" "agentic-workflows" $_ "eval.yaml") -PathType Leaf)
+        $sourceDir = Join-Path $contentRoot "agentic-workflows" $_
+        $testsDir = Join-Path $contentRoot "tests" "agentic-workflows" $_
+        (Test-Path $sourceDir -PathType Container) -or
+        (Test-Path $testsDir -PathType Container)
       })
       if ($selectedPackages.Count -gt 0) {
         $entries += @(Get-WorkflowEntries -contentRoot $contentRoot -selectedPackages $selectedPackages)

@@ -212,6 +212,42 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.entries(), [])
 
+    def test_pr_deleted_workflow_manifest_from_surviving_package_fails_closed(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        (self.root / "agentic-workflows" / "alpha" / "aw.yml").unlink()
+        head = self.commit_fixture("Delete workflow manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("has no aw.yml", normalized_output(result))
+
+    def test_pr_deleted_workflow_eval_from_surviving_package_fails_closed(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        (self.root / "tests" / "agentic-workflows" / "alpha" / "eval.yaml").unlink()
+        head = self.commit_fixture("Delete workflow evaluation")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("has no eval.yaml", normalized_output(result))
+
     def test_pr_deleted_skill_helper_still_selects_its_skill(self):
         self.create_plugin_fixture()
         self.git("init", "--quiet")
