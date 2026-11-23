@@ -2,9 +2,11 @@ import importlib.util
 import hashlib
 import io
 import json
+import sqlite3
 import tempfile
 import unittest
 import zipfile
+from contextlib import closing
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -744,9 +746,44 @@ class JudgeReplayTests(unittest.TestCase):
             "skill", 1, "treatment", candidate_treatment_passed=None,
             expected_error="completion evidence")
 
+    def test_native_rejudge_rejects_copied_executor_evidence_drift(self):
+        self.assert_native_rejudge(
+            "skill", 1, "treatment", mutate_candidate_metrics=True,
+            expected_error="native executor evidence changed")
+
+    def write_native_database(self, database):
+        with closing(sqlite3.connect(database)) as connection:
+            connection.executescript("""
+                CREATE TABLE sessions (
+                    id TEXT PRIMARY KEY,
+                    skill_name TEXT NOT NULL,
+                    scenario_name TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    status TEXT NOT NULL
+                );
+                CREATE TABLE run_results (
+                    session_id TEXT PRIMARY KEY,
+                    metrics_json TEXT NOT NULL,
+                    judge_json TEXT,
+                    pairwise_json TEXT
+                );
+                INSERT INTO sessions
+                    (id, skill_name, scenario_name, role, model, status)
+                VALUES
+                    ('baseline', 'agent.testability-migration', 'case',
+                     'baseline', 'gpt-5.6-luna', 'completed');
+                INSERT INTO run_results
+                    (session_id, metrics_json, judge_json, pairwise_json)
+                VALUES
+                    ('baseline', '{"taskCompleted":true}', NULL, NULL);
+                """)
+        return database.read_bytes()
+
     def assert_native_rejudge(self, winner, magnitude, expected_winner,
                               recovered_scenarios=None, candidate_activation=True,
-                              candidate_treatment_passed=False, expected_error=None):
+                              candidate_treatment_passed=False,
+                              mutate_candidate_metrics=False, expected_error=None):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
             root = Path(temporary)
             source, output = root / "source", root / "output"
@@ -758,7 +795,7 @@ class JudgeReplayTests(unittest.TestCase):
             native = source / "_agent-evaluation" / "timestamp"
             native.mkdir(parents=True)
             database = native / "sessions.db"
-            database.write_bytes(b"original sessions")
+            original_database = self.write_native_database(database)
             if recovered_scenarios is not None:
                 (source / "_agent-timeout-retry" / "attempt").mkdir(parents=True)
                 (source / "agent-timeout-retry-summary.json").write_text(json.dumps({
@@ -776,8 +813,17 @@ class JudgeReplayTests(unittest.TestCase):
                 self.assertEqual(kwargs["env"]["GH_TOKEN"], "copilot-pat")
                 self.assertEqual(kwargs["env"]["GITHUB_TOKEN"], "copilot-pat")
                 target = Path(argv[3])
-                self.assertEqual((target / "sessions.db").read_bytes(), b"original sessions")
                 judge = argv[argv.index("--judge-model") + 1]
+                with closing(sqlite3.connect(target / "sessions.db")) as connection:
+                    connection.execute(
+                        "UPDATE run_results SET judge_json = ?, pairwise_json = ? "
+                        "WHERE session_id = ?",
+                        (f'{{"judge":"{judge}"}}', '{"winner":"baseline"}', "baseline"))
+                    if mutate_candidate_metrics and judge == "claude-haiku-5.5":
+                        connection.execute(
+                            "UPDATE run_results SET metrics_json = ? WHERE session_id = ?",
+                            ('{"taskCompleted":false}', "baseline"))
+                    connection.commit()
                 (target / "results.json").write_text(json.dumps({
                     "judgeModel": judge, "model": "gpt-5.6-luna",
                     "verdicts": [{"skillName": "testability-migration", "scenarios": [{
@@ -805,7 +851,7 @@ class JudgeReplayTests(unittest.TestCase):
                             replay.run_replay(args)
                     else:
                         replay.run_replay(args)
-            self.assertEqual(database.read_bytes(), b"original sessions")
+            self.assertEqual(database.read_bytes(), original_database)
             if expected_error:
                 self.assertFalse((output / "comparison.json").exists())
                 return
@@ -836,7 +882,7 @@ class JudgeReplayTests(unittest.TestCase):
             native = source / "_agent-evaluation" / "timestamp"
             native.mkdir(parents=True)
             database = native / "sessions.db"
-            database.write_bytes(b"original sessions")
+            original_database = self.write_native_database(database)
             args = SimpleNamespace(source=source, output=output, original_judge="claude-haiku-4.5",
                                    candidate_judge="claude-haiku-5.5", repo_root=str(root),
                                    adapter="adapt.mjs", validator="skill-validator",
@@ -850,7 +896,7 @@ class JudgeReplayTests(unittest.TestCase):
                     with self.assertRaisesRegex(
                             ValueError, "current-original native rejudge produced no results.json"):
                         replay.run_replay(args)
-            self.assertEqual(database.read_bytes(), b"original sessions")
+            self.assertEqual(database.read_bytes(), original_database)
             self.assertFalse((output / "comparison.json").exists())
 
     def test_native_rejudge_does_not_accept_copied_stale_results(self):
@@ -864,7 +910,7 @@ class JudgeReplayTests(unittest.TestCase):
             (source / "source-commit.json").write_text(json.dumps({"source_sha": "a" * 40}))
             native = source / "_agent-evaluation" / "timestamp"
             native.mkdir(parents=True)
-            (native / "sessions.db").write_bytes(b"original sessions")
+            self.write_native_database(native / "sessions.db")
             (native / "results.json").write_text(json.dumps(saved))
             args = SimpleNamespace(source=source, output=output,
                                    original_judge="claude-haiku-4.5",

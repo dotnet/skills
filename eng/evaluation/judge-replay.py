@@ -7,10 +7,12 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import stat
 import subprocess
 import time
 import zipfile
+from contextlib import closing
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -590,6 +592,35 @@ def run_vally_leg(args, experiment, output, manifest, contract_path, contracts, 
     return validate_adapter_output(target, len(contracts), judge, model, contracts, role)
 
 
+def native_executor_fingerprint(database, session_fields=None):
+    with closing(sqlite3.connect(
+            f"file:{database.as_posix()}?mode=ro", uri=True)) as connection:
+        available = tuple(row[1] for row in connection.execute("PRAGMA table_info(sessions)"))
+        if not available:
+            raise ValueError("Native sessions database has no sessions table")
+        fields = tuple(session_fields or available)
+        if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", field) for field in fields):
+            raise ValueError("Native sessions database has an invalid sessions column")
+        missing = sorted(set(fields) - set(available))
+        if missing:
+            raise ValueError(f"Native sessions database lost executor fields: {missing}")
+        result_fields = tuple(
+            row[1] for row in connection.execute("PRAGMA table_info(run_results)"))
+        if not {"session_id", "metrics_json"}.issubset(result_fields):
+            raise ValueError("Native sessions database has no executor metrics")
+        columns = ", ".join(f'"{field}"' for field in fields)
+        payload = {
+            "session_fields": fields,
+            "sessions": list(connection.execute(
+                f"SELECT {columns} FROM sessions ORDER BY id")),
+            "metrics": list(connection.execute(
+                "SELECT session_id, metrics_json FROM run_results ORDER BY session_id")),
+        }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return fields, digest
+
+
 def native_cases(path, judge, model, original_skills, expected_activations):
     data = load(path)
     if data.get("judgeModel") != judge or data.get("model") != model:
@@ -640,11 +671,14 @@ def run_native_leg(args, source_dir, output, judge, model, original_skills,
         raise ValueError(f"{role} output already exists")
     shutil.copytree(source_dir, target)
     (target / "results.json").unlink(missing_ok=True)
+    session_fields, executor_fingerprint = native_executor_fingerprint(target / "sessions.db")
     validator_env = os.environ.copy()
     validator_env["GH_TOKEN"] = validator_env["GITHUB_TOKEN"]
     command(args.validator, "evaluate", "rejudge", str(target),
             "--judge-model", judge, "--judge-mode", "pairwise",
             "--judge-timeout", "300", env=validator_env, allowed=(0, 1))
+    if native_executor_fingerprint(target / "sessions.db", session_fields)[1] != executor_fingerprint:
+        raise ValueError(f"{role} native executor evidence changed during rejudge")
     result_path = target / "results.json"
     if not result_path.is_file():
         raise ValueError(f"{role} native rejudge produced no results.json; inspect validator errors")
