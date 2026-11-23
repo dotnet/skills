@@ -23,6 +23,32 @@ package-manifest/eval source links.
 
 Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 
+PR target discovery treats a root `plugin.json` edit as a full-plugin behavior
+change only when fields other than `version` differ. The automated version sync
+stamps generated versions into the root, Claude, and Codex manifests without
+changing the registered production surface, so version-only sync PRs do not run
+unrelated skill or agent evaluations. Both manifests must be strict JSON objects
+with one valid `major.minor.patch` string in the top-level `version` property.
+New or semantically changed root manifests select every skill and agent eval for
+that plugin. A fully deleted plugin has no surviving target to evaluate. If the
+plugin directory survives but its root manifest is missing or invalid, target
+discovery fails explicitly because it cannot safely enumerate the production
+agent surface.
+
+Evaluation-infrastructure changes run one fixed Vally sentinel from each
+representative plugin: `dotnet/csharp-refactoring`,
+`dotnet-msbuild/build-perf-diagnostics`, and
+`dotnet-test/writing-mstest-tests`, the native-agent sentinel
+`dotnet-msbuild/agent.build-perf`, and the agentic-workflow sentinel
+`agentic-workflows/build-failure-analysis`. This exercises the Vally baseline,
+isolated, plugin, comparison, and adaptation path, the native custom-agent
+adapter, and the workflow-prompt SDK lane without making infrastructure
+validation depend on every unrelated eval in those plugins. Discovery fails if
+any sentinel is unavailable. Valid version-only root manifest changes do not
+run model evaluations; repository versioning and manifest checks validate
+those mechanical edits. Skill, agent, test, and semantic manifest changes
+still select their normal targeted plugin evaluation surface.
+
 The native agent parser stages `stimuli[].environment.files`, not a shared
 suite-level `environment.files` block. Declare required authentication helpers
 and other shared inputs in every stimulus that uses them. A missing
@@ -274,6 +300,7 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | Field | Description |
 |-------|-------------|
 | `skillName` / `skillPath` | Compatibility field names containing the evaluated target name and source path; `skillKind` disambiguates skills and agents |
+| `evalFile` | Normalized eval path, duplicated from the top level so it survives merges that concatenate `verdicts[]` from many files (the dashboard publish step does this; its merged file keeps only the first file's top-level `evalFile`) |
 | `state` | One of `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or `INVALID_INCONCLUSIVE` |
 | `stateReason` | Machine-readable `{ code, phase }`. Use this field for automation; do not parse `reason` |
 | `noChangeDiagnosis` | Canonical subtype for a `VALID_NO_CHANGE` preference result: `all_ties`, `mixed`, directional `*_tie_limited` / `*_unproven`, or `*_sparse`; renderers consume this key so PR and dashboard labels stay aligned |

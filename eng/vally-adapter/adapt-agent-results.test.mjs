@@ -375,6 +375,7 @@ test("derives the eval file from an absolute native agent path", () => {
       readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
     );
     assert.equal(adapted.evalFile, "tests/demo/agent.router/eval.yaml");
+    assert.equal(adapted.verdicts[0].evalFile, "tests/demo/agent.router/eval.yaml");
     assert.equal(adapted.expectedEval, true);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -489,6 +490,7 @@ stimuli:${stimuli.join("")}
       readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
     );
     assert.equal(adapted.evalFile, nestedEval);
+    assert.equal(adapted.verdicts[0].evalFile, nestedEval);
     assert.equal(adapted.verdicts[0].skillName, "agent.router");
   } finally {
     rmSync(root, { recursive: true, force: true });

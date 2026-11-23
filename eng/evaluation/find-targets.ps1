@@ -1,6 +1,7 @@
 $entries = @()
 $plugins = @()
 . (Join-Path $PWD "eng/evaluation/path-safety.ps1")
+. (Join-Path $PWD "eng/evaluation/change-classification.ps1")
 if (Test-Path "agentic-workflows") {
   . (Join-Path $PWD "eng/evaluation/workflow-targets.ps1")
 }
@@ -140,13 +141,19 @@ function Get-PluginAgentEntries {
   )
   $pluginRoot = [IO.Path]::GetFullPath((Join-Path $contentRoot "plugins" $plugin))
   $manifestPath = Join-Path $pluginRoot "plugin.json"
-  if (-not (Test-Path $manifestPath)) { return @() }
-  try {
-    $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-  } catch {
-    Write-Warning "Skipping agent discovery for '$plugin': malformed plugin.json"
+  if (-not (Test-Path $pluginRoot -PathType Container)) {
     return @()
   }
+  if (-not (Test-Path $manifestPath -PathType Leaf)) {
+    throw "Cannot discover agents for '$plugin': plugin.json is missing."
+  }
+  $manifestContent = Get-Content $manifestPath -Raw
+  $normalizedManifest = Get-ManifestWithoutVersion `
+    -Content $manifestContent -Label $manifestPath
+  if ($null -eq $normalizedManifest) {
+    throw "Cannot discover agents for '$plugin': plugin.json is invalid."
+  }
+  $manifest = $manifestContent | ConvertFrom-Json
   $declaredPaths = @($manifest.agents | Where-Object { -not [string]::IsNullOrWhiteSpace("$_") })
   if ($declaredPaths.Count -eq 0) { $declaredPaths = @("./agents/") }
 
@@ -218,7 +225,33 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   }
   try {
   $mergeBase = git merge-base $base $head
-  $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
+    throw "Could not determine a merge base for '$base' and '$head'."
+  }
+  $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+  if ($LASTEXITCODE -ne 0) {
+    throw "Could not enumerate changed files for '$mergeBase..$head'."
+  }
+  $manifestChanges = @(Get-PluginManifestChanges `
+    -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
+  $changedManifestPlugins = @($manifestChanges |
+    Where-Object { $_.Kind -eq "Behavior" } |
+    Select-Object -ExpandProperty Plugin)
+  foreach ($plugin in $changedManifestPlugins) {
+    $pluginRoot = Join-Path $contentRoot "plugins" $plugin
+    if (-not (Test-Path $pluginRoot -PathType Container)) {
+      continue
+    }
+    $manifestPath = Join-Path $pluginRoot "plugin.json"
+    if (-not (Test-Path $manifestPath -PathType Leaf)) {
+      throw "Changed root manifest for '$plugin' is missing at the evaluated head; target discovery cannot enumerate the production surface."
+    }
+    $normalizedManifest = Get-ManifestWithoutVersion `
+      -Content (Get-Content $manifestPath -Raw) -Label $manifestPath
+    if ($null -eq $normalizedManifest) {
+      throw "Changed root manifest for '$plugin' is invalid; target discovery cannot enumerate the production surface."
+    }
+  }
 
   # Check if any changed files are in infrastructure paths. The native
   # custom-agent lane executes eng/skill-validator/src, so those source
@@ -226,7 +259,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   $hasInfraChanges = $changedFiles |
     Where-Object {
       ($_ -match '^eng/vally-adapter/') -or
-      ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+      ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
       ($_ -match '^eng/skill-validator/src/') -or
       ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
       $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -235,28 +268,64 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
   # Also check for skill, agent, and test changes so we don't lose them.
   $hasSkillChanges = $changedFiles |
-    Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
+    Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
     Select-Object -First 1
+  if ($changedManifestPlugins.Count -gt 0) {
+    $hasSkillChanges = $true
+  }
 
   if ($hasInfraChanges -and -not $hasSkillChanges) {
     echo "is_infra=true" >> $env:GITHUB_OUTPUT
-    # Infra-only: evaluate a small random subset of plugins to keep
-    # the smoke-test fast while still catching regressions.
-    $allPlugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
-      Where-Object {
-        (Test-Path (Join-Path $_.FullName "plugin.json")) -and
-        (Test-Path (Join-Path $contentRoot "tests" $_.Name))
-      } |
-      Select-Object -ExpandProperty Name)
-    $plugins = @($allPlugins | Get-Random -Count ([Math]::Min(2, $allPlugins.Count)))
-    Write-Host "Infrastructure changes detected, evaluating random subset: $($plugins -join ', ')"
-    $entries = @($plugins | ForEach-Object {
-      Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot
-      Get-PluginAgentEntries -plugin $_ -contentRoot $contentRoot
-    })
-    if (Test-Path (Join-Path $contentRoot "agentic-workflows")) {
-      $entries += @(Get-WorkflowEntries -contentRoot $contentRoot)
+    # Infrastructure changes use fixed, validated sentinels for the Vally,
+    # native-agent, and agentic-workflow lanes. Running every eval in these
+    # large collections makes infrastructure validation depend on unrelated
+    # suite health.
+    $infraCanarySkills = [ordered]@{
+      "dotnet" = "csharp-refactoring"
+      "dotnet-msbuild" = "build-perf-diagnostics"
+      "dotnet-test" = "writing-mstest-tests"
     }
+    $infraCanaryPlugins = @($infraCanarySkills.Keys)
+    $entries = @($infraCanarySkills.GetEnumerator() | ForEach-Object {
+      $plugin = $_.Key
+      $skill = $_.Value
+      $skillEntries = @(Get-PluginShardEntries `
+        -plugin $plugin -contentRoot $contentRoot -selectedSkills @($skill))
+      if ($skillEntries.Count -ne 1) {
+        throw "Infrastructure canary '$plugin/$skill' does not resolve to exactly one skill evaluation entry."
+      }
+      $skillEntries
+    })
+    $infraAgentPlugin = "dotnet-msbuild"
+    $infraAgent = "build-perf"
+    $agentEntries = @(Get-PluginAgentEntries `
+      -plugin $infraAgentPlugin -contentRoot $contentRoot `
+      -selectedAgents @($infraAgent))
+    if ($agentEntries.Count -ne 1) {
+      throw "Infrastructure canary '$infraAgentPlugin/agent.$infraAgent' does not resolve to exactly one agent evaluation entry."
+    }
+    $entries += $agentEntries
+    $infraWorkflowPackage = "build-failure-analysis"
+    try {
+      $workflowEntries = @(Get-WorkflowEntries `
+        -contentRoot $contentRoot -selectedPackages @($infraWorkflowPackage))
+    } catch {
+      throw "Infrastructure canary 'agentic-workflows/$infraWorkflowPackage' could not be resolved: $($_.Exception.Message)"
+    }
+    if ($workflowEntries.Count -ne 1) {
+      throw "Infrastructure canary 'agentic-workflows/$infraWorkflowPackage' does not resolve to exactly one workflow evaluation entry."
+    }
+    $entries += $workflowEntries
+    $selectedCanaryPlugins = @($entries |
+      Select-Object -ExpandProperty plugin -Unique)
+    $missingCanaryPlugins = @($infraCanaryPlugins |
+      Where-Object { $_ -notin $selectedCanaryPlugins })
+    if ($missingCanaryPlugins.Count -gt 0) {
+      throw "Infrastructure canary plugins are unavailable: $($missingCanaryPlugins -join ', ')."
+    }
+    $canaryNames = @($infraCanarySkills.GetEnumerator() |
+      ForEach-Object { "$($_.Key)/$($_.Value)" })
+    Write-Host "Infrastructure changes detected, evaluating fixed Vally canaries: $($canaryNames -join ', '); native agent canary: $infraAgentPlugin/agent.$infraAgent; workflow canary: agentic-workflows/$infraWorkflowPackage."
   } else {
     # Extract unique plugin/skill pairs from changed skill sources and
     # non-agent eval directories.
@@ -285,14 +354,6 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     $changedSkillSourcePlugins = @($changedFiles |
       ForEach-Object {
         if ($_ -match '^plugins/([^/]+)/skills/[^/]+/') {
-          $Matches[1]
-        }
-      } |
-      Where-Object { $_ } |
-      Sort-Object -Unique)
-    $changedManifestPlugins = @($changedFiles |
-      ForEach-Object {
-        if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
           $Matches[1]
         }
       } |
@@ -333,6 +394,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
 
     $agentPlugins = @(
       $changedAgentSourcePlugins + $changedSkillSourcePlugins + $changedManifestPlugins + $changedTestPlugins |
+        Where-Object { $_ -ne 'agentic-workflows' } |
         Sort-Object -Unique)
     $entries += @($agentPlugins | ForEach-Object {
       $plugin = $_
