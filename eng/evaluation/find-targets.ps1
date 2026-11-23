@@ -496,7 +496,7 @@ if ($matrixProfile -in @('default','mid','sol','full','newer')) {
     'mid'     = @('claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex')
     'sol'     = @('gpt-5.6-sol')
     'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex')
-    'newer'   = @('gpt-6.2-astra', 'claude-opus-5.5')
+    'newer'   = @('gpt-6-astra', 'claude-opus-5.5')
   }
   # §10.5 judge routing. Primary = cross-family (never the same model, and
   # a different family in every case here).
@@ -508,7 +508,7 @@ if ($matrixProfile -in @('default','mid','sol','full','newer')) {
     'mai-code-1.1-flash'      = @{ judge = 'gpt-6.1-terra' }
     'gpt-5.3-codex'           = @{ judge = 'claude-haiku-4.5' }
     'gpt-5.6-sol'             = @{ judge = 'claude-haiku-4.5' }
-    'gpt-6.2-astra'           = @{ judge = 'claude-haiku-4.5' }
+    'gpt-6-astra'             = @{ judge = 'claude-haiku-4.5' }
     'claude-sonnet-5'         = @{ judge = 'gpt-6.1-terra' }
     'claude-opus-5.5'         = @{ judge = 'gpt-6.1-terra' }
   }
