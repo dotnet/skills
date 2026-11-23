@@ -782,10 +782,10 @@ stimuli:
     graders:
       - type: output-not-matches
         config:
-          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|outside|out of scope|doesn)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:open|edit|add to|modify)\b[^\n]{0,40}(?:Components/App\.razor|_Host\.cshtml)|\b(?:install|add|use)\b[^\n]{0,40}Syncfusion\.Blazor\.Toolkit|AddSyncfusionBlazorToolkit)'
+          pattern: '(?im)(?:^|(?<=[.:;!?])\s+)(?!(?:(?![.:;!?](?:\s|$))[^\n])*?(?:\b(?:not|never|avoid|without|instead of|rather than|outside|out of scope|doesn)\b|\w+n[''’]t\b))(?:(?![.:;!?](?:\s|$))[^\n])*?\b(?:open|edit|add to|modify)\b[^\n]{0,40}(?:Components/App\.razor|_Host\.cshtml)'
       - type: prompt
     rubric:
-      - Recognizes MAUI Blazor Hybrid is outside this skill's host/render-mode guidance.
+      - Recognizes MAUI Blazor Hybrid uses a different hosting model from a Blazor Web App.
       - Does not instruct opening Components/App.razor or _Host.cshtml as the Hybrid setup path.
-      - Does not hijack the request with Web App install guidance.
-      - "The Toolkit install skill stayed dormant: the answer does not rely on it and treats this request as outside the scope of Toolkit setup."
+      - Does not apply Blazor Web App render-mode guidance to the Hybrid app.
+      - Answers the registration and host-page question using Hybrid-specific guidance, or redirects to Hybrid-specific documentation.
