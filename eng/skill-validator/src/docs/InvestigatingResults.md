@@ -76,6 +76,29 @@ behavior against the corrected executor.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
 
+> PR discovery ignores a root plugin manifest when its only semantic change is
+> the generated `version` value. Both manifests must be strict JSON objects with
+> one valid `major.minor.patch` string in the top-level `version` property. A
+> new or semantically changed root manifest selects the plugin's full skill and
+> agent evaluation surface. A fully deleted plugin has no surviving target to
+> evaluate. If the plugin directory survives but its root manifest is missing
+> or invalid, target discovery fails explicitly because it cannot safely
+> enumerate the production agent surface.
+>
+> Evaluation-infrastructure changes use one fixed Vally sentinel from each
+> representative plugin: `dotnet/csharp-refactoring`,
+> `dotnet-msbuild/build-perf-diagnostics`, and
+> `dotnet-test/writing-mstest-tests`, the native-agent sentinel
+> `dotnet-msbuild/agent.build-perf`, and the agentic-workflow sentinel
+> `agentic-workflows/build-failure-analysis`. This exercises the Vally baseline,
+> isolated, plugin, comparison, and adaptation path, the native custom-agent
+> adapter, and the workflow-prompt SDK lane without making infrastructure
+> validation depend on every unrelated eval in those plugins. Discovery fails
+> if any sentinel is unavailable. Valid version-only root manifest changes do
+> not run model evaluations; repository versioning and manifest checks
+> validate those mechanical edits. Skill, agent, test, and semantic manifest
+> changes keep their normal targeted plugin evaluation surface.
+
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup
 > calls. Session-provider errors are harness failures, not skill-quality verdicts.
