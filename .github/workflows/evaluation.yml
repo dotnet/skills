@@ -186,12 +186,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
             throw "Could not determine a merge base for '$base' and '$head'."
           }
-          $changedFiles = @(git diff --no-renames --name-only --diff-filter=ACMR $mergeBase $head)
-          if ($LASTEXITCODE -ne 0) {
-            throw "Could not enumerate changed files for '$mergeBase..$head'."
-          }
-          # Keep deleted paths for infrastructure and manifest classification,
-          # but exclude them from evaluation-target extraction.
+          # Keep deleted paths in change classification so deletions from
+          # surviving targets still require evaluation.
           $infraCandidateFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
           if ($LASTEXITCODE -ne 0) {
             throw "Could not enumerate infrastructure changes for '$mergeBase..$head'."
@@ -216,7 +212,7 @@ jobs:
             Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
           }
 
-          $hasSkillChanges = $changedFiles |
+          $hasSkillChanges = $infraCandidateFiles |
             Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
           if ($changedManifestPlugins.Count -gt 0) {
@@ -297,12 +293,8 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
             throw "Could not determine a merge base for '$base' and '$head'."
           }
-          $changedFiles = @(git diff --no-renames --name-only --diff-filter=ACMR $mergeBase $head)
-          if ($LASTEXITCODE -ne 0) {
-            throw "Could not enumerate changed files for '$mergeBase..$head'."
-          }
-          # Keep deleted paths for infrastructure and manifest classification,
-          # but exclude them from evaluation-target extraction.
+          # Keep deleted paths in change classification so deletions from
+          # surviving targets still require evaluation.
           $infraCandidateFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
           if ($LASTEXITCODE -ne 0) {
             throw "Could not enumerate infrastructure changes for '$mergeBase..$head'."
@@ -327,7 +319,7 @@ jobs:
             Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
           }
 
-          $hasSkillChanges = $changedFiles |
+          $hasSkillChanges = $infraCandidateFiles |
             Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
           if ($changedManifestPlugins.Count -gt 0) {

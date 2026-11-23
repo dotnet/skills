@@ -228,18 +228,12 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
     throw "Could not determine a merge base for '$base' and '$head'."
   }
-  $changedFiles = @(git diff --no-renames --name-only --diff-filter=ACMR $mergeBase $head)
+  $changedFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
   if ($LASTEXITCODE -ne 0) {
     throw "Could not enumerate changed files for '$mergeBase..$head'."
   }
-  # Keep deleted paths for infrastructure and manifest classification, but
-  # exclude them from evaluation-target extraction.
-  $infraCandidateFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
-  if ($LASTEXITCODE -ne 0) {
-    throw "Could not enumerate infrastructure changes for '$mergeBase..$head'."
-  }
   $manifestChanges = @(Get-PluginManifestChanges `
-    -ChangedFiles $infraCandidateFiles -BaseCommit $mergeBase -HeadCommit $head)
+    -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
   $changedManifestPlugins = @($manifestChanges |
     Where-Object { $_.Kind -eq "Behavior" } |
     Select-Object -ExpandProperty Plugin)
@@ -262,7 +256,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   # Check if any changed files are in infrastructure paths. The native
   # custom-agent lane executes eng/skill-validator/src, so those source
   # changes are evaluation infrastructure changes.
-  $hasInfraChanges = $infraCandidateFiles |
+  $hasInfraChanges = $changedFiles |
     Where-Object {
       ($_ -match '^eng/vally-adapter/') -or
       ($_ -match '^eng/evaluation-tools/') -or
@@ -424,15 +418,21 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     $allWorkflows = $workflowChanges | Where-Object {
       $_ -match '^agentic-workflows/[^/]+$|^\.github/graders/|^tests/agentic-workflows/(?:[^/]+$|graders/|_)'
     } | Select-Object -First 1
-    $selectedPackages = @()
-    if (-not $allWorkflows) {
+    if ($allWorkflows) {
+      $entries += @(Get-WorkflowEntries -contentRoot $contentRoot)
+    } else {
       $selectedPackages = @($workflowChanges | ForEach-Object {
         if ($_ -match '^(?:agentic-workflows|tests/agentic-workflows)/([^/]+)/') {
           $Matches[1]
         }
-      } | Sort-Object -Unique)
+      } | Sort-Object -Unique | Where-Object {
+        (Test-Path (Join-Path $contentRoot "agentic-workflows" $_ "aw.yml") -PathType Leaf) -and
+        (Test-Path (Join-Path $contentRoot "tests" "agentic-workflows" $_ "eval.yaml") -PathType Leaf)
+      })
+      if ($selectedPackages.Count -gt 0) {
+        $entries += @(Get-WorkflowEntries -contentRoot $contentRoot -selectedPackages $selectedPackages)
+      }
     }
-    $entries += @(Get-WorkflowEntries -contentRoot $contentRoot -selectedPackages $selectedPackages)
   }
   } finally {
     git worktree remove $contentRoot --force

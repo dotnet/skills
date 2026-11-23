@@ -176,20 +176,163 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual({entry["package_path"] for entry in self.entries()}, {"agentic-workflows/alpha/aw.yml"})
         self.assertEqual(git("worktree", "list", "--porcelain").count("worktree "), 1)
 
+    def test_pr_deleted_package_resource_still_selects_its_package(self):
+        self.git("init", "--quiet")
+        resource = self.root / "agentic-workflows" / "alpha" / "workflows" / "helper.json"
+        resource.parent.mkdir()
+        resource.write_text("{}\n", encoding="utf-8")
+        base = self.commit_fixture("Fixture base")
+        resource.unlink()
+        head = self.commit_fixture("Delete package resource")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            {entry["package_path"] for entry in self.entries()},
+            {"agentic-workflows/alpha/aw.yml"},
+        )
+
     def test_pr_deleted_workflow_package_is_not_selected(self):
         self.git("init", "--quiet")
         base = self.commit_fixture("Fixture base")
         shutil.rmtree(self.root / "agentic-workflows" / "beta")
         shutil.rmtree(self.root / "tests" / "agentic-workflows" / "beta")
-        resource = self.root / "agentic-workflows" / "alpha" / "workflows" / "helper.json"
-        resource.parent.mkdir()
-        resource.write_text("{}\n", encoding="utf-8")
-        head = self.commit_fixture("Delete beta and change alpha")
+        head = self.commit_fixture("Delete beta")
         result = self.run_script(
             "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
             GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual({entry["package_path"] for entry in self.entries()}, {"agentic-workflows/alpha/aw.yml"})
+        self.assertEqual(self.entries(), [])
+
+    def test_pr_deleted_skill_helper_still_selects_its_skill(self):
+        self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        helper = (
+            self.root
+            / "plugins"
+            / "demo"
+            / "skills"
+            / "sample"
+            / "references"
+            / "helper.md"
+        )
+        helper.parent.mkdir()
+        helper.write_text("Shared helper.\n", encoding="utf-8")
+        base = self.commit_fixture("Fixture base")
+        helper.unlink()
+        head = self.commit_fixture("Delete skill helper")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertTrue(entries)
+        self.assertEqual({entry["plugin"] for entry in entries}, {"demo"})
+        self.assertEqual({entry["target_kind"] for entry in entries}, {"skill"})
+        self.assertEqual(
+            {entry["skills_path"] for entry in entries},
+            {"plugins/demo/skills/sample"},
+        )
+
+    def test_pr_deleted_shared_workflow_input_still_selects_all_packages(self):
+        self.git("init", "--quiet")
+        shared = self.root / "tests" / "agentic-workflows" / "test_graders.py"
+        shared.write_text("Shared fixture.\n", encoding="utf-8")
+        base = self.commit_fixture("Fixture base")
+        shared.unlink()
+        head = self.commit_fixture("Delete shared workflow input")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertEqual(len(entries), 4)
+        self.assertEqual(
+            {entry["package_path"] for entry in entries},
+            {"agentic-workflows/alpha/aw.yml", "agentic-workflows/beta/aw.yml"},
+        )
+
+    def test_pr_status_deletions_from_surviving_targets_require_evaluation(self):
+        workflow = yaml.safe_load(
+            (REPO_ROOT / ".github" / "workflows" / "evaluation.yml").read_text(
+                encoding="utf-8"
+            )
+        )
+        status_scripts = [
+            next(
+                step["run"]
+                for step in workflow["jobs"][job]["steps"]
+                if step.get("id") == "discover"
+            )
+            for job in ("pr-status", "fork-pr-status")
+        ]
+        self.create_plugin_fixture()
+        deleted_paths = (
+            self.root
+            / "plugins"
+            / "demo"
+            / "skills"
+            / "sample"
+            / "references"
+            / "helper.md",
+            self.root
+            / "agentic-workflows"
+            / "alpha"
+            / "workflows"
+            / "helper.json",
+            self.root / "tests" / "agentic-workflows" / "test_graders.py",
+        )
+        for path in deleted_paths:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("Fixture input.\n", encoding="utf-8")
+
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        for path in deleted_paths:
+            with self.subTest(path=path.relative_to(self.root)):
+                path.unlink()
+                head = self.commit_fixture("Delete evaluation input")
+                for status_script in status_scripts:
+                    script = (
+                        status_script.replace(
+                            "${{ github.event.pull_request.base.sha }}", base
+                        )
+                        .replace(
+                            "${{ github.event.pull_request.head.sha }}", head
+                        )
+                        .replace('"FETCH_HEAD"', f'"{head}"')
+                    )
+                    result = self.run_script(script)
+                    self.assertEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
+                    self.assertIn(
+                        "needs_eval=true",
+                        self.output.read_text(encoding="utf-8"),
+                    )
+                base = head
 
     def test_pr_shared_workflow_inputs_select_all_packages(self):
         self.git("init", "--quiet")
