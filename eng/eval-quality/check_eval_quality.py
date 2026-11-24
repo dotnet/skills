@@ -1368,8 +1368,7 @@ class _JavaScriptRegexWorker:
         if self._owner_pid != os.getpid():
             raise re.error(
                 "JavaScript regex worker cannot be used after fork; start a fresh process")
-        if not self._lock.acquire(timeout=self._timeout):
-            raise re.error("JavaScript regex validation timed out")
+        self._lock.acquire()
         try:
             deadline = time.monotonic() + self._timeout
             for attempt in range(2):

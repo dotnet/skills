@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Focused regression tests for the persistent JavaScript regex worker."""
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 import importlib.util
 import os
 import pathlib
@@ -123,7 +123,7 @@ lines.on("line", line => {
         lock = worker._lock
 
         class ObservedLock:
-            def acquire(self, timeout):
+            def acquire(self, timeout=-1):
                 entered.set()
                 return lock.acquire(timeout=timeout)
 
@@ -153,6 +153,45 @@ lines.on("line", line => {
                     finally:
                         lock.release()
                     self.assertTrue(future.result(timeout=3))
+            self.assertIs(process, worker._process)
+        finally:
+            worker.close()
+
+    def test_queued_call_can_wait_longer_than_execution_timeout(self):
+        worker = gate._JavaScriptRegexWorker()
+        try:
+            self.assertTrue(worker.test("Thing", 0, "Thing"))
+            process = worker._process
+            worker._timeout = 1
+            lock = worker._lock
+            entered = threading.Event()
+
+            class ObservedLock:
+                def acquire(self, *args, **kwargs):
+                    entered.set()
+                    return lock.acquire(*args, **kwargs)
+
+                def release(self):
+                    lock.release()
+
+                def __enter__(self):
+                    lock.acquire()
+                    return self
+
+                def __exit__(self, *args):
+                    lock.release()
+
+            lock.acquire()
+            worker._lock = ObservedLock()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(worker.test, "Thing", 0, "Thing")
+                try:
+                    self.assertTrue(entered.wait(timeout=2))
+                    with self.assertRaises(FutureTimeoutError):
+                        future.result(timeout=worker._timeout + 0.5)
+                finally:
+                    lock.release()
+                self.assertTrue(future.result(timeout=3))
             self.assertIs(process, worker._process)
         finally:
             worker.close()
