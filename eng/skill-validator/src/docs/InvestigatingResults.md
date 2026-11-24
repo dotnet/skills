@@ -19,6 +19,17 @@
 > evidence: an explicit execution error, a missing or timed-out required arm, a
 > failed run, or a missing pairwise result.
 
+> Evaluation selection includes the pinned evaluation toolchain and lockfile,
+> the local skill-evaluation wrapper, native validator sources (including the
+> overfitting judge), SDK/build configuration, and the evaluation NuGet feed.
+> Both same-repository and fork status gates use these inputs, as does matrix
+> discovery, including deleted files. Changes to these paths need evaluation
+> from the reviewed trusted ref, not just repository-local unit tests.
+> The local wrapper now uses pinned Vally, generated plugin-skills arms, shared
+> retry/adaptation, and exact result accounting. It preserves partial artifacts
+> but returns failure for invalid measurement or any nonzero harness exit; it
+> does not provision CI's token pool, SDK/feed image, or overfitting judge.
+
 Executor sessions append the exact scenario workspace to the system context.
 Do not resolve fixture paths against a staged skill's base directory or the
 shared evaluator root. Normal shell pre-tool hooks defer to the SDK's typed
@@ -70,8 +81,15 @@ behavior against the corrected executor.
 > the PR report but does not override authoritative evaluation verdicts.
 > Scheduled and main session-data publishing remains strict.
 
+> If the AGENTVIZ source cannot be resolved, dashboard deployment verifies the
+> existing viewer and staged evaluation data before publishing without replacing
+> the viewer. The job summary records the retained viewer revision and the job
+> fails after deployment so the source outage remains visible. A missing viewer
+> or evaluation data stops deployment. This fallback does not repair session-data
+> publication or update the viewer.
+
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
-> with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.
+> with judges `gpt-6.1-terra` and `claude-haiku-4.5`, respectively.
 > Explicit profiles and the scheduled cadence can select other models.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.

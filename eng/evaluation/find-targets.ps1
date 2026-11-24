@@ -228,7 +228,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
     throw "Could not determine a merge base for '$base' and '$head'."
   }
-  $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+  $changedFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
   if ($LASTEXITCODE -ne 0) {
     throw "Could not enumerate changed files for '$mergeBase..$head'."
   }
@@ -259,8 +259,13 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   $hasInfraChanges = $changedFiles |
     Where-Object {
       ($_ -match '^eng/vally-adapter/') -or
+      ($_ -match '^eng/evaluation-tools/') -or
+      ($_ -match '^eng/run-skill-evals\.sh$') -or
       ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
+      ($_ -match '^eng/evaluation/nuget\.config$') -or
       ($_ -match '^eng/skill-validator/src/') -or
+      ($_ -match '^eng/skill-validator/Directory\.Build\.props$') -or
+      ($_ -match '^global\.json$') -or
       ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
       $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
     } |
@@ -413,15 +418,23 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     $allWorkflows = $workflowChanges | Where-Object {
       $_ -match '^agentic-workflows/[^/]+$|^\.github/graders/|^tests/agentic-workflows/(?:[^/]+$|graders/|_)'
     } | Select-Object -First 1
-    $selectedPackages = @()
-    if (-not $allWorkflows) {
+    if ($allWorkflows) {
+      $entries += @(Get-WorkflowEntries -contentRoot $contentRoot)
+    } else {
       $selectedPackages = @($workflowChanges | ForEach-Object {
         if ($_ -match '^(?:agentic-workflows|tests/agentic-workflows)/([^/]+)/') {
           $Matches[1]
         }
-      } | Sort-Object -Unique)
+      } | Sort-Object -Unique | Where-Object {
+        $sourceDir = Join-Path $contentRoot "agentic-workflows" $_
+        $testsDir = Join-Path $contentRoot "tests" "agentic-workflows" $_
+        (Test-Path $sourceDir -PathType Container) -or
+        (Test-Path $testsDir -PathType Container)
+      })
+      if ($selectedPackages.Count -gt 0) {
+        $entries += @(Get-WorkflowEntries -contentRoot $contentRoot -selectedPackages $selectedPackages)
+      }
     }
-    $entries += @(Get-WorkflowEntries -contentRoot $contentRoot -selectedPackages $selectedPackages)
   }
   } finally {
     git worktree remove $contentRoot --force
@@ -558,21 +571,21 @@ if ($matrixProfile -in @('default','mid','sol','full','newer')) {
     'mid'     = @('claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex')
     'sol'     = @('gpt-5.6-sol')
     'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex')
-    'newer'   = @('gpt-6-astra', 'claude-opus-5')
+    'newer'   = @('gpt-6-astra', 'claude-opus-5.5')
   }
   # §10.5 judge routing. Primary = cross-family (never the same model, and
   # a different family in every case here).
-  #   - Non-GPT executor legs (Claude/MAI) are judged by gpt-5.6-terra.
+  #   - Non-GPT executor legs (Claude/MAI) are judged by gpt-6.1-terra.
   #   - GPT executor legs are judged by claude-haiku-4.5.
   $judgeRoutes = @{
     'gpt-5.6-luna'            = @{ judge = 'claude-haiku-4.5' }
-    'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra' }
-    'mai-code-1.1-flash'      = @{ judge = 'gpt-5.6-terra' }
+    'claude-haiku-4.5'        = @{ judge = 'gpt-6.1-terra' }
+    'mai-code-1.1-flash'      = @{ judge = 'gpt-6.1-terra' }
     'gpt-5.3-codex'           = @{ judge = 'claude-haiku-4.5' }
     'gpt-5.6-sol'             = @{ judge = 'claude-haiku-4.5' }
     'gpt-6-astra'             = @{ judge = 'claude-haiku-4.5' }
-    'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra' }
-    'claude-opus-5'           = @{ judge = 'gpt-5.6-terra' }
+    'claude-sonnet-5'         = @{ judge = 'gpt-6.1-terra' }
+    'claude-opus-5.5'         = @{ judge = 'gpt-6.1-terra' }
   }
   $models = $profileModels[$matrixProfile]
   $expanded = @()

@@ -10,15 +10,21 @@ import {
   loadReplayActivationContracts,
   replayNonActivationStimuli,
   assertReplayStimulusCoverage,
+  activationDiagnostics,
+  buildExecutionContext,
   comparisonToVerdict,
   classifyComparisonError,
   continuedAfterSkillActivation,
+  failureClassesFromRecords,
+  indexNativeSessionLogs,
+  loadExecutionManifest,
   mergeComparisonReports,
   postActivationFromRecords,
   readNonActivationStimuli,
   recoverTransientComparisonSlots,
   splitVallyCommand,
   signTestPValue,
+  stimulusWorkKind,
   trialDirection,
   VERDICT_STATES,
   MAX_TARGETED_COMPARISON_SLOTS,
@@ -65,6 +71,66 @@ function createSkilledOnlyExperiment(root) {
 function createEmptyExperiment(root) {
   const runDir = join(root, "experiment");
   mkdirSync(runDir, { recursive: true });
+  return runDir;
+}
+
+// Vally native session log layout: <trial>/metadata.json + events.jsonl.
+// eventsPath points at the original runner, so readers must not trust it.
+function writeNativeSession(root, trajectoryId, events) {
+  const dir = join(root, "eval", "Scenario", "model", `trial-${trajectoryId}`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "metadata.json"),
+    JSON.stringify({
+      trajectoryId,
+      executorName: "copilot-sdk",
+      logSource: "native",
+      eventsPath: "/home/runner/elsewhere/events.jsonl",
+    }),
+  );
+  writeJsonl(join(dir, "events.jsonl"), events);
+}
+
+const nativeSessionStart = (data = {}) => ({
+  type: "session.start",
+  data: {
+    producer: "copilot-agent",
+    copilotVersion: "1.0.103",
+    selectedModel: "gpt-5.3-codex",
+    contextTier: null,
+    ...data,
+  },
+});
+
+const nativeAssistantMessage = (data = {}) => ({
+  type: "assistant.message",
+  data: {
+    content: "done",
+    providerId: "copilot",
+    serverTools: { provider: "openai-responses" },
+    ...data,
+  },
+});
+
+function createExperimentWithNativeLogs(root) {
+  const runDir = join(root, "experiment");
+  for (const variant of ["baseline", "skilled"]) {
+    const trajectoryId = `${variant}-trajectory`;
+    writeJsonl(join(runDir, variant, "results.jsonl"), [
+      {
+        type: "trial-result",
+        experiment: { evalFile },
+        status: "success",
+        stimulus: "Scenario",
+        variant,
+        trajectory: { id: trajectoryId },
+      },
+    ]);
+    writeNativeSession(join(runDir, variant), trajectoryId, [
+      nativeSessionStart(),
+      nativeAssistantMessage({ phase: "final_answer" }),
+    ]);
+  }
   return runDir;
 }
 
@@ -171,6 +237,7 @@ function runAdapter(
   expectedEvalFiles = [evalFile],
   experimentFactory = createExperiment,
   repoRoot,
+  extraArgs = [],
 ) {
   const runDir = experimentFactory(root);
   const outputRoot = join(root, "output");
@@ -189,6 +256,7 @@ function runAdapter(
     expectedEvalsPath,
   ];
   if (repoRoot) args.push("--repo-root", repoRoot);
+  args.push(...extraArgs);
   const result = spawnSync(process.execPath, args, { encoding: "utf8" });
   const verdictPath = join(
     outputRoot,
@@ -491,6 +559,110 @@ test("writes an explicit invalid verdict for every expected eval", () => {
   });
 });
 
+test("every verdict records requested and observed execution provenance", () => {
+  withTempDir((root) => {
+    const manifestPath = join(root, "runtime-identity.json");
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        generatedAt: "2026-01-01T00:00:00.000Z",
+        toolchain: { runtimeVersion: "1.0.103", sdkVersion: "1.0.26" },
+        toolSchemas: { "gpt-5.3-codex": { sha256: "abc", toolCount: 14 } },
+      }),
+    );
+    const missingEval = "tests/dotnet-test/missing-skill/eval.yaml";
+    const { result, outputRoot, verdict } = runAdapter(
+      root,
+      "clean",
+      5,
+      [evalFile, missingEval],
+      createExperimentWithNativeLogs,
+      undefined,
+      ["--execution-context", manifestPath, "--reasoning-effort", "high", "--model", "gpt-5.3-codex", "--judge-model", "claude-opus-4.6"],
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const context = verdict.executionContext;
+    assert.equal(context.schemaVersion, 1);
+    assert.deepEqual(context.requested, {
+      model: "gpt-5.3-codex",
+      judgeModel: "claude-opus-4.6",
+      reasoningEffort: "high",
+      contextTier: "default",
+    });
+    assert.equal(context.identityManifest.status, "loaded");
+    assert.equal(context.toolSchemas["gpt-5.3-codex"].sha256, "abc");
+    assert.equal(context.observed.trials, 2);
+    assert.equal(context.observed.trialsWithSessionLog, 2);
+    assert.deepEqual(context.observed.runtimeVersions, { "1.0.103": 2 });
+    assert.deepEqual(context.byVariant.skilled.terminalPhases, { final_answer: 1 });
+
+    // Invalid verdicts carry the same run-level identity, with zero trials.
+    const missing = JSON.parse(
+      readFileSync(join(outputRoot, "dotnet-test", "missing-skill", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(missing.state, VERDICT_STATES.INVALID_INCONCLUSIVE);
+    assert.equal(missing.executionContext.toolchain.runtimeVersion, "1.0.103");
+    assert.equal(missing.executionContext.observed.trials, 0);
+  });
+});
+
+test("native session logs report runtime, effort, tier, provider, and terminal phase", () => {
+  withTempDir((root) => {
+    const runDir = join(root, "run");
+    const retryRoot = join(root, "retry");
+    writeNativeSession(runDir, "t-a", [
+      nativeSessionStart({ copilotVersion: "1.0.80" }),
+      nativeAssistantMessage({ phase: "commentary" }),
+    ]);
+    // The executor retry replaced t-a, so its log supersedes the original.
+    writeNativeSession(retryRoot, "t-a", [
+      nativeSessionStart(),
+      nativeAssistantMessage({ phase: "final_answer" }),
+      // Sub-agent messages do not end the parent session.
+      { type: "assistant.message", data: { phase: "commentary", parentToolCallId: "call-1" } },
+    ]);
+    writeNativeSession(runDir, "t-b", [
+      nativeSessionStart({ reasoningEffort: "high", contextTier: "long_context" }),
+      {
+        type: "session.model_change",
+        data: { previousModel: "gpt-5.3-codex", newModel: "gpt-5.6-sol", reasoningEffort: "medium" },
+      },
+      nativeAssistantMessage(),
+    ]);
+
+    const context = buildExecutionContext({
+      recordsByVariant: {
+        baseline: [{ trajectory: { id: "t-missing" } }],
+        skilled: [{ trajectory: { id: "t-a" } }, { trajectory: { id: "t-b" } }],
+        plugin: [],
+      },
+      nativeIndex: indexNativeSessionLogs([runDir, retryRoot, join(root, "absent")]),
+      manifestResult: loadExecutionManifest(undefined),
+      requested: {},
+    });
+
+    assert.equal(context.identityManifest.status, "not_provided");
+    assert.equal(context.toolchain, null);
+    assert.equal(context.observed.trials, 3);
+    assert.equal(context.observed.missingSessionLogs, 1);
+    assert.deepEqual(context.observed.runtimeVersions, { "1.0.103": 2 });
+    assert.deepEqual(context.observed.models, { "gpt-5.3-codex": 1, "gpt-5.6-sol": 1 });
+    assert.deepEqual(context.observed.reasoningEfforts, { default: 1, medium: 1 });
+    assert.deepEqual(context.observed.contextTiers, { default: 1, long_context: 1 });
+    assert.deepEqual(context.observed.terminalPhases, { final_answer: 1, unspecified: 1 });
+    assert.deepEqual(context.observed.apiProviders, { "openai-responses": 2 });
+    assert.deepEqual(context.observed.providerIds, { copilot: 2 });
+    assert.equal(context.observed.modelChangeTrials, 1);
+    assert.equal(context.byVariant.baseline.missingSessionLogs, 1);
+    assert.equal(context.byVariant.plugin, undefined);
+    assert.equal(context.finishReason.available, false);
+
+    const unreadable = join(root, "bad.json");
+    writeFileSync(unreadable, "{");
+    assert.equal(loadExecutionManifest(unreadable).status, "unreadable");
+  });
+});
+
 test("records an observed eval that is absent from the expected manifest", () => {
   withTempDir((root) => {
     const expectedEval = "tests/dotnet-test/missing-skill/eval.yaml";
@@ -726,50 +898,225 @@ test("post-activation telemetry distinguishes continuation from activation-only 
     activationOnlyCompletions: 3,
     failedActivationOnlyCompletions: 2,
     unclassifiedRuns: 1,
+    firstPostActivationTools: { view: 1 },
   });
 });
 
-test("scenario results retain post-activation telemetry for isolated and plugin runs", () => {
-  const records = [
-    {
-      gradeResult: { passed: false, score: 0 },
-      trajectory: {
-        endReason: "completed",
-        events: [
-          { type: "skill.invoked", data: { name: IDENTITY.skill } },
-        ],
-        metrics: {
-          skillActivationCount: 1,
-          toolCallCount: 1,
-          toolCallBreakdown: { skill: 1 },
-        },
+test("scenario results separate implementation stops from advisory answers after activation", () => {
+  const stopRecord = {
+    gradeResult: { passed: false, score: 0 },
+    trajectory: {
+      endReason: "completed",
+      events: [
+        { type: "skill.invoked", data: { name: IDENTITY.skill } },
+      ],
+      metrics: {
+        skillActivationCount: 1,
+        toolCallCount: 1,
+        toolCallBreakdown: { skill: 1 },
       },
     },
-  ];
+  };
+  // The skill-free baseline shows what each prompt demands: Scenario 1 edits
+  // files, Scenario 2 is answered without tools.
+  const editingBaseline = {
+    gradeResult: { passed: true, score: 1 },
+    trajectory: { endReason: "completed", metrics: { toolCallBreakdown: { view: 2, apply_patch: 1 } } },
+  };
+  const answeringBaseline = {
+    gradeResult: { passed: true, score: 1 },
+    trajectory: { endReason: "completed", metrics: { toolCallBreakdown: {} } },
+  };
   const verdict = comparisonToVerdict(
-    reportFromScores([0]),
+    reportFromStimulusRuns([[0], [0]]),
     IDENTITY,
     {
-      baselineByStim: new Map(),
-      skilledByStim: new Map([["Scenario 1", records]]),
-      pluginByStim: new Map([["Scenario 1", records]]),
+      baselineByStim: new Map([
+        ["Scenario 1", [editingBaseline]],
+        ["Scenario 2", [answeringBaseline]],
+      ]),
+      skilledByStim: new Map([
+        ["Scenario 1", [stopRecord]],
+        ["Scenario 2", [stopRecord]],
+      ]),
+      pluginByStim: new Map([
+        ["Scenario 1", [stopRecord]],
+        ["Scenario 2", [stopRecord]],
+      ]),
       hasPlugin: true,
     },
     new Set(),
   );
 
-  assert.deepEqual(verdict.scenarios[0].skillActivationIsolated, {
+  const [implementation, advisory] = verdict.scenarios;
+  assert.equal(implementation.stimulusWork.kind, "implementation");
+  assert.equal(advisory.stimulusWork.kind, "answer");
+  assert.deepEqual(implementation.skillActivationIsolated, {
     activated: true,
     activatedRuns: 1,
     continuedRuns: 0,
     activationOnlyCompletions: 1,
     failedActivationOnlyCompletions: 1,
     unclassifiedRuns: 0,
+    firstPostActivationTools: {},
+    failureClasses: {
+      failedRuns: 1,
+      routing: 0,
+      tool: 0,
+      continuation: 1,
+      contentQuality: 0,
+      unclassified: 0,
+    },
+    implementationActivationOnlyFailures: 1,
   });
-  assert.deepEqual(
-    verdict.scenarios[0].skillActivationPlugin,
-    verdict.scenarios[0].skillActivationIsolated,
+  assert.deepEqual(implementation.skillActivationPlugin, implementation.skillActivationIsolated);
+  // The same stop on an advisory prompt stays a continuation failure but is
+  // not reported as an implementation stop.
+  assert.equal(advisory.skillActivationIsolated.failedActivationOnlyCompletions, 1);
+  assert.equal(advisory.skillActivationIsolated.implementationActivationOnlyFailures, 0);
+  assert.equal(verdict.failureClassification.isolated.continuation, 2);
+  assert.equal(verdict.failureClassification.isolated.implementationActivationOnlyFailures, 1);
+  assert.equal(verdict.failureClassification.plugin.implementationActivationOnlyFailures, 1);
+});
+
+test("implementation-stop count excludes tool and dormancy-routing failures", () => {
+  const activationOnlyFailure = (errorCount = 0) => ({
+    gradeResult: { passed: false },
+    trajectory: {
+      endReason: "completed",
+      events: [{ type: "skill.invoked", data: { name: IDENTITY.skill } }],
+      metrics: {
+        errorCount,
+        skillActivationCount: 1,
+        toolCallCount: 1,
+        toolCallBreakdown: { skill: 1 },
+      },
+    },
+  });
+  const toolFailure = activationOnlyFailure(1);
+  const toolDiagnostics = activationDiagnostics(
+    {
+      activated: true,
+      postActivation: postActivationFromRecords([toolFailure], IDENTITY.skill),
+    },
+    [toolFailure],
+    IDENTITY.skill,
+    true,
+    { kind: "implementation" },
   );
+  assert.equal(toolDiagnostics.failureClasses.tool, 1);
+  assert.equal(toolDiagnostics.failureClasses.continuation, 0);
+  assert.equal(toolDiagnostics.implementationActivationOnlyFailures, 0);
+
+  const unexpectedActivation = activationOnlyFailure();
+  const routingDiagnostics = activationDiagnostics(
+    {
+      activated: true,
+      postActivation: postActivationFromRecords([unexpectedActivation], IDENTITY.skill),
+    },
+    [unexpectedActivation],
+    IDENTITY.skill,
+    false,
+    { kind: "implementation" },
+  );
+  assert.equal(routingDiagnostics.failureClasses.routing, 1);
+  assert.equal(routingDiagnostics.failureClasses.continuation, 0);
+  assert.equal(routingDiagnostics.implementationActivationOnlyFailures, 0);
+});
+
+test("stimulus work kind is inferred from baseline tool use", () => {
+  const run = (breakdown) => ({ trajectory: { metrics: { toolCallBreakdown: breakdown } } });
+  assert.equal(stimulusWorkKind([run({ edit: 1 }), run({ bash: 2 })]).kind, "implementation");
+  assert.equal(stimulusWorkKind([run({ edit: 1 }), run({}), run({})]).kind, "answer");
+  assert.equal(stimulusWorkKind([run({ view: 1 }), run({ grep: 1 }), run({ edit: 1 })]).kind, "inspection");
+  assert.equal(stimulusWorkKind([run({ skill: 1 }), run({})]).kind, "answer");
+  assert.equal(stimulusWorkKind([]).kind, "unknown");
+  // Without a breakdown, ordered tool events are used.
+  assert.equal(
+    stimulusWorkKind([
+      { trajectory: { events: [{ type: "tool_call", data: { toolName: "apply_patch" } }] } },
+    ]).kind,
+    "implementation",
+  );
+});
+
+test("failed runs are attributed to routing, tool, continuation, or content quality", () => {
+  const activated = (overrides = {}) => ({
+    gradeResult: { passed: false },
+    trajectory: {
+      endReason: "completed",
+      events: [
+        { type: "skill_activation", data: { name: "target" } },
+        ...(overrides.continued ? [{ type: "tool_call", data: { toolName: "edit" } }] : []),
+      ],
+      metrics: { errorCount: overrides.errorCount ?? 0 },
+      ...(overrides.endReason ? { endReason: overrides.endReason } : {}),
+    },
+  });
+  const dormant = {
+    gradeResult: { passed: false },
+    trajectory: { endReason: "completed", events: [], metrics: {} },
+  };
+  const passing = { ...activated(), gradeResult: { passed: true } };
+
+  assert.deepEqual(
+    failureClassesFromRecords(
+      [
+        dormant,
+        activated({ errorCount: 2, continued: true }),
+        activated({ endReason: "agent_timeout" }),
+        activated(),
+        activated({ continued: true }),
+        passing,
+      ],
+      "target",
+      true,
+    ),
+    { failedRuns: 5, routing: 1, tool: 2, continuation: 1, contentQuality: 1, unclassified: 0 },
+  );
+  // A dormancy scenario inverts routing: activation is the routing failure and
+  // a dormant failure is about content.
+  assert.deepEqual(
+    failureClassesFromRecords([activated({ continued: true }), dormant], "target", false),
+    { failedRuns: 2, routing: 1, tool: 0, continuation: 0, contentQuality: 1, unclassified: 0 },
+  );
+});
+
+test("ungraded plugin executor errors count as tool failures without changing the comparison gate", () => {
+  const verdict = comparisonToVerdict(reportFromScores([1, 1, 1, 1, 1]), IDENTITY, {
+    ...EMPTY_ROLES,
+    hasPlugin: true,
+    pluginByStim: new Map([
+      ["Scenario 1", [{ status: "error", error: "Timeout after 300000ms waiting for session.idle" }]],
+      ["Scenario 2", [{ status: "error", error: "Session disconnected while waiting for a response", gradeResult: null }]],
+      ["Scenario 3", [{ status: "success" }]],
+    ]),
+  });
+  assert.equal(verdict.state, "VALID_PASS");
+  assert.deepEqual(verdict.scenarios[0].skillActivationPlugin.failureClasses, {
+    failedRuns: 1, routing: 0, tool: 1, continuation: 0, contentQuality: 0, unclassified: 0,
+  });
+  assert.equal(verdict.failureClassification.plugin.tool, 2);
+  assert.equal(verdict.failureClassification.plugin.failedRuns, 2);
+});
+
+test("agent targets do not attribute failures to skill routing", () => {
+  const verdict = comparisonToVerdict(
+    reportFromScores([0]),
+    IDENTITY,
+    {
+      baselineByStim: new Map(),
+      skilledByStim: new Map([
+        ["Scenario 1", [{ gradeResult: { passed: false }, trajectory: { endReason: "completed", metrics: {} } }]],
+      ]),
+      pluginByStim: null,
+      hasPlugin: false,
+    },
+    new Set(),
+    "agent",
+  );
+  assert.equal(verdict.scenarios[0].skillActivationIsolated.failureClasses, undefined);
+  assert.equal(verdict.failureClassification.isolated, null);
 });
 
 test("plugin activation ignores sibling skills when the target stays dormant", () => {
