@@ -157,6 +157,20 @@ lines.on("line", line => {
         finally:
             worker.close()
 
+    def test_inherited_worker_guard_does_not_touch_process_or_lock(self):
+        worker = gate._JavaScriptRegexWorker()
+        worker._owner_pid = -1
+        worker._process = mock.Mock()
+        worker._lock = mock.MagicMock()
+        with self.assertRaisesRegex(re.error, "cannot be used after fork"):
+            worker.test("x", 0, "x")
+        worker.close()
+        worker._lock.acquire.assert_not_called()
+        worker._lock.__enter__.assert_not_called()
+        worker._process.stdin.close.assert_not_called()
+        worker._process.stdout.close.assert_not_called()
+        worker._process.stderr.close.assert_not_called()
+
     @unittest.skipUnless(hasattr(os, "fork"), "requires POSIX fork")
     def test_forked_child_rejects_inherited_worker_without_touching_pipes(self):
         program = r'''
