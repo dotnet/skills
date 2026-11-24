@@ -99,14 +99,14 @@ stimuli:
         - src: fixtures/assertion-free/SmokeTests/ApiClient.cs
           dest: SmokeTests/ApiClient.cs
     graders:
-      # Match count -> finding in prose, or finding -> count in a labeled row.
-      # A percentage can intervene, but not another count or a sentence/row boundary.
+      # Bind a count to prose, the neighboring table cell, or a group's first finding
+      # after an optional method list. Don't borrow counts from the next row or group.
       - type: output-matches
         config:
-          pattern: '(?i)(?:(?<![\w.])(?:5|five)\b(?:(?:\s*/\s*|\s+(?:out\s+)?of\s+(?:the\s+)?)(?:8|eight)\b)?(?:(?!\b(?:three|five|eight)\b)[^\d.,;:!?|\r\n]|\d+(?:\.\d+)?%)*?\b(?:assertion[- ]free|(?:no|zero|without|lack(?:ing)?) (?:any |explicit )?assertions?|asserts? nothing)\b|\b(?:assertion[- ]free|(?:no|zero) (?:explicit )?assertions?)\b(?: tests?| methods?)?[ \t`*():|–—=-]+\b(?:5|five)\b)'
+          pattern: '(?i)(?:(?<![\w.])(?:5|five)\b(?:(?:\s*/\s*|\s+(?:out\s+)?of\s+(?:the\s+)?)(?:8|eight)\b)?(?:[ \t`*]*\|| (?:tests?|methods?)\)\r?\n(?:`[\w`, \t]+`\r?\n)?(?:[ \t]*\r?\n)*)?(?:(?!\b(?:three|five|eight)\b)[^\d.,;:!?|\r\n]|\d+(?:\.\d+)?%)*?\b(?:assertion[- ]free|(?:no|zero|without|lack(?:ing)?) (?:any |explicit )?assertions?|asserts? nothing)\b|\b(?:assertion[- ]free|(?:no|zero) (?:explicit )?assertions?)\b(?: tests?| methods?)?[ \t`*():|–—=-]+\b(?:5|five)\b)'
       - type: output-matches
         config:
-          pattern: '(?i)(?:(?<![\w.])(?:3|three)\b(?:(?:\s*/\s*|\s+(?:out\s+)?of\s+(?:the\s+)?)(?:8|eight)\b)?(?:(?!\b(?:three|five|eight)\b)[^\d.,;:!?|\r\n]|\d+(?:\.\d+)?%)*?\b(?:(?:Assert\.)?IsNotNull|(?:non|not)[- ]null|null[- ]checks?|trivial[- ]only|trivial assertions?)\b|\b(?:IsNotNull|(?:non|not)[- ]null|null[- ]checks?|trivial[- ]only|trivial assertions?)\b(?: only| tests?)?[ \t`*():|–—=-]+\b(?:3|three)\b)'
+          pattern: '(?i)(?:(?<![\w.])(?:3|three)\b(?:(?:\s*/\s*|\s+(?:out\s+)?of\s+(?:the\s+)?)(?:8|eight)\b)?(?:[ \t`*]*\|| (?:tests?|methods?)\)\r?\n(?:`[\w`, \t]+`\r?\n)?(?:[ \t]*\r?\n)*)?(?:(?!\b(?:three|five|eight)\b)[^\d.,;:!?|\r\n]|\d+(?:\.\d+)?%)*?\b(?:(?:Assert\.)?IsNotNull|(?:non|not)[- ]null|null[- ]checks?|trivial[- ]only|trivial assertions?)\b|\b(?:IsNotNull|(?:non|not)[- ]null|null[- ]checks?|trivial[- ]only|trivial assertions?)\b(?: only| tests?)?[ \t`*():|–—=-]+\b(?:3|three)\b)'
       - type: exit-success
       - type: prompt
     rubric:
@@ -390,24 +390,14 @@ stimuli:
             - remove
             - apply_patch
 
+      # Bind each method to an affirmative label or to a bullet under a weak-test heading.
+      # Stop at the next section; a keyword elsewhere in the report is not a verdict.
       - type: output-matches
         config:
-          pattern: Ping_ReturnsResponse
+          pattern: '(?im)(?:\bPing_ReturnsResponse\b[ \t`*():|–—-]*(?:is[ \t]+)?(?:weak|trivial)\b|(?:(?:^|\|)[ \t`*#-]*(?:weak|trivial)[ \t`*:|–—-]+|^[ \t#*]*(?:weak|trivial|false confidence)\b[^\r\n|]*\r?\n(?:[ \t]*(?:[-*] [^\r\n]*)?\r?\n)*[ \t]*[-*] [*`]*)\bPing_ReturnsResponse\b)'
       - type: output-matches
         config:
-          pattern: HealthCheck_Healthy
-      - type: output-matches
-        config:
-          pattern: (?i)(trivial|weak|always.true|cannot fail|false confidence)
-      - type: output-matches
-        config:
-          pattern: (?im)^(?=[^\r\n]*\b(two|2)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(five|5)\b)[^\r\n]*\b(weak|trivial|false confidence)\b
-      - type: output-matches
-        config:
-          pattern: (?im)^(?=[^\r\n]*\bPing_ReturnsResponse\b)[^\r\n]*\b(trivial|weak)\b
-      - type: output-matches
-        config:
-          pattern: (?im)^(?=[^\r\n]*\bHealthCheck_Healthy\b)[^\r\n]*\b(trivial|weak|always.true)\b
+          pattern: '(?im)(?:\bHealthCheck_Healthy\b[ \t`*():|–—-]*(?:is[ \t]+)?(?:weak|trivial|always[- ]true)\b|(?:(?:^|\|)[ \t`*#-]*(?:weak|trivial|always[- ]true)[ \t`*:|–—-]+|^[ \t#*]*(?:weak|trivial|false confidence)\b[^\r\n|]*\r?\n(?:[ \t]*(?:[-*] [^\r\n]*)?\r?\n)*[ \t]*[-*] [*`]*)\bHealthCheck_Healthy\b)'
       - type: output-matches
         config:
           pattern: (ParseInvalid_ThrowsFormatException|Save_PersistsRecord|LoadExisting_ReturnsConfiguredValue)
@@ -419,7 +409,7 @@ stimuli:
       - Treated LoadExisting_ReturnsConfiguredValue as meaningful because the null guard is followed by exact value checks
       - Treated ParseInvalid_ThrowsFormatException as complete for its stated exception behavior despite having one assertion
       - Treated Save_PersistsRecord as meaningful state verification rather than dismissing its boolean assertion as trivial
-      - Concluded that two of the five methods are weak and recommended concrete expected-value checks for them
+      - Recommended concrete checks for the weak methods without treating the other three as weak
   - name: Recognize structural and interaction checks in Jest while flagging vacuous tests
     tags:
       capability: recognize-structural-and-interaction-checks-in-jest-while-flagging-vacuous-tests

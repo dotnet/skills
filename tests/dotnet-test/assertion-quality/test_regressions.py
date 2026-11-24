@@ -80,6 +80,10 @@ class AssertionQualityRegressions(unittest.TestCase):
         for report in (
             "{free} of 8 tests are assertion-free; {trivial} of 8 use only IsNotNull.",
             "Only IsNotNull: {trivial}/8\nNo assertions: {free}/8",
+            "| {free} | Assertion-free |\n| {trivial} | Trivial-only |",
+            "| Assertion-free | {free} |\n| Trivial-only | {trivial} |",
+            "## First group ({free} tests)\n`GetUsers`, `DeleteUser`\n\n**No assertions.**\n"
+            "## Second group ({trivial} tests)\n`SearchProducts`\n\n**Trivial assertion only.**",
             "{free}/8 have no assertions and {trivial}/8 use only a non-null check.",
             "{trivial}/8 use only Assert.IsNotNull. {free}/8 have zero assertions.",
         ):
@@ -136,13 +140,31 @@ class AssertionQualityRegressions(unittest.TestCase):
             if line.startswith("|"):
                 _, method, assessment, why, _ = line.split("|")
                 line = f"|{assessment}|{method}|{why}|"
-            lines.append(line.replace("two of five methods are weak", "two of the five methods are weak"))
+            lines.append(line.replace(
+                "two of five methods are weak", "fix Ping and HealthCheck; preserve the other three tests"
+            ))
         response = "\n".join(lines)
         self.assertEqual([], grader_errors(item, response))
         for method in ("Ping_ReturnsResponse", "HealthCheck_Healthy"):
-            with self.subTest(method=method):
-                wrong = response.replace(f"| Weak | `{method}`", f"| Meaningful | `{method}`")
-                self.assertTrue(grader_errors(item, wrong))
+            for verdict in ("Meaningful", "Not weak", "Not trivial"):
+                with self.subTest(method=method, verdict=verdict):
+                    wrong = response.replace(f"| Weak | `{method}`", f"| {verdict} | `{method}`")
+                    self.assertTrue(grader_errors(item, wrong))
+                    wrong = golden_response(item).replace(f"`{method}` | Weak |", f"`{method}` | {verdict} |")
+                    self.assertTrue(grader_errors(item, wrong))
+
+    def test_calibration_grader_keeps_list_findings_under_their_heading(self):
+        item = stimulus("Calibrate trivial checks without penalizing complete MSTest assertions")
+        report = (
+            "**False confidence (weak):**\n\n"
+            "- `Ping_ReturnsResponse` only checks presence.\n"
+            "- `HealthCheck_Healthy` uses a literal true.\n\n"
+            "**Meaningful:**\n- `Save_PersistsRecord` checks the saved state."
+        )
+        self.assertEqual([], grader_errors(item, report))
+        self.assertTrue(grader_errors(item, report.replace(
+            "- `HealthCheck_Healthy`", "**Not weak:**\n- `HealthCheck_Healthy`"
+        )))
 
     def test_calibration_grader_rejects_both_false_positive_diagnoses(self):
         item = stimulus("Calibrate trivial checks without penalizing complete MSTest assertions")
