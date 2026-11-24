@@ -19,6 +19,17 @@
 > evidence: an explicit execution error, a missing or timed-out required arm, a
 > failed run, or a missing pairwise result.
 
+> Evaluation selection includes the pinned evaluation toolchain and lockfile,
+> the local skill-evaluation wrapper, native validator sources (including the
+> overfitting judge), SDK/build configuration, and the evaluation NuGet feed.
+> Both same-repository and fork status gates use these inputs, as does matrix
+> discovery, including deleted files. Changes to these paths need evaluation
+> from the reviewed trusted ref, not just repository-local unit tests.
+> The local wrapper now uses pinned Vally, generated plugin-skills arms, shared
+> retry/adaptation, and exact result accounting. It preserves partial artifacts
+> but returns failure for invalid measurement or any nonzero harness exit; it
+> does not provision CI's token pool, SDK/feed image, or overfitting judge.
+
 Executor sessions append the exact scenario workspace to the system context.
 Do not resolve fixture paths against a staged skill's base directory or the
 shared evaluator root. Normal shell pre-tool hooks defer to the SDK's typed

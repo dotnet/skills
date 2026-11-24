@@ -2789,6 +2789,7 @@ esac
             "eng/evaluation/find-targets.ps1",
             "eng/evaluation/path-safety.ps1",
             "eng/evaluation/workflow-targets.ps1",
+            "eng/run-skill-evals.sh",
             "eng/skill-validator/Directory.Build.props",
             "eng/skill-validator/src/",
             "dotnet-skills.experiment.yaml",
@@ -2814,6 +2815,13 @@ esac
         advisory_path = ".github/workflows/fork-infra-check.yml"
         for event in ("pull_request", "push"):
             self.assertEqual(triggers[event]["paths"].count(advisory_path), 1)
+
+    def test_local_wrapper_changes_run_workflow_tests(self) -> None:
+        workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        for event in ("pull_request", "push"):
+            self.assertIn("eng/run-skill-evals.sh", triggers[event]["paths"])
+            self.assertIn("eng/evaluation-tools/**", triggers[event]["paths"])
 
     def test_evaluation_helpers_run_workflow_tests(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
@@ -3803,7 +3811,7 @@ esac
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         discovery_scripts = {
             job_name: workflow_step_script(
-                caller, job_name, "$hasSkillChanges = $changedFiles"
+                caller, job_name, "$hasSkillChanges = "
             )
             for job_name in ("pr-status", "fork-pr-status", "discover")
         }
@@ -3817,6 +3825,7 @@ esac
             "tests/agentic-workflows/RESULT_SCHEMA.md",
             "tests/agentic-workflows/test_graders.py",
             "tests/agentic-workflows/graders/check_result.py",
+            "plugins/dotnet-test/skills/test-smell-detection/references/helper.md",
             "plugins/dotnet-test/README.md",
         ]
         expected = changed_files[1:-1]
@@ -3824,20 +3833,21 @@ esac
         for job_name, script in discovery_scripts.items():
             with self.subTest(job=job_name):
                 match = re.search(
-                    r"\$hasSkillChanges = \$changedFiles \|\s*"
+                    r"\$hasSkillChanges = \$(?P<files>changedFiles|infraCandidateFiles) \|\s*"
                     r"Where-Object \{ \$_ -match '([^']+)' \}",
                     script,
                 )
                 self.assertIsNotNone(match)
-                env = dict(os.environ, DISCOVERY_PATTERN=match.group(1))
+                env = dict(os.environ, DISCOVERY_PATTERN=match.group(2))
+                changed_path_variable = match.group("files")
                 powershell = (
-                    "$changedFiles = @("
+                    f"${changed_path_variable} = @("
                     + ",".join(
                         f"'{path.replace(chr(39), chr(39) * 2)}'"
                         for path in changed_files
                     )
                     + "); "
-                    "$matches = @($changedFiles | "
+                    f"$matches = @(${changed_path_variable} | "
                     "Where-Object { $_ -match $env:DISCOVERY_PATTERN }); "
                     "ConvertTo-Json -InputObject $matches -Compress"
                 )
@@ -3867,7 +3877,7 @@ esac
                 )
                 self.assertIn("$changedManifestPlugins", script)
                 self.assertIn(
-                    "git diff --name-only --no-renames --diff-filter=ACMRD",
+                    "git diff --no-renames --name-only --diff-filter=ACMRD",
                     script,
                 )
                 self.assertIn(
@@ -3879,10 +3889,12 @@ esac
                     "Could not determine a merge base",
                     script,
                 )
-                self.assertIn(
-                    "Could not enumerate changed files",
-                    script,
+                diff_error = (
+                    "Could not enumerate changed files"
+                    if job_name == "discover"
+                    else "Could not enumerate infrastructure changes"
                 )
+                self.assertIn(diff_error, script)
                 if job_name != "discover":
                     self.assertIn("if (Test-Path $helperPath)", script)
                     self.assertIn(
@@ -4181,7 +4193,7 @@ esac
                     workflow, job_name, "$changedManifestPlugins = @("
                 )
                 match = re.search(
-                    r"(\$changedManifestPlugins = @\(\$changedFiles \|.*?"
+                    r"(\$changedManifestPlugins = @\(\$infraCandidateFiles \|.*?"
                     r"Sort-Object -Unique\))\s*\$helperPath",
                     script,
                     re.DOTALL,
@@ -4190,7 +4202,7 @@ esac
                 powershell = (
                     "$changedFiles = @("
                     + ",".join(f"'{path}'" for path in changed_files)
-                    + "); "
+                    + "); $infraCandidateFiles = $changedFiles; "
                     + match.group(1)
                     + "; ConvertTo-Json -InputObject "
                     "$changedManifestPlugins -Compress"

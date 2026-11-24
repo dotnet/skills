@@ -186,11 +186,13 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
             throw "Could not determine a merge base for '$base' and '$head'."
           }
-          $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+          # Keep deleted paths in change classification so deletions from
+          # surviving targets still require evaluation.
+          $infraCandidateFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
           if ($LASTEXITCODE -ne 0) {
-            throw "Could not enumerate changed files for '$mergeBase..$head'."
+            throw "Could not enumerate infrastructure changes for '$mergeBase..$head'."
           }
-          $changedManifestPlugins = @($changedFiles |
+          $changedManifestPlugins = @($infraCandidateFiles |
             ForEach-Object {
               if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
                 $Matches[1]
@@ -202,7 +204,7 @@ jobs:
           if (Test-Path $helperPath) {
             . $helperPath
             $manifestChanges = @(Get-PluginManifestChanges `
-              -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
+              -ChangedFiles $infraCandidateFiles -BaseCommit $mergeBase -HeadCommit $head)
             $changedManifestPlugins = @($manifestChanges |
               Where-Object { $_.Kind -eq "Behavior" } |
               Select-Object -ExpandProperty Plugin)
@@ -210,7 +212,7 @@ jobs:
             Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
           }
 
-          $hasSkillChanges = $changedFiles |
+          $hasSkillChanges = $infraCandidateFiles |
             Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
           if ($changedManifestPlugins.Count -gt 0) {
@@ -220,11 +222,16 @@ jobs:
           # Evaluation pipeline changes need a re-eval. The native custom-agent
           # lane executes eng/skill-validator/src, so changes there are evaluator
           # infrastructure changes. Documentation files don't affect evaluation.
-          $hasInfraChanges = $changedFiles |
+          $hasInfraChanges = $infraCandidateFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
+              ($_ -match '^eng/evaluation-tools/') -or
+              ($_ -match '^eng/run-skill-evals\.sh$') -or
               ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/nuget\.config$') -or
               ($_ -match '^eng/skill-validator/src/') -or
+              ($_ -match '^eng/skill-validator/Directory\.Build\.props$') -or
+              ($_ -match '^global\.json$') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
@@ -286,11 +293,13 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
             throw "Could not determine a merge base for '$base' and '$head'."
           }
-          $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+          # Keep deleted paths in change classification so deletions from
+          # surviving targets still require evaluation.
+          $infraCandidateFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
           if ($LASTEXITCODE -ne 0) {
-            throw "Could not enumerate changed files for '$mergeBase..$head'."
+            throw "Could not enumerate infrastructure changes for '$mergeBase..$head'."
           }
-          $changedManifestPlugins = @($changedFiles |
+          $changedManifestPlugins = @($infraCandidateFiles |
             ForEach-Object {
               if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
                 $Matches[1]
@@ -302,7 +311,7 @@ jobs:
           if (Test-Path $helperPath) {
             . $helperPath
             $manifestChanges = @(Get-PluginManifestChanges `
-              -ChangedFiles $changedFiles -BaseCommit $mergeBase -HeadCommit $head)
+              -ChangedFiles $infraCandidateFiles -BaseCommit $mergeBase -HeadCommit $head)
             $changedManifestPlugins = @($manifestChanges |
               Where-Object { $_.Kind -eq "Behavior" } |
               Select-Object -ExpandProperty Plugin)
@@ -310,18 +319,23 @@ jobs:
             Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
           }
 
-          $hasSkillChanges = $changedFiles |
+          $hasSkillChanges = $infraCandidateFiles |
             Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
           if ($changedManifestPlugins.Count -gt 0) {
             $hasSkillChanges = $true
           }
 
-          $hasInfraChanges = $changedFiles |
+          $hasInfraChanges = $infraCandidateFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
+              ($_ -match '^eng/evaluation-tools/') -or
+              ($_ -match '^eng/run-skill-evals\.sh$') -or
               ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/nuget\.config$') -or
               ($_ -match '^eng/skill-validator/src/') -or
+              ($_ -match '^eng/skill-validator/Directory\.Build\.props$') -or
+              ($_ -match '^global\.json$') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |

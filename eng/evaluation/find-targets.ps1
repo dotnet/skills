@@ -228,7 +228,7 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
     throw "Could not determine a merge base for '$base' and '$head'."
   }
-  $changedFiles = @(git diff --name-only --no-renames --diff-filter=ACMRD $mergeBase $head)
+  $changedFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
   if ($LASTEXITCODE -ne 0) {
     throw "Could not enumerate changed files for '$mergeBase..$head'."
   }
@@ -259,8 +259,13 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
   $hasInfraChanges = $changedFiles |
     Where-Object {
       ($_ -match '^eng/vally-adapter/') -or
+      ($_ -match '^eng/evaluation-tools/') -or
+      ($_ -match '^eng/run-skill-evals\.sh$') -or
       ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
+      ($_ -match '^eng/evaluation/nuget\.config$') -or
       ($_ -match '^eng/skill-validator/src/') -or
+      ($_ -match '^eng/skill-validator/Directory\.Build\.props$') -or
+      ($_ -match '^global\.json$') -or
       ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
       $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
     } |
@@ -413,15 +418,23 @@ if ("$env:GATE_PR_NUMBER" -ne "") {
     $allWorkflows = $workflowChanges | Where-Object {
       $_ -match '^agentic-workflows/[^/]+$|^\.github/graders/|^tests/agentic-workflows/(?:[^/]+$|graders/|_)'
     } | Select-Object -First 1
-    $selectedPackages = @()
-    if (-not $allWorkflows) {
+    if ($allWorkflows) {
+      $entries += @(Get-WorkflowEntries -contentRoot $contentRoot)
+    } else {
       $selectedPackages = @($workflowChanges | ForEach-Object {
         if ($_ -match '^(?:agentic-workflows|tests/agentic-workflows)/([^/]+)/') {
           $Matches[1]
         }
-      } | Sort-Object -Unique)
+      } | Sort-Object -Unique | Where-Object {
+        $sourceDir = Join-Path $contentRoot "agentic-workflows" $_
+        $testsDir = Join-Path $contentRoot "tests" "agentic-workflows" $_
+        (Test-Path $sourceDir -PathType Container) -or
+        (Test-Path $testsDir -PathType Container)
+      })
+      if ($selectedPackages.Count -gt 0) {
+        $entries += @(Get-WorkflowEntries -contentRoot $contentRoot -selectedPackages $selectedPackages)
+      }
     }
-    $entries += @(Get-WorkflowEntries -contentRoot $contentRoot -selectedPackages $selectedPackages)
   }
   } finally {
     git worktree remove $contentRoot --force
