@@ -228,28 +228,27 @@ function activationCell(verdict) {
   return `isolated ${stats.isolated}/${stats.total}${plugin}`;
 }
 
+function continuationFailures(activation) {
+  return activation?.failureClasses?.continuation ?? activation?.failedActivationOnlyCompletions ?? 0;
+}
+
 function postActivationStats(verdict) {
   const scenarios = verdict.scenarios ?? [];
   const expected = scenarios.filter(
     (scenario) => scenario?.expectActivation !== false,
   );
-  const sum = (list, role, field) => list.reduce(
-    (total, scenario) => total + (scenario?.[role]?.[field] ?? 0),
+  const sum = (list, role, count) => list.reduce(
+    (total, scenario) => total + count(scenario?.[role]),
     0,
   );
-  const isolatedFailures = sum(expected, "skillActivationIsolated", "failedActivationOnlyCompletions");
-  const pluginFailures = sum(scenarios, "skillActivationPlugin", "failedActivationOnlyCompletions");
-  // An implementation prompt that ends after only loading a skill delivered no
-  // work at all, so it is reported apart from advisory answers that may
-  // legitimately finish without further tool use (#1160).
-  const isolatedImplementationFailures = Math.min(
-    isolatedFailures,
-    sum(expected, "skillActivationIsolated", "implementationActivationOnlyFailures"),
+  const implementationStops = (activation) => Math.min(
+    continuationFailures(activation),
+    activation?.implementationActivationOnlyFailures ?? 0,
   );
-  const pluginImplementationFailures = Math.min(
-    pluginFailures,
-    sum(scenarios, "skillActivationPlugin", "implementationActivationOnlyFailures"),
-  );
+  const isolatedFailures = sum(expected, "skillActivationIsolated", continuationFailures);
+  const pluginFailures = sum(scenarios, "skillActivationPlugin", continuationFailures);
+  const isolatedImplementationFailures = sum(expected, "skillActivationIsolated", implementationStops);
+  const pluginImplementationFailures = sum(scenarios, "skillActivationPlugin", implementationStops);
   return {
     isolatedFailures,
     pluginFailures,
@@ -286,8 +285,8 @@ function isWeakOrWarningScenario(verdict, scenario) {
   const pluginActivation = targetActivation(verdict, scenario, "plugin");
   return netWin <= 0
     || scenario?.timedOut === true
-    || (scenario?.skillActivationIsolated?.failedActivationOnlyCompletions ?? 0) > 0
-    || (scenario?.skillActivationPlugin?.failedActivationOnlyCompletions ?? 0) > 0
+    || continuationFailures(scenario?.skillActivationIsolated) > 0
+    || continuationFailures(scenario?.skillActivationPlugin) > 0
     || (scenario?.expectActivation === false
       && isolatedActivation?.activated === true)
     || (scenario?.expectActivation !== false

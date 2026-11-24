@@ -714,8 +714,8 @@ function stimulusWorkKind(baselineRecords) {
 }
 
 /**
- * Attribute each failed run (gradeResult.passed === false) to one failure
- * class, first match wins:
+ * Ungraded executor errors count as tool failures. For a failed grade
+ * (gradeResult.passed === false), the first matching class wins:
  *   - routing: target activation disagreed with the scenario's expectation.
  *   - tool: the runtime reported errors, or the trajectory did not complete
  *     (timeout or simulation cap).
@@ -733,6 +733,11 @@ function failureClassesFromRecords(records, targetSkillName = null, expectActiva
     unclassified: 0,
   };
   for (const record of records ?? []) {
+    if (record.status === "error" && record.gradeResult?.passed == null) {
+      classes.failedRuns += 1;
+      classes.tool += 1;
+      continue;
+    }
     if (record.gradeResult?.passed !== false) continue;
     classes.failedRuns += 1;
     const outcome = postActivationOutcome(record, targetSkillName);
@@ -2306,7 +2311,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     activationContract,
     completionTransitions,
     failureClassification: {
-      source: "graded_run_failures",
+      source: "executor_errors_and_failed_grades",
       reason:
         "Each failed run is attributed to routing, tool/execution, post-activation continuation, " +
         "or content quality; implementation stops count only continuation-class activation-only " +

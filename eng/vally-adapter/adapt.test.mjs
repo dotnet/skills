@@ -1048,6 +1048,24 @@ test("failed runs are attributed to routing, tool, continuation, or content qual
   );
 });
 
+test("ungraded plugin executor errors count as tool failures without changing the comparison gate", () => {
+  const verdict = comparisonToVerdict(reportFromScores([1, 1, 1, 1, 1]), IDENTITY, {
+    ...EMPTY_ROLES,
+    hasPlugin: true,
+    pluginByStim: new Map([
+      ["Scenario 1", [{ status: "error", error: "Timeout after 300000ms waiting for session.idle" }]],
+      ["Scenario 2", [{ status: "error", error: "Session disconnected while waiting for a response", gradeResult: null }]],
+      ["Scenario 3", [{ status: "success" }]],
+    ]),
+  });
+  assert.equal(verdict.state, "VALID_PASS");
+  assert.deepEqual(verdict.scenarios[0].skillActivationPlugin.failureClasses, {
+    failedRuns: 1, routing: 0, tool: 1, continuation: 0, contentQuality: 0, unclassified: 0,
+  });
+  assert.equal(verdict.failureClassification.plugin.tool, 2);
+  assert.equal(verdict.failureClassification.plugin.failedRuns, 2);
+});
+
 test("agent targets do not attribute failures to skill routing", () => {
   const verdict = comparisonToVerdict(
     reportFromScores([0]),

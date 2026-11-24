@@ -591,7 +591,8 @@ test("reports implementation stops after activation apart from advisory stops", 
           stimulusWork: { kind: "implementation" },
           skillActivationIsolated: {
             activated: true,
-            failedActivationOnlyCompletions: 2,
+            failedActivationOnlyCompletions: 3,
+            failureClasses: { continuation: 2, tool: 1 },
             implementationActivationOnlyFailures: 2,
           },
           skillActivationPlugin: {
@@ -663,7 +664,38 @@ test("prioritizes activation-only diagnosis over preference-loss guidance", () =
   assert.doesNotMatch(markdown, /Inspect losing stimuli and fix skill behavior/);
 });
 
-test("counts plugin activation-only failures on target-dormancy scenarios", () => {
+test("tool and routing failures do not produce continuation warnings or advice", () => {
+  const markdown = render([{
+    skillName: "classified-failures",
+    state: "VALID_NO_CHANGE",
+    passed: false,
+    conclusive: true,
+    scenarios: [
+      {
+        scenarioName: "expected activation with a tool error",
+        expectActivation: true,
+        skillActivationIsolated: {
+          activated: true, failedActivationOnlyCompletions: 1,
+          failureClasses: { continuation: 0, tool: 1 },
+        },
+        netWin: 1,
+      },
+      {
+        scenarioName: "unexpected plugin activation",
+        expectActivation: false,
+        skillActivationIsolated: { activated: false },
+        skillActivationPlugin: {
+          activated: true, failedActivationOnlyCompletions: 1,
+          failureClasses: { continuation: 0, routing: 1 },
+        },
+        netWin: 1,
+      },
+    ],
+  }]);
+  assert.doesNotMatch(markdown, /Activation-only stop|Inspect activation-only/i);
+});
+
+test("legacy results count plugin activation-only failures on target-dormancy scenarios", () => {
   const markdown = render([
     {
       skillName: "plugin-runtime-failure",

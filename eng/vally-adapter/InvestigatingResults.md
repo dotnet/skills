@@ -280,8 +280,12 @@ and judge usage
 
 ### Failure classes
 
-`failureClasses` attributes every failed run (`gradeResult.passed === false`)
-of a skill-target role to exactly one class, first match wins:
+`failureClasses` counts an ungraded executor error (`status: "error"` with no
+pass/fail grade) as one `failedRuns` and one `tool` failure. A timeout or
+disconnect before grading is not evidence that the skill failed to activate.
+Other ungraded records are not counted. For a failed grade
+(`gradeResult.passed === false`) in a skill-target role, the first matching
+class wins:
 
 | Class | Rule | What it points at |
 |-------|------|-------------------|
@@ -418,7 +422,9 @@ If the warnings contain `Activation-only stop`, the same pattern occurred on an
 inspection or answer prompt, or where the work kind is unknown. Non-skill calls
 before activation do not count as continuation. This is a distinct failure mode
 from missing activation: the description routed successfully and the skill body
-was injected, but execution did not continue.
+was injected, but execution did not continue. The PR summary uses each arm's
+`failureClasses.continuation` for stop warnings and advice; it falls back to
+`failedActivationOnlyCompletions` for older results without that classification.
 
 Inspect the raw `events.jsonl` before changing skill prose:
 
