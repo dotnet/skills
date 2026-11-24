@@ -145,8 +145,10 @@ class AssertionQualityRegressions(unittest.TestCase):
             ))
         response = "\n".join(lines)
         self.assertEqual([], grader_errors(item, response))
+        for table in (golden_response(item), response):
+            self.assertEqual([], grader_errors(item, table.replace("| Weak |", "| False confidence |")))
         for method in ("Ping_ReturnsResponse", "HealthCheck_Healthy"):
-            for verdict in ("Meaningful", "Not weak", "Not trivial"):
+            for verdict in ("Meaningful", "Not weak", "Not trivial", "Not false confidence"):
                 with self.subTest(method=method, verdict=verdict):
                     wrong = response.replace(f"| Weak | `{method}`", f"| {verdict} | `{method}`")
                     self.assertTrue(grader_errors(item, wrong))

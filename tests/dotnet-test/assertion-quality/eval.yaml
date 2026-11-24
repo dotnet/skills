@@ -394,10 +394,10 @@ stimuli:
       # Stop at the next section; a keyword elsewhere in the report is not a verdict.
       - type: output-matches
         config:
-          pattern: '(?im)(?:\bPing_ReturnsResponse\b[ \t`*():|–—-]*(?:is[ \t]+)?(?:weak|trivial)\b|(?:(?:^|\|)[ \t`*#-]*(?:weak|trivial)[ \t`*:|–—-]+|^[ \t#*]*(?:weak|trivial|false confidence)\b[^\r\n|]*\r?\n(?:[ \t]*(?:[-*] [^\r\n]*)?\r?\n)*[ \t]*[-*] [*`]*)\bPing_ReturnsResponse\b)'
+          pattern: '(?im)(?:\bPing_ReturnsResponse\b[ \t`*():|–—-]*(?:is[ \t]+)?(?:weak|trivial|false confidence)\b|(?:(?:^|\|)[ \t`*#-]*(?:weak|trivial|false confidence)[ \t`*:|–—-]+|^[ \t#*]*(?:weak|trivial|false confidence)\b[^\r\n|]*\r?\n(?:[ \t]*(?:[-*] [^\r\n]*)?\r?\n)*[ \t]*[-*] [*`]*)\bPing_ReturnsResponse\b)'
       - type: output-matches
         config:
-          pattern: '(?im)(?:\bHealthCheck_Healthy\b[ \t`*():|–—-]*(?:is[ \t]+)?(?:weak|trivial|always[- ]true)\b|(?:(?:^|\|)[ \t`*#-]*(?:weak|trivial|always[- ]true)[ \t`*:|–—-]+|^[ \t#*]*(?:weak|trivial|false confidence)\b[^\r\n|]*\r?\n(?:[ \t]*(?:[-*] [^\r\n]*)?\r?\n)*[ \t]*[-*] [*`]*)\bHealthCheck_Healthy\b)'
+          pattern: '(?im)(?:\bHealthCheck_Healthy\b[ \t`*():|–—-]*(?:is[ \t]+)?(?:weak|trivial|false confidence|always[- ]true)\b|(?:(?:^|\|)[ \t`*#-]*(?:weak|trivial|false confidence|always[- ]true)[ \t`*:|–—-]+|^[ \t#*]*(?:weak|trivial|false confidence)\b[^\r\n|]*\r?\n(?:[ \t]*(?:[-*] [^\r\n]*)?\r?\n)*[ \t]*[-*] [*`]*)\bHealthCheck_Healthy\b)'
       - type: output-matches
         config:
           pattern: (ParseInvalid_ThrowsFormatException|Save_PersistsRecord|LoadExisting_ReturnsConfiguredValue)
