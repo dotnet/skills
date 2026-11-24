@@ -249,6 +249,8 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `excludedScenarioEvidence` | W/T/L summary for retained dormancy scenarios, marked `gateEligible: false` with exclusion reason `activation_contract_only` |
 | `activationContract` | Explicit dormancy checks from isolated target-skill activation: count, satisfied, violated, pass state, failure names, and `unmatchedDormancyStimuli`. A violation or unmatched dormancy annotation blocks `passed` with `stateReason.code == "activation_contract_failed"` |
 | `completionTransitions` | Baseline/treatment aggregate pass transitions across **all** stimuli, including preference-excluded dormancy. Report-only because Vally aggregate pass can include LLM grading |
+| `failureClassification` | Skill targets only. `{ source, reason, isolated, plugin }`, where `isolated`/`plugin` sum every scenario's `failureClasses` plus `implementationActivationOnlyFailures` (`plugin` is `null` without a plugin variant; either is `null` when no failure classes were recorded). Diagnostic; it never changes the gate. See [Failure classes](#failure-classes) |
+| `executionContext` | Execution provenance for this result: requested configuration, toolchain and tool-schema identity, and what each trial's native session log reports it ran with. See [Execution context](#execution-context) |
 | `reason` | Human-readable summary of the above |
 | `scenarios[]` | Per-scenario detail (below) |
 
@@ -264,7 +266,8 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `preferenceGateEligible` / `preferenceGateExclusionReason` | Whether this scenario contributes a preference vote. Explicit dormancy is `false` / `activation_contract_only` |
 | `timedOut` | Whether the skilled run hit its timeout |
 | `agentActivationIsolated` / `agentActivationPlugin` | Agent targets only: exact target activation plus invoked/delegated agent names and event counts |
-| `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass |
+| `stimulusWork` | `{ kind, source, baselineRuns, baselineWriteRuns, baselineToolRuns }`. What the prompt requires, inferred from the skill-free baseline: `implementation` when at least half the baseline runs used a file-mutation tool, else `inspection` when at least half used any non-skill tool, else `answer`; `unknown` without baseline runs. Shell-only writes are not detected, so `implementation` is undercounted |
+| `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass. Skill targets also carry `failureClasses` (per failed run, see [Failure classes](#failure-classes)) and `implementationActivationOnlyFailures`, which counts only `continuation`-class failures when `stimulusWork.kind` is `implementation`; tool and routing failures are excluded |
 | `skillActivationPlugin` | The same telemetry for the whole-plugin run, filtered to named activation events for the target skill. Sibling-skill invocations do not set `activated` (present only when a plugin variant ran) |
 | `baseline` | `{ judgeResult: { overallScore }, metrics }` — the skill-free control (`overallScore` is 0–5) |
 | `skilledIsolated` | Same shape, for the isolated skilled run |
@@ -274,6 +277,62 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 `{ wallTimeMs, tokenEstimate, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }`
 and judge usage
 `{ judgeInputTokens, judgeOutputTokens, judgeCacheReadTokens, judgeCacheWriteTokens }`.
+
+### Failure classes
+
+`failureClasses` counts an ungraded executor error (`status: "error"` with no
+pass/fail grade) as one `failedRuns` and one `tool` failure. A timeout or
+disconnect before grading is not evidence that the skill failed to activate.
+Other ungraded records are not counted. For a failed grade
+(`gradeResult.passed === false`) in a skill-target role, the first matching
+class wins:
+
+| Class | Rule | What it points at |
+|-------|------|-------------------|
+| `routing` | Target activation disagreed with the scenario's expectation (missed activation, or activation on a dormancy stimulus) | Skill description and trigger prompts |
+| `tool` | The trajectory reported errors, or ended for any reason other than `completed` (timeout, simulation cap) | Runtime, tool, fixture, or harness |
+| `continuation` | The run completed after only loading the target skill: no non-skill tool call followed activation | Model/runtime continuation after skill injection |
+| `contentQuality` | Routing and execution were sound, yet graders failed (it continued after activation, or correctly stayed dormant) | Skill content, rubric, or task difficulty |
+| `unclassified` | Activated, but the trajectory cannot show what followed | Missing trace evidence |
+
+`failedRuns` is the sum of the five classes. `implementationActivationOnlyFailures`
+counts only `continuation`-class failures on a stimulus whose
+`stimulusWork.kind` is `implementation`. This follows the precedence above:
+tool/execution errors and unexpected activation on a dormancy stimulus are
+classified as `tool` and `routing`, respectively, and do not inflate the
+implementation-stop count. Advisory and inspection prompts can legitimately
+answer from skill content, so their activation-only failures are reported
+separately. Agent and workflow targets carry no failure classes; their
+activation is not skill routing.
+
+### Execution context
+
+`executionContext` records the identity needed to compare models, runtimes, and
+skill revisions without guessing (schema version 1):
+
+| Field | Description |
+|-------|-------------|
+| `requested` | `{ model, judgeModel, reasoningEffort, contextTier }` the adapter was told the run used. Effort and tier are `default` unless `--reasoning-effort` / `--context-tier` were passed |
+| `identityManifest` | `{ status, generatedAt, platform }`. `status` is `loaded`, `not_provided`, or `unreadable` |
+| `toolchain` | From `runtime-identity.json`: `vallyVersion`, `sdkVersion`, `copilotPackageVersion` (the CLI the PAT probe uses), `runtimeVersion` (the SDK-bundled runtime that runs trials), and `protocolVersion`. `null` when no manifest loaded |
+| `toolSchemas` | Per model, the runtime's tool surface: `{ sha256, toolCount, toolNames }`. The hash covers each tool's name, namespaced name, description, parameter schema, and instructions, so any wording or schema change is visible. `null` when no manifest loaded |
+| `observed` | Counts across every trial of this eval, read from each trial's native `session.start` and last top-level `assistant.message`: `runtimeVersions`, `producers`, `models`, `providerIds`, `apiProviders`, `reasoningEfforts`, `contextTiers`, `terminalPhases`, `modelChangeTrials`, and `trialsWithSessionLog` / `missingSessionLogs`. A missing reasoning effort or context tier is counted as `default` |
+| `byVariant` | The same counts keyed by experiment variant name (by default `baseline`, `skilled`, and `plugin`; variants with no records are omitted) |
+| `finishReason` | `{ available: false, reason }`. The runtime emits `assistant.usage` as an ephemeral event that is never persisted, so model finish reasons cannot be recovered; `terminalPhases` is the closest persisted signal |
+
+Native session logs are joined to trials by trajectory ID: `results.jsonl`
+`trajectory.id` equals the sibling `metadata.json` `trajectoryId`. The workflow
+also indexes `_executor-retry/`, so recovered trials keep their provenance.
+
+The workflow captures `runtime-identity.json` before the experiment with
+`eng/evaluation-tools/runtime-identity.mjs`. It starts the same SDK and bundled
+runtime that Vally uses, in an isolated `COPILOT_HOME`, and lists tools for the
+executor and judge models. Capture failure only emits a warning; the adapter
+then writes `toolchain` and `toolSchemas` as `null`. To capture it locally:
+
+```powershell
+node eng/evaluation-tools/runtime-identity.mjs --output runtime-identity.json --model gpt-5.3-codex --model claude-opus-4.6
+```
 
 ### Schema version 5 compatibility
 
@@ -347,11 +406,25 @@ Work top-down; earlier categories often cause later ones.
 
 ### 0. Activation-only completion
 
-If the warnings contain `Activation-only stop`, the model loaded a skill, made
-no non-skill tool call after that activation, ended normally, and failed that
-run's graders. Non-skill calls before activation do not count as continuation.
-This is a distinct failure mode from missing activation: the description routed
-successfully and the skill body was injected, but execution did not continue.
+Start from `failureClassification` to decide which layer failed before reading
+any prose. `routing` failures point at the description, `tool` failures at the
+runtime or fixture, `contentQuality` failures at skill content or the rubric,
+and `continuation` failures at what happened after the skill was injected.
+
+If the warnings contain `Implementation stop after skill activation`, an
+implementation prompt (its skill-free baseline edited files) had a failed run
+classified as `continuation`: it loaded the skill, made no non-skill tool call
+afterwards, ended normally without a tool error, and failed its graders. That run
+delivered no work. Inspect it first. Runs classified as `tool` or `routing` do
+not contribute to this warning.
+
+If the warnings contain `Activation-only stop`, the same pattern occurred on an
+inspection or answer prompt, or where the work kind is unknown. Non-skill calls
+before activation do not count as continuation. This is a distinct failure mode
+from missing activation: the description routed successfully and the skill body
+was injected, but execution did not continue. The PR summary uses each arm's
+`failureClasses.continuation` for stop warnings and advice; it falls back to
+`failedActivationOnlyCompletions` for older results without that classification.
 
 Inspect the raw `events.jsonl` before changing skill prose:
 
@@ -362,12 +435,56 @@ Inspect the raw `events.jsonl` before changing skill prose:
    a plan, clarification request, or success-shaped answer.
 4. Compare the same prompt with explicit activation and with the skill body
    pasted directly into the task.
-5. Record the runtime version, model snapshot, reasoning effort, context tier,
-   and tool schema before comparing runs.
+5. Compare `executionContext` across the runs: `observed.runtimeVersions`,
+   `providerIds`, `reasoningEfforts`, `contextTiers`, `terminalPhases`, and the
+   executor's `toolSchemas` hash. Different models receive different tool
+   surfaces; for example, `gpt-5.3-codex` gets `apply_patch` and `rg` instead of
+   `create`, `edit`, and `view`. Only compare stop rates between runs whose
+   identity matches, or vary one factor at a time.
 
 The telemetry is diagnostic and does not change the preference gate. Advice-only
 tasks may legitimately answer after loading a skill, so only activation-only
 runs that also fail their graders are surfaced as warnings.
+
+#### Attributing a stop to the model, runtime, transcript, or skill
+
+A rate from one scheduled run cannot separate these causes, because the model,
+runtime, and skill revision usually change together. Use a controlled local
+reproduction that varies one factor at a time on the same commit and runtime:
+
+1. Pin the toolchain from `eng/evaluation-tools/package-lock.json`, and capture
+   `runtime-identity.json` (see [Execution context](#execution-context)) for the
+   models under test.
+2. Run the affected eval for the suspect model and a control model with the same
+   experiment file. Vary reasoning effort only through the experiment's
+   `overrides.reasoning_effort` (or `EVAL_REASONING_EFFORT`); `vally experiment
+   run` has no effort flag.
+3. To test skill wording, run the old and new skill revisions against the same
+   runtime by checking out the older `SKILL.md` into the isolated skill
+   directory.
+4. Adapt each run with `--execution-context runtime-identity.json` and the
+   matching `--reasoning-effort`, then compare `implementationActivationOnlyFailures`
+   and `failureClasses.continuation` per cell.
+
+Read these patterns as hypotheses rather than causal conclusions. A stop that
+follows one model across skill revisions and efforts is model-associated; it
+may still come from that model's provider adapter or tool surface. Attribute it
+to the model only after independently controlling those factors, including the
+executor tool-schema hash. Similarly, runtime-, wording-, and transcript-associated
+changes require otherwise matched cells before assigning a cause.
+
+Issue [#1160](https://github.com/dotnet/skills/issues/1160) tracked a reported
+GPT-5.3 Codex stop after activating `code-testing-agent` on runtime 1.0.80. In
+scheduled run
+[`44036624719`](https://github.com/dotnet/skills/actions/runs/44036624719)
+(runtime 1.0.103, `openai-responses` provider, default effort and context tier),
+0 of 40 GPT-5.3 Codex skilled and plugin trajectories for the renamed
+`code-testing` skill stopped after activation; its 19 failed runs were all
+`contentQuality`. Across retained dashboard runs, GPT-5.3 Codex's isolated
+activation-only failure counts were in line with other executors rather than an
+outlier. Because the skill was rewritten (#1177), the prompts changed (#1206),
+and the runtime moved from 1.0.80 to 1.0.103 together, that observation does not
+attribute the original stop; use the procedure above to do so.
 
 ### 1. Errored or missing trials (`state == "INVALID_INCONCLUSIVE"`)
 The agent crashed, the model was unavailable, evidence was missing, or the comparison judge failed. Check `stateReason`, `errors[]`, `adapter-summary.json`, and the variant's `results.jsonl`/session logs. These are invalid measurements, not skill regressions. If a required variant produced no records, the adapter writes an explicit invalid result with `missing_baseline_records` or `missing_skilled_records`.
