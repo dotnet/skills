@@ -804,6 +804,7 @@ jobs:
           trap 'rm -f "$PROBE_LOG"; rm -rf "$PROBE_HOME"' EXIT
           saw_timed_out=false
           saw_unavailable=false
+          saw_model_unavailable=false
 
           for ((candidate_index = 0; candidate_index < ${#PAT_NUMBERS[@]}; candidate_index++)); do
             candidate_number="${PAT_NUMBERS[$candidate_index]}"
@@ -873,6 +874,13 @@ jobs:
                 break
               fi
 
+              if grep -Fxq -- "Error: Model \"$probe_model\" from --model flag is not available." "$PROBE_LOG"; then
+                echo "::warning::Copilot PAT pool entry $candidate_number cannot access model $probe_model; trying another entry"
+                candidate_rejected=true
+                saw_model_unavailable=true
+                break
+              fi
+
               echo "::error::Copilot PAT pool entry $candidate_number failed its $probe_model availability probe with an unexpected non-rate-limit error (exit $probe_status); refusing to hide a service or configuration failure"
               cat "$PROBE_LOG"
               exit "$probe_status"
@@ -889,7 +897,9 @@ jobs:
             exit 0
           done
 
-          if [ "$saw_unavailable" = true ]; then
+          if [ "$saw_model_unavailable" = true ]; then
+            echo "::error::No usable Copilot PAT pool entry was found; at least one entry cannot access a required model (others may be unavailable, rate-limited, or timed out)"
+          elif [ "$saw_unavailable" = true ]; then
             echo "::error::No healthy Copilot PAT pool entry was found; at least one configured entry was unavailable and the remaining entries were unavailable, rate-limited, or timed out"
           elif [ "$saw_timed_out" = true ]; then
             echo "::error::No healthy Copilot PAT pool entry was found; configured entries were rate-limited or timed out"

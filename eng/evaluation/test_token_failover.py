@@ -2328,6 +2328,13 @@ case "$COPILOT_GITHUB_TOKEN" in
   disabled) echo "This organization has been disabled" >&2; exit 8 ;;
   service-error) echo "Unexpected internal service failure" >&2; exit 9 ;;
   model-error) echo "Model gpt-401 not found" >&2; exit 10 ;;
+  model-unavailable) echo "Error: Model \\"$model\\" from --model flag is not available." >&2; exit 1 ;;
+  judge-unavailable)
+    if [ "$model" = "judge-model" ]; then
+      echo "Error: Model \\"$model\\" from --model flag is not available." >&2; exit 1
+    fi
+    exit 0 ;;
+  wrong-model-unavailable) echo 'Error: Model "other-model" from --model flag is not available.' >&2; exit 1 ;;
   healthy) exit 0 ;;
   *) echo "unexpected test token" >&2; exit 9 ;;
 esac
@@ -2503,10 +2510,40 @@ esac
                     "quarantining it and trying another entry", result.stdout
                 )
 
+    def test_model_unavailable_fails_over_for_executor_and_judge(self) -> None:
+        for token, expected_models in (
+            ("model-unavailable", ["agent-model", "agent-model", "judge-model"]),
+            ("judge-unavailable", ["agent-model", "judge-model", "agent-model", "judge-model"]),
+        ):
+            with self.subTest(token=token):
+                result = self.run_selector(
+                    {0: token, 1: "healthy"},
+                    model="agent-model",
+                    judge_model="judge-model",
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.models, expected_models)
+                self.assertEqual(result.selected_token, "healthy")
+                self.assertIn("trying another entry", result.stdout)
+
+    def test_all_model_unavailable_candidates_fail_clearly(self) -> None:
+        result = self.run_selector(
+            {0: "model-unavailable", 1: "model-unavailable"},
+            model="agent-model",
+            judge_model="judge-model",
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.attempts, ["model-unavailable", "model-unavailable"])
+        self.assertIsNone(result.selected_token)
+        self.assertIn("No usable Copilot PAT pool entry was found", result.stdout)
+        self.assertIn("at least one entry cannot access a required model", result.stdout)
+        self.assertIn("agent-model", result.stdout)
+
     def test_unrelated_failure_does_not_try_another_candidate(self) -> None:
         for failing_token in (
             "service-error",
             "model-error",
+            "wrong-model-unavailable",
             "auth-heading-only",
             "auth-env-only",
         ):
