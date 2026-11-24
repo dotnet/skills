@@ -86,6 +86,7 @@ Usage:  python eng/eval-quality/check_eval_quality.py [--strict] [--all]
 from __future__ import annotations
 
 import argparse
+import atexit
 import copy
 import functools
 import glob
@@ -93,12 +94,15 @@ import json
 import math
 import os
 from pathlib import PurePosixPath, PureWindowsPath
+import queue
 import re
 import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import xml.etree.ElementTree as ET
 
 try:
@@ -1180,16 +1184,33 @@ def vally_regex_parts(pattern: str) -> tuple[str, int]:
 
 
 JAVASCRIPT_REGEX_SCRIPT = r"""
-const fs = require("fs");
-const { pattern, flags, output } = JSON.parse(fs.readFileSync(0, "utf8"));
-try {
-  const regex = new RegExp(pattern, flags);
-  process.stdout.write(output === null ? "true" : String(regex.test(output)));
-} catch (error) {
-  process.stderr.write(error instanceof Error ? error.message : String(error));
-  process.exitCode = 2;
-}
+const readline = require("readline");
+const lines = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+lines.on("line", line => {
+  let request;
+  try {
+    request = JSON.parse(line);
+    if (!request || !Number.isSafeInteger(request.id)
+        || typeof request.pattern !== "string"
+        || typeof request.flags !== "string"
+        || (request.output !== null && typeof request.output !== "string")) {
+      throw new Error("invalid JavaScript regex request");
+    }
+    const regex = new RegExp(request.pattern, request.flags);
+    const result = request.output === null ? true : regex.test(request.output);
+    process.stdout.write(JSON.stringify({ id: request.id, ok: true, result }) + "\n");
+  } catch (error) {
+    process.stdout.write(JSON.stringify({
+      id: request && Number.isSafeInteger(request.id) ? request.id : null,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    }) + "\n");
+  }
+});
 """
+
+JAVASCRIPT_REGEX_TIMEOUT_SECONDS = 5
+JAVASCRIPT_REGEX_STDERR_LIMIT = 8192
 
 
 def _javascript_regex_flags(flags: int) -> str:
@@ -1203,27 +1224,220 @@ def _javascript_regex_flags(flags: int) -> str:
     return result
 
 
+class _JavaScriptRegexWorker:
+    """Run JavaScript regex checks through one lazy, restartable Node process."""
+
+    def __init__(
+            self,
+            command: str = "node",
+            script: str = JAVASCRIPT_REGEX_SCRIPT,
+            timeout: float = JAVASCRIPT_REGEX_TIMEOUT_SECONDS) -> None:
+        self._command = command
+        self._script = script
+        self._timeout = timeout
+        self._lock = threading.Lock()
+        self._process: subprocess.Popen | None = None
+        self._responses: queue.Queue[bytes | None] | None = None
+        self._stdout_thread: threading.Thread | None = None
+        self._stderr_thread: threading.Thread | None = None
+        self._stderr = bytearray()
+        self._stderr_lock = threading.Lock()
+        self._owner_pid = os.getpid()
+        self._request_id = 0
+
+    def _read_stdout(
+            self,
+            stream,
+            responses: queue.Queue[bytes | None]) -> None:
+        try:
+            while line := stream.readline():
+                responses.put(line)
+        finally:
+            responses.put(None)
+
+    def _read_stderr(self, stream) -> None:
+        while chunk := stream.read(1024):
+            with self._stderr_lock:
+                self._stderr.extend(chunk)
+                if len(self._stderr) > JAVASCRIPT_REGEX_STDERR_LIMIT:
+                    del self._stderr[:-JAVASCRIPT_REGEX_STDERR_LIMIT]
+
+    def _stderr_text(self) -> str:
+        with self._stderr_lock:
+            return bytes(self._stderr).decode("utf-8", errors="replace").strip()
+
+    def _discard_inherited_process(self) -> None:
+        if self._owner_pid != os.getpid():
+            process = self._process
+            if process is not None:
+                for stream in (process.stdin, process.stdout, process.stderr):
+                    if stream is not None:
+                        stream.close()
+            self._process = None
+            self._responses = None
+            self._stdout_thread = None
+            self._stderr_thread = None
+            self._owner_pid = os.getpid()
+            self._lock = threading.Lock()
+            self._stderr_lock = threading.Lock()
+            self._stderr.clear()
+
+    def _start_locked(self) -> None:
+        if self._process is not None:
+            if self._process.poll() is None:
+                return
+            self._reset_locked(force=True)
+
+        self._process = None
+        self._responses = queue.Queue()
+        with self._stderr_lock:
+            self._stderr.clear()
+        try:
+            process = subprocess.Popen(
+                [self._command, "-e", self._script],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+        except FileNotFoundError as exc:
+            self._responses = None
+            raise re.error(
+                "Node.js is required to validate Vally JavaScript regexes") from exc
+
+        self._process = process
+        self._stdout_thread = threading.Thread(
+            target=self._read_stdout,
+            args=(process.stdout, self._responses),
+            daemon=True)
+        self._stderr_thread = threading.Thread(
+            target=self._read_stderr,
+            args=(process.stderr,),
+            daemon=True)
+        self._stdout_thread.start()
+        self._stderr_thread.start()
+
+    def _reset_locked(self, force: bool) -> None:
+        process = self._process
+        stdout_thread = self._stdout_thread
+        stderr_thread = self._stderr_thread
+        self._process = None
+        self._responses = None
+        self._stdout_thread = None
+        self._stderr_thread = None
+        if process is None:
+            return
+        if process.stdin is not None:
+            try:
+                process.stdin.close()
+            except OSError:
+                pass
+        if force and process.poll() is None:
+            try:
+                process.terminate()
+            except OSError:
+                pass
+        try:
+            process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            try:
+                process.terminate()
+                process.wait(timeout=1)
+            except (OSError, subprocess.TimeoutExpired):
+                try:
+                    process.kill()
+                    process.wait(timeout=1)
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+        for thread in (stdout_thread, stderr_thread):
+            if thread is not None:
+                thread.join(timeout=1)
+        for stream in (process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+
+    def close(self) -> None:
+        self._discard_inherited_process()
+        with self._lock:
+            self._reset_locked(force=False)
+
+    def test(self, pattern: str, flags: int, output: str | None) -> bool:
+        self._discard_inherited_process()
+        deadline = time.monotonic() + self._timeout
+        if not self._lock.acquire(timeout=self._timeout):
+            raise re.error("JavaScript regex validation timed out")
+        try:
+            for attempt in range(2):
+                self._start_locked()
+                process = self._process
+                responses = self._responses
+                assert process is not None and process.stdin is not None
+                assert responses is not None
+                self._request_id += 1
+                request_id = self._request_id
+                payload = json.dumps({
+                    "id": request_id,
+                    "pattern": pattern,
+                    "flags": _javascript_regex_flags(flags),
+                    "output": output,
+                }, separators=(",", ":")).encode("ascii") + b"\n"
+                try:
+                    process.stdin.write(payload)
+                    process.stdin.flush()
+                except (BrokenPipeError, OSError):
+                    self._reset_locked(force=True)
+                    error = self._stderr_text()
+                    if attempt == 0:
+                        continue
+                    raise re.error(
+                        error or "JavaScript regex worker exited unexpectedly")
+
+                try:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise queue.Empty
+                    response_line = responses.get(timeout=remaining)
+                except queue.Empty as exc:
+                    self._reset_locked(force=True)
+                    raise re.error("JavaScript regex validation timed out") from exc
+                if response_line is None:
+                    self._reset_locked(force=True)
+                    error = self._stderr_text()
+                    if attempt == 0:
+                        continue
+                    raise re.error(
+                        error or "JavaScript regex worker exited unexpectedly")
+
+                try:
+                    response = json.loads(response_line.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    self._reset_locked(force=True)
+                    raise re.error(
+                        "JavaScript regex worker returned an invalid response") from exc
+                if not isinstance(response, dict) or response.get("id") != request_id:
+                    self._reset_locked(force=True)
+                    raise re.error(
+                        "JavaScript regex worker returned an invalid response")
+                if response.get("ok") is not True:
+                    error = response.get("error")
+                    raise re.error(
+                        error if isinstance(error, str) and error
+                        else "JavaScript RegExp rejected the pattern")
+                result = response.get("result")
+                if not isinstance(result, bool):
+                    self._reset_locked(force=True)
+                    raise re.error(
+                        "JavaScript regex worker returned an invalid response")
+                return result
+            raise AssertionError("unreachable")
+        finally:
+            self._lock.release()
+
+
+_javascript_regex_worker = _JavaScriptRegexWorker()
+atexit.register(_javascript_regex_worker.close)
+
+
 def _javascript_regex_test(pattern: str, flags: int, output: str | None) -> bool:
-    try:
-        result = subprocess.run(
-            ["node", "-e", JAVASCRIPT_REGEX_SCRIPT],
-            input=json.dumps({
-                "pattern": pattern,
-                "flags": _javascript_regex_flags(flags),
-                "output": output,
-            }),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=5)
-    except FileNotFoundError as exc:
-        raise re.error(
-            "Node.js is required to validate Vally JavaScript regexes") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise re.error("JavaScript regex validation timed out") from exc
-    if result.returncode != 0:
-        raise re.error(result.stderr.strip() or "JavaScript RegExp rejected the pattern")
-    return result.stdout == "true"
+    return _javascript_regex_worker.test(pattern, flags, output)
 
 
 @functools.lru_cache(maxsize=None)
