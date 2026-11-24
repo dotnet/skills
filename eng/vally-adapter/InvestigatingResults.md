@@ -216,6 +216,13 @@ and asks the reader to verify the revision. A green notice means the commits
 match. If deployment metadata is unavailable, the dashboard reports the
 comparison as unknown rather than guessing.
 
+If the replay viewer's source is unavailable, the deployment checks the
+existing viewer and staged evaluation data before publishing without replacing
+the viewer. The job summary records the retained viewer revision and the job
+fails after deployment to keep the source outage visible. A missing viewer or
+evaluation data stops deployment. Session-data publication is separate and can
+still fail.
+
 Retained Skill Value entries also carry a stable evaluation execution identity
 so repeated judge views do not multiply executor resource telemetry. Native
 target non-activation is preserved separately from the dormancy activation

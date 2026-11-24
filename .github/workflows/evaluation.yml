@@ -1798,12 +1798,17 @@ jobs:
           node-version: 20
 
       - name: Fetch eval data from dashboard-eval-data branch
+        id: fetch-eval-data
         run: |
+          set -o pipefail
           mkdir -p /tmp/gh-pages/data
-          git fetch --depth=1 origin dashboard-eval-data:dashboard-eval-data 2>/dev/null || true
-          git checkout dashboard-eval-data -- data/ 2>/dev/null && \
-            cp -r data/* /tmp/gh-pages/data/ && \
-            git checkout HEAD -- . || true
+          if git fetch --depth=1 origin dashboard-eval-data:dashboard-eval-data &&
+             git archive dashboard-eval-data data/ | tar -xf - -C /tmp/gh-pages; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=Dashboard evaluation data unavailable::Could not fetch and stage dashboard-eval-data."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Fetch token data from dashboard-token-data branch
         run: |
@@ -1817,13 +1822,18 @@ jobs:
           AGENTVIZ_REPO="https://github.com/jayparikh/agentviz.git"
           AGENTVIZ_BRANCH="main"
 
-          # Resolve the latest commit on the AGENTVIZ branch (no clone needed)
-          TARGET_SHA=$(git ls-remote "$AGENTVIZ_REPO" "refs/heads/$AGENTVIZ_BRANCH" | cut -f1)
-          if [ -z "$TARGET_SHA" ]; then
-            echo "::error::Could not resolve AGENTVIZ branch $AGENTVIZ_BRANCH"
-            exit 1
+          # A replay source outage must not prevent current dashboard data from
+          # being published with the already deployed viewer.
+          set -o pipefail
+          if ! TARGET_SHA=$(git ls-remote --exit-code "$AGENTVIZ_REPO" "refs/heads/$AGENTVIZ_BRANCH" | cut -f1) ||
+             [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::warning title=Replay viewer update unavailable::Could not resolve AGENTVIZ branch $AGENTVIZ_BRANCH. The dashboard will retain the existing viewer if it is valid."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "source_unavailable=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "source_unavailable=false" >> "$GITHUB_OUTPUT"
           echo "AGENTVIZ target commit: $TARGET_SHA"
 
           # Read the currently deployed commit SHA from gh-pages (no clone needed)
@@ -1887,6 +1897,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          if [ "${{ steps.check-replay.outputs.source_unavailable }}" = "true" ]; then
+            node "${{ github.workspace }}/eng/dashboard/verify-replay.js" replay "${GITHUB_REPOSITORY#*/}"
+            if [ "${{ steps.fetch-eval-data.outputs.available }}" != "true" ]; then
+              echo "::error title=Dashboard evaluation data unavailable::Could not fetch dashboard-eval-data; refusing to publish a stale dashboard."
+              exit 1
+            fi
+            for file in components.json skill-value.json; do
+              if [ ! -s "/tmp/gh-pages/data/$file" ]; then
+                echo "::error title=Dashboard evaluation data unavailable::Could not stage $file from dashboard-eval-data; refusing to publish a stale dashboard."
+                exit 1
+              fi
+            done
+          fi
+
           # Copy data from both branches
           mkdir -p data
           cp /tmp/gh-pages/data/*.json data/
@@ -1931,3 +1955,14 @@ jobs:
           git diff --cached --quiet && echo "No changes to deploy" && exit 0
           git commit -m "Update dashboard"
           git push origin gh-pages
+
+      - name: Report unavailable replay source
+        if: steps.check-replay.outputs.source_unavailable == 'true'
+        run: |
+          {
+            echo "### Replay viewer update unavailable"
+            echo "Dashboard deployment completed with the existing viewer. Restore access to the AGENTVIZ source to resume viewer updates."
+            printf 'Retained viewer commit: `%s`.\n' "$(cat /tmp/deploy/replay/.agentviz-commit)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error title=Replay viewer update unavailable::Dashboard deployment completed, but the replay source could not be resolved and its viewer was not updated."
+          exit 1
