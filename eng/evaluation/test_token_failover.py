@@ -820,14 +820,14 @@ class TokenFailoverTests(unittest.TestCase):
                 "mai-code-1.1-flash", "gpt-5.3-codex",
             ]),
             ("workflow_dispatch", "", "newer", "", [
-                "gpt-6-astra", "claude-opus-5",
+                "gpt-6-astra", "claude-opus-5.5",
             ]),
             ("schedule", "", "", "0 7 * * 1,3,5", ["claude-sonnet-5", "gpt-5.6-luna"]),
             ("schedule", "", "", "0 7 * * 2,6", [
                 "claude-haiku-4.5", "mai-code-1.1-flash", "gpt-5.3-codex",
             ]),
             ("schedule", "", "", "0 7 * * 0", [
-                "gpt-6-astra", "claude-opus-5",
+                "gpt-6-astra", "claude-opus-5.5",
             ]),
             ("schedule", "", "", "0 7 * * 4", ["gpt-5.6-sol"]),
             ("issue_comment", "/evaluate --sol", "", "", ["gpt-5.6-sol"]),
@@ -848,7 +848,7 @@ class TokenFailoverTests(unittest.TestCase):
                 self.assertEqual([entry["model"] for entry in entries], models)
                 for entry in entries:
                     is_gpt = entry["model"].startswith("gpt-")
-                    self.assertEqual(entry["judge"], "claude-haiku-4.5" if is_gpt else "gpt-5.6-luna")
+                    self.assertEqual(entry["judge"], "claude-haiku-4.5" if is_gpt else "gpt-6.1-terra")
                     self.assertNotIn("judge2", entry)
                     self.assertNotEqual(entry["judge"], entry["model"])
 
@@ -1084,7 +1084,7 @@ class TokenFailoverTests(unittest.TestCase):
         self.assertIsNotNone(component)
         production_fingerprint = (
             "pipeline:evaluation:evaluate-/-vally-"
-            "(dotnet-blazor--claude-opus-5):"
+            "(dotnet-blazor--claude-opus-5.5):"
             "run-vally-evaluations:failure"
         )
         self.assertRegex(
@@ -3283,6 +3283,52 @@ esac
                 {entry["name"] for entry in entries},
                 {"demo--shard-default", "demo--shard-heavy"},
             )
+
+    def test_msbuild_heavy_shards_preserve_evals_with_bounded_size(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = workflow_step_script(
+            caller, "discover", "function Get-PluginShardEntries"
+        )
+        start = discover_script.index("function Get-EvalExecutionShard")
+        end = discover_script.index('if ("$env:GATE_PR_NUMBER"', start)
+        functions = discover_script[start:end]
+        root = str(REPO_ROOT).replace("'", "''")
+        script = (
+            "$ErrorActionPreference = 'Stop'\n"
+            + functions
+            + f"\n$root = '{root}'\n"
+            + "$entries = @(Get-PluginShardEntries -plugin dotnet-msbuild -contentRoot $root)\n"
+            + "ConvertTo-Json -InputObject @($entries) -Compress\n"
+        )
+        result = subprocess.run(
+            ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = json.loads(result.stdout.strip().splitlines()[-1])
+        actual = [
+            path
+            for entry in entries
+            for path in entry["skills_path"].split()
+        ]
+        skills = REPO_ROOT / "plugins" / "dotnet-msbuild" / "skills"
+        expected = [
+            f"plugins/dotnet-msbuild/skills/{skill.name}"
+            for skill in skills.iterdir()
+            if skill.is_dir()
+            and (REPO_ROOT / "tests" / "dotnet-msbuild" / skill.name / "eval.yaml").is_file()
+        ]
+        self.assertCountEqual(actual, expected)
+
+        heavy = [
+            entry["skills_path"].split()
+            for entry in entries
+            if entry["name"].startswith("dotnet-msbuild--shard-heavy")
+        ]
+        self.assertGreaterEqual(len(heavy), 2)
+        self.assertTrue(all(0 < len(shard) <= 6 for shard in heavy), heavy)
 
     def test_manual_eval_quality_uses_main_as_comparison_base(self) -> None:
         workflow = yaml.safe_load(EVAL_QUALITY_WORKFLOW.read_text(encoding="utf-8"))
