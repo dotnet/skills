@@ -519,10 +519,8 @@ The workflow token preflight treats HTTP 429 and 402 quota exhaustion
 (`quota_exceeded` or a monthly-quota message) as pool-candidate exhaustion and
 tries another token. It also quarantines credentials when the Copilot CLI emits
 the paired heading and token-environment lines from its no-authentication setup
-block, and tries another token when the requested executor or judge model is
-unavailable to a candidate. If the pool is exhausted, per-entry warnings
-distinguish model access from credentials, timeouts, and quota. Other service
-or configuration failures remain terminal so token failover cannot hide them.
+block. Other service or configuration
+failures remain terminal so token failover cannot hide them.
 
 At the workflow level, exit code 124 with `Vally comparison watchdog expired`
 means the remote comparison phase exceeded its 60-minute recovery budget.

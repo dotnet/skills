@@ -48,11 +48,8 @@ behavior against the corrected executor.
 
 > The workflow token preflight tries another pool candidate for HTTP 429 or 402
 > quota exhaustion and for the paired heading and token-environment lines in
-> the Copilot CLI's no-authentication setup block. It also tries another
-> candidate when the CLI reports the requested executor or judge model is not
-> available to that token. If no candidate can be used, inspect the per-entry
-> warnings to distinguish model access from credentials, timeouts, or quota.
-> Unrelated service and configuration failures remain terminal.
+> the Copilot CLI's no-authentication setup block. Unrelated service and
+> configuration failures remain terminal.
 
 > Before token selection or evaluation starts, the workflow serially warms up
 > first-use state for every .NET SDK installed on the runner. This prevents
