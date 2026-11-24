@@ -6,7 +6,9 @@ baseline or won every trial and still failed.
 
 The checker requires Python 3, PyYAML, and Node.js on `PATH`. Node.js compiles
 and evaluates output regular expressions with the same JavaScript `RegExp`
-semantics that Vally uses.
+semantics that Vally uses. A worker inherited across `fork` is not supported.
+After a fork, the child must exec a fresh process or use `os._exit`; it must
+not use the inherited worker or finalize its buffered pipes.
 
 Run it from the repository root:
 

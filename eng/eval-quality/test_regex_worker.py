@@ -3,10 +3,16 @@
 
 from concurrent.futures import ThreadPoolExecutor
 import importlib.util
+import os
 import pathlib
 import re
+import subprocess
 import sys
+import threading
+import time
+import types
 import unittest
+from unittest import mock
 
 
 MODULE_PATH = pathlib.Path(__file__).with_name("check_eval_quality.py")
@@ -31,6 +37,7 @@ class JavaScriptRegexWorkerTests(unittest.TestCase):
         self.assertTrue(gate.vally_regex_found("cafe\u0301", "cafe\u0301"))
         self.assertTrue(gate.vally_regex_found("\ud800", "\ud800"))
         self.assertTrue(gate.vally_regex_found("tail$", ("x" * 100_000) + "tail"))
+        self.assertTrue(gate.vally_regex_found("tail$", ("x" * 2_000_000) + "tail"))
 
     def test_invalid_pattern_does_not_poison_worker(self):
         with self.assertRaisesRegex(re.error, "Invalid regular expression"):
@@ -65,6 +72,24 @@ class JavaScriptRegexWorkerTests(unittest.TestCase):
         self.assertTrue(worker.test("Thing", 0, "Thing"))
         worker.close()
 
+    def test_timeout_covers_blocked_request_write(self):
+        worker = gate._JavaScriptRegexWorker(
+            script='setTimeout(() => process.exit(0), 3000);', timeout=0.5)
+        try:
+            worker._start_locked()
+            process = worker._process
+            started = time.monotonic()
+            with self.assertRaisesRegex(re.error, "JavaScript regex validation timed out"):
+                worker.test("Thing", 0, "x" * 2_000_000)
+            self.assertLess(time.monotonic() - started, 2.5)
+            self.assertIsNone(worker._process)
+            self.assertIsNotNone(process.poll())
+            worker._script = gate.JAVASCRIPT_REGEX_SCRIPT
+            worker._timeout = gate.JAVASCRIPT_REGEX_TIMEOUT_SECONDS
+            self.assertTrue(worker.test("Thing", 0, "Thing"))
+        finally:
+            worker.close()
+
     def test_protocol_corruption_resets_worker(self):
         worker = gate._JavaScriptRegexWorker(
             script='process.stdin.once("data", () => process.stdout.write("not-json\\n"));')
@@ -76,12 +101,98 @@ class JavaScriptRegexWorkerTests(unittest.TestCase):
         worker.close()
 
     def test_concurrent_callers_receive_their_own_results(self):
-        cases = [(f"^{index}$", str(index)) for index in range(16)]
+        cases = [(f"^{index}$", str(index if index % 2 == 0 else index + 1))
+                 for index in range(16)]
         with ThreadPoolExecutor(max_workers=8) as executor:
             results = list(executor.map(
                 lambda item: gate.vally_regex_found(*item),
                 cases))
-        self.assertEqual([True] * len(cases), results)
+        self.assertEqual([index % 2 == 0 for index in range(16)], results)
+
+    def test_queued_call_gets_full_execution_timeout(self):
+        worker = gate._JavaScriptRegexWorker(script=r'''
+const lines = require("readline").createInterface({ input: process.stdin });
+lines.on("line", line => {
+    const request = JSON.parse(line);
+    setTimeout(() => process.stdout.write(JSON.stringify({
+        id: request.id, ok: true, result: true
+    }) + "\n"), 500);
+});
+''')
+        entered = threading.Event()
+        lock = worker._lock
+
+        class ObservedLock:
+            def acquire(self, timeout):
+                entered.set()
+                return lock.acquire(timeout=timeout)
+
+            def release(self):
+                lock.release()
+
+            def __enter__(self):
+                lock.acquire()
+                return self
+
+            def __exit__(self, *args):
+                lock.release()
+
+        try:
+            self.assertTrue(worker.test("Thing", 0, "Thing"))
+            process = worker._process
+            lock.acquire()
+            worker._lock = ObservedLock()
+            offset = [0.0]
+            clock = types.SimpleNamespace(monotonic=lambda: time.monotonic() + offset[0])
+            with mock.patch.object(gate, "time", clock):
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(worker.test, "Thing", 0, "Thing")
+                    try:
+                        self.assertTrue(entered.wait(timeout=2))
+                        offset[0] = 4.8
+                    finally:
+                        lock.release()
+                    self.assertTrue(future.result(timeout=3))
+            self.assertIs(process, worker._process)
+        finally:
+            worker.close()
+
+    @unittest.skipUnless(hasattr(os, "fork"), "requires POSIX fork")
+    def test_forked_child_rejects_inherited_worker_without_touching_pipes(self):
+        program = r'''
+import importlib.util, os, re, signal, sys, time
+spec = importlib.util.spec_from_file_location("gate", sys.argv[1])
+gate = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = gate
+spec.loader.exec_module(gate)
+worker = gate._JavaScriptRegexWorker()
+assert worker.test("x", 0, "x")
+pid = os.fork()
+if pid == 0:
+    try:
+        worker.test("x", 0, "x")
+    except re.error as exc:
+        worker.close()
+        os._exit(0 if "cannot be used after fork" in str(exc) else 1)
+    os._exit(2)
+deadline = time.monotonic() + 5
+while True:
+    result, status = os.waitpid(pid, os.WNOHANG)
+    if result:
+        break
+    if time.monotonic() >= deadline:
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+        raise AssertionError("forked child blocked")
+    time.sleep(0.01)
+assert os.waitstatus_to_exitcode(status) == 0
+assert worker.test("x", 0, "x")
+worker.close()
+'''
+        result = subprocess.run(
+            [sys.executable, "-c", program, str(MODULE_PATH)],
+            capture_output=True, text=True, timeout=15)
+        self.assertEqual(0, result.returncode, result.stderr)
 
     def test_close_reaps_the_worker(self):
         worker = gate._JavaScriptRegexWorker()

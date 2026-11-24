@@ -1225,7 +1225,11 @@ def _javascript_regex_flags(flags: int) -> str:
 
 
 class _JavaScriptRegexWorker:
-    """Run JavaScript regex checks through one lazy, restartable Node process."""
+    """Run checks through one Node process.
+
+    After fork, inherited workers are unsupported. The child must exec or use
+    os._exit rather than finalize inherited buffered pipes and thread locks.
+    """
 
     def __init__(
             self,
@@ -1238,6 +1242,7 @@ class _JavaScriptRegexWorker:
         self._lock = threading.Lock()
         self._process: subprocess.Popen | None = None
         self._responses: queue.Queue[bytes | None] | None = None
+        self._stdin_thread: threading.Thread | None = None
         self._stdout_thread: threading.Thread | None = None
         self._stderr_thread: threading.Thread | None = None
         self._stderr = bytearray()
@@ -1265,22 +1270,6 @@ class _JavaScriptRegexWorker:
     def _stderr_text(self) -> str:
         with self._stderr_lock:
             return bytes(self._stderr).decode("utf-8", errors="replace").strip()
-
-    def _discard_inherited_process(self) -> None:
-        if self._owner_pid != os.getpid():
-            process = self._process
-            if process is not None:
-                for stream in (process.stdin, process.stdout, process.stderr):
-                    if stream is not None:
-                        stream.close()
-            self._process = None
-            self._responses = None
-            self._stdout_thread = None
-            self._stderr_thread = None
-            self._owner_pid = os.getpid()
-            self._lock = threading.Lock()
-            self._stderr_lock = threading.Lock()
-            self._stderr.clear()
 
     def _start_locked(self) -> None:
         if self._process is not None:
@@ -1317,22 +1306,28 @@ class _JavaScriptRegexWorker:
 
     def _reset_locked(self, force: bool) -> None:
         process = self._process
+        stdin_thread = self._stdin_thread
         stdout_thread = self._stdout_thread
         stderr_thread = self._stderr_thread
         self._process = None
         self._responses = None
+        self._stdin_thread = None
         self._stdout_thread = None
         self._stderr_thread = None
         if process is None:
             return
-        if process.stdin is not None:
+        force = force or (stdin_thread is not None and stdin_thread.is_alive())
+        if not force and process.stdin is not None:
             try:
                 process.stdin.close()
             except OSError:
                 pass
         if force and process.poll() is None:
             try:
-                process.terminate()
+                if stdin_thread is not None and stdin_thread.is_alive():
+                    process.kill()
+                else:
+                    process.terminate()
             except OSError:
                 pass
         try:
@@ -1347,25 +1342,39 @@ class _JavaScriptRegexWorker:
                     process.wait(timeout=1)
                 except (OSError, subprocess.TimeoutExpired):
                     pass
+        if stdin_thread is not None and stdin_thread.ident is not None:
+            stdin_thread.join(timeout=1)
+        if force and process.stdin is not None and (
+                stdin_thread is None or not stdin_thread.is_alive()):
+            try:
+                process.stdin.close()
+            except OSError:
+                pass
         for thread in (stdout_thread, stderr_thread):
             if thread is not None:
                 thread.join(timeout=1)
-        for stream in (process.stdout, process.stderr):
-            if stream is not None:
+        for stream, thread in ((process.stdout, stdout_thread),
+                               (process.stderr, stderr_thread)):
+            if stream is not None and (thread is None or not thread.is_alive()):
                 stream.close()
 
     def close(self) -> None:
-        self._discard_inherited_process()
+        if self._owner_pid != os.getpid():
+            return
         with self._lock:
             self._reset_locked(force=False)
 
     def test(self, pattern: str, flags: int, output: str | None) -> bool:
-        self._discard_inherited_process()
-        deadline = time.monotonic() + self._timeout
+        if self._owner_pid != os.getpid():
+            raise re.error(
+                "JavaScript regex worker cannot be used after fork; start a fresh process")
         if not self._lock.acquire(timeout=self._timeout):
             raise re.error("JavaScript regex validation timed out")
         try:
+            deadline = time.monotonic() + self._timeout
             for attempt in range(2):
+                if time.monotonic() >= deadline:
+                    raise re.error("JavaScript regex validation timed out")
                 self._start_locked()
                 process = self._process
                 responses = self._responses
@@ -1379,10 +1388,27 @@ class _JavaScriptRegexWorker:
                     "flags": _javascript_regex_flags(flags),
                     "output": output,
                 }, separators=(",", ":")).encode("ascii") + b"\n"
+                write_errors: list[OSError | ValueError] = []
+
+                def write_request() -> None:
+                    try:
+                        process.stdin.write(payload)
+                        process.stdin.flush()
+                    except (OSError, ValueError) as exc:
+                        write_errors.append(exc)
+
+                self._stdin_thread = threading.Thread(target=write_request, daemon=True)
                 try:
-                    process.stdin.write(payload)
-                    process.stdin.flush()
-                except (BrokenPipeError, OSError):
+                    self._stdin_thread.start()
+                    self._stdin_thread.join(timeout=max(0, deadline - time.monotonic()))
+                except BaseException:
+                    self._reset_locked(force=True)
+                    raise
+                if self._stdin_thread.is_alive():
+                    self._reset_locked(force=True)
+                    raise re.error("JavaScript regex validation timed out")
+                self._stdin_thread = None
+                if write_errors:
                     self._reset_locked(force=True)
                     error = self._stderr_text()
                     if attempt == 0:
