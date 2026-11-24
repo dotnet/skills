@@ -87,6 +87,23 @@ class AssertionQualityRegressions(unittest.TestCase):
                 self.assertEqual([], grader_errors(item, report.format(free=5, trivial=3)))
                 self.assertTrue(grader_errors(item, report.format(free=3, trivial=5)))
 
+    def test_smoke_grader_keeps_percentages_and_contrasts_with_their_counts(self):
+        item = stimulus("Flag assertion-free tests and trivial-only assertions")
+        for report in (
+            "{free} of 8 tests ({free_pct}%) are assertion-free versus "
+            "{trivial} of 8 tests ({trivial_pct}%) use only IsNotNull.",
+            "{free}/8 are assertion-free versus {trivial}/8 use only IsNotNull.",
+            "Of the eight methods, {free} have no assertions; the remaining "
+            "{trivial} use only `Assert.IsNotNull`.",
+            "{free} have no assertions at all ({free_pct}%), "
+            "{trivial} have only a single null-check ({trivial_pct}%).",
+        ):
+            with self.subTest(report=report):
+                right = report.format(free=5, free_pct=62.5, trivial=3, trivial_pct=37.5)
+                wrong = report.format(free=3, free_pct=37.5, trivial=5, trivial_pct=62.5)
+                self.assertEqual([], grader_errors(item, right))
+                self.assertTrue(grader_errors(item, wrong))
+
     def test_good_suite_grader_requires_credit_for_contractual_absence(self):
         item = stimulus("Recognize well-diversified assertion usage")
         for finding in (

@@ -52,7 +52,8 @@ stimuli:
       `SmokeTests/ApiEndpointSmokeTests.cs`. Identify tests with no meaningful
       verification or only trivial assertions, explain the false confidence
       they create, and recommend what each weak test should verify instead.
-      Include an overall quality assessment. Do not edit the files.
+      Include the number of tests in each group and an overall quality
+      assessment. Do not edit the files.
     tags:
       capability: assertion-free-detection
       risk: false-confidence-in-tests
@@ -70,7 +71,7 @@ stimuli:
 
               **Overall quality: weak.** None of the 8 tests verifies a returned value. They split into two groups that reconcile exactly to the 8 methods in the file:
 
-              **5 of 8 tests (62%) are assertion-free** — they call a method and assert nothing at all:
+              **5 of 8 tests (62.5%) are assertion-free** — they call a method and assert nothing at all:
               - `GetUsers_DoesNotThrow`, `GetUserById_DoesNotThrow`, `CreateUser_DoesNotThrow`, `DeleteUser_DoesNotThrow`, `UpdateUser_DoesNotThrow`.
 
               These only prove the call did not throw. That said, their names openly declare a "does not throw" intent, so they are a deliberate (if very weak) smoke check rather than an accidental omission — I am calling them out separately from tests that merely execute code and forgot to assert. Even so, a "does not throw" smoke test is not a correctness test: `CreateUser` could persist the wrong email and this suite would stay green.
@@ -98,13 +99,14 @@ stimuli:
         - src: fixtures/assertion-free/SmokeTests/ApiClient.cs
           dest: SmokeTests/ApiClient.cs
     graders:
-      # Match a count and its category in the same clause, in prose or a labeled row.
+      # Match count -> finding in prose, or finding -> count in a labeled row.
+      # A percentage can intervene, but not another count or a sentence/row boundary.
       - type: output-matches
         config:
-          pattern: (?im)(?:^|[.,;!?]|\b(?:and|while|whereas|but)\b)(?=(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:5|five)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(?:8|eight)\b)(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:assertion[- ]free|(?:no|zero|without|lack(?:ing)?)\s+(?:any\s+)?assertions?|asserts?\s+nothing)\b
+          pattern: '(?i)(?:(?<![\w.])(?:5|five)\b(?:(?:\s*/\s*|\s+(?:out\s+)?of\s+(?:the\s+)?)(?:8|eight)\b)?(?:(?!\b(?:three|five|eight)\b)[^\d.,;:!?|\r\n]|\d+(?:\.\d+)?%)*?\b(?:assertion[- ]free|(?:no|zero|without|lack(?:ing)?) (?:any |explicit )?assertions?|asserts? nothing)\b|\b(?:assertion[- ]free|(?:no|zero) (?:explicit )?assertions?)\b(?: tests?| methods?)?[ \t`*():|–—=-]+\b(?:5|five)\b)'
       - type: output-matches
         config:
-          pattern: (?im)(?:^|[.,;!?]|\b(?:and|while|whereas|but)\b)(?=(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:3|three)(?:\s+(?:out\s+)?of\s+(?:the\s+)?|\s*/\s*)(?:8|eight)\b)(?:(?!\b(?:and|while|whereas|but)\b)[^.,;!?\r\n])*\b(?:(?:Assert\.)?IsNotNull|(?:non|not)[- ]null|trivial[- ]only|trivial assertions?)\b
+          pattern: '(?i)(?:(?<![\w.])(?:3|three)\b(?:(?:\s*/\s*|\s+(?:out\s+)?of\s+(?:the\s+)?)(?:8|eight)\b)?(?:(?!\b(?:three|five|eight)\b)[^\d.,;:!?|\r\n]|\d+(?:\.\d+)?%)*?\b(?:(?:Assert\.)?IsNotNull|(?:non|not)[- ]null|null[- ]checks?|trivial[- ]only|trivial assertions?)\b|\b(?:IsNotNull|(?:non|not)[- ]null|null[- ]checks?|trivial[- ]only|trivial assertions?)\b(?: only| tests?)?[ \t`*():|–—=-]+\b(?:3|three)\b)'
       - type: exit-success
       - type: prompt
     rubric:
