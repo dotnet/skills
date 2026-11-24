@@ -38,6 +38,20 @@ STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
 
+# Startup events captured in evaluation run 44653039861, job 136013196515.
+CAPTURED_PROBE_STARTUP = (
+    b'{"type":"session.mcp_server_status_changed","data":'
+    b'{"serverName":"github-mcp-server","status":"pending"},'
+    b'"ephemeral":true,"id":"e0cf9e11-5ad7-47cb-abd0-d6cc6e0f8f5e",'
+    b'"timestamp":"2026-11-20T01:24:38.964Z",'
+    b'"parentId":"a8b497b2-8249-490e-b0dd-c84aad1fab41"}\n'
+    b'{"type":"session.mcp_server_status_changed","data":'
+    b'{"serverName":"github-mcp-server","status":"connected"},'
+    b'"ephemeral":true,"id":"b724028d-e316-4592-a60d-3e569815a9cf",'
+    b'"timestamp":"2026-11-20T01:24:39.345Z",'
+    b'"parentId":"a8b497b2-8249-490e-b0dd-c84aad1fab41"}\n'
+)
+
 
 def workflow_frontmatter(text: str) -> dict:
     match = re.match(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n|\Z)", text, re.DOTALL)
@@ -2276,6 +2290,11 @@ None found.
         tokens: dict[int, str],
         model: str = "claude-opus-4.6",
         judge_model: str = "claude-opus-4.6",
+        *,
+        probe_log: bytes | None = None,
+        failed_probe_model: str = "",
+        probe_exit_code: int = 9,
+        node_failure: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -2285,6 +2304,17 @@ None found.
             models = root / "models"
             github_output = root / "github-output"
             token_file = root / "evaluation-copilot-token"
+            probe_log_path = root / "fixture-probe-log"
+            if probe_log is not None:
+                probe_log_path.write_bytes(probe_log)
+            if node_failure:
+                fake_node = fake_bin / "node"
+                fake_node.write_text(
+                    "#!/usr/bin/env bash\necho 'simulated Node failure' >&2\nexit 64\n",
+                    encoding="utf-8",
+                    newline="\n",
+                )
+                fake_node.chmod(fake_node.stat().st_mode | stat.S_IXUSR)
             fake_copilot = fake_bin / "copilot"
             fake_copilot.write_text(
                 """#!/usr/bin/env bash
@@ -2342,6 +2372,12 @@ case "$COPILOT_GITHUB_TOKEN" in
   other-model-unavailable) echo 'Error: Model "different-model" from --model flag is not available.' >&2; exit 10 ;;
   model-unavailable-prefix) echo "Service error: Error: Model \\"$model\\" from --model flag is not available." >&2; exit 10 ;;
   model-unavailable-suffix) echo "Error: Model \\"$model\\" from --model flag is not available. Service failed." >&2; exit 10 ;;
+  fixture-error|fixture-effort-only)
+    if [ -n "$FAILING_PROBE_MODEL" ] && [ "$model" != "$FAILING_PROBE_MODEL" ]; then exit 0; fi
+    if [ "$COPILOT_GITHUB_TOKEN" = "fixture-effort-only" ] && [ "$has_effort" = false ]; then exit 0; fi
+    node -e 'process.stderr.write(require("fs").readFileSync(process.argv[1]))' "$FIXTURE_PROBE_LOG"
+    exit "$FIXTURE_EXIT_CODE"
+    ;;
   healthy) exit 0 ;;
   *) echo "unexpected test token" >&2; exit 9 ;;
 esac
@@ -2356,6 +2392,12 @@ esac
                 absolute = path.resolve()
                 return f"/{absolute.drive[0].lower()}/{absolute.as_posix()[3:]}"
 
+            selector_path = root / "select-token.sh"
+            selector_path.write_text(
+                f'export PATH="{shell_path(fake_bin)}:$PATH"\n{selection_script()}',
+                encoding="utf-8",
+                newline="\n",
+            )
             env = os.environ.copy()
             env.update(
                 {
@@ -2368,20 +2410,21 @@ esac
                     "COPILOT_RATE_LIMIT_PATTERN": rate_limit_pattern(),
                     "COPILOT_TOKEN_UNAVAILABLE_PATTERN": token_unavailable_pattern(),
                     "TOKEN_RANDOM_SEED": "1",
+                    "FIXTURE_PROBE_LOG": shell_path(probe_log_path),
+                    "FAILING_PROBE_MODEL": failed_probe_model,
+                    "FIXTURE_EXIT_CODE": str(probe_exit_code),
                 }
             )
             for index in range(10):
                 env[f"COPILOT_PAT_{index}"] = tokens.get(index, "")
 
             result = subprocess.run(
-                [
-                    BASH,
-                    "-c",
-                    f'export PATH="{shell_path(fake_bin)}:$PATH"\n{selection_script()}',
-                ],
+                [BASH, shell_path(selector_path)],
                 cwd=REPO_ROOT,
                 env=env,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 capture_output=True,
                 check=False,
             )
@@ -2572,6 +2615,249 @@ esac
         self.assertEqual(result.models, ["agent-model", "judge-model"] * 2)
         self.assertEqual(result.selected_token, "healthy")
         self.assertIn("entry 0 cannot use requested model judge-model", result.stdout)
+
+    def test_captured_model_unavailable_log_retries_the_judge_probe(self) -> None:
+        model = "gpt-5.6-terra"
+        diagnostic = f'Error: Model "{model}" from --model flag is not available.\n'.encode()
+        captured_log = CAPTURED_PROBE_STARTUP + diagnostic
+
+        for name, log in (
+            ("LF", captured_log),
+            ("CRLF", captured_log.replace(b"\n", b"\r\n")),
+            ("no final newline", captured_log[:-1]),
+            ("blank lines", b"\n \t\n" + captured_log + b"\n"),
+        ):
+            with self.subTest(case=name):
+                result = self.run_selector(
+                    {0: "fixture-error", 1: "healthy"},
+                    model="agent-model",
+                    judge_model=model,
+                    probe_log=log,
+                    failed_probe_model=model,
+                )
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.attempts, ["fixture-error"] * 2 + ["healthy"] * 2)
+                self.assertEqual(result.models, ["agent-model", model] * 2)
+                self.assertEqual(result.selected_token, "healthy")
+                self.assertEqual(result.github_output, ["selected=1"])
+
+    def test_model_unavailable_with_other_diagnostics_fails_closed(self) -> None:
+        model = "gpt-5.6-terra"
+        diagnostic = f'Error: Model "{model}" from --model flag is not available.\n'.encode()
+        wrong_model = b'Error: Model "other-model" from --model flag is not available.\n'
+        pending = CAPTURED_PROBE_STARTUP.splitlines(keepends=True)[0]
+        cases = {
+            "service before": b"Unexpected internal service failure\n" + diagnostic,
+            "service after": diagnostic + b"Unexpected internal service failure\n",
+            "rate limit before": b"Too Many Requests\n" + diagnostic,
+            "rate limit after": diagnostic + b"Too Many Requests\n",
+            "terminal JSON before": (
+                b'{"type":"session.error","data":{"message":"Too Many Requests"}}\n'
+                + diagnostic
+            ),
+            "terminal JSON after": (
+                diagnostic
+                + b'{"type":"session.error","data":{"message":"Too Many Requests"}}\n'
+            ),
+            "duplicate data key": (
+                pending.replace(
+                    b'"status":"pending"',
+                    b'"status":"pending","status":"Too Many Requests"',
+                )
+                + diagnostic
+            ),
+            "duplicate outer key": (
+                pending.replace(b'{"type":', b'{"type":"session.error","type":', 1)
+                + diagnostic
+            ),
+            "escaped duplicate key": (
+                pending.replace(
+                    b'"status":"pending"',
+                    b'"status":"pending","sta\\u0074us":"connected"',
+                )
+                + diagnostic
+            ),
+            "credential": b"401 Unauthorized\n" + diagnostic,
+            "disabled organization": diagnostic + b"This organization has been disabled\n",
+            "duplicate diagnostic": diagnostic + diagnostic,
+            "wrong model": wrong_model + diagnostic,
+            "wrong model with rate limit": wrong_model + b"Too Many Requests\n",
+            "unknown server": pending.replace(b"github-mcp-server", b"other-server")
+            + diagnostic,
+            "failed startup event": pending.replace(b'"pending"', b'"failed"') + diagnostic,
+            "extra event field": (
+                pending.replace(b'"ephemeral":true', b'"error":"failed","ephemeral":true')
+                + diagnostic
+            ),
+            "malformed JSON": b'{"type":\n' + diagnostic,
+            "invalid UTF-8": b"\xff\xfe\n" + diagnostic,
+            "byte order mark": b"\xef\xbb\xbf" + diagnostic,
+            "unicode line separator": pending.removesuffix(b"\n")
+            + b"\xe2\x80\xa8\n"
+            + diagnostic,
+            "double carriage return": pending.removesuffix(b"\n")
+            + b"\r\r\n"
+            + diagnostic,
+        }
+
+        for name, log in cases.items():
+            with self.subTest(case=name):
+                result = self.run_selector(
+                    {0: "fixture-error", 1: "healthy"},
+                    model=model,
+                    judge_model=model,
+                    probe_log=log,
+                )
+
+                self.assertEqual(result.returncode, 9, result.stdout)
+                self.assertEqual(result.attempts, ["fixture-error"])
+                self.assertIsNone(result.selected_token)
+                self.assertEqual(result.github_output, [])
+                self.assertIn("refusing to hide a service or configuration failure", result.stdout)
+
+    def test_unavailable_judge_with_another_error_fails_closed(self) -> None:
+        model = "gpt-5.6-terra"
+        log = (
+            CAPTURED_PROBE_STARTUP
+            + f'Error: Model "{model}" from --model flag is not available.\n'.encode()
+            + b"Unexpected internal service failure\n"
+        )
+        result = self.run_selector(
+            {0: "fixture-error", 1: "healthy"},
+            model="agent-model",
+            judge_model=model,
+            probe_log=log,
+            failed_probe_model=model,
+        )
+
+        self.assertEqual(result.returncode, 9)
+        self.assertEqual(result.attempts, ["fixture-error", "fixture-error"])
+        self.assertEqual(result.models, ["agent-model", model])
+        self.assertIsNone(result.selected_token)
+        self.assertEqual(result.github_output, [])
+
+    def test_model_unavailable_with_effort_error_does_not_retry_the_probe(self) -> None:
+        model = "gpt-5.6-terra"
+        diagnostic = f'Error: Model "{model}" from --model flag is not available.\n'.encode()
+        log = diagnostic + b"does not support reasoning effort configuration\n"
+        result = self.run_selector(
+            {0: "fixture-effort-only", 1: "healthy"},
+            model=model,
+            judge_model=model,
+            probe_log=log,
+        )
+
+        self.assertEqual(result.returncode, 9, result.stdout)
+        self.assertEqual(result.attempts, ["fixture-effort-only"])
+        self.assertIsNone(result.selected_token)
+        self.assertEqual(result.github_output, [])
+
+    def test_model_unavailable_is_classified_before_timeout_handling(self) -> None:
+        model = "gpt-5.6-terra"
+        diagnostic = f'Error: Model "{model}" from --model flag is not available.\n'.encode()
+        for log, expected_exit in (
+            (diagnostic, 0),
+            (diagnostic + b"Unexpected internal service failure\n", 124),
+        ):
+            with self.subTest(expected_exit=expected_exit):
+                result = self.run_selector(
+                    {0: "fixture-error", 1: "healthy"},
+                    model=model,
+                    judge_model=model,
+                    probe_log=log,
+                    probe_exit_code=124,
+                )
+                self.assertEqual(result.returncode, expected_exit, result.stderr)
+                if expected_exit == 0:
+                    self.assertEqual(result.attempts, ["fixture-error", "healthy"])
+                    self.assertIn("cannot use requested model", result.stdout)
+                else:
+                    self.assertEqual(result.attempts, ["fixture-error"])
+                    self.assertEqual(result.github_output, [])
+                    self.assertIsNone(result.selected_token)
+
+    def test_classifier_failure_does_not_retry_or_select_a_token(self) -> None:
+        for token in ("model-unavailable", "rate-limited"):
+            with self.subTest(token=token):
+                result = self.run_selector(
+                    {0: token, 1: "healthy"},
+                    node_failure=True,
+                )
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.attempts, [token])
+                self.assertEqual(result.github_output, [])
+                self.assertIsNone(result.selected_token)
+                self.assertIn("simulated Node failure", result.stderr)
+                self.assertIn("classifier failure", result.stdout)
+
+    def test_model_unavailable_classifier_bounds_and_streaming(self) -> None:
+        model = "gpt-5.6-terra"
+        diagnostic = f'Error: Model "{model}" from --model flag is not available.\n'.encode()
+        captured_log = CAPTURED_PROBE_STARTUP + diagnostic
+
+        for size in (16383, 16384, 16385, 16386):
+            with self.subTest(size=size):
+                log = captured_log + b" " * (size - len(captured_log))
+                result = self.run_selector(
+                    {0: "fixture-error", 1: "healthy"},
+                    model=model,
+                    judge_model=model,
+                    probe_log=log,
+                )
+                if size <= 16384:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.attempts, ["fixture-error", "healthy"])
+                    self.assertEqual(result.github_output, ["selected=1"])
+                else:
+                    self.assertEqual(result.returncode, 9)
+                    self.assertEqual(result.attempts, ["fixture-error"])
+                    self.assertEqual(result.github_output, [])
+                    self.assertIsNone(result.selected_token)
+
+        marker = b"from --model flag is not available."
+        marker_offset = diagnostic.index(marker)
+        for boundary in (16385, 16385 + 16384):
+            for overlap in (1, len(marker) - 1):
+                with self.subTest(boundary=boundary, overlap=overlap):
+                    prefix_length = boundary - marker_offset - overlap
+                    log = (
+                        b" " * (prefix_length - 1)
+                        + b"\n"
+                        + diagnostic
+                        + b"Too Many Requests\n"
+                    )
+                    result = self.run_selector(
+                        {0: "fixture-error", 1: "healthy"},
+                        model=model,
+                        judge_model=model,
+                        probe_log=log,
+                    )
+                    self.assertEqual(result.returncode, 9)
+                    self.assertEqual(result.attempts, ["fixture-error"])
+                    self.assertEqual(result.github_output, [])
+                    self.assertIsNone(result.selected_token)
+
+        result = self.run_selector(
+            {0: "fixture-error", 1: "healthy"},
+            model=model,
+            judge_model=model,
+            probe_log=b"x" * (1024 * 1024) + b"\n" + diagnostic + b"Too Many Requests\n",
+        )
+        self.assertEqual(result.returncode, 9)
+        self.assertEqual(result.attempts, ["fixture-error"])
+        self.assertEqual(result.github_output, [])
+        self.assertIsNone(result.selected_token)
+
+        result = self.run_selector(
+            {0: "fixture-error", 1: "healthy"},
+            model=model,
+            judge_model=model,
+            probe_log=b" " * 16385 + b"\nToo Many Requests\n",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.attempts, ["fixture-error", "healthy"])
+        self.assertEqual(result.selected_token, "healthy")
 
     def test_model_unavailable_after_effort_retry_tries_next_candidate(self) -> None:
         result = self.run_selector(

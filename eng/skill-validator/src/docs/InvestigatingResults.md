@@ -48,15 +48,26 @@ behavior against the corrected executor.
 
 > The workflow token preflight tries another pool candidate for HTTP 429 or 402
 > quota exhaustion and for the paired heading and token-environment lines in
-> the Copilot CLI's no-authentication setup block. Unrelated service and
-> configuration failures remain terminal.
+> the Copilot CLI's no-authentication setup block. Standalone unrelated service
+> and configuration failures remain terminal.
 > It also tries another candidate when the CLI emits the exact diagnostic
 > `Error: Model "<requested model>" from --model flag is not available.`
-> for either the executor or judge probe. The next candidate must pass both
-> probes with the same requested models; no model is substituted. If the pool
-> is exhausted after this diagnostic, the error lists the requested models and
-> reports that entries lacked model access or failed another retryable check.
-> This does not prove that the model is unavailable to every account.
+> for either the executor or judge probe. This retry requires exactly one such
+> line and a probe log of at most 16 KiB. Other than blank lines, the log can
+> contain only the observed `github-mcp-server` pending or connected startup
+> events in their known JSON shape and field order. Unknown or duplicate
+> fields, other diagnostics, malformed UTF-8, and larger logs containing the
+> model-unavailable message fail the probe rather than hiding another error.
+> A changed CLI event format can therefore stop the retry until the known shape
+> is updated. If this check fails to run, token selection stops. Otherwise, logs
+> without the model-unavailable message retain the existing retry rules. Those
+> rules can retry a mixed service-error and rate-limit or unsupported-effort
+> log when the model-unavailable message is absent. The next candidate must
+> pass both probes with the same requested models; no model is substituted.
+> If the pool is exhausted after this diagnostic, the error lists the requested
+> models and reports that entries lacked model access or failed another
+> retryable check. This does not prove that the model is unavailable to every
+> account.
 
 > Before token selection or evaluation starts, the workflow serially warms up
 > first-use state for every .NET SDK installed on the runner. This prevents

@@ -819,6 +819,7 @@ jobs:
               # Capability detection covers Haiku and future models without a
               # hard-coded model list.
               effort_args=(--effort=low)
+              model_unavailable=false
               while true; do
                 set +e
                 (
@@ -837,6 +838,86 @@ jobs:
                 probe_status=$?
                 set -e
 
+                if [ "$probe_status" -ne 0 ]; then
+                  # Check for model-access diagnostics before any other retry
+                  # path, so mixed errors cannot be hidden by a later success.
+                  # Status 0 permits model retry; 42 means no marker was found.
+                  model_classification=0
+                  node -e '
+                    const fs = require("node:fs");
+                    function classify(path, model) {
+                      const limit = 16384;
+                      const marker = Buffer.from("from --model flag is not available.");
+                      const log = Buffer.alloc(limit + 1);
+                      const fd = fs.openSync(path, "r");
+                      try {
+                        let size = 0;
+                        while (size < log.length) {
+                          const n = fs.readSync(fd, log, size, log.length - size, null);
+                          if (n === 0) break;
+                          size += n;
+                        }
+                        const prefix = log.subarray(0, size);
+                        if (size > limit) {
+                          if (prefix.includes(marker)) return 1;
+                          // Keep a marker-length overlap while scanning the rest.
+                          let carry = marker.length - 1;
+                          const chunk = Buffer.alloc(limit + carry);
+                          prefix.copy(chunk, 0, size - carry, size);
+                          for (;;) {
+                            const n = fs.readSync(fd, chunk, carry, limit, null);
+                            if (n === 0) return 42;
+                            const length = carry + n;
+                            if (chunk.subarray(0, length).includes(marker)) return 1;
+                            carry = Math.min(marker.length - 1, length);
+                            chunk.copyWithin(0, length - carry, length);
+                          }
+                        }
+                        if (!prefix.includes(marker)) return 42;
+
+                        let text;
+                        try {
+                          text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(prefix);
+                        } catch {
+                          return 1;
+                        }
+                        const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+                        const timestamp = "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z";
+                        // The exact serialized shape also rejects duplicate keys.
+                        const startupEvent = new RegExp(
+                          `^[{]"type":"session[.]mcp_server_status_changed",` +
+                          `"data":[{]"serverName":"github-mcp-server","status":"(?:pending|connected)"[}],` +
+                          `"ephemeral":true,"id":"${uuid}","timestamp":"${timestamp}","parentId":"${uuid}"[}]$`
+                        );
+                        const diagnostic = `Error: Model "${model}" from --model flag is not available.`;
+                        const lf = String.fromCharCode(10);
+                        const cr = String.fromCharCode(13);
+                        const tab = String.fromCharCode(9);
+                        let diagnostics = 0;
+                        for (let line of text.split(lf)) {
+                          if (line.endsWith(cr)) line = line.slice(0, -1);
+                          if ([...line].every(char => char === " " || char === tab)) continue;
+                          if (line === diagnostic) diagnostics++;
+                          else if (startupEvent.exec(line)?.[0] !== line) return 1;
+                        }
+                        return diagnostics === 1 ? 0 : 1;
+                      } finally {
+                        fs.closeSync(fd);
+                      }
+                    }
+                    process.exitCode = classify(process.argv[1], process.argv[2]);
+                  ' "$PROBE_LOG" "$probe_model" || model_classification=$?
+                  case "$model_classification" in
+                    0) model_unavailable=true; break ;;
+                    42) ;;
+                    *)
+                      echo "::error::Copilot PAT pool entry $candidate_number failed its $probe_model availability probe with an unexpected non-rate-limit error (exit $probe_status); mixed or unrecognized model-unavailable output or classifier failure; refusing to hide a service or configuration failure"
+                      cat "$PROBE_LOG"
+                      exit "$probe_status"
+                      ;;
+                  esac
+                fi
+
                 if [ "$probe_status" -ne 0 ] \
                   && [ ${#effort_args[@]} -gt 0 ] \
                   && grep -Fq "does not support reasoning effort configuration" "$PROBE_LOG"; then
@@ -851,17 +932,17 @@ jobs:
                 continue
               fi
 
+              if [ "$model_unavailable" = true ]; then
+                echo "::warning::Copilot PAT pool entry $candidate_number cannot use requested model $probe_model; trying another entry"
+                candidate_rejected=true
+                saw_model_unavailable=true
+                break
+              fi
+
               if [ "$probe_status" -eq 124 ]; then
                 echo "::warning::Copilot PAT pool entry $candidate_number timed out probing $probe_model; trying another entry"
                 candidate_rejected=true
                 saw_timed_out=true
-                break
-              fi
-
-              if grep -Fxq -- "Error: Model \"$probe_model\" from --model flag is not available." "$PROBE_LOG"; then
-                echo "::warning::Copilot PAT pool entry $candidate_number cannot use requested model $probe_model; trying another entry"
-                candidate_rejected=true
-                saw_model_unavailable=true
                 break
               fi
 
