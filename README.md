@@ -145,6 +145,14 @@ You can also install individual skills using the `skill-installer` CLI with the 
 $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<plugin>/skills/<skill-name>
 ```
 
+## Microsoft Learn MCP Server
+
+Use the optional [Microsoft Learn MCP Server](https://learn.microsoft.com/en-us/training/support/mcp)
+for current Microsoft documentation and code samples. Follow the official
+[client-specific installation instructions](https://github.com/MicrosoftDocs/mcp#-installation--getting-started)
+to configure it in VSCode, GitHub Copilot CLI, Claude Code, Visual Studio,
+Cursor, Codex, or another supported client.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new plugin.

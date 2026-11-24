@@ -315,6 +315,14 @@
     })[status] || status || 'activation unknown';
   }
 
+  // Split activation-only failed runs into implementation stops (no work
+  // delivered) and the remainder; legacy data has no implementation count.
+  function activationOnlySplit(failedRuns, implementationStops) {
+    const total = Number.isFinite(failedRuns) ? failedRuns : 0;
+    const implementation = Math.min(total, Number.isFinite(implementationStops) ? implementationStops : 0);
+    return { implementation, other: total - implementation };
+  }
+
   function activationSummary(verdict) {
     const scenarios = Array.isArray(verdict.activationScenarios) ? verdict.activationScenarios : [];
     if (verdict.skillKind === 'reference') {
@@ -330,6 +338,8 @@
     let active = 0;
     let isolatedActivationOnlyFailures = 0;
     let pluginActivationOnlyFailures = 0;
+    let isolatedImplementationStops = 0;
+    let pluginImplementationStops = 0;
     scenarios.forEach(s => {
       for (const status of [s.isolated, s.plugin]) {
         if (!status) continue;
@@ -338,13 +348,23 @@
         else if (status === 'unexpected-activation') unexpected++;
         else if (status === 'activated') active++;
       }
-      isolatedActivationOnlyFailures += s.isolatedActivationOnlyFailedRuns || 0;
-      pluginActivationOnlyFailures += s.pluginActivationOnlyFailedRuns || 0;
+      const isolated = activationOnlySplit(s.isolatedActivationOnlyFailedRuns, s.isolatedImplementationStopRuns);
+      const plugin = activationOnlySplit(s.pluginActivationOnlyFailedRuns, s.pluginImplementationStopRuns);
+      isolatedImplementationStops += isolated.implementation;
+      pluginImplementationStops += plugin.implementation;
+      isolatedActivationOnlyFailures += isolated.other;
+      pluginActivationOnlyFailures += plugin.other;
     });
 
     const parts = [];
     if (missing) parts.push(`${missing} missing`);
     if (unexpected) parts.push(`${unexpected} unexpected`);
+    if (isolatedImplementationStops) {
+      parts.push(`${isolatedImplementationStops} isolated implementation ${isolatedImplementationStops === 1 ? 'stop' : 'stops'} after activation`);
+    }
+    if (pluginImplementationStops) {
+      parts.push(`${pluginImplementationStops} plugin implementation ${pluginImplementationStops === 1 ? 'stop' : 'stops'} after activation`);
+    }
     if (isolatedActivationOnlyFailures) {
       parts.push(`${isolatedActivationOnlyFailures} isolated failed after activation`);
     }
@@ -417,16 +437,27 @@
         ? `; completed: ${s.isolatedCompleted ? 'yes' : 'no'}`
         : '';
       const activationOnly = [];
-      if (s.isolatedActivationOnlyFailedRuns) {
-        activationOnly.push(`isolated activation-only failures: ${s.isolatedActivationOnlyFailedRuns}`);
+      const isolatedStops = activationOnlySplit(s.isolatedActivationOnlyFailedRuns, s.isolatedImplementationStopRuns);
+      const pluginStops = activationOnlySplit(s.pluginActivationOnlyFailedRuns, s.pluginImplementationStopRuns);
+      if (isolatedStops.implementation) {
+        activationOnly.push(`isolated implementation stops after activation: ${isolatedStops.implementation}`);
       }
-      if (s.pluginActivationOnlyFailedRuns) {
-        activationOnly.push(`plugin activation-only failures: ${s.pluginActivationOnlyFailedRuns}`);
+      if (pluginStops.implementation) {
+        activationOnly.push(`plugin implementation stops after activation: ${pluginStops.implementation}`);
       }
+      if (isolatedStops.other) {
+        activationOnly.push(`isolated activation-only failures: ${isolatedStops.other}`);
+      }
+      if (pluginStops.other) {
+        activationOnly.push(`plugin activation-only failures: ${pluginStops.other}`);
+      }
+      const workKind = typeof s.workKind === 'string' && s.workKind && s.workKind !== 'unknown'
+        ? `; work: ${s.workKind}`
+        : '';
       const activationOnlyStatus = activationOnly.length
         ? `; ${activationOnly.join('; ')}`
         : '';
-      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}${escapeHtml(delegated)}${escapeHtml(skills)}${escapeHtml(tools)}${escapeHtml(completion)}${escapeHtml(activationOnlyStatus)}${escapeHtml(preference)}</li>`;
+      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}${escapeHtml(delegated)}${escapeHtml(skills)}${escapeHtml(tools)}${escapeHtml(completion)}${escapeHtml(workKind)}${escapeHtml(activationOnlyStatus)}${escapeHtml(preference)}</li>`;
     }).join('');
     return `
       <div>${escapeHtml(activationSummary(verdict))}</div>
