@@ -256,11 +256,8 @@ verify `ProxyBlazorTelemetry()` and follow
 
 ## Validate
 
-Run `aspire run`. If startup fails at `ResolveWebAssemblyProjectReferences` on a clean checkout,
-check that the server resolves a .NET 11 SDK, then build the server project and retry.
-This worked around a startup failure observed with the prerelease integration; it is not a
-general Aspire prerequisite. Open the dashboard from the printed `?t=<token>` link and check
-the pieces you wired:
+Run `aspire run`, then open the dashboard from the printed `?t=<token>` link and check the
+pieces you wired:
 
 1. **Resources** — `webapp` and the API (if present) both **Running**.
 2. **App** — open the `webapp` endpoint; the home page renders directly (no sub-path, no base-href edit on this path).
