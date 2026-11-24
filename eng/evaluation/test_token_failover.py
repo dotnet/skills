@@ -2331,6 +2331,17 @@ case "$COPILOT_GITHUB_TOKEN" in
   disabled) echo "This organization has been disabled" >&2; exit 8 ;;
   service-error) echo "Unexpected internal service failure" >&2; exit 9 ;;
   model-error) echo "Model gpt-401 not found" >&2; exit 10 ;;
+  model-unavailable) echo "Error: Model \\"$model\\" from --model flag is not available." >&2; exit 1 ;;
+  judge-unavailable)
+    if [ "$model" = "judge-model" ]; then
+      echo "Error: Model \\"$model\\" from --model flag is not available." >&2
+      exit 1
+    fi
+    exit 0
+    ;;
+  other-model-unavailable) echo 'Error: Model "different-model" from --model flag is not available.' >&2; exit 10 ;;
+  model-unavailable-prefix) echo "Service error: Error: Model \\"$model\\" from --model flag is not available." >&2; exit 10 ;;
+  model-unavailable-suffix) echo "Error: Model \\"$model\\" from --model flag is not available. Service failed." >&2; exit 10 ;;
   healthy) exit 0 ;;
   *) echo "unexpected test token" >&2; exit 9 ;;
 esac
@@ -2510,6 +2521,9 @@ esac
         for failing_token in (
             "service-error",
             "model-error",
+            "other-model-unavailable",
+            "model-unavailable-prefix",
+            "model-unavailable-suffix",
             "auth-heading-only",
             "auth-env-only",
         ):
@@ -2528,6 +2542,89 @@ esac
                     "refusing to hide a service or configuration failure",
                     result.stdout,
                 )
+
+    def test_model_unavailable_candidate_fails_over_without_changing_model(self) -> None:
+        for model in ("gpt-6-astra", "gpt-6.2-astra", "model.with[regex]*"):
+            with self.subTest(model=model):
+                result = self.run_selector(
+                    {0: "model-unavailable", 1: "healthy"},
+                    model=model,
+                    judge_model=model,
+                )
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.attempts, ["model-unavailable", "healthy"])
+                self.assertEqual(result.models, [model, model])
+                self.assertEqual(result.selected_token, "healthy")
+                self.assertEqual(result.github_output, ["selected=1"])
+                self.assertIn(f"entry 0 cannot use requested model {model}", result.stdout)
+                self.assertNotIn("quarantining", result.stdout)
+
+    def test_unavailable_judge_retries_both_models_on_next_candidate(self) -> None:
+        result = self.run_selector(
+            {0: "judge-unavailable", 1: "healthy"},
+            model="agent-model",
+            judge_model="judge-model",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.attempts, ["judge-unavailable"] * 2 + ["healthy"] * 2)
+        self.assertEqual(result.models, ["agent-model", "judge-model"] * 2)
+        self.assertEqual(result.selected_token, "healthy")
+        self.assertIn("entry 0 cannot use requested model judge-model", result.stdout)
+
+    def test_model_unavailable_after_effort_retry_tries_next_candidate(self) -> None:
+        result = self.run_selector(
+            {0: "model-unavailable", 1: "healthy"},
+            model="no-effort-model",
+            judge_model="no-effort-model",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.attempts, ["model-unavailable"] * 2 + ["healthy"] * 2)
+        self.assertEqual(result.models, ["no-effort-model"] * 4)
+        self.assertEqual(result.selected_token, "healthy")
+
+    def test_all_candidates_with_unavailable_judge_fail_clearly(self) -> None:
+        result = self.run_selector(
+            {0: "judge-unavailable", 1: "judge-unavailable"},
+            model="agent-model",
+            judge_model="judge-model",
+        )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.attempts, ["judge-unavailable"] * 4)
+        self.assertEqual(result.models, ["agent-model", "judge-model"] * 2)
+        self.assertIsNone(result.selected_token)
+        self.assertEqual(result.github_output, [])
+        self.assertIn("requested models (agent-model judge-model)", result.stdout)
+        self.assertIn("model access", result.stdout)
+
+    def test_model_unavailable_pool_exhaustion_fails_without_selecting_token(self) -> None:
+        for second_token in ("model-unavailable", "rate-limited", "unauthorized", "timed-out"):
+            with self.subTest(second_token=second_token):
+                result = self.run_selector(
+                    {0: "model-unavailable", 1: second_token},
+                    model="agent-model",
+                    judge_model="judge-model",
+                )
+
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.attempts, ["model-unavailable", second_token])
+                self.assertIsNone(result.selected_token)
+                self.assertEqual(result.github_output, [])
+                self.assertIn("No healthy Copilot PAT pool entry was found", result.stdout)
+                self.assertIn("requested models (agent-model judge-model)", result.stdout)
+                self.assertIn("model access", result.stdout)
+
+    def test_unrelated_failure_after_model_unavailable_still_fails_fast(self) -> None:
+        result = self.run_selector({0: "model-unavailable", 1: "service-error"})
+
+        self.assertEqual(result.returncode, 9)
+        self.assertEqual(result.attempts, ["model-unavailable", "service-error"])
+        self.assertIsNone(result.selected_token)
+        self.assertEqual(result.github_output, [])
+        self.assertIn("refusing to hide a service or configuration failure", result.stdout)
 
     def test_all_unavailable_candidates_fail_clearly(self) -> None:
         result = self.run_selector({0: "unauthorized", 1: "disabled"})

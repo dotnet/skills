@@ -50,6 +50,13 @@ behavior against the corrected executor.
 > quota exhaustion and for the paired heading and token-environment lines in
 > the Copilot CLI's no-authentication setup block. Unrelated service and
 > configuration failures remain terminal.
+> It also tries another candidate when the CLI emits the exact diagnostic
+> `Error: Model "<requested model>" from --model flag is not available.`
+> for either the executor or judge probe. The next candidate must pass both
+> probes with the same requested models; no model is substituted. If the pool
+> is exhausted after this diagnostic, the error lists the requested models and
+> reports that entries lacked model access or failed another retryable check.
+> This does not prove that the model is unavailable to every account.
 
 > Before token selection or evaluation starts, the workflow serially warms up
 > first-use state for every .NET SDK installed on the runner. This prevents
