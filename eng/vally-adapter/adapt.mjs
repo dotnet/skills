@@ -33,7 +33,7 @@
  *     [--vally "<cmd>"] [--judge-model <model>] [--model <model>]
  */
 
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -83,6 +83,18 @@ const { values: opts } = parseArgs({
     // results.json, including an explicit invalid verdict if a variant or compare
     // result is missing.
     "expected-evals": { type: "string" },
+    // Optional JSON manifest from eng/evaluation-tools/runtime-identity.mjs
+    // (toolchain versions + per-model tool-schema identity). Recorded on every
+    // verdict as executionContext; absent => toolchain/toolSchemas are null.
+    "execution-context": { type: "string" },
+    // Directories searched for Vally native session logs (metadata.json +
+    // events.jsonl). The experiment dir is always searched; repeat to add
+    // executor-retry output roots.
+    "session-log-root": { type: "string", multiple: true },
+    // Requested reasoning effort / context tier, recorded as the intended
+    // configuration next to what the runtime actually reported.
+    "reasoning-effort": { type: "string" },
+    "context-tier": { type: "string" },
     help: { type: "boolean", default: false },
   },
   strict: true,
@@ -112,6 +124,12 @@ Options:
                             onto each verdict as verdict.overfittingResult.
   --expected-evals <file>   Optional newline-delimited or JSON-array manifest of
                             eval files that must each produce an explicit verdict.
+  --execution-context <file> Optional runtime-identity manifest (toolchain and
+                            tool-schema identity) recorded on every verdict.
+  --session-log-root <dir>  Extra directory to search for native session logs
+                            (repeatable; the experiment dir is always searched).
+  --reasoning-effort <e>    Requested reasoning effort, recorded on every verdict.
+  --context-tier <tier>     Requested context tier, recorded on every verdict.
   --help                    Show this help`);
   process.exit(opts.help ? 0 : 1);
 }
@@ -532,6 +550,62 @@ function continuedAfterSkillActivation(record, targetSkillName = null) {
   return activated ? false : null;
 }
 
+// First non-skill tool the agent called after the target skill was activated,
+// or null when the trajectory has no ordered events or no such call.
+function firstToolAfterSkillActivation(record, targetSkillName = null) {
+  const events = record.trajectory?.events;
+  if (!Array.isArray(events)) return null;
+  let activated = false;
+  for (const event of events) {
+    const activatedSkill = skillNameFromActivationEvent(event);
+    if (
+      activatedSkill
+      && (!targetSkillName || activatedSkill.toLowerCase() === targetSkillName.toLowerCase())
+    ) {
+      activated = true;
+      continue;
+    }
+    if (activated && (event?.type === "tool_call" || event?.type === "tool.execution_start")) {
+      const toolName = event?.data?.toolName ?? event?.data?.name;
+      if (toolName && toolName !== "skill") return toolName;
+    }
+  }
+  return null;
+}
+
+/**
+ * Classify one run relative to the target skill:
+ *   - "not_activated": the target skill never loaded.
+ *   - "continued": a non-skill tool ran after activation.
+ *   - "activation_only": the run completed with no work after loading a skill.
+ *   - "unclassified": activated, but the evidence cannot separate the two.
+ */
+function postActivationOutcome(record, targetSkillName = null) {
+  const activationCount = targetActivationCount(record, targetSkillName);
+  if (activationCount <= 0) return "not_activated";
+
+  const completed = record.trajectory?.endReason === "completed";
+  const orderedContinuation = continuedAfterSkillActivation(record, targetSkillName);
+  if (orderedContinuation === true) return "continued";
+  if (orderedContinuation === false && completed) return "activation_only";
+
+  const metrics = record.trajectory?.metrics;
+  const toolCallCount = metrics?.toolCallCount;
+  const skillToolCallCount = metrics?.toolCallBreakdown?.skill ?? activationCount;
+  if (!Number.isFinite(toolCallCount) || !Number.isFinite(skillToolCallCount)) {
+    return "unclassified";
+  }
+  if (
+    orderedContinuation === null
+    && toolCallCount === skillToolCallCount
+    && toolCallCount > 0
+    && completed
+  ) {
+    return "activation_only";
+  }
+  return "unclassified";
+}
+
 function postActivationFromRecords(records, targetSkillName = null) {
   const summary = {
     activatedRuns: 0,
@@ -539,55 +613,195 @@ function postActivationFromRecords(records, targetSkillName = null) {
     activationOnlyCompletions: 0,
     failedActivationOnlyCompletions: 0,
     unclassifiedRuns: 0,
+    firstPostActivationTools: {},
   };
 
   for (const record of records ?? []) {
-    const metrics = record.trajectory?.metrics;
-    const activationCount = targetActivationCount(record, targetSkillName);
-    if (activationCount <= 0) continue;
+    const outcome = postActivationOutcome(record, targetSkillName);
+    if (outcome === "not_activated") continue;
 
     summary.activatedRuns += 1;
-    const orderedContinuation = continuedAfterSkillActivation(record, targetSkillName);
-    if (orderedContinuation === true) {
+    if (outcome === "continued") {
       summary.continuedRuns += 1;
-      continue;
-    }
-    if (
-      orderedContinuation === false
-      && record.trajectory?.endReason === "completed"
-    ) {
+      const firstTool = firstToolAfterSkillActivation(record, targetSkillName);
+      if (firstTool) {
+        summary.firstPostActivationTools[firstTool] =
+          (summary.firstPostActivationTools[firstTool] ?? 0) + 1;
+      }
+    } else if (outcome === "activation_only") {
       summary.activationOnlyCompletions += 1;
       if (record.gradeResult?.passed === false) {
         summary.failedActivationOnlyCompletions += 1;
       }
-      continue;
-    }
-
-    const toolCallCount = metrics?.toolCallCount;
-    const skillToolCallCount =
-      metrics?.toolCallBreakdown?.skill ?? activationCount;
-    if (!Number.isFinite(toolCallCount) || !Number.isFinite(skillToolCallCount)) {
+    } else {
       summary.unclassifiedRuns += 1;
-      continue;
     }
-
-    if (
-      orderedContinuation === null
-      && toolCallCount === skillToolCallCount
-      && toolCallCount > 0
-      && record.trajectory?.endReason === "completed"
-    ) {
-      summary.activationOnlyCompletions += 1;
-      if (record.gradeResult?.passed === false) {
-        summary.failedActivationOnlyCompletions += 1;
-      }
-      continue;
-    }
-
-    summary.unclassifiedRuns += 1;
   }
 
   return summary.activatedRuns > 0 ? summary : null;
+}
+
+// Tool names that write workspace files. Mirrors the file-mutation list in
+// eng/skill-validator/src/Evaluate/AgentRunner.cs so both lanes agree on what
+// counts as an edit.
+const FILE_MUTATION_TOOLS = new Set([
+  "edit",
+  "create",
+  "delete",
+  "remove",
+  "rename",
+  "move",
+  "write",
+  "write_file",
+  "append",
+  "append_file",
+  "apply_patch",
+]);
+
+function recordToolNames(record) {
+  const breakdown = record.trajectory?.metrics?.toolCallBreakdown;
+  if (breakdown && typeof breakdown === "object") {
+    return Object.entries(breakdown)
+      .filter(([, count]) => Number(count) > 0)
+      .map(([name]) => name);
+  }
+  return [
+    ...new Set(
+      (record.trajectory?.events ?? [])
+        .filter((event) => event?.type === "tool_call" || event?.type === "tool.execution_start")
+        .map((event) => event?.data?.toolName ?? event?.data?.name)
+        .filter(Boolean),
+    ),
+  ];
+}
+
+/**
+ * Infer what kind of work a stimulus demands from its skill-free baseline runs.
+ * An answer drawn from skill content is a legitimate outcome for advisory
+ * prompts, but a stop after loading a skill is a continuation failure when the
+ * task requires editing the workspace. The baseline arm has no skill, so its
+ * tool use is an unbiased reference for what the prompt needs.
+ *   - "implementation": at least half of the baseline runs edited files.
+ *   - "inspection": otherwise, at least half used non-skill tools.
+ *   - "answer": the baseline mostly answered without tools.
+ *   - "unknown": no baseline runs to infer from.
+ * Shell-only writes are not detected, so this undercounts implementation.
+ */
+function stimulusWorkKind(baselineRecords) {
+  const records = baselineRecords ?? [];
+  const baselineRuns = records.length;
+  let baselineWriteRuns = 0;
+  let baselineToolRuns = 0;
+  for (const record of records) {
+    const tools = recordToolNames(record);
+    if (tools.some((tool) => FILE_MUTATION_TOOLS.has(tool))) baselineWriteRuns += 1;
+    if (tools.some((tool) => tool !== "skill")) baselineToolRuns += 1;
+  }
+  const kind = baselineRuns === 0
+    ? "unknown"
+    : baselineWriteRuns * 2 >= baselineRuns
+      ? "implementation"
+      : baselineToolRuns * 2 >= baselineRuns
+        ? "inspection"
+        : "answer";
+  return {
+    kind,
+    source: "baseline_tool_use",
+    baselineRuns,
+    baselineWriteRuns,
+    baselineToolRuns,
+  };
+}
+
+/**
+ * Ungraded executor errors count as tool failures. For a failed grade
+ * (gradeResult.passed === false), the first matching class wins:
+ *   - routing: target activation disagreed with the scenario's expectation.
+ *   - tool: the runtime reported errors, or the trajectory did not complete
+ *     (timeout or simulation cap).
+ *   - continuation: the run completed after only loading the target skill.
+ *   - contentQuality: routing and execution were sound, yet the work failed.
+ *   - unclassified: activated, but the trajectory cannot show what followed.
+ */
+function failureClassesFromRecords(records, targetSkillName = null, expectActivation = true) {
+  const classes = {
+    failedRuns: 0,
+    routing: 0,
+    tool: 0,
+    continuation: 0,
+    contentQuality: 0,
+    unclassified: 0,
+  };
+  for (const record of records ?? []) {
+    if (record.status === "error" && record.gradeResult?.passed == null) {
+      classes.failedRuns += 1;
+      classes.tool += 1;
+      continue;
+    }
+    if (record.gradeResult?.passed !== false) continue;
+    classes.failedRuns += 1;
+    const outcome = postActivationOutcome(record, targetSkillName);
+    const activated = outcome !== "not_activated";
+    const endReason = record.trajectory?.endReason;
+    const errorCount = record.trajectory?.metrics?.errorCount ?? 0;
+    if (activated !== expectActivation) {
+      classes.routing += 1;
+    } else if (errorCount > 0 || (endReason && endReason !== "completed")) {
+      classes.tool += 1;
+    } else if (outcome === "activation_only") {
+      classes.continuation += 1;
+    } else if (outcome === "continued" || outcome === "not_activated") {
+      classes.contentQuality += 1;
+    } else {
+      classes.unclassified += 1;
+    }
+  }
+  return classes;
+}
+
+// Failure classes are attributed only for skill targets: agent targets do not
+// route through skill activation, so routing/continuation would be meaningless.
+function activationDiagnostics(role, records, targetSkillName, expectActivation, workKind, classifyFailures = true) {
+  const postActivation = role?.postActivation ?? null;
+  const diagnostics = {
+    activated: Boolean(role?.activated),
+    ...(postActivation ?? {}),
+  };
+  if (classifyFailures) {
+    diagnostics.failureClasses = failureClassesFromRecords(records, targetSkillName, expectActivation);
+  }
+  if (postActivation && classifyFailures) {
+    diagnostics.implementationActivationOnlyFailures = workKind?.kind === "implementation"
+      ? diagnostics.failureClasses.continuation
+      : 0;
+  } else if (postActivation) {
+    diagnostics.implementationActivationOnlyFailures = 0;
+  }
+  return diagnostics;
+}
+
+function sumFailureClasses(scenarios, field) {
+  const total = {
+    failedRuns: 0,
+    routing: 0,
+    tool: 0,
+    continuation: 0,
+    contentQuality: 0,
+    unclassified: 0,
+    implementationActivationOnlyFailures: 0,
+  };
+  let observed = false;
+  for (const scenario of scenarios) {
+    const diagnostics = scenario?.[field];
+    if (!diagnostics?.failureClasses) continue;
+    observed = true;
+    for (const key of Object.keys(diagnostics.failureClasses)) {
+      total[key] += diagnostics.failureClasses[key] ?? 0;
+    }
+    total.implementationActivationOnlyFailures +=
+      diagnostics.implementationActivationOnlyFailures ?? 0;
+  }
+  return observed ? total : null;
 }
 
 /**
@@ -1710,11 +1924,13 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
   const scenarios = stimulusNames.map((name) => {
     const st = compareByStim.get(name);
     const targetSkillName = targetKind === "skill" ? identity.skill : null;
+    const expectActivation = !nonActivation.has(name);
     const baseline = roleFromRecords(baselineByStim.get(name), targetSkillName);
     const skilled = roleFromRecords(skilledByStim.get(name), targetSkillName);
     const plugin = hasPlugin
       ? roleFromRecords(pluginByStim.get(name), targetSkillName)
       : null;
+    const workKind = stimulusWorkKind(baselineByStim.get(name));
 
     // Per-scenario preference record, computed once rather than re-derived by
     // each renderer. Dormancy rows retain this evidence even though they do not
@@ -1756,10 +1972,15 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
         : null,
       observedInAnyRole: observedStimulusNames.has(name),
       timedOut: Boolean(skilled?.timedOut),
-      skillActivationIsolated: {
-        activated: Boolean(skilled?.activated),
-        ...(skilled?.postActivation ?? {}),
-      },
+      stimulusWork: workKind,
+      skillActivationIsolated: activationDiagnostics(
+        skilled,
+        skilledByStim.get(name),
+        targetSkillName,
+        expectActivation,
+        workKind,
+        targetKind === "skill",
+      ),
       baseline: roleToDashboard(baseline),
       skilledIsolated: roleToDashboard(skilled),
     };
@@ -1767,10 +1988,14 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
       scenario.agentActivationIsolated = { activated: Boolean(skilled?.activated) };
     }
     if (hasPlugin) {
-      scenario.skillActivationPlugin = {
-        activated: Boolean(plugin?.activated),
-        ...(plugin?.postActivation ?? {}),
-      };
+      scenario.skillActivationPlugin = activationDiagnostics(
+        plugin,
+        pluginByStim.get(name),
+        targetSkillName,
+        expectActivation,
+        workKind,
+        targetKind === "skill",
+      );
       if (targetKind === "agent") {
         scenario.agentActivationPlugin = { activated: Boolean(plugin?.activated) };
       }
@@ -2085,6 +2310,15 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
     excludedScenarioEvidence,
     activationContract,
     completionTransitions,
+    failureClassification: {
+      source: "executor_errors_and_failed_grades",
+      reason:
+        "Each failed run is attributed to routing, tool/execution, post-activation continuation, " +
+        "or content quality; implementation stops count only continuation-class activation-only " +
+        "failures on stimuli whose baseline edited files",
+      isolated: sumFailureClasses(scenarios, "skillActivationIsolated"),
+      plugin: hasPlugin ? sumFailureClasses(scenarios, "skillActivationPlugin") : null,
+    },
     comparisonAttempts: report.retrySummary ?? {
       attempts: 1,
       retriedSlots: 0,
@@ -2241,7 +2475,230 @@ function invalidVerdict(identity, cause, message, accounting = {}, targetKind = 
   };
 }
 
-function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval) {
+// ---------------------------------------------------------------------------
+// Execution provenance
+// ---------------------------------------------------------------------------
+
+const EXECUTION_CONTEXT_SCHEMA_VERSION = 1;
+const NATIVE_PROVENANCE_EVENT =
+  /"type"\s*:\s*"(?:session\.start|session\.model_change|assistant\.message)"/;
+
+function findSessionMetadataFiles(root) {
+  const found = [];
+  const pending = [root];
+  while (pending.length > 0) {
+    const dir = pending.pop();
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) pending.push(full);
+      else if (entry.isFile() && entry.name === "metadata.json") found.push(full);
+    }
+  }
+  return found;
+}
+
+/**
+ * Index Vally native session logs (<trial>/metadata.json + events.jsonl) by
+ * trajectory id, which equals results.jsonl `trajectory.id`. Later roots win,
+ * so executor-retry logs supersede an original attempt with the same id.
+ */
+function indexNativeSessionLogs(roots) {
+  const index = new Map();
+  for (const root of roots ?? []) {
+    if (!root || !existsSync(root)) continue;
+    for (const metadataPath of findSessionMetadataFiles(root)) {
+      let metadata;
+      try {
+        metadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+      } catch {
+        continue;
+      }
+      if (typeof metadata?.trajectoryId !== "string") continue;
+      // metadata.eventsPath is the runner's absolute path; the artifact may be
+      // relocated, so resolve the log next to its metadata instead.
+      index.set(metadata.trajectoryId, { dir: dirname(metadataPath), metadata });
+    }
+  }
+  return index;
+}
+
+/**
+ * Read the runtime's own account of one session: which runtime and model ran
+ * it, with what reasoning effort and context tier, and how the last assistant
+ * message ended. Finish reasons are not available because the runtime emits
+ * assistant.usage as an ephemeral event that is never persisted.
+ */
+function summarizeNativeSession(entry) {
+  const summary = {
+    sessionLog: false,
+    runtimeVersion: null,
+    producer: null,
+    selectedModel: null,
+    providerId: null,
+    reasoningEffort: null,
+    contextTier: null,
+    modelChanges: 0,
+    terminalPhase: null,
+    apiProvider: null,
+  };
+  if (!entry) return summary;
+  let text;
+  try {
+    text = readFileSync(join(entry.dir, "events.jsonl"), "utf8");
+  } catch {
+    return summary;
+  }
+  summary.sessionLog = true;
+  let sawStart = false;
+  let lastAssistant = null;
+  for (const line of text.split("\n")) {
+    if (!NATIVE_PROVENANCE_EVENT.test(line)) continue;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const data = event?.data ?? {};
+    if (event.type === "session.start" && !sawStart) {
+      sawStart = true;
+      summary.runtimeVersion = data.copilotVersion ?? null;
+      summary.producer = data.producer ?? null;
+      summary.selectedModel = data.selectedModel ?? null;
+      summary.providerId = data.providerId ?? null;
+      // The runtime omits or nulls these when it applies its own default.
+      summary.reasoningEffort = data.reasoningEffort ?? "default";
+      summary.contextTier = data.contextTier ?? "default";
+    } else if (event.type === "session.model_change") {
+      summary.modelChanges += 1;
+      if (data.newModel) summary.selectedModel = data.newModel;
+      if (data.reasoningEffort !== undefined) {
+        summary.reasoningEffort = data.reasoningEffort ?? "default";
+      }
+      if (data.contextTier !== undefined) {
+        summary.contextTier = data.contextTier ?? "default";
+      }
+    } else if (event.type === "assistant.message" && !data.parentToolCallId) {
+      lastAssistant = data;
+    }
+  }
+  if (lastAssistant) {
+    summary.terminalPhase = lastAssistant.phase ?? "unspecified";
+    summary.apiProvider =
+      lastAssistant.serverTools?.provider ?? lastAssistant.reasoningBlocks?.provider ?? null;
+    // session.start omits providerId for the default provider.
+    summary.providerId ??= lastAssistant.providerId ?? null;
+  }
+  return summary;
+}
+
+function emptyObservedProvenance() {
+  return {
+    trials: 0,
+    trialsWithSessionLog: 0,
+    missingSessionLogs: 0,
+    runtimeVersions: {},
+    producers: {},
+    models: {},
+    providerIds: {},
+    apiProviders: {},
+    reasoningEfforts: {},
+    contextTiers: {},
+    terminalPhases: {},
+    modelChangeTrials: 0,
+  };
+}
+
+function countInto(map, value) {
+  const key = value ?? "unknown";
+  map[key] = (map[key] ?? 0) + 1;
+}
+
+function addObservedProvenance(observed, session) {
+  observed.trials += 1;
+  if (!session.sessionLog) {
+    observed.missingSessionLogs += 1;
+    return;
+  }
+  observed.trialsWithSessionLog += 1;
+  countInto(observed.runtimeVersions, session.runtimeVersion);
+  countInto(observed.producers, session.producer);
+  countInto(observed.models, session.selectedModel);
+  countInto(observed.providerIds, session.providerId);
+  countInto(observed.apiProviders, session.apiProvider);
+  countInto(observed.reasoningEfforts, session.reasoningEffort);
+  countInto(observed.contextTiers, session.contextTier);
+  countInto(observed.terminalPhases, session.terminalPhase ?? "none");
+  if (session.modelChanges > 0) observed.modelChangeTrials += 1;
+}
+
+function loadExecutionManifest(path) {
+  if (!path) return { status: "not_provided", manifest: null };
+  try {
+    return { status: "loaded", manifest: JSON.parse(readFileSync(path, "utf8")) };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    warn(`execution context manifest ${path} is unreadable (${detail}); toolchain identity omitted`);
+    return { status: "unreadable", manifest: null };
+  }
+}
+
+/**
+ * Build verdict.executionContext: the requested configuration, the toolchain
+ * and per-model tool-schema identity from runtime-identity.mjs, and what each
+ * trial's native session log reports it actually ran with. Every field
+ * degrades to null/zero counts rather than failing the verdict.
+ */
+function buildExecutionContext({ recordsByVariant, nativeIndex, manifestResult, requested }) {
+  const observed = emptyObservedProvenance();
+  const byVariant = {};
+  for (const [variant, records] of Object.entries(recordsByVariant ?? {})) {
+    if (!records || records.length === 0) continue;
+    const variantObserved = emptyObservedProvenance();
+    for (const record of records) {
+      const trajectoryId = record.trajectory?.id;
+      const session = summarizeNativeSession(
+        trajectoryId ? nativeIndex?.get(trajectoryId) : null,
+      );
+      addObservedProvenance(observed, session);
+      addObservedProvenance(variantObserved, session);
+    }
+    byVariant[variant] = variantObserved;
+  }
+  const manifest = manifestResult?.manifest ?? null;
+  return {
+    schemaVersion: EXECUTION_CONTEXT_SCHEMA_VERSION,
+    requested: {
+      model: requested?.model ?? null,
+      judgeModel: requested?.judgeModel ?? null,
+      reasoningEffort: requested?.reasoningEffort ?? "default",
+      contextTier: requested?.contextTier ?? "default",
+    },
+    identityManifest: {
+      status: manifestResult?.status ?? "not_provided",
+      generatedAt: manifest?.generatedAt ?? null,
+      platform: manifest?.platform ?? null,
+    },
+    toolchain: manifest?.toolchain ?? null,
+    toolSchemas: manifest?.toolSchemas ?? null,
+    observed,
+    byVariant,
+    finishReason: {
+      available: false,
+      reason:
+        "The Copilot runtime emits assistant.usage (finish reason) as an ephemeral event that " +
+        "is not persisted to session logs; terminalPhases records how the last message ended",
+    },
+  };
+}
+
+function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval, executionContext = null) {
   const results = {
     schemaVersion: 5,
     evalFile,
@@ -2249,7 +2706,9 @@ function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEv
     judgeModel: opts["judge-model"],
     timestamp: new Date().toISOString(),
     expectedEval,
-    verdicts: [verdict],
+    // Also stamp evalFile on the verdict so it survives downstream merges that
+    // concatenate verdicts from many results.json files (e.g. dashboard publish).
+    verdicts: [{ ...verdict, evalFile, ...(executionContext ? { executionContext } : {}) }],
   };
   const evalOutDir = join(outputRoot, identity.plugin, identity.skill);
   mkdirSync(evalOutDir, { recursive: true });
@@ -2300,6 +2759,17 @@ function main() {
   const allEvals = [...new Set([...expectedEvals, ...observedEvals])].sort();
 
   const workDir = mkdtempSync(join(tmpdir(), "vally-adapt-"));
+  // Provenance inputs are shared by every eval in this run. Executor-retry
+  // roots are searched after the experiment dir so recovered slots win.
+  const nativeIndex = indexNativeSessionLogs([runDir, ...(opts["session-log-root"] ?? [])]);
+  const manifestResult = loadExecutionManifest(opts["execution-context"]);
+  const requestedExecution = {
+    model: opts.model ?? null,
+    judgeModel: opts["judge-model"] ?? null,
+    reasoningEffort: opts["reasoning-effort"] || "default",
+    contextTier: opts["context-tier"] || "default",
+  };
+  console.log(`Indexed ${nativeIndex.size} native session log(s) for execution provenance`);
   let written = 0;
   let incomplete = 0;
   const invalidEvals = [];
@@ -2321,6 +2791,16 @@ function main() {
       const skilled = skilledByEval.get(evalFile) ?? [];
       const baseline = baselineByEval.get(evalFile) ?? [];
       const pluginRecs = pluginByEval.get(evalFile) ?? [];
+      const executionContext = buildExecutionContext({
+        recordsByVariant: {
+          [opts["baseline-variant"]]: baseline,
+          [opts["skilled-variant"]]: skilled,
+          [opts["plugin-variant"]]: pluginRecs,
+        },
+        nativeIndex,
+        manifestResult,
+        requested: requestedExecution,
+      });
 
       if (!expectedEval) {
         unexpectedEvals.push(evalFile);
@@ -2334,7 +2814,7 @@ function main() {
           message,
           { baselineRecords: 0, skilledRecords: 0, pluginRecords: pluginRecs.length },
         );
-        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval, executionContext);
         console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
         recordInvalidEval(evalFile, verdict);
         written++;
@@ -2350,7 +2830,7 @@ function main() {
           message,
           { baselineRecords: baseline.length, skilledRecords: 0, pluginRecords: pluginRecs.length },
         );
-        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval, executionContext);
         console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
         recordInvalidEval(evalFile, verdict);
         written++;
@@ -2366,7 +2846,7 @@ function main() {
           message,
           { baselineRecords: 0, skilledRecords: skilled.length, pluginRecords: pluginRecs.length },
         );
-        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval, executionContext);
         console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
         recordInvalidEval(evalFile, verdict);
         written++;
@@ -2391,7 +2871,7 @@ function main() {
             pluginRecords: pluginRecs.length,
           },
         );
-        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval, executionContext);
         console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
         recordInvalidEval(evalFile, verdict);
         written++;
@@ -2432,7 +2912,7 @@ function main() {
           message,
           { baselineRecords: baseline.length, skilledRecords: skilled.length, pluginRecords: pluginRecs.length },
         );
-        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval, executionContext);
         console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
         recordInvalidEval(evalFile, verdict);
         written++;
@@ -2448,7 +2928,7 @@ function main() {
           message,
           { baselineRecords: baseline.length, skilledRecords: skilled.length, pluginRecords: pluginRecs.length },
         );
-        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval, executionContext);
         console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
         recordInvalidEval(evalFile, verdict);
         written++;
@@ -2493,7 +2973,7 @@ function main() {
             pluginRecords: pluginRecs.length,
           },
         );
-        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+        const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval, executionContext);
         console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
         recordInvalidEval(evalFile, verdict);
         written++;
@@ -2520,7 +3000,7 @@ function main() {
       if (opts.overfitting) {
         verdict.overfittingResult = overfittingMap.get(`${plugin}/${skill}`) ?? null;
       }
-      const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval);
+      const outputPath = writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval, executionContext);
       written++;
       if (verdict.state === VERDICT_STATES.INVALID_INCONCLUSIVE) {
         recordInvalidEval(evalFile, verdict);
@@ -2576,6 +3056,16 @@ export {
   roleToDashboard,
   continuedAfterSkillActivation,
   postActivationFromRecords,
+  postActivationOutcome,
+  firstToolAfterSkillActivation,
+  stimulusWorkKind,
+  failureClassesFromRecords,
+  activationDiagnostics,
+  sumFailureClasses,
+  indexNativeSessionLogs,
+  summarizeNativeSession,
+  buildExecutionContext,
+  loadExecutionManifest,
   groupByStimulus,
   stimulusOf,
   comparisonToVerdict,

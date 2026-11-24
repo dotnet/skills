@@ -430,9 +430,13 @@ python eng/eval-quality/check_eval_quality.py
 
 ### Running tests locally
 
-Prerequisites: Node.js 20+ and the [GitHub CLI](https://cli.github.com) signed in (`gh auth login`). The script checks these and tells you what's missing, so just run it:
+Prerequisites: Node.js 22.14+ and a token with Copilot access (`GITHUB_TOKEN`, or
+the [GitHub CLI](https://cli.github.com) signed in via `gh auth login`). Install
+the locked evaluation toolchain first; the wrapper never downloads an unpinned CLI:
 
 ```bash
+npm ci --prefix eng/evaluation-tools
+
 # Run tests for a single skill
 ./eng/run-skill-evals.sh dotnet-msbuild binlog-failure-analysis
 
@@ -454,6 +458,39 @@ dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
 ```
 
 Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`, and the raw experiment output goes to `./eval-results/_experiment/`. Model and judge model come from the `overrides:` block in `dotnet-skills.experiment.yaml`.
+
+The wrapper uses the same pinned Vally entry point, SDK startup guard, generated
+baseline/isolated/plugin-skills experiment, bounded executor retries, comparison
+adapter, and expected-result accounting as CI. `WORKERS` defaults to CI's five.
+It resolves the selected evals with Vally before running, preserves a per-plugin
+manifest and accounting summary, and never counts stale verdicts outside the
+selection. A missing result, measurement-invalid comparison, or unexplained
+harness exit exits nonzero; a measured loss or an underpowered eval is
+informational. Any nonzero Vally exit remains a failure, even when retries
+recover trial errors, because the exit can also indicate an unrecorded cleanup
+failure. CI only warns on a nonzero experiment exit, so local runs are stricter.
+Selected prior verdicts are archived under the invocation's `previous-results`
+directory before execution and removed from the live results tree. The
+comparison timeout scales with the number of selected evals, up to 596 hours.
+When Vally and the retry helper exit with a status,
+partial evidence is still adapted for diagnosis; after a step timeout only the
+raw `runs/` output is retained. A per-plugin timeout fails that plugin and
+continues with the next.
+A full run skips `tests/agentic-workflows/` packages, which use the native lane.
+The first Ctrl+C (SIGINT, SIGTERM, or SIGHUP) stops the active step and runs no
+further plugins, whose prior verdicts are kept; a second one force-kills the
+process tree and exits immediately.
+
+This is not a reproduction of the hosted runner image: local SDKs, feeds, MCP
+availability, and credentials still need to match the eval's prerequisites.
+CI's token-pool selection, trusted validator packaging, and optional overfitting
+judge are not run locally. The Vally plugin arm enumerates skills, not manifest
+custom agents or MCP servers. Native agent/workflow evals use the commands above.
+An explicit `VALLY` override is supported for diagnostics but is not a pinned
+CI-parity run. `EXPERIMENT_FILE` must be a repository-root file with the
+`baseline`/`skilled` variants; the wrapper adds a plugin variant per plugin.
+On Windows, the same entry point is available as
+`node eng/evaluation-tools/run-skill-evals.mjs [plugin [skill]]`.
 
 > [!WARNING]
 > LLM evaluations are noisy. Runs-per-stimulus is deliberately **not** set in
