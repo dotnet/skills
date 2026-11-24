@@ -476,10 +476,10 @@ stimuli:
       risk: stops-after-skill-load
       journey: terse-install-continuity
     prompt: |
-      I have a .NET 9 Blazor Web App (Interactive Server, per-page). Add the open-source Syncfusion Blazor Toolkit to it.
+      I have a .NET 10 Blazor Web App (Interactive Server, per-page). Add the open-source Syncfusion Blazor Toolkit to it.
     environment:
       commands:
-        - dotnet new blazor -int Server --framework net9.0 --no-https --force
+        - dotnet new blazor -int Server --framework net10.0 --no-https --force
         - node -e 'require("fs").writeFileSync(".gitignore","bin/\nobj/\n")'
         - git init -q
         - git add -A
@@ -634,7 +634,7 @@ stimuli:
                 process.exit(1);
               }
               console.log("complete install state verified");
-            - net9.0
+            - net10.0
       - type: run-command
         config:
           command: dotnet build --nologo
@@ -656,11 +656,11 @@ stimuli:
       risk: unnecessary-rewrite
       journey: verify-existing-install
     prompt: |
-      I think we already added the open-source Syncfusion Blazor Toolkit to this net9.0 Blazor Web App
+      I think we already added the open-source Syncfusion Blazor Toolkit to this net10.0 Blazor Web App
       (Interactive Server, per-page). Can you check that the setup is complete and fix whatever is missing?
     environment:
       commands:
-        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor -int Server --framework net9.0 --no-https --no-restore --force
+        - python3 -c "import os, pathlib; root=os.environ.get('XDG_DATA_HOME'); base=pathlib.Path(root) if root else pathlib.Path.home()/'.local'/'share'; marker=base/'NuGet'/'Migrations'/'1'; marker.parent.mkdir(parents=True, exist_ok=True); marker.touch()" && dotnet new blazor -int Server --framework net10.0 --no-https --no-restore --force
         - dotnet add package Syncfusion.Blazor.Toolkit --version 2.0.1 --no-restore
         - for attempt in 1 2 3; do flock --wait 180 /tmp/syncfusion-blazor-toolkit-install-restore.lock dotnet restore --disable-parallel --source https://api.nuget.org/v3/index.json && break; if [ "$attempt" -eq 3 ]; then exit 1; fi; sleep $((attempt * 2)); done
         - node -e 'const fs=require("fs");const e=(f,g)=>fs.writeFileSync(f,g(fs.readFileSync(f,"utf8")));e("Program.cs",s=>"using Syncfusion.Blazor.Toolkit;\n"+s.replace("var app = builder.Build();","builder.Services.AddSyncfusionBlazorToolkit();\n\nvar app = builder.Build();"));e("Components/_Imports.razor",s=>s.replace(/\s*$/,"\n")+"@using Syncfusion.Blazor.Toolkit\n")'
