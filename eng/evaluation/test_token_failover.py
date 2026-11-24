@@ -4750,6 +4750,303 @@ esac
         self.assertIn('Group-Object -Property { "$($_.Json.model)|$($_.Json.judgeModel)" }', caller_text)
 
 
+class DashboardReplayDeploymentTests(unittest.TestCase):
+    def setUp(self) -> None:
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        self.steps = {
+            step.get("name"): step
+            for step in workflow["jobs"]["deploy-dashboard"]["steps"]
+        }
+
+    def run_replay_check(
+        self, mode: str, target: str, deployed: str
+    ) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
+        script = self.steps["Check if AGENTVIZ SPA needs update"]["run"]
+        script = script.replace("${{ github.repository }}", "dotnet/skills")
+        mocks = """
+git() {
+  if [ "$MOCK_MODE" = "unavailable" ]; then
+    echo "fatal: replay source inaccessible" >&2
+    return 128
+  fi
+  if [ "$MOCK_MODE" = "missing" ]; then return 0; fi
+  printf '%s\\trefs/heads/main\\n' "$MOCK_TARGET"
+}
+curl() {
+  if [ -z "$MOCK_DEPLOYED" ]; then return 22; fi
+  printf '%s' "$MOCK_DEPLOYED"
+}
+"""
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "output"
+            output.touch()
+            result = subprocess.run(
+                [BASH, "-e", "-c", mocks + script],
+                cwd=REPO_ROOT,
+                env={
+                    **os.environ,
+                    "GITHUB_OUTPUT": output.as_posix(),
+                    "MOCK_MODE": mode,
+                    "MOCK_TARGET": target,
+                    "MOCK_DEPLOYED": deployed,
+                },
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            values = dict(
+                line.split("=", 1)
+                for line in output.read_text(encoding="utf-8").splitlines()
+                if "=" in line
+            )
+        return result, values
+
+    def test_unavailable_replay_source_selects_a_visible_fallback(self) -> None:
+        for mode, target in (
+            ("unavailable", ""),
+            ("missing", ""),
+            ("available", "not-a-commit"),
+        ):
+            with self.subTest(mode=mode, target=target):
+                result, values = self.run_replay_check(mode, target, "")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(values["skip"], "true")
+                self.assertEqual(values["source_unavailable"], "true")
+                self.assertIn("::warning title=Replay viewer update unavailable::", result.stdout)
+
+        for name in ("Build AGENTVIZ SPA", "Build AGENTVIZ SPA (on cache miss)"):
+            self.assertIn(
+                "steps.check-replay.outputs.skip != 'true'",
+                self.steps[name]["if"],
+            )
+
+    def test_available_replay_source_keeps_normal_update_selection(self) -> None:
+        target = "a" * 40
+        for deployed, expected_skip in ((target, "true"), ("b" * 40, "false")):
+            with self.subTest(deployed=deployed):
+                result, values = self.run_replay_check("available", target, deployed)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(values["target_sha"], target)
+                self.assertEqual(values["source_unavailable"], "false")
+                self.assertEqual(values["skip"], expected_skip)
+                self.assertNotIn("::warning", result.stdout)
+
+    def test_dashboard_data_fetch_reports_fetch_and_archive_failures(self) -> None:
+        step = self.steps["Fetch eval data from dashboard-eval-data branch"]
+        self.assertEqual(step["id"], "fetch-eval-data")
+        script = step["run"].replace(
+            "/tmp/gh-pages/data", '"$TEST_TMP/data"'
+        ).replace("/tmp/gh-pages", '"$TEST_TMP"')
+        mocks = """
+git() {
+  case "$1" in
+    fetch)
+      if [ "$MOCK_FAILURE" = "fetch" ]; then return 128; fi ;;
+    archive)
+      if [ "$MOCK_FAILURE" = "archive" ]; then return 1; fi
+      tar -cf - -C "$TEST_SOURCE" data ;;
+    *) return 1 ;;
+  esac
+}
+"""
+        for failure in ("none", "fetch", "archive"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                source = root / "source" / "data"
+                source.mkdir(parents=True)
+                (source / "skill-value.json").write_text('{"value":"fresh"}')
+                stage = root / "stage"
+                stage.mkdir()
+                output = root / "output"
+                output.touch()
+                result = subprocess.run(
+                    [BASH, "-e", "-c", mocks + script],
+                    env={
+                        **os.environ,
+                        "GITHUB_OUTPUT": output.as_posix(),
+                        "TEST_TMP": stage.as_posix(),
+                        "TEST_SOURCE": source.parent.as_posix(),
+                        "MOCK_FAILURE": failure,
+                    },
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                values = output.read_text(encoding="utf-8").splitlines()
+                if failure == "none":
+                    self.assertIn("available=true", values)
+                    self.assertTrue((stage / "data" / "skill-value.json").exists())
+                else:
+                    self.assertIn("available=false", values)
+                    self.assertIn("::warning title=Dashboard evaluation data unavailable::", result.stdout)
+
+    def test_dashboard_deploy_preserves_existing_viewer_or_fails_closed(self) -> None:
+        if not shutil.which("node"):
+            self.skipTest("Node.js is required for replay deployment tests")
+
+        original_script = self.steps["Deploy to GitHub Pages"]["run"]
+        remote_assignment = (
+            'REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}'
+            '@github.com/${{ github.repository }}.git"'
+        )
+        self.assertIn(remote_assignment, original_script)
+        script = original_script.replace(remote_assignment, 'REPO_URL="mock-remote"')
+        script = script.replace(
+            "cp ${{ github.workspace }}/", 'cp "$TEST_WORKSPACE"/'
+        )
+        script = script.replace("${{ github.workspace }}", "$TEST_WORKSPACE")
+        script = script.replace("${{ github.server_url }}", "https://github.com")
+        script = script.replace("${{ github.repository }}", "dotnet/skills")
+        script = script.replace(
+            "${{ steps.check-replay.outputs.source_unavailable }}", "true"
+        )
+        script = script.replace(
+            "${{ steps.fetch-eval-data.outputs.available }}", "$TEST_DATA_AVAILABLE"
+        )
+        script = script.replace("${{ steps.check-replay.outputs.skip }}", "true")
+        script = script.replace("${{ steps.check-replay.outputs.target_sha }}", "")
+        script = script.replace(
+            "cp /tmp/gh-pages/data/*.json data/",
+            'cp "$TEST_TMP"/gh-pages/data/*.json data/',
+        )
+        script = script.replace(
+            '"/tmp/gh-pages/data/$file"', '"$TEST_TMP/gh-pages/data/$file"'
+        )
+        script = script.replace("cd /tmp/deploy", 'cd "$TEST_TMP/deploy"')
+        script = script.replace("cd /tmp", 'cd "$TEST_TMP"')
+        self.assertNotIn("${{", script)
+
+        mocks = """
+git() {
+  case "$1" in
+    ls-remote) return 0 ;;
+    clone) cp -R "$TEST_PREVIOUS" "$TEST_TMP/deploy" ;;
+    config|add|commit) return 0 ;;
+    diff) return 1 ;;
+    push) printf 'pushed\\n' > "$TEST_TMP/pushed" ;;
+    -C)
+      case "$3" in
+        rev-parse) printf '%s\\n' 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' ;;
+        log)
+          case "$*" in
+            *--format=%aI*) printf '%s\\n' '2026-11-23T00:00:00Z' ;;
+            *--format=%s*) printf '%s\\n' 'Fixture commit' ;;
+            *) return 1 ;;
+          esac ;;
+        *) return 1 ;;
+      esac ;;
+    *) echo "Unexpected git call: $*" >&2; return 1 ;;
+  esac
+}
+jq() { printf '{"schemaVersion":1}\\n'; }
+"""
+        revision = "d546084ba55319b26da1353b3c2cd30564ca631b"
+        for complete_viewer, complete_data, data_available in (
+            (True, True, True),
+            (False, True, True),
+            (True, False, True),
+            (True, True, False),
+        ):
+            with self.subTest(
+                complete_viewer=complete_viewer,
+                complete_data=complete_data,
+                data_available=data_available,
+            ), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                previous = root / "previous"
+                replay = previous / "replay"
+                assets = replay / "assets"
+                assets.mkdir(parents=True)
+                (replay / ".agentviz-commit").write_text(revision, encoding="utf-8")
+                html = '<script src="./assets/index.js"></script>'
+                (replay / "index.html").write_text(html, encoding="utf-8")
+                if complete_viewer:
+                    (assets / "index.js").write_text("export {};", encoding="utf-8")
+                (previous / "data").mkdir()
+                (previous / "data" / "skill-value.json").write_text(
+                    '{"value":"old"}', encoding="utf-8"
+                )
+                data = root / "gh-pages" / "data"
+                data.mkdir(parents=True)
+                (data / "components.json").write_text('["demo"]', encoding="utf-8")
+                if complete_data:
+                    (data / "skill-value.json").write_text(
+                        '{"value":"fresh"}', encoding="utf-8"
+                    )
+
+                result = subprocess.run(
+                    [BASH, "-e", "-c", mocks + script],
+                    cwd=REPO_ROOT,
+                    env={
+                        **os.environ,
+                        "GITHUB_REPOSITORY": "dotnet/skills",
+                        "TEST_TMP": root.as_posix(),
+                        "TEST_PREVIOUS": previous.as_posix(),
+                        "TEST_WORKSPACE": REPO_ROOT.as_posix(),
+                        "TEST_DATA_AVAILABLE": str(data_available).lower(),
+                    },
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                deployed = root / "deploy"
+                if complete_viewer and complete_data and data_available:
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertTrue((root / "pushed").exists())
+                    self.assertEqual(
+                        json.loads((deployed / "data" / "skill-value.json").read_text()),
+                        {"value": "fresh"},
+                    )
+                    self.assertEqual((deployed / "replay" / "index.html").read_text(), html)
+                    self.assertEqual(
+                        (deployed / "replay" / ".agentviz-commit").read_text(), revision
+                    )
+                    self.assertTrue((deployed / "replay" / "assets" / "index.js").exists())
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse((root / "pushed").exists())
+                    if not complete_viewer:
+                        self.assertIn("Existing replay viewer invalid", result.stderr)
+                    else:
+                        self.assertIn("Dashboard evaluation data unavailable", result.stdout)
+                    self.assertEqual(
+                        json.loads((deployed / "data" / "skill-value.json").read_text()),
+                        {"value": "old"},
+                    )
+
+    def test_successful_fallback_reports_the_replay_outage_as_failure(self) -> None:
+        step = self.steps["Report unavailable replay source"]
+        self.assertEqual(
+            step["if"], "steps.check-replay.outputs.source_unavailable == 'true'"
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            summary = Path(temp) / "summary"
+            revision = Path(temp) / "revision"
+            revision.write_text("a" * 40, encoding="utf-8")
+            script = step["run"].replace(
+                "/tmp/deploy/replay/.agentviz-commit", '"$TEST_REPLAY_REVISION"'
+            )
+            result = subprocess.run(
+                [BASH, "-e", "-c", script],
+                env={
+                    **os.environ,
+                    "GITHUB_STEP_SUMMARY": summary.as_posix(),
+                    "TEST_REPLAY_REVISION": revision.as_posix(),
+                },
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("::error title=Replay viewer update unavailable::", result.stdout)
+            self.assertIn(
+                "Dashboard deployment completed with the existing viewer.",
+                summary.read_text(encoding="utf-8"),
+            )
+            self.assertIn("Retained viewer commit: `" + "a" * 40 + "`.", summary.read_text())
+
+
 class AgentTimeoutRetryQuarantineTests(unittest.TestCase):
     """The agent timeout-retry tree must never yield a collectable results.json.
 

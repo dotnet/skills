@@ -70,6 +70,13 @@ behavior against the corrected executor.
 > the PR report but does not override authoritative evaluation verdicts.
 > Scheduled and main session-data publishing remains strict.
 
+> If the AGENTVIZ source cannot be resolved, dashboard deployment verifies the
+> existing viewer and staged evaluation data before publishing without replacing
+> the viewer. The job summary records the retained viewer revision and the job
+> fails after deployment so the source outage remains visible. A missing viewer
+> or evaluation data stops deployment. This fallback does not repair session-data
+> publication or update the viewer.
+
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
 > with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.
 > Explicit profiles and the scheduled cadence can select other models.
