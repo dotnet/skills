@@ -765,10 +765,12 @@ function activationDiagnostics(role, records, targetSkillName, expectActivation,
   if (classifyFailures) {
     diagnostics.failureClasses = failureClassesFromRecords(records, targetSkillName, expectActivation);
   }
-  if (postActivation) {
+  if (postActivation && classifyFailures) {
     diagnostics.implementationActivationOnlyFailures = workKind?.kind === "implementation"
-      ? postActivation.failedActivationOnlyCompletions
+      ? diagnostics.failureClasses.continuation
       : 0;
+  } else if (postActivation) {
+    diagnostics.implementationActivationOnlyFailures = 0;
   }
   return diagnostics;
 }
@@ -2307,8 +2309,8 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
       source: "graded_run_failures",
       reason:
         "Each failed run is attributed to routing, tool/execution, post-activation continuation, " +
-        "or content quality; implementation stops are activation-only failures on stimuli whose " +
-        "baseline edited files",
+        "or content quality; implementation stops count only continuation-class activation-only " +
+        "failures on stimuli whose baseline edited files",
       isolated: sumFailureClasses(scenarios, "skillActivationIsolated"),
       plugin: hasPlugin ? sumFailureClasses(scenarios, "skillActivationPlugin") : null,
     },

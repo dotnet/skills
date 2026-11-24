@@ -267,7 +267,7 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `timedOut` | Whether the skilled run hit its timeout |
 | `agentActivationIsolated` / `agentActivationPlugin` | Agent targets only: exact target activation plus invoked/delegated agent names and event counts |
 | `stimulusWork` | `{ kind, source, baselineRuns, baselineWriteRuns, baselineToolRuns }`. What the prompt requires, inferred from the skill-free baseline: `implementation` when at least half the baseline runs used a file-mutation tool, else `inspection` when at least half used any non-skill tool, else `answer`; `unknown` without baseline runs. Shell-only writes are not detected, so `implementation` is undercounted |
-| `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass. Skill targets also carry `failureClasses` (per failed run, see [Failure classes](#failure-classes)) and `implementationActivationOnlyFailures`, which equals `failedActivationOnlyCompletions` when `stimulusWork.kind` is `implementation` and `0` otherwise |
+| `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass. Skill targets also carry `failureClasses` (per failed run, see [Failure classes](#failure-classes)) and `implementationActivationOnlyFailures`, which counts only `continuation`-class failures when `stimulusWork.kind` is `implementation`; tool and routing failures are excluded |
 | `skillActivationPlugin` | The same telemetry for the whole-plugin run, filtered to named activation events for the target skill. Sibling-skill invocations do not set `activated` (present only when a plugin variant ran) |
 | `baseline` | `{ judgeResult: { overallScore }, metrics }` — the skill-free control (`overallScore` is 0–5) |
 | `skilledIsolated` | Same shape, for the isolated skilled run |
@@ -292,11 +292,13 @@ of a skill-target role to exactly one class, first match wins:
 | `unclassified` | Activated, but the trajectory cannot show what followed | Missing trace evidence |
 
 `failedRuns` is the sum of the five classes. `implementationActivationOnlyFailures`
-isolates the continuation failures that matter most: activation-only failures on
-a stimulus whose `stimulusWork.kind` is `implementation`, where stopping after
-loading the skill delivered no work at all. Advisory and inspection prompts can
-legitimately answer from skill content, so their activation-only failures are
-reported separately. Agent and workflow targets carry no failure classes; their
+counts only `continuation`-class failures on a stimulus whose
+`stimulusWork.kind` is `implementation`. This follows the precedence above:
+tool/execution errors and unexpected activation on a dormancy stimulus are
+classified as `tool` and `routing`, respectively, and do not inflate the
+implementation-stop count. Advisory and inspection prompts can legitimately
+answer from skill content, so their activation-only failures are reported
+separately. Agent and workflow targets carry no failure classes; their
 activation is not skill routing.
 
 ### Execution context
@@ -406,10 +408,11 @@ runtime or fixture, `contentQuality` failures at skill content or the rubric,
 and `continuation` failures at what happened after the skill was injected.
 
 If the warnings contain `Implementation stop after skill activation`, an
-implementation prompt (its skill-free baseline edited files) loaded the skill,
-made no non-skill tool call afterwards, ended normally, and failed its graders.
-That run delivered no work. Treat it as a continuation failure, not a content
-failure, and inspect it first.
+implementation prompt (its skill-free baseline edited files) had a failed run
+classified as `continuation`: it loaded the skill, made no non-skill tool call
+afterwards, ended normally without a tool error, and failed its graders. That run
+delivered no work. Inspect it first. Runs classified as `tool` or `routing` do
+not contribute to this warning.
 
 If the warnings contain `Activation-only stop`, the same pattern occurred on an
 inspection or answer prompt, or where the work kind is unknown. Non-skill calls

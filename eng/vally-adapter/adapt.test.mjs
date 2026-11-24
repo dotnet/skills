@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
+  activationDiagnostics,
   buildExecutionContext,
   comparisonToVerdict,
   classifyComparisonError,
@@ -942,6 +943,51 @@ test("scenario results separate implementation stops from advisory answers after
   assert.equal(verdict.failureClassification.isolated.continuation, 2);
   assert.equal(verdict.failureClassification.isolated.implementationActivationOnlyFailures, 1);
   assert.equal(verdict.failureClassification.plugin.implementationActivationOnlyFailures, 1);
+});
+
+test("implementation-stop count excludes tool and dormancy-routing failures", () => {
+  const activationOnlyFailure = (errorCount = 0) => ({
+    gradeResult: { passed: false },
+    trajectory: {
+      endReason: "completed",
+      events: [{ type: "skill.invoked", data: { name: IDENTITY.skill } }],
+      metrics: {
+        errorCount,
+        skillActivationCount: 1,
+        toolCallCount: 1,
+        toolCallBreakdown: { skill: 1 },
+      },
+    },
+  });
+  const toolFailure = activationOnlyFailure(1);
+  const toolDiagnostics = activationDiagnostics(
+    {
+      activated: true,
+      postActivation: postActivationFromRecords([toolFailure], IDENTITY.skill),
+    },
+    [toolFailure],
+    IDENTITY.skill,
+    true,
+    { kind: "implementation" },
+  );
+  assert.equal(toolDiagnostics.failureClasses.tool, 1);
+  assert.equal(toolDiagnostics.failureClasses.continuation, 0);
+  assert.equal(toolDiagnostics.implementationActivationOnlyFailures, 0);
+
+  const unexpectedActivation = activationOnlyFailure();
+  const routingDiagnostics = activationDiagnostics(
+    {
+      activated: true,
+      postActivation: postActivationFromRecords([unexpectedActivation], IDENTITY.skill),
+    },
+    [unexpectedActivation],
+    IDENTITY.skill,
+    false,
+    { kind: "implementation" },
+  );
+  assert.equal(routingDiagnostics.failureClasses.routing, 1);
+  assert.equal(routingDiagnostics.failureClasses.continuation, 0);
+  assert.equal(routingDiagnostics.implementationActivationOnlyFailures, 0);
 });
 
 test("stimulus work kind is inferred from baseline tool use", () => {
