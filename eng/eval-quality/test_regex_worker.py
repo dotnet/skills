@@ -60,6 +60,8 @@ class JavaScriptRegexWorkerTests(unittest.TestCase):
             worker.test("Thing", 0, "Thing")
         self.assertIsNone(worker._process)
         worker._script = gate.JAVASCRIPT_REGEX_SCRIPT
+        # The restart includes Node cold start, which can exceed 0.1 seconds on Windows.
+        worker._timeout = gate.JAVASCRIPT_REGEX_TIMEOUT_SECONDS
         self.assertTrue(worker.test("Thing", 0, "Thing"))
         worker.close()
 
