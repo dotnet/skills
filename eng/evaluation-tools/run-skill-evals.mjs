@@ -115,10 +115,6 @@ async function requireSuccess(label, bin, args, context, timeoutMinutes) {
   if (status !== 0) throw new Error(`${label} exited ${status}`);
 }
 
-function hasGraderError(result) {
-  return result?.status === "error" || (result?.details?.some(hasGraderError) ?? false);
-}
-
 function normalizedEvalFile(path) {
   return path?.replaceAll("\\", "/").replace(/^\.\/+/, "");
 }
@@ -149,29 +145,6 @@ function hasExpectedEvidence(path, expected) {
   return observed.length === expectedSlots.length
     && observedSet.size === observed.length
     && expectedSlots.every(slot => observedSet.has(slot));
-}
-
-// Vally exits 1 for any execution, grader or cleanup error. Treat that exit as
-// explained only when the shared retry recovered every executor error and the
-// merged evidence contains no remaining trial or grader error in any arm.
-function executorErrorsRecovered(runDir, retrySummaryPath, expected) {
-  const summary = readJson(retrySummaryPath);
-  if (!(summary.recoveredSlotCount > 0) || summary.unresolvedSlotCount !== 0 || summary.skippedReason) {
-    return false;
-  }
-  for (const variant of ["baseline", "skilled", "plugin"]) {
-    const path = join(runDir, variant, "results.jsonl");
-    if (!hasExpectedEvidence(path, expected)) return false;
-    for (const line of readFileSync(path, "utf8").split("\n")) {
-      if (!line.trim()) continue;
-      const record = JSON.parse(line);
-      if (record?.type === "trial-result"
-        && (record.status === "error" || (record.gradeResult && hasGraderError(record.gradeResult)))) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 function publishResults(adaptedRoot, outputRoot, expected) {
@@ -213,7 +186,7 @@ Requires Node.js 22.14+ and npm ci --prefix eng/evaluation-tools.
 Environment: WORKERS (default 5), EXPERIMENT_FILE, RESULTS_DIR, GITHUB_TOKEN.
 VALLY may override the pinned CLI explicitly; overrides are not CI-parity runs.
 Raw evidence and per-plugin accounting are retained under RESULTS_DIR/_experiment.
-Invalid/incomplete evidence or an unexplained harness exit fails; measured skill
+Invalid/incomplete evidence or a nonzero harness exit fails; measured skill
 outcomes and underpowered evals are informational, as in CI.`);
     return 0;
   }
@@ -341,11 +314,19 @@ async function execute({ root, env, plugin, skill, workers, session }) {
   for (const [name, expected] of groups) {
     // Plugins skipped by an interrupt keep their prior verdicts.
     session.check();
-    // Remove only this plugin's selected verdict files before it starts. Never
-    // recursively delete its directory (it may hold unrelated or contributor-owned files).
-    for (const item of expected) rmSync(join(outputRoot, item.plugin, item.skill, "results.json"), { force: true });
     const groupDir = join(invocation, name);
     mkdirSync(groupDir, { recursive: true });
+    // Archive selected previous verdicts before removing them from the live
+    // results tree, so a failed run cannot leave them looking current.
+    for (const item of expected) {
+      const previous = join(outputRoot, item.plugin, item.skill, "results.json");
+      if (existsSync(previous)) {
+        const archive = join(groupDir, "previous-results", item.skill, "results.json");
+        mkdirSync(dirname(archive), { recursive: true });
+        copyFileSync(previous, archive);
+        rmSync(previous);
+      }
+    }
     const manifest = join(groupDir, "expected-evals.json");
     writeFileSync(manifest, JSON.stringify(expected.map(item => item.path), null, 2));
     const generated = join(root, `_experiment.${name}.${randomUUID()}.yaml`);
@@ -386,9 +367,6 @@ async function execute({ root, env, plugin, skill, workers, session }) {
       if (retryStatus !== 0) {
         console.error(`Executor retry exited ${retryStatus}; transient executor errors may remain unrecovered.`);
         failure ||= retryStatus;
-      } else if (status === 1 && executorErrorsRecovered(runDir, retrySummary, expected)) {
-        console.warn("Experiment exited 1 only for executor errors that the shared retry recovered; result accounting decides the outcome.");
-        failure = 0;
       }
       if (!["baseline", "skilled", "plugin"].every(variant =>
         hasExpectedEvidence(join(runDir, variant, "results.jsonl"), expected))) {
@@ -402,12 +380,13 @@ async function execute({ root, env, plugin, skill, workers, session }) {
       const adaptedRoot = join(groupDir, "adapted-results");
       const adapterSummary = join(adaptedRoot, "adapter-summary.json");
       rmSync(adaptedRoot, { recursive: true, force: true });
+      // Node's timers clamp delays above 2^31-1 ms to one millisecond.
       await requireSuccess("Result adapter", process.execPath, [
         join(adapterDir, "adapt.mjs"), "--experiment-dir", runDir,
         "--output-root", adaptedRoot, "--repo-root", root,
         "--expected-evals", manifest, "--vally", command,
         "--model", expected[0].model, "--judge-model", expected[0].judge,
-      ], context, 60);
+      ], context, 60 * Math.min(expected.length, 596));
       if (!existsSync(adapterSummary)) throw new Error("Result adapter did not write adapter-summary.json.");
       const summaryPath = join(groupDir, "adapter-summary.json");
       copyFileSync(adapterSummary, summaryPath);

@@ -98,24 +98,24 @@ entry point and SDK startup guard, generates all three skill arms per plugin,
 and runs the shared retry and comparison adapters with five workers by default.
 Under `eval-results/_experiment/local-<id>/<plugin>/`, inspect
 `expected-evals.json`, `experiment.yaml`, `runs/`, `executor-retry-summary.json`,
-and `adapter-summary.json`. The saved experiment is an audit copy; to replay it,
+`adapter-summary.json`, and any `previous-results/` archive. The saved experiment
+is an audit copy; to replay it,
 place it beside the base experiment at the repository root so its relative
 paths resolve correctly.
 
 Local success requires exact expected/observed/written result accounting and
 zero measurement-invalid evals. Underpowered evals and measured quality outcomes
 remain informational. Vally exits 1 for any execution, grader, or cleanup error.
-The local runner accepts that exit only when `executor-retry-summary.json`
-recovered every executor error (no unresolved or skipped slots) and no arm's
-merged `results.jsonl` retains an errored trial or grader result. Plugin-arm
-errors are never retried, so they fail locally. Any other nonzero experiment
-exit, or a retry helper failure, is retained even if adaptation renders usable
+The local runner retains any nonzero experiment exit, even if retries recover
+executor errors, because a cleanup error can occur in the same run without a
+result record. Plugin-arm errors are never retried. A retry helper failure is
+also retained even if adaptation renders usable
 partial evidence; results on disk alone do not prove the invocation succeeded.
 A step timeout skips adaptation and keeps only the raw `runs/` output.
 CI only warns on a nonzero experiment exit and relies on result accounting.
-A Vally cleanup error leaves no result record, so locally it is
-indistinguishable from recovered executor errors when both occur in one run.
-Only the selected verdicts count, and unrelated prior
+The comparison timeout scales with the selected eval count, up to 596 hours. Prior selected
+verdicts are archived before removal from the live results tree, so failed
+runs cannot leave them looking current. Only the selected verdicts count, and unrelated prior
 results are preserved. No token pool, hosted SDK/feed setup, or overfitting
 judge is provisioned locally. The plugin arm still loads skills only, not the
 plugin manifest's custom agents or MCP servers.

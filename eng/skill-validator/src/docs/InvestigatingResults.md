@@ -27,8 +27,7 @@
 > from the reviewed trusted ref, not just repository-local unit tests.
 > The local wrapper now uses pinned Vally, generated plugin-skills arms, shared
 > retry/adaptation, and exact result accounting. It preserves partial artifacts
-> but returns failure for invalid measurement or a harness exit not explained by
-> fully recovered executor errors; it
+> but returns failure for invalid measurement or any nonzero harness exit; it
 > does not provision CI's token pool, SDK/feed image, or overfitting judge.
 
 Executor sessions append the exact scenario workspace to the system context.

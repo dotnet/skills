@@ -59,9 +59,16 @@ variants:
         - plugins/\${eval.grandparent}/skills/\${eval.parent}
 `);
   write(join(root, "driver.mjs"), `
-import { existsSync } from "node:fs";
+import { appendFileSync, existsSync } from "node:fs";
 import { runSkillEvals } from ${JSON.stringify(runnerUrl)};
 const mode = process.env.PROBE_MODE;
+if (process.env.PROBE_RECORD_TIMERS) {
+  const original = globalThis.setTimeout;
+  globalThis.setTimeout = (callback, delay, ...args) => {
+    if (delay >= 3_600_000) appendFileSync("timers.jsonl", JSON.stringify(delay) + "\\n");
+    return original(callback, delay, ...args);
+  };
+}
 const interrupt = ["interrupted", "interrupt-twice"].includes(mode) ? setInterval(() => {
   if (existsSync("interrupt-ready")) {
     clearInterval(interrupt);
@@ -148,6 +155,9 @@ if (args[0] === "experiment") {
     detail.status = "error";
     writeFileSync(path, records.map(JSON.stringify).join("\\n") + "\\n");
   }
+  if (mode === "recover-cleanup" && !args.includes("--variant")) {
+    console.error("Error shutting down executor: simulated cleanup failure");
+  }
   if (mode === "recover-missing-plugin" && !args.includes("--variant")) {
     const path = join(run, "skilled", "results.jsonl");
     const records = readFileSync(path, "utf8").trim().split("\\n").map(JSON.parse);
@@ -166,7 +176,7 @@ if (args[0] === "experiment") {
       }) + "\\n");
     }
   }
-  // Real Vally exits 1 for any errored trial; recovered runs must survive that.
+  // Real Vally exits 1 for errored trials and may also report unrelated failures.
   const failed = mode === "unexplained" || (mode?.startsWith("recover") && !args.includes("--variant"));
   process.exit(mode === "nonzero" ? 23 : failed ? 1 : 0);
 }
@@ -281,7 +291,6 @@ for (const [mode, expectedStatus, message] of [
   ["judge-error", 1, /Result accounting failed/],
   ["nonzero", 23, /Experiment exited 23/],
   ["no-output", 1, /Expected one fresh run directory, found 0/],
-  // Exit 1 is explained only when every error was a recovered executor error.
   ["unexplained", 1, /Experiment exited 1; preserving/],
   ["recover-grader-error", 1, /Experiment exited 1; preserving/],
   ["recover-missing-plugin", 1, /Experiment exited 1; preserving/],
@@ -293,6 +302,10 @@ for (const [mode, expectedStatus, message] of [
     assert.equal(result.status, expectedStatus, result.output);
     assert.match(result.output, message);
     assert.ok(existsSync(join(evidence(root), "expected-evals.json")));
+    assert.equal(
+      readFileSync(join(evidence(root), "previous-results", "target", "results.json"), "utf8"),
+      '{"stale":true}',
+    );
     assert.deepEqual(readdirSync(root).filter(name => name.startsWith("_experiment.")), []);
     if (mode === "no-output") assert.equal(existsSync(join(root, "results", "alpha", "target", "results.json")), false);
   });
@@ -366,18 +379,32 @@ test("an eval missing from both required arms cannot hide behind another complet
   assert.equal(summary.measurementInvalidEvalCount, 1);
 });
 
-test("recognized executor failures use the shared bounded retry before accounting", t => {
+for (const mode of ["recover", "recover-cleanup"]) {
+  test(`recovered executor errors preserve the experiment failure: ${mode}`, t => {
+    const root = fixture(t);
+    const result = execute(root, ["alpha"], mode);
+    assert.equal(result.status, 1, result.output);
+    assert.match(result.output, /Experiment exited 1; preserving/);
+    if (mode === "recover-cleanup") assert.match(result.output, /simulated cleanup failure/);
+    const summary = JSON.parse(readFileSync(join(evidence(root), "executor-retry-summary.json")));
+    assert.equal(summary.recoveredSlotCount, 1);
+    assert.equal(summary.unresolvedSlotCount, 0);
+    assert.equal(existsSync(join(root, "results", "alpha", "target", "results.json")), false);
+    const calls = readFileSync(join(root, "calls.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+    const retries = calls.filter(args => args.includes("--variant"));
+    assert.equal(retries.length, 1);
+    assert.equal(retries[0][retries[0].indexOf("--variant") + 1], "skilled");
+  });
+}
+
+test("comparison timeout scales with the selected plugin workload", t => {
   const root = fixture(t);
-  const result = execute(root, ["alpha"], "recover");
+  write(join(root, "tests", "alpha", "sibling", "eval.yaml"),
+    readFileSync(join(root, "tests", "alpha", "target", "eval.yaml"), "utf8").replace("name: target", "name: sibling"));
+  const result = execute(root, ["alpha"], "normal", { PROBE_RECORD_TIMERS: "1" });
   assert.equal(result.status, 0, result.output);
-  assert.match(result.output, /Experiment exited 1 only for executor errors that the shared retry recovered/);
-  const summary = JSON.parse(readFileSync(join(evidence(root), "executor-retry-summary.json")));
-  assert.equal(summary.recoveredSlotCount, 1);
-  assert.equal(summary.unresolvedSlotCount, 0);
-  const calls = readFileSync(join(root, "calls.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
-  const retries = calls.filter(args => args.includes("--variant"));
-  assert.equal(retries.length, 1);
-  assert.equal(retries[0][retries[0].indexOf("--variant") + 1], "skilled");
+  const timers = readFileSync(join(root, "timers.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  assert.ok(timers.includes(2 * 60 * 60_000), `Expected a two-hour comparison budget: ${timers}`);
 });
 
 test("recovered timeout with missing plugin evidence fails closed without publishing partial verdicts", t => {

@@ -466,10 +466,13 @@ It resolves the selected evals with Vally before running, preserves a per-plugin
 manifest and accounting summary, and never counts stale verdicts outside the
 selection. A missing result, measurement-invalid comparison, or unexplained
 harness exit exits nonzero; a measured loss or an underpowered eval is
-informational. Because Vally exits 1 for any errored trial, an exit of 1 is
-accepted only when the shared retry recovered every executor error and no arm
-retains a trial or grader error. CI only warns on a nonzero experiment exit, so
-local runs are stricter. When Vally and the retry helper exit with a status,
+informational. Any nonzero Vally exit remains a failure, even when retries
+recover trial errors, because the exit can also indicate an unrecorded cleanup
+failure. CI only warns on a nonzero experiment exit, so local runs are stricter.
+Selected prior verdicts are archived under the invocation's `previous-results`
+directory before execution and removed from the live results tree. The
+comparison timeout scales with the number of selected evals, up to 596 hours.
+When Vally and the retry helper exit with a status,
 partial evidence is still adapted for diagnosis; after a step timeout only the
 raw `runs/` output is retained. A per-plugin timeout fails that plugin and
 continues with the next.
