@@ -13,6 +13,7 @@ import tempfile
 
 REPO = os.getcwd()
 GATE = os.path.join(REPO, "eng", "eval-quality", "check_eval_quality.py")
+REGEX_WORKER_TESTS = os.path.join(REPO, "eng", "eval-quality", "test_regex_worker.py")
 
 
 def run_gate(cwd, *extra):
@@ -88,6 +89,27 @@ def case(label, mutate, expect_fail, gate_args=(), stage=True):
         return ok
     finally:
         shutil.rmtree(d, ignore_errors=True)
+
+
+def regex_worker_suite_case(tests=REGEX_WORKER_TESTS):
+    # Run as a subprocess: the suite loads its own copy of the gate and spawns
+    # Node workers, so isolating it keeps that state out of this process.
+    label = "JavaScript regex worker unit tests"
+    try:
+        r = subprocess.run(
+            [sys.executable, tests], cwd=REPO, capture_output=True, text=True,
+            timeout=300)
+        code, out = r.returncode, r.stdout + r.stderr
+    except subprocess.TimeoutExpired as exc:
+        code, out = None, f"timed out after {exc.timeout} s"
+    ok = code == 0
+    summary = next(
+        (line for line in reversed(out.splitlines()) if line.startswith("Ran ")), "")
+    print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} expected=PASS got="
+          f"{'PASS' if ok else 'FAIL'} {summary}".rstrip())
+    if not ok:
+        print("        " + out.strip().replace("\n", "\n        ")[-1800:])
+    return ok
 
 
 def base_only_changes_are_ignored_case():
@@ -2054,6 +2076,7 @@ def unresolvable_base_ref(d):
 
 print("Eval quality gate — self-test\n")
 results = [
+    regex_worker_suite_case(),
     case("clean tree", clean, expect_fail=False),
     base_only_changes_are_ignored_case(),
     case("stimulus requires prompt or turns", missing_prompt_and_turns,

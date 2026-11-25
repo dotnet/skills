@@ -4,6 +4,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -15,6 +16,12 @@ from test_token_failover import BASH
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def normalized_output(result):
+    output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", result.stdout + result.stderr)
+    output = re.sub(r"(?m)^\s*\|\s?", "", output)
+    return " ".join(output.split())
+
+
 class WorkflowTargetsTests(unittest.TestCase):
     def setUp(self):
         self.scratch = tempfile.TemporaryDirectory(prefix="workflow-targets-")
@@ -22,7 +29,12 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.root = Path(self.scratch.name)
         scripts = self.root / "eng" / "evaluation"
         scripts.mkdir(parents=True)
-        for name in ("path-safety.ps1", "workflow-targets.ps1", "find-targets.ps1"):
+        for name in (
+            "change-classification.ps1",
+            "path-safety.ps1",
+            "workflow-targets.ps1",
+            "find-targets.ps1",
+        ):
             shutil.copy2(REPO_ROOT / "eng" / "evaluation" / name, scripts / name)
         (self.root / "plugins").mkdir()
         for package in ("alpha", "beta"):
@@ -61,6 +73,55 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
                  "commit", "--quiet", "-m", message)
         return self.git("rev-parse", "HEAD")
+
+    def create_plugin_fixture(self, plugin="demo", skill_name="sample"):
+        manifest = self.root / "plugins" / plugin / "plugin.json"
+        skill = self.root / "plugins" / plugin / "skills" / skill_name / "SKILL.md"
+        evaluation = self.root / "tests" / plugin / skill_name / "eval.yaml"
+        manifest.parent.mkdir(parents=True)
+        skill.parent.mkdir(parents=True)
+        evaluation.parent.mkdir(parents=True)
+        manifest.write_text(
+            f'{{"name":"{plugin}","version":"1.0.0","skills":["./skills/"]}}\n',
+            encoding="utf-8",
+        )
+        skill.write_text(
+            f"---\nname: {skill_name}\ndescription: Sample.\n---\nSample.\n",
+            encoding="utf-8",
+        )
+        evaluation.write_text(
+            f"name: {skill_name}\nstimuli: []\n",
+            encoding="utf-8",
+        )
+        return manifest
+
+    def create_agent_fixture(
+        self, manifest_content=None, plugin="demo", agent_name="router"
+    ):
+        agent = (
+            self.root
+            / "plugins"
+            / plugin
+            / "agents"
+            / f"{agent_name}.agent.md"
+        )
+        evaluation = (
+            self.root / "tests" / plugin / f"agent.{agent_name}" / "eval.yaml"
+        )
+        agent.parent.mkdir(parents=True)
+        evaluation.parent.mkdir(parents=True)
+        agent.write_text(
+            f"---\nname: {agent_name}\ndescription: Route work.\n---\nRoute work.\n",
+            encoding="utf-8",
+        )
+        evaluation.write_text(
+            f"name: {agent_name}\nstimuli: []\n",
+            encoding="utf-8",
+        )
+        if manifest_content is not None:
+            manifest = self.root / "plugins" / plugin / "plugin.json"
+            manifest.write_text(manifest_content, encoding="utf-8")
+        return agent
 
     def test_manual_collection_and_single_package_dispatch(self):
         for selected, count in (("", 2), ("alpha", 1)):
@@ -169,6 +230,200 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual({entry["package_path"] for entry in self.entries()}, {"agentic-workflows/alpha/aw.yml"})
         self.assertEqual(git("worktree", "list", "--porcelain").count("worktree "), 1)
 
+    def test_pr_deleted_package_resource_still_selects_its_package(self):
+        self.git("init", "--quiet")
+        resource = self.root / "agentic-workflows" / "alpha" / "workflows" / "helper.json"
+        resource.parent.mkdir()
+        resource.write_text("{}\n", encoding="utf-8")
+        base = self.commit_fixture("Fixture base")
+        resource.unlink()
+        head = self.commit_fixture("Delete package resource")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            {entry["package_path"] for entry in self.entries()},
+            {"agentic-workflows/alpha/aw.yml"},
+        )
+
+    def test_pr_deleted_workflow_package_is_not_selected(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        shutil.rmtree(self.root / "agentic-workflows" / "beta")
+        shutil.rmtree(self.root / "tests" / "agentic-workflows" / "beta")
+        head = self.commit_fixture("Delete beta")
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.entries(), [])
+
+    def test_pr_deleted_workflow_manifest_from_surviving_package_fails_closed(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        (self.root / "agentic-workflows" / "alpha" / "aw.yml").unlink()
+        head = self.commit_fixture("Delete workflow manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("has no aw.yml", normalized_output(result))
+
+    def test_pr_deleted_workflow_eval_from_surviving_package_fails_closed(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        (self.root / "tests" / "agentic-workflows" / "alpha" / "eval.yaml").unlink()
+        head = self.commit_fixture("Delete workflow evaluation")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("has no eval.yaml", normalized_output(result))
+
+    def test_pr_deleted_skill_helper_still_selects_its_skill(self):
+        self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        helper = (
+            self.root
+            / "plugins"
+            / "demo"
+            / "skills"
+            / "sample"
+            / "references"
+            / "helper.md"
+        )
+        helper.parent.mkdir()
+        helper.write_text("Shared helper.\n", encoding="utf-8")
+        base = self.commit_fixture("Fixture base")
+        helper.unlink()
+        head = self.commit_fixture("Delete skill helper")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertTrue(entries)
+        self.assertEqual({entry["plugin"] for entry in entries}, {"demo"})
+        self.assertEqual({entry["target_kind"] for entry in entries}, {"skill"})
+        self.assertEqual(
+            {entry["skills_path"] for entry in entries},
+            {"plugins/demo/skills/sample"},
+        )
+
+    def test_pr_deleted_shared_workflow_input_still_selects_all_packages(self):
+        self.git("init", "--quiet")
+        shared = self.root / "tests" / "agentic-workflows" / "test_graders.py"
+        shared.write_text("Shared fixture.\n", encoding="utf-8")
+        base = self.commit_fixture("Fixture base")
+        shared.unlink()
+        head = self.commit_fixture("Delete shared workflow input")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertEqual(len(entries), 4)
+        self.assertEqual(
+            {entry["package_path"] for entry in entries},
+            {"agentic-workflows/alpha/aw.yml", "agentic-workflows/beta/aw.yml"},
+        )
+
+    def test_pr_status_deletions_from_surviving_targets_require_evaluation(self):
+        workflow = yaml.safe_load(
+            (REPO_ROOT / ".github" / "workflows" / "evaluation.yml").read_text(
+                encoding="utf-8"
+            )
+        )
+        status_scripts = [
+            next(
+                step["run"]
+                for step in workflow["jobs"][job]["steps"]
+                if step.get("id") == "discover"
+            )
+            for job in ("pr-status", "fork-pr-status")
+        ]
+        self.create_plugin_fixture()
+        deleted_paths = (
+            self.root
+            / "plugins"
+            / "demo"
+            / "skills"
+            / "sample"
+            / "references"
+            / "helper.md",
+            self.root
+            / "agentic-workflows"
+            / "alpha"
+            / "workflows"
+            / "helper.json",
+            self.root / "tests" / "agentic-workflows" / "test_graders.py",
+        )
+        for path in deleted_paths:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("Fixture input.\n", encoding="utf-8")
+
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        for path in deleted_paths:
+            with self.subTest(path=path.relative_to(self.root)):
+                path.unlink()
+                head = self.commit_fixture("Delete evaluation input")
+                for status_script in status_scripts:
+                    script = (
+                        status_script.replace(
+                            "${{ github.event.pull_request.base.sha }}", base
+                        )
+                        .replace(
+                            "${{ github.event.pull_request.head.sha }}", head
+                        )
+                        .replace('"FETCH_HEAD"', f'"{head}"')
+                    )
+                    result = self.run_script(script)
+                    self.assertEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
+                    self.assertIn(
+                        "needs_eval=true",
+                        self.output.read_text(encoding="utf-8"),
+                    )
+                base = head
+
     def test_pr_shared_workflow_inputs_select_all_packages(self):
         self.git("init", "--quiet")
         base = self.commit_fixture("Fixture base")
@@ -194,6 +449,465 @@ class WorkflowTargetsTests(unittest.TestCase):
                 self.assertEqual(len(entries), 4)
                 self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
+    def create_infrastructure_canary_fixtures(self):
+        for plugin, skill in (
+            ("dotnet", "csharp-refactoring"),
+            ("dotnet-msbuild", "build-perf-diagnostics"),
+            ("dotnet-test", "writing-mstest-tests"),
+        ):
+            self.create_plugin_fixture(plugin, skill)
+        self.create_agent_fixture(plugin="dotnet-msbuild", agent_name="build-perf")
+        package = self.root / "agentic-workflows" / "build-failure-analysis"
+        package.mkdir(parents=True)
+        (package / "aw.yml").write_text(
+            "includes: [workflows/main.md]\n", encoding="utf-8"
+        )
+        evaluation = (
+            self.root
+            / "tests"
+            / "agentic-workflows"
+            / "build-failure-analysis"
+            / "eval.yaml"
+        )
+        evaluation.parent.mkdir(parents=True)
+        evaluation.write_text(
+            "name: build-failure-analysis\nstimuli: []\n", encoding="utf-8"
+        )
+
+    def test_infrastructure_change_uses_fixed_plugin_canaries(self):
+        manifest = self.create_plugin_fixture()
+        self.create_infrastructure_canary_fixtures()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.write_text(
+            manifest.read_text(encoding="utf-8").replace("1.0.0", "1.0.1"),
+            encoding="utf-8",
+        )
+        find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
+        find_targets.write_text(
+            find_targets.read_text(encoding="utf-8") + "\n# Infrastructure change.\n",
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change evaluation infrastructure")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        repeated_result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+        self.assertEqual(
+            repeated_result.returncode,
+            0,
+            repeated_result.stdout + repeated_result.stderr,
+        )
+        self.assertEqual(self.entries(), entries)
+        self.assertEqual(len(entries), 10)
+        self.assertEqual(
+            {entry["target_kind"] for entry in entries},
+            {"skill", "agent", "workflow"},
+        )
+        self.assertEqual(
+            {entry["plugin"] for entry in entries},
+            {"agentic-workflows", "dotnet", "dotnet-msbuild", "dotnet-test"},
+        )
+        self.assertEqual(
+            {entry["skills_path"] for entry in entries},
+            {
+                "",
+                "plugins/dotnet/skills/csharp-refactoring",
+                "plugins/dotnet-msbuild/skills/build-perf-diagnostics",
+                "plugins/dotnet-test/skills/writing-mstest-tests",
+            },
+        )
+        agent_entries = [
+            entry for entry in entries if entry["target_kind"] == "agent"
+        ]
+        self.assertEqual(len(agent_entries), 2)
+        self.assertEqual(
+            {entry["name"] for entry in agent_entries},
+            {
+                "dotnet-msbuild--agent.build-perf--claude-sonnet-5",
+                "dotnet-msbuild--agent.build-perf--gpt-5.6-luna",
+            },
+        )
+        self.assertEqual(
+            {entry["agents_path"] for entry in agent_entries},
+            {"plugins/dotnet-msbuild/agents/build-perf.agent.md"},
+        )
+        self.assertEqual(
+            {entry["eval_path"] for entry in agent_entries},
+            {"tests/dotnet-msbuild/agent.build-perf/eval.yaml"},
+        )
+        workflow_entries = [
+            entry for entry in entries if entry["target_kind"] == "workflow"
+        ]
+        self.assertEqual(len(workflow_entries), 2)
+        self.assertEqual(
+            {entry["name"] for entry in workflow_entries},
+            {
+                "agentic-workflows--build-failure-analysis--claude-sonnet-5",
+                "agentic-workflows--build-failure-analysis--gpt-5.6-luna",
+            },
+        )
+        self.assertEqual(
+            {entry["package_path"] for entry in workflow_entries},
+            {"agentic-workflows/build-failure-analysis/aw.yml"},
+        )
+        self.assertEqual(
+            {entry["eval_path"] for entry in workflow_entries},
+            {"tests/agentic-workflows/build-failure-analysis/eval.yaml"},
+        )
+        self.assertEqual(
+            {entry["skills_path"] for entry in workflow_entries},
+            {""},
+        )
+        self.assertEqual(
+            {entry["agents_path"] for entry in workflow_entries},
+            {""},
+        )
+        self.assertIn(
+            "evaluating fixed Vally canaries: "
+            "dotnet/csharp-refactoring, "
+            "dotnet-msbuild/build-perf-diagnostics, "
+            "dotnet-test/writing-mstest-tests; "
+            "native agent canary: dotnet-msbuild/agent.build-perf; "
+            "workflow canary: agentic-workflows/build-failure-analysis",
+            result.stdout,
+        )
+
+    def test_version_only_change_has_no_model_targets(self):
+        manifest = self.create_plugin_fixture()
+        self.create_infrastructure_canary_fixtures()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.write_text(
+            manifest.read_text(encoding="utf-8").replace("1.0.0", "1.0.1"),
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Stamp version")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertEqual(entries, [])
+
+    def test_infrastructure_change_fails_when_plugin_canary_is_unavailable(self):
+        self.create_plugin_fixture()
+        self.create_plugin_fixture("dotnet", "csharp-refactoring")
+        self.create_plugin_fixture("dotnet-msbuild", "build-perf-diagnostics")
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
+        find_targets.write_text(
+            find_targets.read_text(encoding="utf-8") + "\n# Infrastructure change.\n",
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change evaluation infrastructure")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "Infrastructure canary "
+            "'dotnet-test/writing-mstest-tests' does not resolve to "
+            "exactly one skill evaluation entry",
+            normalized_output(result),
+        )
+
+    def test_infrastructure_change_fails_when_agent_canary_is_unavailable(self):
+        self.create_plugin_fixture()
+        for plugin, skill in (
+            ("dotnet", "csharp-refactoring"),
+            ("dotnet-msbuild", "build-perf-diagnostics"),
+            ("dotnet-test", "writing-mstest-tests"),
+        ):
+            self.create_plugin_fixture(plugin, skill)
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
+        find_targets.write_text(
+            find_targets.read_text(encoding="utf-8")
+            + "\n# Infrastructure change.\n",
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change evaluation infrastructure")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "Infrastructure canary "
+            "'dotnet-msbuild/agent.build-perf' does not resolve to "
+            "exactly one agent evaluation entry",
+            normalized_output(result),
+        )
+
+    def test_infrastructure_change_fails_when_workflow_canary_is_unavailable(self):
+        self.create_plugin_fixture()
+        for plugin, skill in (
+            ("dotnet", "csharp-refactoring"),
+            ("dotnet-msbuild", "build-perf-diagnostics"),
+            ("dotnet-test", "writing-mstest-tests"),
+        ):
+            self.create_plugin_fixture(plugin, skill)
+        self.create_agent_fixture(plugin="dotnet-msbuild", agent_name="build-perf")
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        find_targets = self.root / "eng" / "evaluation" / "find-targets.ps1"
+        find_targets.write_text(
+            find_targets.read_text(encoding="utf-8")
+            + "\n# Infrastructure change.\n",
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change evaluation infrastructure")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "Infrastructure canary 'agentic-workflows/build-failure-analysis' "
+            "could not be resolved: Unknown workflow package "
+            "'build-failure-analysis'",
+            normalized_output(result),
+        )
+
+    def test_pr_malformed_changed_manifest_fails_target_discovery(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.write_text("{ malformed", encoding="utf-8")
+        head = self.commit_fixture("Break manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = normalized_output(result)
+        self.assertIn("target discovery cannot enumerate", output)
+        self.assertIn("production surface", output)
+
+    def test_pr_valid_manifest_without_agents_keeps_empty_agent_result(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.write_text(
+            '{"name":"demo","version":"1.0.1",'
+            '"description":"Changed","skills":["./skills/"]}\n',
+            encoding="utf-8",
+        )
+        head = self.commit_fixture("Change manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertTrue(entries)
+        self.assertEqual(
+            {entry["target_kind"] for entry in entries},
+            {"skill"},
+        )
+
+    def test_pr_fully_deleted_plugin_has_no_surviving_target(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        shutil.rmtree(manifest.parent)
+        shutil.rmtree(self.root / "tests" / "demo")
+        head = self.commit_fixture("Remove manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.entries(), [])
+
+    def test_pr_removed_manifest_from_surviving_plugin_fails_closed(self):
+        manifest = self.create_plugin_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        manifest.unlink()
+        head = self.commit_fixture("Remove manifest")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        output = normalized_output(result)
+        self.assertIn("target discovery cannot enumerate", output)
+        self.assertIn("production surface", output)
+
+    def test_pr_merge_base_failure_fails_closed(self):
+        self.git("init", "--quiet")
+        head = self.commit_fixture("Fixture base")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA="not-a-commit",
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "Could not determine a merge base",
+            normalized_output(result),
+        )
+
+    def test_pr_diff_failure_fails_closed(self):
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        changed = self.root / "changed.txt"
+        changed.write_text("changed\n", encoding="utf-8")
+        head = self.commit_fixture("Change file")
+
+        real_git = shutil.which("git")
+        self.assertIsNotNone(real_git)
+        wrapper_dir = self.root / "fake-bin"
+        wrapper_dir.mkdir()
+        if os.name == "nt":
+            wrapper = wrapper_dir / "git.cmd"
+            wrapper.write_text(
+                '@echo off\r\n'
+                'if "%1"=="diff" exit /b 42\r\n'
+                f'"{real_git}" %*\r\n',
+                encoding="utf-8",
+            )
+        else:
+            wrapper = wrapper_dir / "git"
+            wrapper.write_text(
+                "#!/bin/sh\n"
+                'if [ "$1" = "diff" ]; then exit 42; fi\n'
+                f'exec "{real_git}" "$@"\n',
+                encoding="utf-8",
+            )
+            wrapper.chmod(0o755)
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+            PATH=str(wrapper_dir) + os.pathsep + os.environ["PATH"],
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "Could not enumerate changed files",
+            normalized_output(result),
+        )
+
+    def test_agent_source_change_with_missing_manifest_fails_closed(self):
+        agent = self.create_agent_fixture()
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        agent.write_text(agent.read_text(encoding="utf-8") + "\nChanged.\n",
+                         encoding="utf-8")
+        head = self.commit_fixture("Change agent")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("plugin.json is missing", result.stdout + result.stderr)
+
+    def test_agent_source_change_with_invalid_manifest_fails_closed(self):
+        agent = self.create_agent_fixture("{ malformed")
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        agent.write_text(agent.read_text(encoding="utf-8") + "\nChanged.\n",
+                         encoding="utf-8")
+        head = self.commit_fixture("Change agent")
+
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1",
+            GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base,
+            GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch",
+            INPUT_PLUGIN="",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("plugin.json is invalid", result.stdout + result.stderr)
+
     def test_missing_spec_unknown_package_and_traversal_fail_closed(self):
         for selected in ("missing", "../alpha", "alpha/.."):
             with self.subTest(selected=selected):
@@ -203,6 +917,137 @@ class WorkflowTargetsTests(unittest.TestCase):
         result = self.run_script(self.dispatch, PLUGIN="agentic-workflows", SKILL="alpha")
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("has no tests/agentic-workflows/alpha/eval.yaml", result.stderr)
+
+    def test_infrastructure_paths_select_evals_and_both_pr_status_gates(self):
+        canary_skills = {
+            "dotnet": "csharp-refactoring",
+            "dotnet-msbuild": "build-perf-diagnostics",
+            "dotnet-test": "writing-mstest-tests",
+        }
+        for plugin, skill in canary_skills.items():
+            skill_file = self.root / "plugins" / plugin / "skills" / skill / "SKILL.md"
+            skill_file.parent.mkdir(parents=True)
+            skill_file.write_text(
+                f"---\nname: {skill}\ndescription: Fixture\n---\n",
+                encoding="utf-8",
+            )
+            spec = self.root / "tests" / plugin / skill / "eval.yaml"
+            spec.parent.mkdir(parents=True)
+            spec.write_text(f"name: {skill}\nstimuli: []\n", encoding="utf-8")
+
+        agent_plugin = self.root / "plugins" / "dotnet-msbuild"
+        (agent_plugin / "plugin.json").write_text(
+            '{"name":"dotnet-msbuild","version":"1.0.0"}\n',
+            encoding="utf-8",
+        )
+        agent = agent_plugin / "agents" / "build-perf.agent.md"
+        agent.parent.mkdir(parents=True)
+        agent.write_text(
+            "---\nname: build-perf\ndescription: Fixture\n---\n",
+            encoding="utf-8",
+        )
+        agent_spec = self.root / "tests" / "dotnet-msbuild" / "agent.build-perf" / "eval.yaml"
+        agent_spec.parent.mkdir(parents=True)
+        agent_spec.write_text("name: build-perf\nstimuli: []\n", encoding="utf-8")
+
+        workflow_package = self.root / "agentic-workflows" / "build-failure-analysis"
+        workflow_package.mkdir(parents=True)
+        (workflow_package / "aw.yml").write_text(
+            "includes: [workflows/main.md]\n",
+            encoding="utf-8",
+        )
+        workflow_spec = (
+            self.root
+            / "tests"
+            / "agentic-workflows"
+            / "build-failure-analysis"
+            / "eval.yaml"
+        )
+        workflow_spec.parent.mkdir(parents=True)
+        workflow_spec.write_text(
+            "name: build-failure-analysis\nstimuli: []\n",
+            encoding="utf-8",
+        )
+        paths = (
+            "eng/evaluation-tools/package-lock.json",
+            "eng/evaluation-tools/vally.mjs",
+            "eng/run-skill-evals.sh",
+            "eng/skill-validator/src/Evaluate/OverfittingJudge.cs",
+            "eng/skill-validator/Directory.Build.props",
+            "eng/evaluation/nuget.config",
+            "global.json",
+        )
+        self.git("init", "--quiet")
+        base = self.commit_fixture("Fixture base")
+        workflow = yaml.safe_load(
+            (REPO_ROOT / ".github" / "workflows" / "evaluation.yml").read_text(encoding="utf-8"))
+        status_scripts = [
+            next(step["run"] for step in workflow["jobs"][job]["steps"]
+                 if step.get("id") == "discover")
+            for job in ("pr-status", "fork-pr-status")
+        ]
+
+        def verify_status(base, head, expected):
+            for status_script in status_scripts:
+                script = (status_script
+                          .replace("${{ github.event.pull_request.base.sha }}", base)
+                          .replace("${{ github.event.pull_request.head.sha }}", head)
+                          .replace('"FETCH_HEAD"', f'"{head}"'))
+                result = self.run_script(script)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn(f"needs_eval={expected}", self.output.read_text(encoding="utf-8"))
+
+        for relative in paths:
+            with self.subTest(relative=relative):
+                path = self.root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("{}\n" if relative == "global.json" else "changed input\n", encoding="utf-8")
+                head = self.commit_fixture("Change evaluation input")
+                result = self.run_script(
+                    "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+                    GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("is_infra=true", self.output.read_text(encoding="utf-8"))
+                entries = self.entries()
+                selected_plugins = {entry["plugin"] for entry in entries}
+                self.assertTrue(set(canary_skills).issubset(selected_plugins))
+                self.assertTrue(
+                    any(
+                        entry["plugin"] == "dotnet-msbuild"
+                        and entry["target_kind"] == "agent"
+                        for entry in entries
+                    )
+                )
+                self.assertTrue(
+                    any(entry["plugin"] == "agentic-workflows" for entry in entries)
+                )
+                verify_status(base, head, "true")
+                base = head
+
+        # A deletion must still select evaluation; docs-only changes must not.
+        (self.root / "eng" / "run-skill-evals.sh").unlink()
+        head = self.commit_fixture("Delete local entry point")
+        verify_status(base, head, "true")
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("is_infra=true", self.output.read_text(encoding="utf-8"))
+        base = head
+        # A rename must still expose the removed recognized input path.
+        self.git("mv", "eng/evaluation/nuget.config", "eng/evaluation/nuget.config.disabled")
+        head = self.commit_fixture("Rename feed configuration")
+        self.assertTrue(self.git("diff", "--name-status", base, head).startswith("R100"))
+        verify_status(base, head, "true")
+        result = self.run_script(
+            "& .\\eng\\evaluation\\find-targets.ps1", GATE_PR_NUMBER="1",
+            GATE_BASE_SHA=base, GATE_HEAD_SHA=head, EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("is_infra=true", self.output.read_text(encoding="utf-8"))
+        base = head
+        (self.root / "README.md").write_text("Documentation only\n", encoding="utf-8")
+        head = self.commit_fixture("Change documentation")
+        verify_status(base, head, "false")
 
     def test_runner_matrix_validation_binds_workflow_identity(self):
         if not shutil.which(BASH):

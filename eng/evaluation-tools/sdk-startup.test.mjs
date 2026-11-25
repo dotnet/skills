@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -7,7 +8,19 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { CopilotClient } from '@github/copilot-sdk';
 import { CopilotSdkExecutor } from '@microsoft/vally/executor';
-import './sdk-startup.mjs';
+const sdkPackage = new URL('../package.json', import.meta.resolve('@github/copilot-sdk'));
+const { version } = JSON.parse(readFileSync(sdkPackage, 'utf8'));
+const nativeMethods = Object.fromEntries(
+  ['start', 'createSession', 'resumeSession'].map(method => [method, CopilotClient.prototype[method]]),
+);
+await import('./sdk-startup.mjs');
+
+test('SDK 1.0.29 retains native startup while session wrappers enforce only provider policy', { skip: version !== '1.0.29' }, () => {
+  for (const [method, original] of Object.entries(nativeMethods)) {
+    if (method === 'start') assert.equal(CopilotClient.prototype[method], original);
+    else assert.notEqual(CopilotClient.prototype[method], original);
+  }
+});
 
 function deferred() {
   let resolve;
@@ -192,5 +205,5 @@ test('merged-tree launcher loads the installed pinned CLI without credentials or
   const { stdout } = await promisify(execFile)(
     process.execPath, [fileURLToPath(new URL('./vally.mjs', import.meta.url)), '--version'],
     { timeout: 30_000 });
-  assert.equal(stdout.trim(), '0.20.0');
+  assert.equal(stdout.trim(), '0.21.0');
 });
