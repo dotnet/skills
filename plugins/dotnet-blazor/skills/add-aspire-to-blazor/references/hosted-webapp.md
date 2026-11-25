@@ -185,16 +185,8 @@ requests, which could hide real API traces, or weaken HTTPS.
 
 Only applies if the app calls an API. **Present when** the server's render-path client and the WASM client both target `https+http://<name>` — no hardcoded host:port.
 
-For the server render path, register a typed or named client against the resource name:
-
-```csharp
-builder.Services.AddHttpClient<ApiClient>(client =>
-{
-    client.BaseAddress = new Uri("https+http://your-api");   // ApiClient stands in for your API's typed client
-});
-```
-
-For the WASM client, register the named client in `WebApp.Client/Program.cs`; the host-pushed `services__your-api__https__0` value points it at the server's same-origin YARP route:
+Register the same named client in the server and `WebApp.Client` startup code so the
+component can resolve it during prerendering and in the browser:
 
 ```csharp
 builder.Services.AddHttpClient("your-api", client =>
@@ -203,7 +195,10 @@ builder.Services.AddHttpClient("your-api", client =>
 });
 ```
 
-Have components resolve these clients rather than literal URLs. `your-api` stands for whatever the API resource is named in the AppHost.
+Inject `IHttpClientFactory` and call `CreateClient("your-api")` in both runtimes. Server
+discovery resolves the API resource; host-pushed browser discovery resolves the same-origin
+YARP route. If the component instead injects a typed client, register that same type in both
+runtimes.
 
 ## The AppHost: proxy the API and its telemetry
 
