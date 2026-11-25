@@ -8,6 +8,7 @@ on:
       - ".github/workflows/evaluation-workflow-tests.yml"
       - ".github/workflows/fork-infra-check.yml"
       - ".github/workflows/pr-triage.yml"
+      - ".github/workflows/pr-checklist.yml"
       - ".github/aw/actions-lock.json"
       - ".github/aw/shared/devops-health.lock.md"
       - ".github/aw/shared/devops-investigate.lock.md"
@@ -44,6 +45,7 @@ on:
       - ".github/workflows/evaluation-workflow-tests.yml"
       - ".github/workflows/fork-infra-check.yml"
       - ".github/workflows/pr-triage.yml"
+      - ".github/workflows/pr-checklist.yml"
       - ".github/aw/actions-lock.json"
       - ".github/aw/shared/devops-health.lock.md"
       - ".github/aw/shared/devops-investigate.lock.md"
@@ -136,6 +138,9 @@ jobs:
 
       - name: Test SDK startup ordering without model calls
         run: node --test eng/evaluation-tools/*.test.mjs
+
+      - name: Test PR checklist automation
+        run: node --test .github/scripts/pr-checklist.test.cjs
 
   token-failover:
     runs-on: ubuntu-latest
