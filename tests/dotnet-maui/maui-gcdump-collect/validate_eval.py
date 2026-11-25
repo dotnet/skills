@@ -457,21 +457,6 @@ def main():
                                for c in commands), "--process-id synonym accepted plan"
                     equivalent_count += 1
                     plan_path.write_text(original)
-                    # A command-line pattern match ("pkill -f") recovers the
-                    # router's identity without needing ANY cross-entry
-                    # variable or file at all, and must be accepted on equal
-                    # footing with the persisted-PID-file form above.
-                    standalone_pkill_cleanup = copy.deepcopy(standalone_plan)
-                    standalone_pkill_cleanup["commands"]["route"] = [
-                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android &"
-                    ]
-                    standalone_pkill_cleanup["commands"]["cleanup"] = [
-                        'pkill -f "dotnet-dsrouter android"; echo done'
-                    ]
-                    plan_path.write_text(json.dumps(standalone_pkill_cleanup))
-                    assert all(run(c, workspace, shell=True).returncode == 0
-                               for c in commands), "pkill -f cleanup accepted plan"
-                    equivalent_count += 1
                     plan_path.write_text(original)
                     # An attach PID variable left completely unset anywhere in
                     # route/collect (no "dotnet-gcdump ps"-based assignment at
@@ -512,6 +497,42 @@ def main():
                         '--output "$PWD/after-navigation.gcdump" --timeout 60'
                     ]
                     mutations.append(standalone_unrelated_process_pid)
+                    # A PID assignment living in a DIFFERENT commands-array
+                    # entry than the one invoking the collector (here, in
+                    # route rather than collect) never reaches collect's own
+                    # independent shell invocation -- "$PID" is simply unset
+                    # there, even though a real "dotnet-gcdump ps"-based
+                    # capture for that same variable name does exist
+                    # elsewhere in the plan.
+                    standalone_cross_entry_pid = copy.deepcopy(standalone_plan)
+                    standalone_cross_entry_pid["commands"]["route"] = [
+                        'ANDROID_SERIAL=R58M123 dotnet-dsrouter android & '
+                        'echo $! > "$PWD/router.pid"; '
+                        'PID=$(dotnet-gcdump ps | grep dotnet-dsrouter | '
+                        'awk \'{print $1}\')'
+                    ]
+                    standalone_cross_entry_pid["commands"]["collect"] = [
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect -p "$PID" '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60'
+                    ]
+                    mutations.append(standalone_cross_entry_pid)
+                    # A PID assignment that textually appears AFTER the
+                    # "-p"/"--process-id" flag that uses it, even within the
+                    # SAME commands-array entry, is also never visible to
+                    # that flag in a real left-to-right shell: the attach
+                    # invocation already ran (and already failed/misattached)
+                    # with "$PID" unset by the time the later assignment
+                    # executes.
+                    standalone_late_assignment_pid = copy.deepcopy(standalone_plan)
+                    standalone_late_assignment_pid["commands"]["collect"] = [
+                        'test ! -e "$PWD/after-navigation.gcdump" && '
+                        'dotnet-gcdump collect -p "$PID" '
+                        '--output "$PWD/after-navigation.gcdump" --timeout 60; '
+                        'PID=$(dotnet-gcdump ps | grep dotnet-dsrouter | '
+                        'awk \'{print $1}\')'
+                    ]
+                    mutations.append(standalone_late_assignment_pid)
                     # The cross-entry pattern this fixture previously accepted
                     # -- a plain "$ROUTER_PID" variable assigned only inside
                     # route's own backgrounded shell and referenced from
@@ -527,6 +548,24 @@ def main():
                         "kill $ROUTER_PID 2>/dev/null; echo done"
                     ]
                     mutations.append(standalone_cross_entry_variable_cleanup)
+                    # A bare command-line pattern match ("pkill -f") was
+                    # previously accepted as a cross-entry recovery
+                    # mechanism, but this router's command line is
+                    # identical to any other concurrent same-platform
+                    # diagnostics sessions router -- it carries no
+                    # distinguishing text (ANDROID_SERIAL is an env var,
+                    # never visible in argv), so this pattern can kill an
+                    # unrelated sessions router too and must now be
+                    # rejected, even though it does successfully recover
+                    # AND stop *A* "dotnet-dsrouter android" process.
+                    standalone_generic_pkill_cleanup = copy.deepcopy(standalone_plan)
+                    standalone_generic_pkill_cleanup["commands"]["route"] = [
+                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android &"
+                    ]
+                    standalone_generic_pkill_cleanup["commands"]["cleanup"] = [
+                        'pkill -f "dotnet-dsrouter android"; echo done'
+                    ]
+                    mutations.append(standalone_generic_pkill_cleanup)
                     # Reusing the self-managing --dsrouter route/collect PAIR
                     # once collect already attaches by PID (no --dsrouter at
                     # all expected in standalone mode) must still be rejected.
@@ -856,6 +895,20 @@ def main():
                     'echo "$(' + cmd + ')"' for cmd in plan["commands"]["validate"]
                 ]
                 mutations.append(masked_report_substitution)
+                # A report invocation that is textually present and reached
+                # unconditionally, but names a DIFFERENT (stale/unrelated)
+                # artifact than the one this plan itself just requested,
+                # never actually parses the real captured file -- even
+                # though a SEPARATE validate entry's own "test -s
+                # after-navigation.gcdump" sanity check still mentions the
+                # real filename elsewhere in the overall validate text.
+                wrong_report_target = copy.deepcopy(plan)
+                wrong_report_target["commands"]["validate"] = [
+                    cmd.replace("after-navigation.gcdump", "yesterday.gcdump")
+                    if "dotnet-gcdump report" in cmd else cmd
+                    for cmd in plan["commands"]["validate"]
+                ]
+                mutations.append(wrong_report_target)
                 for mutant in mutations:
                     plan_path.write_text(json.dumps(mutant))
                     assert any(run(c, workspace, shell=True).returncode != 0

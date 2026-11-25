@@ -73,9 +73,20 @@ stimuli:
                 # 10.0.750501 CLI), so a plan spelling it out in full must be
                 # accepted on equal footing with the short flag.
                 assert re.search(r"dotnet-gcdump\s+collect\b", q) and re.search(r"(?:^|\s)(?:-p|--process-id)\s+\S", q), "a standalone-router collect must attach via " + dq + "dotnet-gcdump collect -p <PID>" + dq + " (or its " + dq + "--process-id" + dq + " synonym), correlated to the router this plan itself started"
-                pid_match = re.search(r"(?:-p|--process-id)\s+(\S+)", q)
+                # The attach flag and the PID variable it uses must both be
+                # resolved WITHIN THE SAME commands-array entry that actually
+                # invokes the collector (each entry is its own independent
+                # shell -- see resolves() below), and the assignment must sit
+                # strictly TEXTUALLY BEFORE that flag in that one entrys own
+                # text: an assignment living in a different array entry, or
+                # one appearing only AFTER the flag that uses it in the SAME
+                # entry, never reaches the real invocations environment in a
+                # real shell.
+                invocation_entry = next((entry for entry in c["collect"] if re.search(r"dotnet-gcdump\s+collect\b", entry)), "")
+                pid_match = re.search(r"(?:-p|--process-id)\s+(\S+)", invocation_entry)
                 assert pid_match and not pid_match.group(1).strip(dq + sq).isdigit(), "the attach PID must come from a captured, correlated value (e.g. a variable set from " + dq + "dotnet-gcdump ps" + dq + " or the printed router PID), not a hardcoded guess"
                 pid_var = pid_match.group(1).strip(dq + sq).lstrip("$").strip("{}")
+                pid_scope = invocation_entry[:pid_match.start()]
                 # The device-app PID (2841) already banned above as "identity
                 # information, not a host PID" is itself a correlated-looking
                 # value if blindly reused; the PID this standalone attach needs is
@@ -84,8 +95,8 @@ stimuli:
                 # first/last listing row (which carries no numeric-extraction
                 # signal) and not a row for an unrelated process (which carries
                 # no correlation to the catalog app this plan itself connected).
-                pid_capture = re.search(re.escape(pid_var) + r"\s*=\s*\$\(([^()]*dotnet-gcdump\s+ps\b[^()]*)\)", q)
-                assert pid_capture, "the attach PID variable must be assigned from a " + dq + "dotnet-gcdump ps" + dq + " command substitution in this same collect text, not left unset"
+                pid_capture = re.search(re.escape(pid_var) + r"\s*=\s*\$\(([^()]*dotnet-gcdump\s+ps\b[^()]*)\)", pid_scope)
+                assert pid_capture, "the attach PID variable must be assigned from a " + dq + "dotnet-gcdump ps" + dq + " command substitution strictly BEFORE the attach flag, within the SAME commands-array entry that invokes the collector -- an assignment in a different array entry (each entry is an independent shell) or only after the flag uses it is never visible to the real invocation"
                 pid_capture_body = pid_capture.group(1)
                 # Confirmed against the installed 10.0.750501 CLI on this
                 # fixture macOS host: for an Android router connection,
@@ -129,10 +140,30 @@ stimuli:
                 # identity, so it is always rejected here, fail-closed.
                 # Genuine cross-entry recovery instead needs a value that
                 # crosses shell-process boundaries on its own, e.g. reading
-                # back a file route itself wrote ("$(cat FILE)") or matching
-                # the router by its own command-line ("pkill -f PATTERN").
-                bare_var_ref = re.search(r"\b(?:stop|kill|terminate)\s+\$\{?(\w+)\}?\b", x, re.IGNORECASE)
-                assert not bare_var_ref, "cleanup stops the router via a bare $VAR reference, but each commands-array entry is an independent shell invocation -- a value assigned only in route/collect own shell-local state never reaches cleanup separate invocation; recover the router identity in a way that actually crosses shell boundaries instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists it with " + dq + "> FILE" + dq + ", or " + dq + "pkill -f PATTERN" + dq
+                # back a file route itself wrote ("$(cat FILE)").
+                # A real shell expands "$VAR" and its brace-wrapped form
+                # exactly the same way whether or not it is wrapped in a
+                # quoted (single or double) operand -- quoting only
+                # disables word-splitting
+                # and globbing on the RESULT, it never changes WHICH
+                # variable supplies it -- so a quoted reference is just as
+                # unset-by-the-time-cleanup-runs as a bare one and must be
+                # rejected the same way.
+                bare_var_ref = re.search(r"\b(?:stop|kill|terminate)\s+" + dq + r"?" + sq + r"?\$\{?(\w+)\}?" + sq + r"?" + dq + r"?\b", x, re.IGNORECASE)
+                assert not bare_var_ref, "cleanup stops the router via a $VAR reference (quoted or bare), but each commands-array entry is an independent shell invocation -- a value assigned only in route/collect own shell-local state never reaches cleanup separate invocation; recover the router identity in a way that actually crosses shell boundaries instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists it with " + dq + "> FILE" + dq
+                # A bare command-line pattern match ("pkill -f PATTERN") was
+                # previously accepted as an equal-footing alternative, but
+                # "dotnet-dsrouter android" (and its ANDROID_SERIAL binding)
+                # never appear as distinguishing argv text pkill -f can match
+                # on -- the router process this plan itself started is
+                # indistinguishable, on its own command line, from ANY other
+                # concurrent diagnostics sessions same-platform router, so a
+                # generic process-name pattern can kill an unrelated sessions
+                # router too. Per the skills own documented contract (stop
+                # only the router started for THIS capture, via its recorded
+                # PID), only the owned-PID-file recovery above is accepted;
+                # a bare "pkill -f" selector is always rejected now.
+                assert not re.search(r"\bpkill\s+-f\b", x, re.IGNORECASE), "cleanup stops the router via a bare " + dq + "pkill -f PATTERN" + dq + " command-line match, but the router process this plan itself started carries no distinguishing argv text (its command line is identical to any other concurrent same-platform diagnostics sessions router), so this can kill an unrelated sessions router instead of only the one this plan owns; recover and stop the ACTUAL owned router identity instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists its own PID with " + dq + "> FILE" + dq
             assert "dotnet-gcdump collect" in q and "--timeout" in q
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v
             a = r + q + v + x
@@ -421,7 +452,7 @@ stimuli:
                     return True
                 return not any(re.search(r"dotnet-gcdump\s+report\b", s) for s in segs[:-1])
             
-            def report_status_propagates(validate_entries):
+            def report_status_propagates(validate_entries, artifact):
                 # Each commands-array entry is its OWN separate shell
                 # invocation with fresh state (see resolves() below) -- joining
                 # every entry into one script before splitting into clauses
@@ -457,6 +488,17 @@ stimuli:
                         # instead of propagating it, so neither counts.
                         if not report_head_re.match(bare):
                             continue
+                        # The report invocation itself must name the
+                        # artifact THIS plan actually asked to capture -- a
+                        # separate "validate" array entry independently
+                        # mentioning the right filename (e.g. its own "test
+                        # -s" sanity check) never binds it to what report
+                        # itself parses; a report of a stale/different dump
+                        # (e.g. "dotnet-gcdump report yesterday.gcdump") must
+                        # not pass merely because the real artifact name
+                        # appears SOMEWHERE in the overall validate text.
+                        if artifact not in bare:
+                            return False
                         # A report invocation reached only via a
                         # preceding "||" only runs when an earlier
                         # command in the SAME entry already failed -- if
@@ -478,7 +520,7 @@ stimuli:
             
             route_invocation_pattern = r"dotnet-dsrouter\s+android\b" if standalone_router else r"dotnet-gcdump\s+collect\b"
             assert resolves("ANDROID_SERIAL", c["route"], did, route_invocation_pattern) and (standalone_router or resolves("ANDROID_SERIAL", c["collect"], did)), "route must always bind the selected device via a literal ANDROID_SERIAL prefix on the invocation itself, or a " + dq + "$VAR" + dq + " reference to a value assigned -- and, if in a separate, non-prefix statement, EXPORTED -- strictly before the invocation, UNCONDITIONALLY, within that SAME commands-array entry, in true left-to-right shell execution order: a single-quoted reference, a non-exported separate-statement assignment, an assignment reached only via " + dq + "&&" + dq + " or " + dq + "||" + dq + " (not provably executed), an assignment in a different commands-array entry, or a same-clause sibling assignment (left unspecified by POSIX itself, and divergent across real shells) never reliably reaches the invocations actual environment; the self-managing collect must bind it the same way since --dsrouter accepts no serial flag, but a standalone-router collect attaches by PID instead and is device-correlated through the router it was started against, not a serial"
-            assert report_status_propagates(c["validate"]), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted, and report must be reached unconditionally within its own entry (not only via a preceding " + dq + "||" + dq + ")"
+            assert report_status_propagates(c["validate"], "after-navigation.gcdump"), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted, report must be reached unconditionally within its own entry (not only via a preceding " + dq + "||" + dq + "), and the report invocation itself must name the real captured artifact " + dq + "after-navigation.gcdump" + dq + ", not merely appear alongside an unrelated entry that does"
             assert not any(t in a for t in ("server-server", "adb reverse", "adb -s", "setprop debug.mono.profile", "-ipcs", "-tcps", "AndroidEnableProfiler"))
             assert "0.0.0.0" not in a and "--remove-all" not in a and "-p 2841" not in a and "adb pull" not in a
             assert pathlib.Path("android-session.txt").read_text() == """Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102; installed Android workload matches the project.\nProject: App.csproj, net10.0-android, Mono, Release.\nProfiling APK includes libmono-component-diagnostics_tracing.so for arm64-v8a.\nDevice: physical serial R58M123, USB debugging authorized; other serials may be present.\nPackage: com.example.catalog; device PID 2841 is identity information, not a host PID.\ndotnet-gcdump and dotnet-dsrouter: 10.0.750501, installed on host; the --dsrouter switch is present.\nNo diagnostic route is configured yet; a controlled relaunch is acceptable after operator approval.\nReserved host TCP port: 9001. Reserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n"""
@@ -529,7 +571,15 @@ stimuli:
                 # new clause) is instead dropped entirely, and a newline
                 # that occurs inside a single- or double-quoted word is left
                 # untouched since it is part of that words literal content,
-                # not a statement separator.
+                # not a statement separator. A newline whose nearest
+                # preceding non-whitespace characters are "&&", "||", or a
+                # bare trailing "|" (not "||") is likewise NOT a real
+                # separator: a real shell there is still mid-expression,
+                # expecting the next command of the same "&&"/"||" chain or
+                # pipeline on the following source line exactly as the
+                # SKILL.md documented multi-line example writes it -- such a
+                # newline is joined with a single space instead, never
+                # turned into a new ";"-delimited clause.
                 dq, sq = chr(34), chr(39)
                 out = []
                 quote = None
@@ -555,6 +605,15 @@ stimuli:
                         i += 2
                         continue
                     if ch == "\n":
+                        k = len(out)
+                        while k > 0 and out[k - 1] in (" ", "\t"):
+                            k -= 1
+                        last1 = out[k - 1] if k >= 1 else ""
+                        last2 = "".join(out[k - 2:k]) if k >= 2 else ""
+                        if last2 in ("&&", "||") or (last1 == "|" and last2 != "||"):
+                            out.append(" ")
+                            i += 1
+                            continue
                         out.append(";")
                         i += 1
                         continue
@@ -1064,7 +1123,7 @@ stimuli:
                     return True
                 return not any(re.search(r"dotnet-gcdump\s+report\b", s) for s in segs[:-1])
             
-            def report_status_propagates(validate_entries):
+            def report_status_propagates(validate_entries, artifact):
                 # Each commands-array entry is its OWN separate shell
                 # invocation with fresh state -- joining every entry into
                 # one script before splitting into clauses would let an
@@ -1099,6 +1158,16 @@ stimuli:
                         # instead of propagating it, so neither counts.
                         if not report_head_re.match(bare):
                             continue
+                        # The report invocation itself must name the
+                        # artifact THIS plan actually asked to capture -- a
+                        # separate "validate" array entry independently
+                        # mentioning the right filename never binds it to
+                        # what report itself parses; a report of a stale or
+                        # different dump must not pass merely because the
+                        # real artifact name appears SOMEWHERE in the
+                        # overall validate text.
+                        if artifact not in bare:
+                            return False
                         # A report invocation reached only via a
                         # preceding "||" only runs when an earlier
                         # command in the SAME entry already failed --
@@ -1119,7 +1188,7 @@ stimuli:
             assert "after-navigation.gcdump" in q
             assert "dotnet-gcdump collect" in q and "--timeout" in q
             assert "dotnet-gcdump report" in v and "after-navigation.gcdump" in v and "-p " not in v and "|| true" not in v and "|| :" not in v
-            assert report_status_propagates(c["validate"]), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted, and report must be reached unconditionally within its own entry (not only via a preceding " + dq + "||" + dq + ")"
+            assert report_status_propagates(c["validate"], "after-navigation.gcdump"), "A trailing " + dq + ";" + dq + "/" + dq + "&" + dq + "-joined clause after dotnet-gcdump report can mask its real exit status regardless of " + dq + "|| true" + dq + "; only the report clause itself or further " + dq + "&&" + dq + "-joined clauses are accepted, report must be reached unconditionally within its own entry (not only via a preceding " + dq + "||" + dq + "), and the report invocation itself must name the real captured artifact " + dq + "after-navigation.gcdump" + dq + ", not merely appear alongside an unrelated entry that does"
             # The backgrounded finer-control server-client router is a
             # separate, long-lived process dotnet-gcdump never tears down on
             # its own; an echo-only cleanup that merely describes stopping it
@@ -1149,8 +1218,22 @@ stimuli:
             # assigned only in route own shell-local state is simply unset
             # by the time cleanup separate invocation runs, so it must still
             # be rejected even when it superficially mentions a stop verb.
-            bare_var_ref = re.search(r"\b(?:stop|kill|terminate)\s+\$\{?(\w+)\}?\b", x, re.IGNORECASE)
-            assert not bare_var_ref, "cleanup stops the router via a bare $VAR reference, but each commands-array entry is an independent shell invocation -- a value assigned only in route own shell-local state never reaches cleanup separate invocation; recover the router identity in a way that actually crosses shell boundaries instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists it with " + dq + "> FILE" + dq + ", or " + dq + "pkill -f PATTERN" + dq
+            # A real shell expands "$VAR" and its brace-wrapped form the
+            # same way whether or
+            # not it is wrapped in a quoted (single or double) operand --
+            # quoting only disables word-splitting/globbing on the result,
+            # never which variable supplies it -- so a quoted reference is
+            # rejected the same way as a bare one.
+            bare_var_ref = re.search(r"\b(?:stop|kill|terminate)\s+" + dq + r"?" + sq + r"?\$\{?(\w+)\}?" + sq + r"?" + dq + r"?\b", x, re.IGNORECASE)
+            assert not bare_var_ref, "cleanup stops the router via a $VAR reference (quoted or bare), but each commands-array entry is an independent shell invocation -- a value assigned only in route own shell-local state never reaches cleanup separate invocation; recover the router identity in a way that actually crosses shell boundaries instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists it with " + dq + "> FILE" + dq
+            # A bare "pkill -f PATTERN" match carries the same flaw as on
+            # Android: this routers command line (server-client mode,
+            # forwarding a fixed local port) is identical to any other
+            # concurrent iOS diagnostics sessions router, so a generic
+            # process-name pattern can stop an unrelated sessions router
+            # instead of only the one this plan owns. Only the owned-PID-file
+            # recovery above is accepted.
+            assert not re.search(r"\bpkill\s+-f\b", x, re.IGNORECASE), "cleanup stops the router via a bare " + dq + "pkill -f PATTERN" + dq + " command-line match, but the router process this plan itself started carries no distinguishing argv text (its command line is identical to any other concurrent iOS diagnostics sessions router), so this can kill an unrelated sessions router instead of only the one this plan owns; recover and stop the ACTUAL owned router identity instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists its own PID with " + dq + "> FILE" + dq
             assert all(t not in a for t in ("--dsrouter", "mlaunch", "--launchdev", "--installdev", "--launchsim", "ios-sim", "simctl", "adb ", "0.0.0.0", "-p 519"))
             assert pathlib.Path("ios-session.txt").read_text() == """Operator-supplied facts for a planning exercise; no device is attached to the eval worker.\nHost: macOS, .NET SDK 10.0.102, matching iOS workload/Xcode; dotnet-gcdump and dotnet-dsrouter 10.0.750501 (the --dsrouter switch is present).\nProject: Catalog.csproj, net10.0-ios, ios-arm64, Mono AOT (PublishAot=false), Release.\nSigned development .app has the real static diagnostics_tracing component, not the stub.\nOne physical USB iPhone: UDID 00008110-001234567890001E; trusted, unlocked, Developer Mode enabled.\nBundle: com.example.catalog; device PID 519 is not a host diagnostics PID.\nThe app is already running with DiagnosticConfiguration=127.0.0.1:9001,nosuspend,listen from its last approved dotnet run launch.\nNo host router is currently running; no app restart or install is permitted.\nReserved host IPC path: capture-diag.sock in workspace.\nArtifact requested: after-navigation.gcdump in host workspace.\n"""
             print("iOS live plan and input preservation valid")
