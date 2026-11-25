@@ -167,13 +167,12 @@ class WorkflowTargetsTests(unittest.TestCase):
             self.assertTrue((REPO_ROOT / entry["eval_path"]).is_file(), entry["eval_path"])
 
     def test_infrastructure_discovery_fails_for_old_content_until_specs_are_present(self):
-        plugin = self.root / "plugins" / "fixture"
-        plugin.mkdir()
-        (plugin / "plugin.json").write_text('{"name":"fixture"}\n', encoding="utf-8")
-        (self.root / "tests" / "fixture").mkdir()
-        (self.root / "tests" / "fixture" / "README.md").write_text("Fixture\n", encoding="utf-8")
+        self.create_infrastructure_canary_fixtures()
         self.git("init", "--quiet")
-        missing = self.root / "tests" / "agentic-workflows" / "alpha" / "eval.yaml"
+        missing = (
+            self.root / "tests" / "agentic-workflows"
+            / "build-failure-analysis" / "eval.yaml"
+        )
         spec = missing.read_text(encoding="utf-8")
         missing.unlink()
         base = self.commit_fixture("Legacy content without workflow eval")
@@ -187,7 +186,10 @@ class WorkflowTargetsTests(unittest.TestCase):
             EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
         result = self.run_script("& ./eng/evaluation/find-targets.ps1", **environment)
         self.assertNotEqual(result.returncode, 0, result.stdout)
-        self.assertIn("Workflow package 'alpha' has no eval.yaml", result.stderr)
+        self.assertIn(
+            "Workflow package 'build-failure-analysis' has no eval.yaml",
+            normalized_output(result),
+        )
         self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
         missing.write_text(spec, encoding="utf-8")
         environment["GATE_BASE_SHA"] = self.commit_fixture("Bring in workflow eval prerequisite")
@@ -195,9 +197,19 @@ class WorkflowTargetsTests(unittest.TestCase):
         environment["GATE_HEAD_SHA"] = self.commit_fixture("Change infrastructure with complete content")
         result = self.run_script("& ./eng/evaluation/find-targets.ps1", **environment)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertEqual(len(entries), 10)
         self.assertEqual(
-            {entry["package_path"] for entry in self.entries()},
-            {"agentic-workflows/alpha/aw.yml", "agentic-workflows/beta/aw.yml"})
+            {(entry["plugin"], entry["target_kind"]) for entry in entries},
+            {("dotnet", "skill"), ("dotnet-msbuild", "skill"),
+             ("dotnet-test", "skill"), ("dotnet-msbuild", "agent"),
+             ("agentic-workflows", "workflow")},
+        )
+        self.assertEqual(
+            {entry["package_path"] for entry in entries
+             if entry["target_kind"] == "workflow"},
+            {"agentic-workflows/build-failure-analysis/aw.yml"},
+        )
         self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
     def test_manual_top_level_discovery_accepts_workflow_collection(self):
