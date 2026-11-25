@@ -951,7 +951,7 @@ class TokenFailoverTests(unittest.TestCase):
             self.assertNotIn("create_issue", config)
             self.assertNotIn("create_report_incomplete_issue", config)
         self.assertIn(
-            '"tools":["missing_data","missing_tool","noop","publish_health_report"]',
+            '"tools":["noop","publish_health_report","report_missing_data","report_missing_tool"]',
             health_lock_text,
         )
         update_index = health_lock_text.index(
@@ -2157,7 +2157,7 @@ None found.
             )
         )
 
-        setup_sha = "2fbab69bfca02bebd76cd0fc43f2d12acfed994f"
+        setup_sha = "53d0749e19424a918acd82b4d140264ce48f2f14"
         self.assertEqual(
             {
                 key: entry["sha"]
@@ -2166,26 +2166,28 @@ None found.
             },
             {
                 f"github/gh-aw-actions/setup@{setup_sha}": setup_sha,
-                f"github/gh-aw-actions/setup-cli@{setup_sha}": setup_sha,
+                "github/gh-aw-actions/setup-cli@v1.2.2": setup_sha,
             },
             "cached gh-aw action annotations must preserve the explicit SHA pins",
         )
 
         expected_containers = {
-            "ghcr.io/github/gh-aw-firewall/agent:0.28.25":
-                "sha256:25fbbefb92b690d4e6ef34de8df057c0349e6adf2b7486c0cc56954a8e9a3cd4",
-            "ghcr.io/github/gh-aw-firewall/api-proxy:0.28.25":
-                "sha256:c3c7082e73ba83052c580097e5a9c9c40a11e6f6b6fa0a4710e6859f83a62854",
-            "ghcr.io/github/gh-aw-firewall/squid:0.28.25":
-                "sha256:94cac14372280dbf4a08d021d7b5810a9fd7d73c88802e04a9e05551b1cbcd09",
-            "ghcr.io/github/gh-aw-mcpg:v0.4.26":
-                "sha256:2df1262a5b8877bfd8d99bc13e705f350a14709cf0d45005942fb63702a7a45b",
+            "ghcr.io/github/gh-aw-firewall/agent:0.29.11":
+                "sha256:8774a73c351395b41d2ad0af4ddb4689007c67de3cd08bd9f43bb8a0e300690e",
+            "ghcr.io/github/gh-aw-firewall/api-proxy:0.29.11":
+                "sha256:88d2d0e315a504d93fd4fb8847fd0f6b7f4469f41a6fc6047b3dc9654c56ab2c",
+            "ghcr.io/github/gh-aw-firewall/cli-proxy:0.29.11":
+                "sha256:97782bc0d8ff7f80f19ae2fdc5e1668517aa732a6fa077e64b8d3919238496d2",
+            "ghcr.io/github/gh-aw-firewall/squid:0.29.11":
+                "sha256:861739ecf924dd2db5e5fb652db2ad82aaafd1615623297ddabc8f41a36b2847",
+            "ghcr.io/github/gh-aw-mcpg:v0.5.6":
+                "sha256:342cd624e1f179d91be2de7a146fc4f387092e62e6c8a47506d7932e113d2311",
         }
         expected_executable_images = {
             f"{image}@{digest}"
             for image, digest in expected_containers.items()
+            if "/cli-proxy:" not in image
         }
-        expected_executable_images.add("ghcr.io/github/gh-aw-mcpg:v0.4.26")
 
         def gh_aw_action_refs(text: str) -> set[tuple[str, str]]:
             return set(
@@ -2217,6 +2219,7 @@ None found.
             "issue-triage",
             "markdown-linter",
             "pr-malicious-scan.agent",
+            "weekly-eval-insights",
         ):
             with self.subTest(workflow=workflow):
                 lock = (workflows / f"{workflow}.lock.yml").read_text(
@@ -2226,19 +2229,26 @@ None found.
                 executable_images = set(
                     re.findall(
                         r"ghcr\.io/github/(?:"
-                        r"gh-aw-firewall/(?:agent|api-proxy|squid)|gh-aw-mcpg"
+                        r"gh-aw-firewall/(?:agent|api-proxy|cli-proxy|squid)|"
+                        r"gh-aw-mcpg"
                         r"):[A-Za-z0-9._-]+(?:@sha256:[0-9a-f]{64})?",
                         executable_lock,
                     )
                 )
-                self.assertIn('"compiler_version":"v0.89.22"', lock)
+                self.assertIn('"compiler_version":"v1.2.2"', lock)
                 self.assertEqual(
                     gh_aw_action_refs(executable_lock),
                     {("setup", setup_sha)},
                 )
+                workflow_expected_images = set(expected_executable_images)
+                if workflow == "weekly-eval-insights":
+                    cli_proxy = "ghcr.io/github/gh-aw-firewall/cli-proxy:0.29.11"
+                    workflow_expected_images.add(
+                        f"{cli_proxy}@{expected_containers[cli_proxy]}"
+                    )
                 self.assertEqual(
                     executable_images,
-                    expected_executable_images,
+                    workflow_expected_images,
                 )
 
         investigate_lock = (
@@ -2253,13 +2263,13 @@ None found.
             gh_aw_action_refs(executable_lines(setup)),
             {("setup-cli", setup_sha)},
         )
-        self.assertIn("version: v0.89.22", setup)
+        self.assertIn("version: v1.2.2", setup)
 
         maintenance = (workflows / "agentics-maintenance.yml").read_text(
             encoding="utf-8"
         )
         self.assertIn(
-            "generated by pkg/workflow/maintenance_workflow.go (v0.89.22)",
+            "generated by pkg/workflow/maintenance_workflow.go (v1.2.2)",
             maintenance,
         )
         self.assertEqual(
