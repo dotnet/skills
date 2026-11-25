@@ -207,7 +207,10 @@ judge-only replay. Their authoritative result can contain a replacement
 scenario whose sessions remain in the separate `_agent-timeout-retry` audit
 tree rather than the original `sessions.db`. Replay fails closed when
 `agent-timeout-retry-summary.json` reports a recovery, or when that retry audit
-tree exists without its summary. Native replay also deletes any copied
+tree exists without its summary. Native replay rejects non-agent session
+roles and scenarios with multiple saved run indices: either can cause the
+judges to compare different executor outputs under the same trial key. Native
+replay also deletes any copied
 `results.json` before invoking rejudge, so a same-model control requires fresh
 validator output.
 

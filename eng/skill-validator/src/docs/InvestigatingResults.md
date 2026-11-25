@@ -139,6 +139,11 @@ is a replay failure, not a failed skill verdict. Saved agent reports can use
 the `agent.` skill prefix while native rejudge uses the bare name; the replay
 matches that alias only when the original artifact contains the exact prefixed
 skill name.
+Native replay accepts only custom-agent session roles. It rejects native skill
+sessions because the judge can select either the isolated or plugin run, so
+the judges might compare different executor outputs. It also rejects a
+scenario with multiple saved run indices because rejudge selects only one
+pairwise result per scenario. Both checks run before either judge starts.
 Native replay treats an `overallMagnitude` of `equal` (case-insensitive) or
 numeric `2` as a tie even when `overallWinner` names a side, matching the native
 results adapter.
