@@ -626,6 +626,26 @@ class GraderTests(unittest.TestCase):
         self.assertNotEqual(0, checked.returncode)
         self.assertIn("Unsupported test-success claim", checked.stderr)
 
+    def test_extra_finding_strings_keep_independent_denial_scope(self):
+        examples = (
+            ("All tests passed.", False),
+            ({"nested": ["All tests passed."]}, False),
+            ({"All tests passed.": "Unsupported claim in an accepted key"}, False),
+            ({"denial": "It is not true that all tests passed.",
+              "assertion": "All tests passed."}, False),
+            (["It is not true that all tests passed.", "All tests passed."], False),
+            ({"nested": ["It is not true that all tests passed."]}, True),
+            ({"nested": [None, 42, False, "No evidence that all tests passed."]}, True),
+        )
+        for details, accepted in examples:
+            with self.subTest(details=details):
+                result = good_result("test/retry")
+                result["findings"][0]["details"] = details
+                checked = self.run_shipping_grader("test/retry", result)
+                self.assertEqual(accepted, checked.returncode == 0, checked.stderr)
+                if not accepted:
+                    self.assertIn("Unsupported test-success claim", checked.stderr)
+
     def test_selection_metadata_keeps_identity_and_evidence_strict(self):
         for case in ("unskip/completed", "unskip/merged", "unskip/class", "unskip/modules", "unskip/zero"):
             with self.subTest(case=case):

@@ -163,6 +163,18 @@ def contradicts_empty_bundle(text):
     return False
 
 
+def finding_strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for key, child in value.items():
+            yield key
+            yield from finding_strings(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from finding_strings(child)
+
+
 def check_test_success_claims(text):
     claims = r"\b(?:all tests passed|tests are clean|tests are fixed|no historical recurrence)\b"
     denial_before = (
@@ -296,8 +308,8 @@ def validate_result(root, options):
         for value in (reason, result.get("body") or "", *limitations):
             check_test_success_claims(value)
         for finding in findings:
-            for key in ("summary", "next_step"):
-                check_test_success_claims(finding[key])
+            for value in finding_strings(finding):
+                check_test_success_claims(value)
     if options.require_empty_test_bundle:
         metadata = read_json(root / "inputs" / "evidence" / "metadata.json")
         require(metadata["completeness"]["complete"] is True and metadata["files"] == [], "Expected a complete empty test bundle")

@@ -321,6 +321,9 @@ to conclude absence cannot establish an empty bundle. A negated absence
 contradicts the empty fixture even if another field asserts absence. Test-success
 phrases account for both prefix and suffix denials, so denying an explicit
 denial does not make an unsupported success claim acceptable.
+Every accepted finding string is checked recursively, including additional
+fields, nested arrays/objects and object keys. Denial scope never crosses
+between strings, so a valid denial cannot excuse an affirmative in a sibling.
 These checks use decoded, whitespace-normalized prose rather than JSON
 escapes, so a newline between `No` and `qualifying` is not a failure. The actual
 fixture must also be complete with an empty file inventory. The `No-op` action
