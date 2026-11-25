@@ -19,6 +19,17 @@
 > evidence: an explicit execution error, a missing or timed-out required arm, a
 > failed run, or a missing pairwise result.
 
+> Evaluation selection includes the pinned evaluation toolchain and lockfile,
+> the local skill-evaluation wrapper, native validator sources (including the
+> overfitting judge), SDK/build configuration, and the evaluation NuGet feed.
+> Both same-repository and fork status gates use these inputs, as does matrix
+> discovery, including deleted files. Changes to these paths need evaluation
+> from the reviewed trusted ref, not just repository-local unit tests.
+> The local wrapper now uses pinned Vally, generated plugin-skills arms, shared
+> retry/adaptation, and exact result accounting. It preserves partial artifacts
+> but returns failure for invalid measurement or any nonzero harness exit; it
+> does not provision CI's token pool, SDK/feed image, or overfitting judge.
+
 Executor sessions append the exact scenario workspace to the system context.
 Do not resolve fixture paths against a staged skill's base directory or the
 shared evaluator root. Normal shell pre-tool hooks defer to the SDK's typed
@@ -70,11 +81,41 @@ behavior against the corrected executor.
 > the PR report but does not override authoritative evaluation verdicts.
 > Scheduled and main session-data publishing remains strict.
 
+> If the AGENTVIZ source cannot be resolved, dashboard deployment verifies the
+> existing viewer and staged evaluation data before publishing without replacing
+> the viewer. The job summary records the retained viewer revision and the job
+> fails after deployment so the source outage remains visible. A missing viewer
+> or evaluation data stops deployment. This fallback does not repair session-data
+> publication or update the viewer.
+
 > Current Vally PR evaluations default to `claude-sonnet-5` and `gpt-5.6-luna`,
-> with judges `gpt-5.6-terra` and `claude-haiku-4.5`, respectively.
+> with judges `gpt-6.1-terra` and `claude-haiku-4.5`, respectively.
 > Explicit profiles and the scheduled cadence can select other models.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
+
+> PR discovery ignores a root plugin manifest when its only semantic change is
+> the generated `version` value. Both manifests must be strict JSON objects with
+> one valid `major.minor.patch` string in the top-level `version` property. A
+> new or semantically changed root manifest selects the plugin's full skill and
+> agent evaluation surface. A fully deleted plugin has no surviving target to
+> evaluate. If the plugin directory survives but its root manifest is missing
+> or invalid, target discovery fails explicitly because it cannot safely
+> enumerate the production agent surface.
+>
+> Evaluation-infrastructure changes use one fixed Vally sentinel from each
+> representative plugin: `dotnet/csharp-refactoring`,
+> `dotnet-msbuild/build-perf-diagnostics`, and
+> `dotnet-test/writing-mstest-tests`, the native-agent sentinel
+> `dotnet-msbuild/agent.build-perf`, and the agentic-workflow sentinel
+> `agentic-workflows/build-failure-analysis`. This exercises the Vally baseline,
+> isolated, plugin, comparison, and adaptation path, the native custom-agent
+> adapter, and the workflow-prompt SDK lane without making infrastructure
+> validation depend on every unrelated eval in those plugins. Discovery fails
+> if any sentinel is unavailable. Valid version-only root manifest changes do
+> not run model evaluations; repository versioning and manifest checks
+> validate those mechanical edits. Skill, agent, test, and semantic manifest
+> changes keep their normal targeted plugin evaluation surface.
 
 > Current Vally runs use a version-checked SDK 1.0.11/1.0.13/1.0.14/1.0.15 startup guard. It waits for
 > filesystem-provider setup before sessions start and shares concurrent startup
