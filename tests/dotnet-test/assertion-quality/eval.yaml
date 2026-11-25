@@ -52,7 +52,8 @@ stimuli:
       `SmokeTests/ApiEndpointSmokeTests.cs`. Identify tests with no meaningful
       verification or only trivial assertions, explain the false confidence
       they create, and recommend what each weak test should verify instead.
-      Include an overall quality assessment. Do not edit the files.
+      Include the number of tests in each group and an overall quality
+      assessment. Do not edit the files.
     tags:
       capability: assertion-free-detection
       risk: false-confidence-in-tests
@@ -70,7 +71,7 @@ stimuli:
 
               **Overall quality: weak.** None of the 8 tests verifies a returned value. They split into two groups that reconcile exactly to the 8 methods in the file:
 
-              **5 of 8 tests (62%) are assertion-free** — they call a method and assert nothing at all:
+              **5 of 8 tests (62.5%) are assertion-free** — they call a method and assert nothing at all:
               - `GetUsers_DoesNotThrow`, `GetUserById_DoesNotThrow`, `CreateUser_DoesNotThrow`, `DeleteUser_DoesNotThrow`, `UpdateUser_DoesNotThrow`.
 
               These only prove the call did not throw. That said, their names openly declare a "does not throw" intent, so they are a deliberate (if very weak) smoke check rather than an accidental omission — I am calling them out separately from tests that merely execute code and forgot to assert. Even so, a "does not throw" smoke test is not a correctness test: `CreateUser` could persist the wrong email and this suite would stay green.
@@ -98,12 +99,14 @@ stimuli:
         - src: fixtures/assertion-free/SmokeTests/ApiClient.cs
           dest: SmokeTests/ApiClient.cs
     graders:
+      # Bind a count to prose, the neighboring table cell, or a group's first finding
+      # after an optional method list. Don't borrow counts from the next row or group.
       - type: output-matches
         config:
-          pattern: (no assertion|zero assertion|assertion.free|without.*assert|missing.*assert|don.*assert|lack.*assert)
+          pattern: '(?i)(?:(?<![\w.])(?:5|five)\b(?:(?:\s*/\s*|\s+(?:out\s+)?of\s+(?:the\s+)?)(?:8|eight)\b)?(?:[ \t`*]*\|| (?:tests?|methods?)\)\r?\n(?:`[\w`, \t]+`\r?\n)?(?:[ \t]*\r?\n)*)?(?:(?!\b(?:three|five|eight)\b)[^\d.,;:!?|\r\n]|\d+(?:\.\d+)?%)*?\b(?:assertion[- ]free|(?:no|zero|without|lack(?:ing)?) (?:any |explicit )?assertions?|asserts? nothing)\b|\b(?:assertion[- ]free|(?:no|zero) (?:explicit )?assertions?)\b(?: tests?| methods?)?[ \t`*():|–—=-]+\b(?:5|five)\b)'
       - type: output-matches
         config:
-          pattern: (5|five|62%|most|majority|several)
+          pattern: '(?i)(?:(?<![\w.])(?:3|three)\b(?:(?:\s*/\s*|\s+(?:out\s+)?of\s+(?:the\s+)?)(?:8|eight)\b)?(?:[ \t`*]*\|| (?:tests?|methods?)\)\r?\n(?:`[\w`, \t]+`\r?\n)?(?:[ \t]*\r?\n)*)?(?:(?!\b(?:three|five|eight)\b)[^\d.,;:!?|\r\n]|\d+(?:\.\d+)?%)*?\b(?:(?:Assert\.)?IsNotNull|(?:non|not)[- ]null|null[- ]checks?|trivial[- ]only|trivial assertions?)\b|\b(?:IsNotNull|(?:non|not)[- ]null|null[- ]checks?|trivial[- ]only|trivial assertions?)\b(?: only| tests?)?[ \t`*():|–—=-]+\b(?:3|three)\b)'
       - type: exit-success
       - type: prompt
     rubric:
@@ -161,7 +164,14 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (good|strong|solid|diverse|well|thorough|comprehensive|varied)
+          pattern: (?i)(good|strong|solid|diverse|well|thorough|comprehensive|varied)
+      - type: output-matches
+        config:
+          pattern: (?i)\b(GetUser_NonExistent_ReturnsNull|missing[- ]user|nonexistent user|user not found)\b
+      # Merely saying a test checks for null does not credit the expected outcome.
+      - type: output-matches
+        config:
+          pattern: (?i)\b(?:(?:verif(?:y|ies)|checks?|asserts?)\s+(?:(?:the|its)\s+)?(?:expected|promised)\s+(?:absence|null|missing[- ]user)|(?:GetUser_NonExistent_ReturnsNull|absence|null|missing[- ]user)\b[^.!?;\n]*?\b(?:is|are|as)\s+(?:(?:the|a)\s+)?(?:expected|promised|correct|contract|meaningful|valid|real verification|first[- ]class))\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -199,8 +209,16 @@ stimuli:
         config:
           disallowed:
             - bash
+            - powershell
+            - execute
+            - shell
+            - run_shell_command
+            - local_shell
             - edit
             - create
+            - delete
+            - remove
+            - apply_patch
       - type: output-matches
         config:
           pattern: (self.referent|tautolog|identity|input.*equals.*output|circular|same.*value|trivial.*round.?trip|round.?trip|set.*get|write.*read|proves
@@ -325,6 +343,26 @@ stimuli:
       capability: calibrate-trivial-checks-without-penalizing-complete-mstest-assertions
       risk: false-positive-assertion-review
       journey: audit-test-assertions
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: assertion-quality-calibration-boundaries
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I reviewed all five methods. Two create false confidence; the other three protect their stated behavior.
+
+              | Test | Assessment | Why |
+              |------|------------|-----|
+              | `LoadExisting_ReturnsConfiguredValue` | Meaningful | The null check guards exact assertions for `Environment == "prod"` and `RetryCount == 3`. |
+              | `ParseInvalid_ThrowsFormatException` | Meaningful | The exact `FormatException` is the behavior this method promises to verify. |
+              | `Save_PersistsRecord` | Meaningful | `Contains("order-42")` verifies that the save changed observable store state. |
+              | `Ping_ReturnsResponse` | Weak | `IsNotNull` accepts any non-null response; it does not check the expected `"healthy"` result. |
+              | `HealthCheck_Healthy` | Weak | `Assert.IsTrue(true)` is unconditional and passes even if the health check is broken. |
+
+              Overall, two of five methods are weak. Add an exact response assertion for Ping and invoke a real health predicate instead of asserting a literal `true`; keep the complete value, exception, and state checks.
     prompt: |
       Review `CalibratedAssertions.Tests/CalibrationTests.cs` and separate the
       tests that can catch a real regression from those that create false
@@ -341,18 +379,25 @@ stimuli:
         config:
           disallowed:
             - bash
+            - powershell
+            - execute
+            - shell
+            - run_shell_command
+            - local_shell
             - edit
             - create
+            - delete
+            - remove
+            - apply_patch
 
+      # Bind each method to an affirmative label or to a bullet under a weak-test heading.
+      # Stop at the next section; a keyword elsewhere in the report is not a verdict.
       - type: output-matches
         config:
-          pattern: Ping_ReturnsResponse
+          pattern: '(?im)(?:\bPing_ReturnsResponse\b[ \t`*():|–—-]*(?:is[ \t]+)?(?:weak|trivial|false confidence)\b|(?:(?:^|\|)[ \t`*#-]*(?:weak|trivial|false confidence)[ \t`*:|–—-]+|^[ \t#*]*(?:weak|trivial|false confidence)\b[^\r\n|]*\r?\n(?:[ \t]*(?:[-*] [^\r\n]*)?\r?\n)*[ \t]*[-*] [*`]*)\bPing_ReturnsResponse\b)'
       - type: output-matches
         config:
-          pattern: HealthCheck_Healthy
-      - type: output-matches
-        config:
-          pattern: (trivial|weak|always.true|cannot fail|false confidence)
+          pattern: '(?im)(?:\bHealthCheck_Healthy\b[ \t`*():|–—-]*(?:is[ \t]+)?(?:weak|trivial|false confidence|always[- ]true)\b|(?:(?:^|\|)[ \t`*#-]*(?:weak|trivial|false confidence|always[- ]true)[ \t`*:|–—-]+|^[ \t#*]*(?:weak|trivial|false confidence)\b[^\r\n|]*\r?\n(?:[ \t]*(?:[-*] [^\r\n]*)?\r?\n)*[ \t]*[-*] [*`]*)\bHealthCheck_Healthy\b)'
       - type: output-matches
         config:
           pattern: (ParseInvalid_ThrowsFormatException|Save_PersistsRecord|LoadExisting_ReturnsConfiguredValue)
@@ -364,7 +409,7 @@ stimuli:
       - Treated LoadExisting_ReturnsConfiguredValue as meaningful because the null guard is followed by exact value checks
       - Treated ParseInvalid_ThrowsFormatException as complete for its stated exception behavior despite having one assertion
       - Treated Save_PersistsRecord as meaningful state verification rather than dismissing its boolean assertion as trivial
-      - Concluded that two of the five methods are weak and recommended concrete expected-value checks for them
+      - Recommended concrete checks for the weak methods without treating the other three as weak
   - name: Recognize structural and interaction checks in Jest while flagging vacuous tests
     tags:
       capability: recognize-structural-and-interaction-checks-in-jest-while-flagging-vacuous-tests
