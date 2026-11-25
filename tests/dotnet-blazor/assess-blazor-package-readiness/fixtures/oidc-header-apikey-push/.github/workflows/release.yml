@@ -1,0 +1,17 @@
+name: Release fixture
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: NuGet/login@v1
+        id: login
+        with:
+          user: fixture
+      - name: Push package
+        run: dotnet nuget push "*.nupkg" --source "https://example.invalid/v3/index.json" --api-key "${{ secrets.NUGET_API_KEY }}"
