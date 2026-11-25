@@ -1046,6 +1046,22 @@ def main():
                             totals["defect_rejections"] += 1
                     finally:
                         program.write_text(original_program)
+                if name == "maui-theming" and "golden_patch" in stimulus:
+                    program = workspace / "Program.cs"
+                    original_program = program.read_text()
+                    early = original_program.replace(
+                        "        if (_activeTheme is not null)\n",
+                        "        if (_activeTheme is not null) return;\n        if (_activeTheme is not null)\n", 1)
+                    assert early != original_program
+                    try:
+                        program.write_text(early)
+                        result = command(["dotnet", "run", "--project", "Fixture.csproj",
+                                          "--no-restore", "--verbosity", "quiet"], workspace)
+                        assert result.returncode != 0 and "dark theme was not applied" in result.stdout + result.stderr, (
+                            result.stdout, result.stderr)
+                        totals["defect_rejections"] += 1
+                    finally:
+                        program.write_text(original_program)
                 if name == "maui-shell-navigation" and "golden_patch" in stimulus:
                     program = workspace / "Program.cs"
                     original_program = program.read_text()

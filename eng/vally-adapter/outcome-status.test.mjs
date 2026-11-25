@@ -27,7 +27,7 @@ function fixture(t, states = ["VALID_PASS"]) {
   saveSummary();
   const results = states.map((state, i) => ({
     schemaVersion: 5, model: "model", verdicts: [{
-      skillName: `skill${i}`, skillPath: `plugins/plugin/skills/skill${i}`, state,
+      skillName: `skill${i}`, skillKind: "skill", skillPath: `plugins/plugin/skills/skill${i}`, state,
       conclusive: state !== "INVALID_INCONCLUSIVE",
       underpowered: state === "INVALID_INCONCLUSIVE",
       activationContract: { evaluated: true, passed: true },
@@ -97,6 +97,9 @@ test("results must belong to the entry that owns their artifact", (t) => {
   for (const mutate of [
     (f) => { f.results[0].verdicts[0].skillPath = "plugins/other/skills/skill0"; },
     (f) => { f.results[0].model = "other-model"; },
+    (f) => { f.results[0].verdicts[0].skillKind = "agent"; },
+    (f) => { f.results[0].verdicts[0].skillKind = "workflow"; },
+    (f) => { delete f.results[0].verdicts[0].skillKind; },
     (f) => { f.results[0].verdicts[0].skillKind = "agent"; f.results[0].verdicts[0].skillPath = "plugins/plugin/agents/a.agent.md"; },
   ]) {
     const f = fixture(t);

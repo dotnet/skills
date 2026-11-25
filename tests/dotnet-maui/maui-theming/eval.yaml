@@ -321,7 +321,7 @@ stimuli:
   - type: run-command
     config:
       command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
-        ''"''"''Checks.cs''"''"'': ''"''"''8d90bdb09981b3a7fd19755ae769cd0011a556121894e44db5835e063e7a745e''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''7000f2a53774314e168d7c7ec5d3a8094a66c24ec19a49e37fce45105acdffb2''"''"'',
         ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
         ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"''};
         assert all(pathlib.Path(p).is_file() and hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==h
@@ -383,7 +383,7 @@ stimuli:
   - type: run-command
     config:
       command: 'python3 -c ''import hashlib,pathlib; expected={''"''"''Fixture.csproj''"''"'': ''"''"''daaa2155aa040b8c8e421ae545be8d52233f1ed82cac1a46cb39949fb371962c''"''"'',
-        ''"''"''Checks.cs''"''"'': ''"''"''8d90bdb09981b3a7fd19755ae769cd0011a556121894e44db5835e063e7a745e''"''"'',
+        ''"''"''Checks.cs''"''"'': ''"''"''7000f2a53774314e168d7c7ec5d3a8094a66c24ec19a49e37fce45105acdffb2''"''"'',
         ''"''"''Directory.Build.props''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
         ''"''"''Directory.Build.targets''"''"'': ''"''"''17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea''"''"'',
         ''"''"''Program.cs''"''"'': ''"''"''228587ce663319340599e382137800e0d123668d85763cee35331310faed75da''"''"''};

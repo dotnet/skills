@@ -25,7 +25,8 @@ function inScope(entry, verdict) {
     return verdict.skillKind === "agent" && typeof entry.agents_path === "string"
       && /\.agent\.md$/.test(entry.agents_path) && path === entry.agents_path;
   }
-  if (entry.target_kind !== "skill" || typeof entry.skills_path !== "string") return false;
+  if (entry.target_kind !== "skill" || typeof entry.skills_path !== "string"
+    || verdict.skillKind !== "skill") return false;
   const roots = entry.skills_path.split(/\s+/).filter(Boolean);
   return roots.length > 0 && roots.some((root) => /\/skills$/.test(root)
     ? path.startsWith(`${root}/`) : path === root);
