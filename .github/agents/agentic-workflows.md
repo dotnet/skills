@@ -43,6 +43,7 @@ This is a **dispatcher agent** that routes your request to the appropriate speci
 - **Reducing token consumption / cost optimization**: Routes to `token-optimization` guide — consult this whenever the user asks how to reduce token usage, lower costs, speed up workflows, or measure the impact of prompt changes with experiments
 - **Choosing workflow architectures and design patterns**: Routes to `patterns` guide — consult this whenever the user asks for strategy, architecture, operating models, or pattern selection for agentic workflows
 - **Git-backed work queues**: Routes to `work-queue` instructions for producers, dispatchers, workers, observers, deployment and recovery
+- **Local SDLC issue bootstrap**: Follow `.github/aw/squad.md`.
 
 Workflows may optionally include:
 

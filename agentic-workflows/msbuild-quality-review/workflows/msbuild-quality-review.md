@@ -24,7 +24,7 @@ on:
       - "**/*.nuspec"
       - "**/Directory.Build.*"
       - "**/Directory.Packages.*"
-  roles: all
+  roles: [admin, maintainer, write]
 
 if: github.event.pull_request.draft == false
 
@@ -50,8 +50,4 @@ strict: true
 timeout-minutes: 20
 ---
 
-<!--
-  Body and safe-output configuration are provided by
-  msbuild-quality-review-shared.md. Detailed, redistributable MSBuild guidance
-  is installed at .github/agents/msbuild-quality-reviewer.agent.md.
--->
+Follow the imported MSBuild quality review instructions.
