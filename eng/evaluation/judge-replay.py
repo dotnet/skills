@@ -621,17 +621,26 @@ def native_executor_fingerprint(database, session_fields=None):
     return fields, digest
 
 
-def assert_native_single_run(database):
+NATIVE_REPLAY_ROLES = {"baseline", "baseline-reused", "with-agent-isolated", "with-agent-plugin"}
+
+
+def assert_native_replayable(database):
     # Rejudge keeps one pairwise result per scenario, so multi-run scenarios cannot be paired.
+    # Skill rejudge may pair against either the isolated or the plugin run, per judge.
     with closing(sqlite3.connect(
             f"file:{database.as_posix()}?mode=ro", uri=True)) as connection:
         available = {row[1] for row in connection.execute("PRAGMA table_info(sessions)")}
-        if "run_index" not in available:
-            raise ValueError("Native sessions database has no run_index column")
+        if not {"run_index", "role"}.issubset(available):
+            raise ValueError("Native sessions database has no run_index or role column")
+        roles = {row[0] for row in connection.execute("SELECT DISTINCT role FROM sessions")}
         multi_run = list(connection.execute(
             "SELECT skill_name, scenario_name FROM sessions "
             "GROUP BY skill_name, scenario_name HAVING COUNT(DISTINCT run_index) > 1 "
             "ORDER BY skill_name, scenario_name"))
+    unsupported_roles = sorted(roles - NATIVE_REPLAY_ROLES, key=str)
+    if unsupported_roles:
+        raise ValueError(
+            f"Native replay supports only custom-agent sessions; found roles: {unsupported_roles}")
     if multi_run:
         raise ValueError(
             "Native replay does not support scenarios with multiple saved run indices: "
@@ -739,7 +748,7 @@ def run_replay(args):
             raise ValueError("Saved Vally executor evidence changed during candidate rejudge")
     elif len(native) == 1 and not experiment:
         validate_native_retry_provenance(source)
-        assert_native_single_run(native[0])
+        assert_native_replayable(native[0])
         executor_digest = tree_digest(native[0].parent)
         original_skills = {key[0] for key in historical}
         expected_activations = activation_slots(recorded_files)
