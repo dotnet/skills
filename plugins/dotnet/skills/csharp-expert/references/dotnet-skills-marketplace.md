@@ -48,7 +48,7 @@ Update an installed plugin with:
 - `dotnet-aspnetcore`: ASP.NET Core APIs, endpoints, middleware, or Blazor Server to Blazor Web App
   conversion.
 - `dotnet-blazor`: Blazor projects, components, forms, auth, interactivity, prerendering, data
-  flow, or JS interop.
+  flow, JS interop, or Aspire integration.
 - `dotnet-winforms`: Windows Forms project setup, UI, binding, accessibility, or modernization.
 - `dotnet11`: .NET 11-specific APIs and language features.
 
@@ -72,6 +72,7 @@ or installing a marketplace route.
 | Author a reusable Blazor component with parameters, content, and callbacks | `author-component` | `dotnet-blazor` |
 | Collect and validate user input in a Blazor form | `collect-user-input` | `dotnet-blazor` |
 | Create a Blazor project with framework-specific defaults | `create-blazor-project` | `dotnet-blazor` |
+| Add or complete Aspire integration for an existing Blazor app | `add-aspire-to-blazor` | `dotnet-blazor` |
 | Discover or instantiate a general `dotnet new` template | `template-discovery` or `template-instantiation` | `dotnet-template-engine` |
 | Repair MAUI XAML binding and change notification | `maui-data-binding` | `dotnet-maui` |
 | Create, modify, or debug a Windows Forms application | `winforms-expert` | `dotnet-winforms` |

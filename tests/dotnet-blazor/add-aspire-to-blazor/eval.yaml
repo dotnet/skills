@@ -1,0 +1,498 @@
+name: add-aspire-to-blazor
+description: Evaluates Aspire integration decisions for standalone and hosted Blazor apps
+type: capability
+defaults:
+  timeout: 5m
+  runs: 1
+stimuli:
+  - name: Connect an existing standalone storefront
+    tags:
+      capability: standalone-api-integration
+      risk: cross-origin-api-access
+      journey: add-orchestration
+    prompt: |
+      Our existing .NET 11 storefront is a standalone Blazor WebAssembly project
+      with index.html and no ASP.NET server. We also own a Catalog API and use
+      the Aspire 17 CLI.
+      We want Aspire to launch both, keep API ports out of browser code, and
+      show browser diagnostics in its dashboard. Describe the configuration
+      changes and how to prove they work. Do not change files or run commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)(?=[\s\S]*\b(?:bind|attach|register|use|add)\b[^.!?\n]*gateway)(?=[\s\S]*\b(?:verify|check|configure|enable)\b[^.!?\n]*(?:OTLP|browser telemetry))[\s\S]*^[ \t]*(?:[-*] |\d+[.)] )?(?:use|register|configure|point|reference)\b[^.!?\n]*(?:https(?:\+http)?://`?catalog\b|same-origin[^.!?\n]*\bcatalog\b)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:use|hardcode|embed|point)\b[^.!?\n]*(?:https?://localhost:\d+|directly (?:at|to) the (?:backend|dashboard))|\b(?:do not|don''t|never)\s+(?:use|enable|configure)\s+(?:a |the )?(?:gateway|same-origin proxy|browser (?:OTLP|telemetry))\b'
+      - &no-command
+        type: tool-calls
+        config:
+          disallowed: [bash, powershell, edit, create, apply_patch]
+      - type: prompt
+    rubric:
+      - Keeps the existing standalone client and uses a compatible static hosting gateway rather than converting it to a hosted Web App.
+      - Makes browser API calls resolve by resource name through the hosting origin rather than exposing backend ports or relying on CORS.
+      - Includes client defaults, configuration delivery, the matching app base path, and verification of browser export separately from server telemetry.
+      - Distinguishes the stable SDK and CLI from the preview-only Blazor hosting integration and uses the Aspire 17 gateway model.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: standalone-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              First check the installed SDK, Aspire packages/CLI, and templates.
+              The .NET 11 SDK and Aspire 17 CLI are stable, but Aspire.Hosting.Blazor
+              still requires a preview dependency. With approval for that dependency,
+              keep the standalone client and add client defaults.
+              Bind the app to AddDotnetProjectBlazorGateway. Match index.html's base href.
+              Reference Catalog from the app resource and use https+http://catalog
+              in its HttpClient; calls go same-origin through /_api/ under that path.
+              Check injected discovery and OTLP settings. Build and launch, then
+              verify rendering, an API response, and browser logs/traces/metrics
+              independently of gateway/API telemetry. No runtime result is established here.
+
+  - name: Complete browser wiring in a hosted Auto app
+    tags:
+      capability: hosted-browser-configuration
+      risk: standalone-hosting-mismatch
+      journey: complete-partial-integration
+    prompt: |
+      We have a .NET 11 RTM Blazor Web App with Auto interactivity and a .Client
+      project. Its Aspire AppHost already starts the web server and Orders API.
+      Prerendered data works, but browser requests fail after switching to WASM.
+      A client library copied from a standalone app tries to fetch
+      /_blazor/_configuration and gets 404. Explain the missing pieces without
+      editing       files or running commands. We also want browser telemetry in the dashboard.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)(?=[\s\S]*\b(?:copy|pass|supply|deliver|use|set|configure)\b[^!?]{0,150}(?:WithBrowserOptions|InteractiveWebAssembly\.EnvironmentVariables|DOM comment|host-pushed (?:browser |environment )?(?:config|settings)))[\s\S]*^[ \t]*(?:[-*] |\d+[.)] )?(?:use|configure|bind|map|keep)\b[^.!?\n]*(?:YARP|reverse proxy)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:add|keep|reuse|map|create)\b[^.!?\n]*(?:standalone (?:gateway|(?:JS )?initializer)|/_blazor/_configuration)|\boptions\.WebAssembly\.EnvironmentVariables\b'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Identifies the standalone initializer as incompatible with the server-delivered configuration path and uses compatible hosted client defaults.
+      - Keeps the existing server as the host rather than adding a standalone gateway or inventing a configuration endpoint.
+      - Connects host-emitted API and telemetry routes to the server proxy and browser configuration while preserving prerender discovery and existing middleware.
+      - Keeps the client registration used by the component consistent in both runtimes.
+      - If showing browser options code, uses the RTM InteractiveWebAssembly member instead of the preview WebAssembly member.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: hosted-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Remove the standalone JS initializer from the existing client defaults:
+              it fetches an endpoint this hosted server does not expose.
+              Hosted defaults receive browser configuration through WithBrowserOptions
+              and the Blazor-Configuration DOM comment. Copy the AppHost's
+              webAssembly.environment values into InteractiveWebAssembly.EnvironmentVariables.
+              Bind the existing server's YARP reverse proxy to AppHost-emitted routes.
+              Wire API and browser OTLP proxy configuration in the AppHost, retaining
+              server-side discovery for prerendering. Register the same named or typed
+              client on both sides so the component can resolve it. Merge rather than replace
+              middleware. Verify the WASM API request and OTLP responses separately.
+
+  - name: Add Aspire without adding browser execution
+    tags:
+      capability: server-only-integration
+      risk: unnecessary-wasm-migration
+      journey: preserve-render-mode
+    prompt: |
+      Our .NET 11 Blazor site uses Interactive Server only. There is no .Client
+      project, and we must not change how pages render or take prerelease
+      dependencies. Can the site and its existing Inventory API join our
+      Aspire 17 AppHost? Give advice only; do not edit files or run commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)(?=[\s\S]*\b(?:use|add|configure|wire|enable)\b[^.!?\n]*(?:WithReference|service discovery))[\s\S]*^[ \t]*(?:[-*] |\d+[.)] )?(?:add|use|register|configure)\b[^.!?\n]*(?:AddServiceDefaults|service defaults)\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:add|enable|create|install|use|do not (?:omit|skip))\b[^.!?\n]*(?:gateway|WebAssembly|browser (?:proxy|telemetry)|prerelease Blazor|Aspire\.Hosting\.Blazor)'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Registers the existing server and API with the orchestrator and adds their missing service defaults and discovery.
+      - Preserves Interactive Server and does not add the prerelease Blazor package, a client project, gateway, or browser-only proxy/export pipeline.
+      - Limits validation to the applicable app, API, and server telemetry signals.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: server-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Keep Interactive Server and use stable Aspire project hosting, not
+              the prerelease Blazor integration. Register the server and Inventory
+              API in the AppHost.
+              Add missing server service defaults
+              and health endpoints, and use WithReference plus service discovery for
+              server API calls. Do not add a WebAssembly client, gateway, or browser
+              proxy/export pipeline. Verify app rendering, API data, and server
+              logs/traces/metrics; browser telemetry checks do not apply.
+
+  - name: Diagnose a missing dashboard HTTP receiver on Aspire 17
+    tags:
+      capability: otlp-configuration-diagnosis
+      risk: false-browser-telemetry-success
+      journey: diagnose-missing-signals
+    prompt: |
+      The standalone app loads and API data works on .NET 11 and Aspire 17.
+      The gateway's client configuration has catalog discovery but no OTEL
+      keys. The gateway says it couldn't resolve the dashboard HTTP endpoint,
+      even after we enabled export on the gateway resource. The launch profile
+      sets only gRPC. What would you check or change? Don't run commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)\b(?:set|add|configure|provide|enable)\s+(?:the\s+)?`?ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)\b(?:do not|don''t|never)\s+(?:set|add|configure|use)\s+(?:the\s+)?`?ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL\b|^(?:[-*] )?(?:send|expose|copy)\b[^.!?\n]*dashboard (?:credentials|headers)'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Connects the missing client export configuration to the unresolved HTTP/protobuf dashboard endpoint, which gateway resource telemetry does not create.
+      - Recommends checking relevant launch profiles and injected export configuration before rewriting generated telemetry code.
+      - Verifies browser export independently of gateway telemetry without exposing dashboard credentials to the browser.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: otlp-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Gateway resource export doesn't enable a dashboard HTTP receiver.
+              Inspect the effective dashboard model; the warning indicates that
+              the browser proxy couldn't resolve OTLP/HTTP. If the receiver
+              is absent, set ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL alongside
+              gRPC in the active profile. Then verify that browser configuration
+              contains a same-origin OTLP path, not dashboard credentials, and
+              check actual browser exports and dashboard signals.
+
+  - name: Repair gateway asset resolution without changing API routing
+    tags:
+      capability: gateway-base-path
+      risk: blank-standalone-app
+      journey: restore-app-rendering
+    prompt: |
+      Our .NET 11 standalone Blazor app is resource "store" behind an Aspire
+      gateway. Loading /store/ returns HTML, but the browser requests
+      /_framework/blazor.webassembly.js and gets 404. index.html has
+      <base href="/" />. API proxy calls under /store/_api/catalog already
+      work. What is the smallest correction and verification? No edits or commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:set|change|update|use|replace)\b[^.!?\n]*base\s+href\s*=\s*["'']/store/["'']'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:keep|retain|use|set)\b[^.!?\n]*base\s+href\s*=\s*["'']/["'']|^[ \t]*(?:[-*] |\d+[.)] )?(?:remove|rewrite|replace|change)\b[^.!?\n]*(?:working |existing )?API (?:proxy|route)'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Aligns the existing base href with the actual resource sub-path rather than hardcoding the example resource name.
+      - Preserves working API routing and verifies relative assets and direct navigation.
+      - Does not equate asset repair with evidence that browser telemetry is working.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: base-path-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Set <base href="/store/" /> in index.html to match resource "store".
+              Keep the working API proxy unchanged. Reload /store/, inspect that
+              relative framework and other assets load beneath /store/, and test
+              direct navigation as well as an API call. This correction alone
+              does not establish browser telemetry export.
+
+  - name: Preserve a file-based AppHost on Aspire 17
+    tags:
+      capability: file-based-apphost-compatibility
+      risk: invalid-generated-project-types
+      journey: integrate-existing-orchestrator
+    prompt: |
+      We already use apphost.cs on Aspire 17 and .NET 11, not a csproj.
+      Adding our standalone Blazor UI using Projects.Client does not compile.
+      We also have an API project. Show how to register both without converting
+      our AppHost,       and what to check on the first run. Do not edit files or run commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)(?=[\s\S]*\bAddDotnetProject\s*\()[\s\S]*^[ \t]*(?:[-*] |\d+[.)] )?(?:use|call|register)\b[^.!?\n]*\bAddBlazorWasmApp\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:convert|replace|migrate)\s+(?:the |your )?`?apphost\.cs\b|^[ \t]*(?:[-*] |\d+[.)] )?(?:use|keep)\b[^.!?\n]*Projects\.Client\b'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Uses paths relative to the AppHost for the WASM app and API instead of relying on generated Projects types.
+      - Uses the modern gateway registration and accounts for first-run acquisition of the gateway tool.
+      - Preserves the existing host and distinguishes compile-time API availability from observed runtime success.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: file-host-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Keep apphost.cs.
+              Use AddBlazorWasmApp("store", "Client/Client.csproj")
+              and AddDotnetProject(name, path) for the API, with paths relative to
+              the AppHost. Bind the WASM app to AddDotnetProjectBlazorGateway.
+              Use aspire run with its CLI bundle; the first gateway run needs
+              NuGet access to acquire Microsoft.AspNetCore.Components.Gateway.Cli
+              through dotnet tool exec. Verify the app URL and browser traffic;
+              compilation alone does not establish a successful launch.
+
+  - name: Protect API traces when fixing browser export amplification
+    tags:
+      capability: telemetry-proxy-isolation
+      risk: lost-business-api-traces
+      journey: repair-browser-export
+    prompt: |
+      Our hosted Blazor Auto app forwards browser OTLP through its server.
+      Telemetry volume grows continuously even when idle. A proposed fix drops
+      every outgoing request whose path starts /v1/, but our business API also
+      uses /v1/orders. Explain how to fix the feedback loop without losing our
+      API traces or weakening HTTPS. Do not edit files or run commands.
+      Start with `Exclude:` and name the traffic your filter would match.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)^Exclude:\s*(?:only\s+)?[^\n]*(?:OTLP|telemetry)[^\n]*(?:dashboard|destination|collector|exporter)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|[.!?;][ \t]+)[ \t]*(?:[-*] |\d+[.)] )?(?:exclude(?::)?|filter(?: out)?|drop|suppress)\s+(?:all|any|every)\b[^.!?\n]*(?:/v1/|outgoing requests)|(?:^|[.!?;][ \t]+)[ \t]*(?:disable|remove|bypass)\s+(?:existing\s+)?HTTPS\b'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Identifies instrumentation of telemetry forwarding as a possible self-export feedback loop and requires traffic evidence.
+      - Narrows exclusions to telemetry forwarding traffic rather than dropping all versioned API requests, preserving existing filters.
+      - Keeps business API traces and the existing HTTPS policy.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: trace-filter-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Exclude: OTLP proxy ingress and outgoing traffic only to the dashboard destination.
+              Confirm that proxying OTLP creates spans that are exported and then
+              instrumented again. Compose existing filters. Do not filter every /v1/
+              request; preserve API traces for
+              /v1/orders and retain HTTPS. Validate that forwarding no longer
+              generates an export loop while business requests still produce spans.
+
+  - name: Leave a fully integrated app unchanged
+    tags:
+      capability: integration-noop
+      risk: duplicate-orchestration
+      journey: verify-existing-setup
+    prompt: |
+      Review whether our .NET 11 hosted Blazor Auto solution still needs Aspire
+      changes. Its compatible AppHost starts the existing server and API.
+      Both have service defaults, health endpoints, and discovery. Hosted client
+      defaults receive the server's environment config. Browser API and OTLP
+      requests succeed through the server's proxy. The dashboard already shows
+      server traces plus browser logs, spans, and metrics after waiting on one
+      page. Report a `Changes:` line with `none` or the proposed changes, then
+      explain why. Do not edit files or run commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)^Changes:[ \t]*none[ \t]*$'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)(?:^|[.!?;][ \t]+)[ \t]*(?:[-*] |\d+[.)] )?(?:(?:also|then|still)\s+)?(?:add|create|install|introduce|replace|upgrade)\b[^.!?\n]*(?:AppHost|gateway|defaults|packages?|versions?)|^Changes:[ \t]*(?!none[ \t]*$)\S'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Recognizes that all applicable capabilities are already present and recommends no changes.
+      - Does not add a second AppHost, gateway, defaults library, or package upgrade.
+      - Distinguishes the supplied observations from checks the agent has personally performed.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: noop-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Changes: none
+              No further changes are indicated by your description. Leave the
+              existing projects, host, defaults, proxies, and versions unchanged.
+              Your observations cover the applicable rendering, API, server, and
+              browser telemetry checks; I have not independently run those checks.
+
+  - name: Keep ordinary component data loading separate
+    tags:
+      capability: data-loading-boundary
+      risk: unrelated-orchestration
+      journey: implement-component-data-flow
+      expect_activation: "false"
+    prompt: |
+      In my existing Blazor Interactive Server page, a route parameter selects
+      a customer. Explain how to cancel an old HTTP request when that parameter
+      changes and show loading and retry states. Do not add infrastructure or
+      generate files or run commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)\bcancel\s+(?:and dispose\s+)?(?:the\s+)?(?:previous|old|prior|in-flight|outstanding)\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:add|create|introduce|install)\b[^.!?\n]*(?:AppHost|gateway|Aspire)|\b(?:do not|don''t|never)\s+cancel\s+(?:the\s+)?(?:previous|old|prior|in-flight)\b'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Addresses parameter-dependent cancellation and user-visible loading/error/retry behavior.
+      - Keeps orchestration outside the scope of the component lifecycle problem and does not introduce an AppHost, gateway, or telemetry pipeline.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: data-loading-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Track the customer parameter in OnParametersSetAsync, cancel the
+              previous CancellationTokenSource on change, and capture the new
+              token for the request. Cancel on disposal. Show loading initially,
+              retain existing data during refresh, and log failures while showing
+              a safe error with Retry. This needs component data-flow handling,
+              not orchestration infrastructure.
+
+  - name: Keep native Hybrid hosting separate
+    tags:
+      capability: hybrid-boundary
+      risk: unsupported-static-hosting
+      journey: native-app-telemetry
+      expect_activation: "false"
+    prompt: |
+      Our MAUI Blazor Hybrid desktop app renders inside BlazorWebView.
+      We want its native process logs in a local Aspire dashboard.
+      Explain the hosting and telemetry direction without changing files or running commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)\b(?:configure|use|enable|export|send)\s+(?:an?\s+)?(?:native\s+)?(?:OpenTelemetry|OTLP|native (?:process )?logs)\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:add|use|install|configure|register)\b[^.!?\n]*(?:browser gateway|Blazor Gateway|WebAssembly client defaults)'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Recognizes a native Hybrid process rather than standalone browser WASM or a hosted Blazor Web App.
+      - Points toward native OpenTelemetry export and treats browser gateway hosting and WebAssembly client defaults as out of scope for this native process.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: hybrid-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Blazor Hybrid runs inside a native MAUI process, not a browser WASM
+              host. Configure native OpenTelemetry logging and an authenticated
+              OTLP exporter for the local dashboard, checking process/platform
+              support and endpoint reachability. A standalone browser gateway or
+              WebAssembly client defaults is not the appropriate integration.
+
+  - name: Keep deployment work separate from integration
+    tags:
+      capability: deployment-boundary
+      risk: unnecessary-application-rewrite
+      journey: deploy-working-app
+      expect_activation: "false"
+    prompt: |
+      Our Blazor application is already fully wired into Aspire and works
+      locally. We only need advice on deploying the existing application to
+      Azure Container Apps, including secrets and ingress. Do not change code
+      or run commands.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)\b(?:use|configure|store|reference)\b[^.!?\n]*(?:secret references|managed identity|Key Vault|secret store)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:add|create|replace|rewrite|install)\b[^.!?\n]*(?:local gateway|local AppHost|browser (?:proxy|telemetry))|\b(?:hardcode|commit|check in)\b[^.!?\n]*(?:secrets|credentials)'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Treats the request as deployment of an already-working application, not missing Blazor integration.
+      - Discusses deployment-specific secret and ingress configuration, keeps application integration changes out of scope, and does not claim a deployment occurred.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: deployment-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Keep the working integration. For Azure Container Apps, use the
+              deployment workflow supported by your Aspire version.
+              Configure managed identity and secret references, and explicitly choose
+              public versus internal ingress with TLS. Validate resource names,
+              health checks, and telemetry access in the target environment.
+              This is deployment planning; no deployment has been performed here.
+
+  - name: Keep new project scaffolding separate
+    tags:
+      capability: scaffolding-boundary
+      risk: premature-aspire-setup
+      journey: create-new-blazor-app
+      expect_activation: "false"
+    prompt: |
+      I need a new Blazor site for a small read-only FAQ. Explain which template
+      and render mode to start with. There is no existing solution or backend.
+      Do not change files or run commands yet.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)\b(?:start with|choose|use|select)\b[^.!?\n]*(?:static SSR|static server|interactivity\s+none|-int\s+None)\b'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^[ \t]*(?:[-*] |\d+[.)] )?(?:add|create|enable|install|use)\b[^.!?\n]*(?:AppHost|Blazor Gateway|Aspire|Interactive Auto|Interactive WebAssembly)'
+      - *no-command
+      - type: prompt
+    rubric:
+      - Chooses simple project scaffolding and static rendering for the stated site.
+      - Keeps orchestration out of scope and does not introduce Aspire, a gateway, browser telemetry, or an API.
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: scaffolding-reference
+        agent: {name: reference, version: "1"}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Start with the Blazor Web App template and static SSR, for example
+              dotnet new blazor -int None when you are ready to scaffold. A
+              read-only FAQ needs neither browser interactivity nor orchestration.
+              Do not add an API, gateway, or telemetry infrastructure for this scope.

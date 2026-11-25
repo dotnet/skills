@@ -7,7 +7,8 @@ description: >
   starting a new web site, choosing render modes (Static SSR, Interactive Server,
   Interactive WebAssembly, Auto), running dotnet new blazor with the right options,
   setting up initial project structure.
-  DO NOT USE FOR: adding features to existing projects, changing how an existing
+  DO NOT USE FOR: adding Aspire to an existing app (use add-aspire-to-blazor),
+  adding features to existing projects, changing how an existing
   app renders, or component authoring (use author-component).
 ---
 
