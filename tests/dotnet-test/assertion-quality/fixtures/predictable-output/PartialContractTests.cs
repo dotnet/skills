@@ -1,22 +1,13 @@
 using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Output;
+using static Output.Producers;
 
 namespace Output.Tests;
 
 [TestClass]
 public class PartialContractTests
 {
-    private static string Log() => $"startup {DateTime.UtcNow:O}\nWARNING: low disk space\nshutdown";
-
-    // Stable result records are emitted in test-ID order; timestamp and property order may vary.
-    private static string RenderResults() => JsonSerializer.Serialize(new
-    {
-        timestamp = DateTime.UtcNow,
-        results = new[] { new { id = "Alpha", status = "passed" }, new { id = "Beta", status = "failed" } },
-    });
-
-    private static string[] DiscoverTestIds() => ["Alpha", "Beta"];
-
     [TestMethod]
     public void Log_IncludesRequiredWarning()
     {

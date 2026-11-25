@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Output;
+using static Output.Producers;
 
 namespace Output.Tests;
 
@@ -7,9 +9,6 @@ namespace Output.Tests;
 public class HtmlTests
 {
     private const string ResultsScriptStart = """<script id="results" type="application/json">""";
-
-    private static string Render() =>
-        """<html><script id="results" type="application/json">{"passed":1,"failed":1,"tests":[{"id":"Alpha","outcome":"passed"},{"id":"Beta","outcome":"failed"}]}</script></html>""";
 
     private static JsonDocument ReadResults(string html)
     {

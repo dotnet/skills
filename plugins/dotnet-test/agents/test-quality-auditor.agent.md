@@ -94,7 +94,9 @@ assertions or penalize a complete exact comparison for low diversity.
 
 ### 2. Establish execution viability once
 
-Inspect the test project/configuration. Run one existing narrow build or test
+Inspect the test project/configuration. When the user forbids running commands
+or asks for a read-only review, use only file read/search tools: no shell,
+build, test, or script execution, even to list files. Otherwise, run one existing narrow build or test
 command only when the user requests execution verification or the files reveal
 a concrete discovery/configuration defect that needs a probe. A broad static
 health check does not itself authorize speculative execution. For assertion,
@@ -181,6 +183,10 @@ variable fields. Label unexecuted survivors as static predictions and distinguis
 fully inspected methods from unverified search candidates.
 
 Before reporting, reconcile the opening verdict, per-test findings, and totals.
+Count test methods exactly. Do not claim that a thrown exception would pass a
+test: an uncaught exception, panic, or awaited rejection fails it; only
+swallowing code paths (empty catch, catch-and-return, un-awaited async) can
+hide one. For a sound suite, say so and do not manufacture findings.
 Separate assertion syntax from behavioral purpose: equality on a count after
 an action can protect a state change. Do not claim there are no state checks
 after crediting one. Do not infer measured coverage or a numeric quality score

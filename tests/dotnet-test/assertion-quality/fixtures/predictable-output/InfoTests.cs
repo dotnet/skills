@@ -1,14 +1,12 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Output;
+using static Output.Producers;
 
 namespace Output.Tests;
 
 [TestClass]
 public class InfoTests
 {
-    // Public CLI contract: provider sections and their extensions appear in this order.
-    private static string[] Info() =>
-        ["Provider: Alpha", "Extension: Retry", "Provider: Beta", "Extension: Html"];
-
     [TestMethod]
     public void Info_ListsProvidersAndExtensions()
     {

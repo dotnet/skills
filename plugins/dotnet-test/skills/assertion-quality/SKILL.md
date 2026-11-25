@@ -15,19 +15,6 @@ Analyze whether assertions reject wrong observable outcomes, not merely whether 
 > If the bundle is absent, use the pinned framework and this skill's rules,
 > report the missing reference, and do not search installation directories.
 
-## Why Assertion Diversity Matters
-
-Low assertion diversity signals shallow testing. Tests may pass while bugs hide in unasserted logic. Common symptoms:
-
-| Problem | Symptom | Consequence |
-|---------|---------|-------------|
-| Trivial assertions | Test contains only `Assert.IsNotNull(result)` / `assert result is not None` / `expect(x).toBeDefined()` | Test passes but doesn't verify correctness |
-| Single-value obsession | Always check one field or return value | Bugs in unasserted logic slip through |
-| Relevant negative behavior is untested | The contract includes rejected or absent outcomes, but no test checks them | Regressions can make invalid input succeed or forbidden effects occur |
-| No state checks | Don't verify object state changes | Missed side-effects or lifecycle issues |
-| No structural checks | Only assert top-level value | Bugs in nested objects go unnoticed |
-| Assertion-free tests | Tests that call but don't verify | Code coverage lies; false security |
-
 ## When to Use
 
 - User asks to evaluate assertion quality or depth
@@ -134,29 +121,22 @@ A single assertion can belong to multiple categories (e.g., `Assert.AreNotEqual`
 
 Read the loaded language extension file for the exact framework-specific list of assertion APIs.
 
-### Step 4: Compute metrics
+### Step 4: Count only what supports a finding
 
-Calculate these metrics for the test suite:
+Count test methods exactly from the inventory, then count tests that are
+assertion-free, trivial-only, self-referential, or incomplete for predictable
+output. A lone null check is weak only when the contract promises a value; it
+can fully verify an expected absence. Self-referential means the expected value
+derives from the actual value or the input cannot distinguish the claimed
+transformation from a no-op; a round-trip check is valid when preservation is
+the contract and the input exercises a real transformation.
 
-#### Per-test metrics
-- **Assertion count**: Number of assertions in each test method
-- **Assertion categories**: Which categories each test uses
-
-#### Suite-wide metrics
-- **Average assertions per test**: Total assertions / total test methods
-- **Assertion type spread**: Number of distinct assertion categories used across the suite (out of 12)
-- **Tests with zero assertions**: Count and percentage of test methods with no assertions at all
-- **Tests with only trivial assertions**: Count and percentage of tests whose checks do not verify their stated contract. A lone null check is weak when it only proves a value exists, but can fully verify an expected-absence contract.
-- **Tests with self-referential assertions**: Count only assertions whose expected result is derived from the same actual value, such as `Assert.AreEqual(dto.Name, dto.Name)`, or whose input cannot distinguish the claimed transformation from a no-op. A round-trip equality check is valid when the contract is round-trip preservation and the input exercises a real transformation.
-- **Tests with negative assertions**: Count relevant checks for rejected, absent, or forbidden outcomes. Do not target a fixed percentage; recommend one only when a specific behavior in the available contract is otherwise unprotected.
-- **Tests with exception assertions**: Count and percentage
-- **Tests with state/side-effect assertions**: Count and percentage
-- **Tests with structural/deep assertions**: Count and percentage
-- **Single-category tests**: Count and percentage of tests that use only one assertion category
-
-These metrics describe syntax, not strength. For output reviews, count tests
-with incomplete predictable-output checks separately; never infer quality from
-category spread or recommend negative/exception assertions to meet a quota.
+Category counts describe syntax, not strength. Report them only when the caller
+asks for metrics, and define every number shown. Never present a category
+"spread" score or a target percentage, and never recommend negative, exception,
+or other assertion types to meet a quota. Every count must agree with the
+per-test findings (for example, do not claim "no state checks" after crediting
+an equality on a post-action count as a state check).
 
 ### Step 5: Apply calibration rules
 
@@ -168,6 +148,13 @@ Before reporting, calibrate findings:
   meaningful, name the behavior it pins. If you cannot give such a
   counterexample from the test and available production contract, do not
   speculate that the assertion is weak.
+- **State exception semantics precisely.** In every mainstream framework an
+  uncaught exception, rejected awaited promise, panic, or failed fixture fails
+  the test. An assertion-free test therefore still proves "does not throw";
+  its weakness is that a wrong result passes. Only swallowed exceptions
+  (empty `catch`, `except: pass`, catch-and-return) or un-awaited async work
+  let a throwing operation pass. Never claim a thrown error would pass a test
+  unless the code shows such a path.
 - **Judge null checks against the contract.** A lone `IsNotNull` is weak when the test promises a particular result but never verifies it. A lone `IsNull` can completely verify a promised absence, and `toBeDefined()` can verify a contract that excludes `undefined`. A null guard before further checks does not make the overall test trivial.
 - **Use exact Jest semantics.** `toBeDefined()` rejects only `undefined`;
   `null` does satisfy it, but mention that only when `null` is a realistic
@@ -195,16 +182,10 @@ Before reporting, calibrate findings:
 
 ### Step 6: Report findings
 
-**Scale the report to the request.** Use the metrics template below only when
-the caller asks for metrics or diversity analysis. Otherwise lead with the
-behavioral verdict and concrete findings; do not pad a multi-file review with
-a category dashboard. For a small file, account for weak and sound tests in one
-compact table, distinguishing deliberate smoke checks from correctness tests.
-
-For a five-to-eight-test file, default to one verdict plus one compact per-test
-table. Omit category-spread dashboards and hypothetical failure modes unless the
-caller asks for metrics. State only counterexamples supported by the assertion
-predicate and available production behavior.
+**Scale the report to the request.** Lead with the behavioral verdict and
+concrete findings. Account for every in-scope test, distinguishing deliberate
+smoke checks from correctness tests. State only counterexamples supported by
+the assertion predicate and available production behavior.
 
 For predictable-output findings use:
 
@@ -219,43 +200,29 @@ confirmed inspected tests from search-only candidates or unavailable producer
 context; do not report an exhaustive count from a grep scan. A static review
 does not require editing tests or running mutations.
 
-Present the analysis in this structure:
+Otherwise use one compact table:
 
-1. **Summary Dashboard** — A quick-reference table of key metrics:
-   ```
-   | Metric                        | Value  | Assessment |
-   |-------------------------------|--------|------------|
-   | Total tests                   | 25     | —          |
-   | Average assertions per test   | 2.4    | Moderate   |
-   | Assertion type spread         | 5/12   | Low        |
-   | Tests with zero assertions    | 3 (12%)| Concerning |
-   | Tests with only trivial asserts | 4 (16%)| Acceptable |
-   | Tests for relevant rejected/absent outcomes | 2 (8%) | Review against the production contract |
-   | Single-category tests         | 15 (60%)| High       |
-   ```
+| Test | Verdict (weak / meaningful / intentional smoke / unassessed) | What it pins, or a wrong result it accepts | Concrete repair |
+|---|---|---|---|
 
-2. **Category Breakdown** — For each assertion category, show:
-   - How many tests use it
-   - Representative examples from the code
-   - Whether it's overused or underused relative to the code under test
+Then list repairs in priority order. Each repair names the test and the exact
+assertion to add or replace; do not recommend assertion types in the abstract.
+When the caller requests metrics, add a short table of the Step 4 counts with
+their definitions; omit category breakdowns otherwise.
 
-3. **Gap Analysis** — Based on the production code (if available), identify:
-   - Behaviors that are tested but only with equality checks
-   - Error paths with no exception assertions
-   - State-changing methods with no state verification
-   - Collections returned but never checked for contents
+If the suite is sound, say so first, count its tests exactly, and do not invent
+findings to fill the report. A mention of an optional improvement must be
+labelled optional and must not be framed as a defect.
 
-4. **Recommendations** — Prioritized list of improvements:
-   - Which tests would benefit most from additional assertion types
-   - Which assertion categories are missing and why they matter
-   - Concrete examples of assertions that could be added
-
-5. **Assertion-free tests** — If any exist, list each one with its method name and what it appears to be testing, so the user can decide whether to add assertions or mark them as intentional smoke tests.
+When the user forbids running commands, use only file read/search tools: no
+shell, build, test, or script execution, even to list files. Report results as
+static analysis.
 
 ## Validation
 
-- [ ] Every assertion in the test suite was classified into at least one category
-- [ ] Metrics are computed correctly (counts add up)
+- [ ] Every in-scope test method is accounted for and the test count is exact
+- [ ] Every count shown is defined and agrees with the per-test findings
+- [ ] No claim that a thrown exception passes a test unless the code swallows it
 - [ ] Trivial-assertion tests are correctly identified (not over-flagged)
 - [ ] Exception tests are not penalized for low assertion count
 - [ ] Boolean assertions on meaningful properties are not classified as trivial
