@@ -117,6 +117,31 @@ test("read-only test-quality evals reject shell and file-mutation tools", async 
   }
 });
 
+test("predictable-output reviews reject additional file-mutation aliases", async () => {
+  const spec = await loadEvalSpec(
+    join("tests", "dotnet-test", "assertion-quality", "eval.yaml"),
+  );
+  const names = [
+    "Review generated registry verification",
+    "Review embedded result payload verification",
+    "Review provider information verification",
+    "Review summary and option diagnostic verification",
+    "Review forwarded stream record verification",
+    "Review filtered acceptance run verification",
+    "Preserve intentionally partial and variable output contracts",
+  ];
+  for (const name of names) {
+    const item = spec.stimuli.find((entry) => entry.name === name);
+    assert.ok(item, `missing scenario: ${name}`);
+    const grader = item.graders.find((entry) => entry.type === "tool-calls");
+    assert.ok(grader, `${name} must have a tool-calls grader`);
+    assert.equal((await grade(grader, completedToolCall("view"))).passed, true);
+    for (const tool of ["rename", "move", "write", "write_file", "append", "append_file"]) {
+      assert.equal((await grade(grader, completedToolCall(tool))).passed, false, `${name} must reject ${tool}`);
+    }
+  }
+});
+
 test("skill-invocation required list affects trajectory results", async () => {
   const required = {
     type: "skill-invocation",
