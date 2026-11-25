@@ -43,12 +43,12 @@ Apply light/dark mode support, custom branded themes, and runtime theme switchin
 
 1. Detect the current theme approach in the project (AppThemeBinding, ResourceDictionary, or none).
 2. Choose the appropriate strategy: AppThemeBinding for simple light/dark, ResourceDictionary swap for custom/multiple themes, or both combined.
-3. Define theme resources — inline `AppThemeBinding` values or separate `ResourceDictionary` files with matching keys.
-4. Replace hardcoded colors with `DynamicResource` bindings (or `AppThemeBinding` markup) throughout XAML pages.
-5. Add system theme detection via `Application.Current.RequestedTheme` and the `RequestedThemeChanged` event.
-6. Implement user preference persistence with `Preferences.Set` / `Preferences.Get` and apply on startup.
-7. Verify Android `ConfigChanges.UiMode` is set on `MainActivity` to avoid activity restarts on theme change.
-8. Test both light and dark themes on at least one target platform, confirming all UI elements respond correctly.
+3. Define the requested light/dark values; use shared palette resources when colors repeat, or matching dictionary keys for custom themes.
+4. Replace fixed light-only colors with `AppThemeBinding`; use `DynamicResource` for values in dictionaries that actually change at runtime.
+5. Read `RequestedTheme` or subscribe to `RequestedThemeChanged` only when custom logic needs them; `AppThemeBinding` follows theme changes itself.
+6. Persist and restore a user preference only when the app offers one.
+7. Inspect Android `ConfigChanges.UiMode` when platform configuration or custom runtime switching is part of the request, not as an extra setup step for every answer.
+8. Run available checks and distinguish their scope. Only claim native light/dark rendering or device validation when actually exercised; package/object-model checks do not certify it.
 
 ## Rules That Change the Answer
 
@@ -74,6 +74,12 @@ didn't raise.
 swapping (or vice versa) unless the user needs what the other approach provides —
 more than two themes, or a user-selectable theme.
 
+Keep the theme tracker at application lifetime, not on a disposable settings
+page: reopening that page must still remove the theme added by the previous
+instance. Expose a shared instance method callable both at startup and by
+settings. For stored choices, use a switch with a System fallback (or validated
+`Enum.TryParse`); `Enum.Parse` can throw on stale/malformed preferences.
+
 ## Choosing an Approach
 
 | Approach | Best for | Limitation |
@@ -90,8 +96,9 @@ more than two themes, or a user-selectable theme.
 
 Putting `{AppThemeBinding Light=#333333, Dark=#FFFFFF}` on every element is the
 single most common theming mistake: the palette ends up duplicated across dozens of
-files and cannot be changed in one place. **Recommend this shape as the final
-answer**, not inline literals:
+files and cannot be changed in one place. Prefer this shared-palette shape for
+repeated colors; a literal Light/Dark pair is valid for a genuine one-off and
+does not freeze the control to a light-only color:
 
 ```xml
 <!-- App.xaml — one source of truth for the whole app -->
@@ -122,8 +129,9 @@ answer**, not inline literals:
 ```
 
 Pages then need **no theming markup at all** — they pick the styles up implicitly.
-Use an inline `AppThemeBinding` only for genuine one-offs, and even then reference
-`{StaticResource}` keys rather than literal hex.
+Use inline `AppThemeBinding` for genuine one-offs. Reuse `{StaticResource}` keys
+when the values are already part of the shared palette; do not require a
+dictionary architecture just to demonstrate the API.
 
 ### XAML (inline form, for one-offs)
 
@@ -220,40 +228,74 @@ Use `DynamicResource` so values update when the dictionary is swapped at runtime
 
 Remove only the theme you added, and leave everything else alone:
 
+Keep the tracking field and switching method on the same application-lifetime
+owner with consistent instance/static scope. A static method cannot access an
+instance field. Create this service once during startup, using the same instance
+from Settings; do not create a new tracker on each page or switch.
+
 ```csharp
-static ResourceDictionary? _currentTheme;
-
-void ApplyTheme(ResourceDictionary theme)
+public sealed class ThemeManager
 {
-    var merged = Application.Current!.Resources.MergedDictionaries;
+    private readonly ResourceDictionary _resources;
+    private ResourceDictionary? _currentTheme;
 
-    // ✅ Remove ONLY the previous theme — Colors.xaml / Styles.xaml survive
-    if (_currentTheme is not null)
-        merged.Remove(_currentTheme);
+    public ThemeManager(ResourceDictionary resources) => _resources = resources;
 
-    merged.Add(theme);
-    _currentTheme = theme;
+    public static ResourceDictionary ResolveTheme(string choice, AppTheme systemTheme)
+        => choice switch
+        {
+            "Dark" => new DarkTheme(),
+            "Light" => new LightTheme(),
+            _ => systemTheme == AppTheme.Dark ? new DarkTheme() : new LightTheme()
+        };
+
+    public void ApplyTheme(ResourceDictionary theme)
+    {
+        var merged = _resources.MergedDictionaries;
+        if (_currentTheme is not null)
+            merged.Remove(_currentTheme);
+        merged.Add(theme);
+        _currentTheme = theme;
+    }
 }
 
-// Usage
-ApplyTheme(new DarkTheme());
-```
+public partial class App : Application
+{
+    public ThemeManager Themes { get; }
+    private string _choice;
 
-```csharp
-// ❌ Destroys the app's Colors.xaml and Styles.xaml along with the old theme
-var merged = Application.Current!.Resources.MergedDictionaries;
-merged.Clear();
-merged.Add(theme);
+    public App()
+    {
+        InitializeComponent();
+        Themes = new ThemeManager(Resources);
+        _choice = Preferences.Get("CustomTheme", "System");
+        ApplySelectedTheme();
+        RequestedThemeChanged += (_, _) =>
+        {
+            if (_choice is not ("Light" or "Dark"))
+                ApplySelectedTheme();
+        };
+    }
+
+    private void ApplySelectedTheme()
+        => Themes.ApplyTheme(ThemeManager.ResolveTheme(_choice, RequestedTheme));
+
+    public void SelectTheme(string choice)
+    {
+        _choice = choice is "Light" or "Dark" ? choice : "System";
+        Preferences.Set("CustomTheme", _choice);
+        ApplySelectedTheme();
+    }
+}
+
+// Settings uses the same tracker, including after the page is recreated.
+((App)Application.Current!).SelectTheme("Dark"); // Or "Light" / "System".
 ```
 
 ## System Theme Detection
 
-### Read the Current Theme
-
-```csharp
-AppTheme currentTheme = Application.Current!.RequestedTheme;
-// Returns AppTheme.Light, AppTheme.Dark, or AppTheme.Unspecified
-```
+Read `Application.Current!.RequestedTheme`: `AppTheme.Light`, `AppTheme.Dark`,
+or `AppTheme.Unspecified`.
 
 ### Override the System Theme
 
@@ -277,7 +319,27 @@ Application.Current!.RequestedThemeChanged += (s, e) =>
 
 ## Combining Both Approaches
 
-Use `AppThemeBinding` with `DynamicResource` values for maximum flexibility — the
+Choose one palette resolver when high contrast is a peer theme. A custom
+high-contrast setting is independent of the OS `AppTheme` signal:
+
+| User choice | Applied dictionary |
+|---|---|
+| High contrast | HighContrast, regardless of OS Light/Dark |
+| Explicit Light / Dark | The selected palette |
+| Follow system | Light or Dark from the current OS theme |
+
+Use the same required keys in every peer dictionary and consume them through
+`DynamicResource`. Verify that each palette supplies that key contract. Do not
+also put Light/Dark `AppThemeBinding` expressions over those same peer-theme keys,
+which creates competing selection paths. `UserAppTheme` cannot represent a third
+high-contrast enum value.
+For Follow system, re-run that resolver on `RequestedThemeChanged`, not just at
+startup; retain the user's explicit Light/Dark/HighContrast choice when the OS
+changes. A deliberately orthogonal contrast overlay is also valid: resolve the
+current Light/Dark base, then the contrast overrides, on each relevant change.
+
+For a different design that deliberately defines separate Light/Dark keys, use
+`AppThemeBinding` with `DynamicResource` values — the
 nested `DynamicResource` stays live, so swapping the dictionary updates the value
 *and* the OS light/dark switch is still honoured:
 
@@ -302,6 +364,9 @@ Application.Current!.RequestedThemeChanged += (s, e) =>
 
 Store the user's choice with `Preferences` and apply it on startup:
 
+Persist the three-way choice, not the resolved `RequestedTheme`. Unknown stored
+values should return to following the system, not crash startup.
+
 ```csharp
 // Save choice
 Preferences.Set("AppTheme", "Dark");
@@ -315,6 +380,26 @@ Application.Current!.UserAppTheme = saved switch
     _       => AppTheme.Unspecified
 };
 ```
+
+Strings with a safe fallback are valid; a typed enum is an optional convenience.
+Whichever representation is used, centralize the choice-to-theme mapping so
+startup restore and the settings action apply the same policy.
+
+## Page-Owned Theme Event Subscriptions
+
+`RequestedThemeChanged` is an **instance event on Application**, not a static
+event. MAUI 10 implements it through a weak-event manager, so do not diagnose a
+strong-reference leak solely from that subscription. Still prevent duplicate
+callbacks on live pages: pair appearance with disappearance and reattach on reappearance.
+Read [event ownership](references/event-ownership.md) for the complete page
+implementation when the request concerns leaks, duplicate callbacks or
+subscription lifecycle.
+
+Use the exact captured publisher and handler for removal. Do not subscribe only
+in the constructor and unsubscribe on disappearance: a reappearing page would
+stop observing. Do not declare `IDisposable` without implementing `Dispose`, or
+assume MAUI automatically disposes a page. An application-lifetime theme service
+may instead own one subscription for its own lifetime.
 
 ## Common Pitfalls
 
@@ -353,7 +438,7 @@ diagnose this, always show the swap and the system-theme hook alongside the fix 
 otherwise the user has a corrected binding that still never updates:
 
 ```csharp
-static ResourceDictionary? _currentTheme;
+ResourceDictionary? _currentTheme;
 
 void ApplyTheme(bool useDark)
 {

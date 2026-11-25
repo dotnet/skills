@@ -1,0 +1,26 @@
+{
+  "microsoft.net.sdk.android.manifest-9.0.100/35.0.50": {
+    "microsoft.net.sdk.android": {
+      "jdk": {
+        "version": "[17.0,22.0)",
+        "recommendedVersion": "17.0.12"
+      },
+      "androidsdk": {
+        "packages": [
+          {"sdkPackage": {"id": "build-tools;35.0.0"}, "optional": "false"},
+          {"sdkPackage": {"id": "cmdline-tools;12.0"}, "optional": "false"},
+          {"sdkPackage": {"id": "platforms;android-35"}, "optional": "false"},
+          {"sdkPackage": {"id": "platform-tools"}, "optional": "false"},
+          {"sdkPackage": {"id": "emulator"}, "optional": "true"},
+          {"sdkPackage": {"id": {"mac-arm64": "system-images;android-35;google_apis;arm64-v8a"}}, "optional": "true"}
+        ]
+      }
+    }
+  },
+  "microsoft.net.sdk.android.manifest-10.0.200/35.0.50": {
+    "microsoft.net.sdk.android": {
+      "jdk": {"version": "[21.0,22.0)", "recommendedVersion": "21.0.8"},
+      "androidsdk": {"packages": [{"sdkPackage": {"id": "platforms;android-99"}, "optional": "false"}]}
+    }
+  }
+}

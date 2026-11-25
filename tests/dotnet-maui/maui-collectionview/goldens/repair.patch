@@ -1,0 +1,11 @@
+--- a/Program.cs
++++ b/Program.cs
+@@ -11,7 +11,7 @@
+     {
+         BindingContext = vm,
+         ItemsSource = vm.Products,
+-        ItemSizingStrategy = ItemSizingStrategy.MeasureAllItems,
++        ItemSizingStrategy = ItemSizingStrategy.MeasureFirstItem,
+         ItemsLayout = new LinearItemsLayout(ItemsLayoutOrientation.Vertical)
+     };
+ }

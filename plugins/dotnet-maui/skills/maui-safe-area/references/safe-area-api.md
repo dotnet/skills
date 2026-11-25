@@ -56,15 +56,43 @@ SafeAreaEdges="Container, SoftInput"
 SafeAreaEdges="Container, Container, Container, SoftInput"
 ```
 
+In the pinned MAUI 10 Android/iOS calculations, `SoftInput` retains the original
+system-bar safe area while the keyboard is hidden. Android also retains it
+on non-bottom edges while the keyboard is visible. `All` expresses both region
+flags explicitly; do not infer that `SoftInput` always omits bar protection.
+Actual applied padding also depends on the control, parent consumption and
+target platform/patch.
+See the pinned [Android per-edge calculation](https://github.com/dotnet/maui/blob/9d881e94b1c56692e40a16262897677a3bb46fcb/src/Core/src/Platform/Android/SafeAreaExtensions.cs)
+and [iOS MauiView calculation](https://github.com/dotnet/maui/blob/9d881e94b1c56692e40a16262897677a3bb46fcb/src/Core/src/Platform/iOS/MauiView.cs).
+
 ## Controls That Support SafeAreaEdges
 
 | Control | Default value | Notes |
 |---------|--------------|-------|
 | `ContentPage` | `None` | Edge-to-edge. **Breaking change from .NET 9 Android.** |
 | `Layout` (Grid, StackLayout, etc.) | `Container` | Respects bars/notch, flows under keyboard |
-| `ScrollView` | `Default` | iOS: maps to `UIScrollViewContentInsetAdjustmentBehavior.Automatic`. Only `Container` and `None` have effect. |
+| `ScrollView` | `Default` | iOS: maps to `UIScrollViewContentInsetAdjustmentBehavior.Automatic`. Exposes per-edge policies; verify platform/version-specific keyboard behavior. |
 | `ContentView` | `None` | Inherits parent behavior |
 | `Border` | `None` | Inherits parent behavior |
+
+`ScrollView` exposes `SafeAreaEdges` through `ISafeAreaElement`/`ISafeAreaView2`.
+In MAUI 10.0.0, the Android scroller forwards window insets to
+`SafeAreaExtensions.ApplyAdjustedSafeAreaInsetsPx`, whose bottom-edge calculation
+consumes IME insets for `SoftInput`/`All`. Direct assignment is not categorically
+unsupported. iOS uses a different content-inset path; an API/property probe or
+the Issue28986 sample's policy selector does not prove keyboard delivery there.
+Verify the target patch and native behavior. A shared keyboard-aware page/Grid
+can protect both a bounded scroller and a sibling input bar; a policy on only
+the scroller does not protect its siblings.
+
+The [safe-area guide](https://learn.microsoft.com/dotnet/maui/user-interface/safe-area?view=net-maui-10.0)
+contains a wrapper-only warning, while the
+[iOS guidance](https://learn.microsoft.com/dotnet/maui/ios/platform-specifics/page-safe-area-layout?view=net-maui-10.0)
+shows direct `ScrollView` assignment. Resolve that disagreement using the
+target platform/version rather than extrapolating either example to all hosts:
+[Android scroller](https://github.com/dotnet/maui/blob/9d881e94b1c56692e40a16262897677a3bb46fcb/src/Core/src/Platform/Android/MauiScrollView.cs),
+[Android inset calculation](https://github.com/dotnet/maui/blob/9d881e94b1c56692e40a16262897677a3bb46fcb/src/Core/src/Platform/Android/SafeAreaExtensions.cs),
+[iOS scroller](https://github.com/dotnet/maui/blob/9d881e94b1c56692e40a16262897677a3bb46fcb/src/Core/src/Platform/iOS/MauiScrollView.cs).
 
 ## Usage Pattern Examples
 
@@ -111,7 +139,7 @@ SafeAreaEdges="Container, Container, Container, SoftInput"
         <Border Grid.Row="1"
                 BackgroundColor="LightGray"
                 Padding="20">
-            <Grid ColumnDefinitions="*,Auto" Spacing="10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <Entry Placeholder="Type a message..." />
                 <Button Grid.Column="1" Text="Send" />
             </Grid>
@@ -132,7 +160,7 @@ SafeAreaEdges="Container, Container, Container, SoftInput"
                    Margin="20,40,20,20" />
         </Grid>
 
-        <!-- Body: respect safe areas (ScrollView only honors Container and None) -->
+        <!-- Body: respect system bars; the editor has a separate keyboard policy -->
         <ScrollView Grid.Row="1" SafeAreaEdges="Container">
             <VerticalStackLayout Padding="20">
                 <Label Text="Main content" />
