@@ -87,6 +87,36 @@ test("tool-calls required and disallowed lists affect trajectory results", async
   assert.equal((await grade(disallowed, completedToolCall("bash"))).passed, false);
 });
 
+test("read-only test-quality evals reject shell and file-mutation tools", async () => {
+  for (const path of [
+    join("tests", "dotnet-test", "assertion-quality", "eval.yaml"),
+    join("tests", "dotnet-test", "grade-tests", "eval.yaml"),
+  ]) {
+    const spec = await loadEvalSpec(path);
+    const graders = spec.stimuli.flatMap((item) => item.graders ?? [])
+      .filter((grader) => grader.type === "tool-calls"
+        && grader.config?.disallowed?.includes("bash"));
+    assert.ok(graders.length > 0, `${path} must retain read-only tool guards`);
+
+    for (const grader of graders) {
+      for (const tool of [
+        "bash", "powershell", "execute", "shell", "run_shell_command",
+        "local_shell", "edit", "create", "delete", "remove", "apply_patch",
+      ]) {
+        assert.ok(
+          grader.config.disallowed.includes(tool),
+          `${path} must disallow ${tool}`,
+        );
+        assert.equal(
+          (await grade(grader, completedToolCall(tool))).passed,
+          false,
+          `${path} must reject ${tool}`,
+        );
+      }
+    }
+  }
+});
+
 test("skill-invocation required list affects trajectory results", async () => {
   const required = {
     type: "skill-invocation",

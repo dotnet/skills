@@ -520,7 +520,7 @@ stimuli:
     graders:
       - type: tool-calls
         config:
-          disallowed: [bash, edit, create]
+          disallowed: [bash, powershell, execute, shell, run_shell_command, local_shell, edit, create, delete, remove, apply_patch]
       - type: output-matches
         config: {pattern: Summary_ShowsPassingTest}
       - type: output-matches

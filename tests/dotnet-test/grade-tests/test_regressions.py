@@ -41,6 +41,16 @@ composition_spec.loader.exec_module(composition)
 
 
 class GradingRegressions(unittest.TestCase):
+    def test_direct_skill_loading_is_not_mislabeled_as_audit_delegation(self):
+        stimulus = next(
+            item for item in SPEC["stimuli"]
+            if item["name"] == "Distinguish inferred boundary detection from executed mutation results"
+        )
+        rubric = "\n".join(stimulus["rubric"]).casefold()
+        self.assertIn("directly loading a relevant skill or reference is not delegation", rubric)
+        self.assertIn("no agent/subagent is launched", rubric)
+        self.assertNotIn("audit delegation", rubric)
+
     def materialize(self):
         directory = tempfile.TemporaryDirectory(prefix="grading-regression-")
         self.addCleanup(directory.cleanup)
