@@ -70,7 +70,7 @@ on:
         type: string
         required: false
       matrix_profile:
-        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = claude-sonnet-5 + gpt-5.6-luna; mid = claude-haiku-4.5 + mai-code-1.1-flash + gpt-5.3-codex; sol = gpt-5.6-sol only; full = default + mid (5 models); newer = gpt-6-astra + claude-opus-5."
+        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = claude-sonnet-5 + gpt-5.6-luna; mid = claude-haiku-4.5 + mai-code-1.1-flash + gpt-5.3-codex; sol = gpt-5.6-sol only; full = default + mid (5 models); newer = gpt-6-astra + claude-opus-5.5."
         type: choice
         required: false
         default: default
@@ -120,7 +120,7 @@ on:
   #   Mon/Wed/Fri -> default (claude-sonnet-5 + gpt-5.6-luna)
   #   Tue/Sat     -> mid     (claude-haiku-4.5, mai-code-1.1-flash, gpt-5.3-codex)
   #   Thu         -> sol      (gpt-5.6-sol only)
-  #   Sun         -> newer    (gpt-6-astra, claude-opus-5)
+  #   Sun         -> newer    (gpt-6-astra, claude-opus-5.5)
   schedule:
     - cron: '0 7 * * 1,3,5'  # default models (Mon/Wed/Fri)
     - cron: '0 7 * * 2,6'    # cheap/mid models (Tue/Sat)
@@ -183,20 +183,55 @@ jobs:
           $base = "${{ github.event.pull_request.base.sha }}"
           $head = "${{ github.event.pull_request.head.sha }}"
           $mergeBase = git merge-base $base $head
-          $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
+            throw "Could not determine a merge base for '$base' and '$head'."
+          }
+          # Keep deleted paths in change classification so deletions from
+          # surviving targets still require evaluation.
+          $infraCandidateFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not enumerate infrastructure changes for '$mergeBase..$head'."
+          }
+          $changedManifestPlugins = @($infraCandidateFiles |
+            ForEach-Object {
+              if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
+                $Matches[1]
+              }
+            } |
+            Where-Object { $_ } |
+            Sort-Object -Unique)
+          $helperPath = Join-Path $PWD "eng/evaluation/change-classification.ps1"
+          if (Test-Path $helperPath) {
+            . $helperPath
+            $manifestChanges = @(Get-PluginManifestChanges `
+              -ChangedFiles $infraCandidateFiles -BaseCommit $mergeBase -HeadCommit $head)
+            $changedManifestPlugins = @($manifestChanges |
+              Where-Object { $_.Kind -eq "Behavior" } |
+              Select-Object -ExpandProperty Plugin)
+          } else {
+            Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
+          }
 
-          $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
+          $hasSkillChanges = $infraCandidateFiles |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
+          if ($changedManifestPlugins.Count -gt 0) {
+            $hasSkillChanges = $true
+          }
 
           # Evaluation pipeline changes need a re-eval. The native custom-agent
           # lane executes eng/skill-validator/src, so changes there are evaluator
           # infrastructure changes. Documentation files don't affect evaluation.
-          $hasInfraChanges = $changedFiles |
+          $hasInfraChanges = $infraCandidateFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation-tools/') -or
+              ($_ -match '^eng/run-skill-evals\.sh$') -or
+              ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/nuget\.config$') -or
               ($_ -match '^eng/skill-validator/src/') -or
+              ($_ -match '^eng/skill-validator/Directory\.Build\.props$') -or
+              ($_ -match '^global\.json$') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
@@ -255,17 +290,52 @@ jobs:
           $base = "${{ github.event.pull_request.base.sha }}"
           $head = "FETCH_HEAD"
           $mergeBase = git merge-base $base $head
-          $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$mergeBase")) {
+            throw "Could not determine a merge base for '$base' and '$head'."
+          }
+          # Keep deleted paths in change classification so deletions from
+          # surviving targets still require evaluation.
+          $infraCandidateFiles = @(git diff --no-renames --name-only --diff-filter=ACMRD $mergeBase $head)
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not enumerate infrastructure changes for '$mergeBase..$head'."
+          }
+          $changedManifestPlugins = @($infraCandidateFiles |
+            ForEach-Object {
+              if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
+                $Matches[1]
+              }
+            } |
+            Where-Object { $_ } |
+            Sort-Object -Unique)
+          $helperPath = Join-Path $PWD "eng/evaluation/change-classification.ps1"
+          if (Test-Path $helperPath) {
+            . $helperPath
+            $manifestChanges = @(Get-PluginManifestChanges `
+              -ChangedFiles $infraCandidateFiles -BaseCommit $mergeBase -HeadCommit $head)
+            $changedManifestPlugins = @($manifestChanges |
+              Where-Object { $_.Kind -eq "Behavior" } |
+              Select-Object -ExpandProperty Plugin)
+          } else {
+            Write-Warning "The manifest change classifier is missing; treating every root manifest edit as a behavior change."
+          }
 
-          $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
+          $hasSkillChanges = $infraCandidateFiles |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/|tests/agentic-workflows/|agentic-workflows/|\.github/graders/)' } |
             Select-Object -First 1
+          if ($changedManifestPlugins.Count -gt 0) {
+            $hasSkillChanges = $true
+          }
 
-          $hasInfraChanges = $changedFiles |
+          $hasInfraChanges = $infraCandidateFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
-              ($_ -match '^eng/evaluation/(?:find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation-tools/') -or
+              ($_ -match '^eng/run-skill-evals\.sh$') -or
+              ($_ -match '^eng/evaluation/(?:change-classification|find-targets|path-safety|workflow-targets)\.ps1$') -or
+              ($_ -match '^eng/evaluation/nuget\.config$') -or
               ($_ -match '^eng/skill-validator/src/') -or
+              ($_ -match '^eng/skill-validator/Directory\.Build\.props$') -or
+              ($_ -match '^global\.json$') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
@@ -1760,12 +1830,17 @@ jobs:
           node-version: 20
 
       - name: Fetch eval data from dashboard-eval-data branch
+        id: fetch-eval-data
         run: |
+          set -o pipefail
           mkdir -p /tmp/gh-pages/data
-          git fetch --depth=1 origin dashboard-eval-data:dashboard-eval-data 2>/dev/null || true
-          git checkout dashboard-eval-data -- data/ 2>/dev/null && \
-            cp -r data/* /tmp/gh-pages/data/ && \
-            git checkout HEAD -- . || true
+          if git fetch --depth=1 origin dashboard-eval-data:dashboard-eval-data &&
+             git archive dashboard-eval-data data/ | tar -xf - -C /tmp/gh-pages; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=Dashboard evaluation data unavailable::Could not fetch and stage dashboard-eval-data."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Fetch token data from dashboard-token-data branch
         run: |
@@ -1779,13 +1854,18 @@ jobs:
           AGENTVIZ_REPO="https://github.com/jayparikh/agentviz.git"
           AGENTVIZ_BRANCH="main"
 
-          # Resolve the latest commit on the AGENTVIZ branch (no clone needed)
-          TARGET_SHA=$(git ls-remote "$AGENTVIZ_REPO" "refs/heads/$AGENTVIZ_BRANCH" | cut -f1)
-          if [ -z "$TARGET_SHA" ]; then
-            echo "::error::Could not resolve AGENTVIZ branch $AGENTVIZ_BRANCH"
-            exit 1
+          # A replay source outage must not prevent current dashboard data from
+          # being published with the already deployed viewer.
+          set -o pipefail
+          if ! TARGET_SHA=$(git ls-remote --exit-code "$AGENTVIZ_REPO" "refs/heads/$AGENTVIZ_BRANCH" | cut -f1) ||
+             [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::warning title=Replay viewer update unavailable::Could not resolve AGENTVIZ branch $AGENTVIZ_BRANCH. The dashboard will retain the existing viewer if it is valid."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "source_unavailable=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "source_unavailable=false" >> "$GITHUB_OUTPUT"
           echo "AGENTVIZ target commit: $TARGET_SHA"
 
           # Read the currently deployed commit SHA from gh-pages (no clone needed)
@@ -1849,6 +1929,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          if [ "${{ steps.check-replay.outputs.source_unavailable }}" = "true" ]; then
+            node "${{ github.workspace }}/eng/dashboard/verify-replay.js" replay "${GITHUB_REPOSITORY#*/}"
+            if [ "${{ steps.fetch-eval-data.outputs.available }}" != "true" ]; then
+              echo "::error title=Dashboard evaluation data unavailable::Could not fetch dashboard-eval-data; refusing to publish a stale dashboard."
+              exit 1
+            fi
+            for file in components.json skill-value.json; do
+              if [ ! -s "/tmp/gh-pages/data/$file" ]; then
+                echo "::error title=Dashboard evaluation data unavailable::Could not stage $file from dashboard-eval-data; refusing to publish a stale dashboard."
+                exit 1
+              fi
+            done
+          fi
+
           # Copy data from both branches
           mkdir -p data
           cp /tmp/gh-pages/data/*.json data/
@@ -1893,3 +1987,14 @@ jobs:
           git diff --cached --quiet && echo "No changes to deploy" && exit 0
           git commit -m "Update dashboard"
           git push origin gh-pages
+
+      - name: Report unavailable replay source
+        if: steps.check-replay.outputs.source_unavailable == 'true'
+        run: |
+          {
+            echo "### Replay viewer update unavailable"
+            echo "Dashboard deployment completed with the existing viewer. Restore access to the AGENTVIZ source to resume viewer updates."
+            printf 'Retained viewer commit: `%s`.\n' "$(cat /tmp/deploy/replay/.agentviz-commit)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error title=Replay viewer update unavailable::Dashboard deployment completed, but the replay source could not be resolved and its viewer was not updated."
+          exit 1
