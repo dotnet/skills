@@ -126,6 +126,16 @@ When an evaluation has a non-pass or warning, the PR comment includes a ready-to
 
 ## Quick start
 
+Trusted discovery scripts and evaluated content can come from different
+revisions. An infrastructure PR predating workflow eval support can contain
+`agentic-workflows/<package>/aw.yml` but no corresponding
+`tests/agentic-workflows/<package>/eval.yaml`. Newer trusted discovery then fails
+closed with `Workflow package '<package>' has no eval.yaml` before evaluation.
+Integrate the already-landed workflow evaluation prerequisites into the PR
+content snapshot; do not hide the failure by skipping missing specifications.
+Validate discovery against the exact updated head. A local discovery pass is
+not a paid evaluation result or trusted/default harness certification.
+
 The default PR evaluation profile uses `claude-sonnet-5` and `gpt-5.6-luna`.
 Sonnet is judged by `gpt-6.1-terra`; Luna is judged by `claude-haiku-4.5`.
 The `full` profile includes those defaults. Explicit profile selections still
@@ -143,7 +153,8 @@ session creation to wait until the filesystem provider is ready. The trusted
 `eng/evaluation-tools/vally.mjs` launcher loads a version-checked startup guard.
 For those older supported versions, it shares startup per client and waits for
 readiness before creating or resuming sessions. SDK 1.0.29 fixes both races, so
-the guard accepts that version without patching its native methods. Unknown
+the startup guard leaves its native startup implementation unchanged and session
+wrappers only enforce the independent unsupported-provider policy. Unknown
 versions still fail explicitly until their startup behavior has been reassessed.
 The guard does not reduce trial concurrency or suppress startup failures.
 Both evaluation and comparison commands use this launcher through `PATH`.
@@ -152,13 +163,189 @@ When updating the SDK, reassess the guard and run
 versions or removing it. On SDK 1.0.29, these tests exercise native startup and
 session ordering and verify that the guard leaves the methods unchanged.
 
+### Native session persistence and historical workspace filesystem failures
+
+The current pinned toolchain is Vally/CLI 0.21.0 with Copilot SDK 1.0.29.
+Vally no longer supplies `LocalSessionFsHandler` or a session-fs provider factory.
+It uses native SDK persistence, then exports session history to the requested
+log root before disconnecting. The launcher must not import Vally 0.14's deleted
+internal handler or install a provider rooted at the export destination.
+
+The old workspace proxy and its staged module have been retired. The launcher
+version-checks the reviewed Vally contract and rejects any explicitly supplied
+`createSessionFsProvider` before startup, factory execution or session creation,
+including on resume and without a working directory. Reintroducing that route
+requires reassessing its workspace isolation contract, not widening a version
+allowlist. The shared SDK startup/readiness guard remains in place.
+
+`node --test eng/evaluation-tools/*.test.mjs` exercises the installed Vally
+executor's logged-session configuration through real SDK create/resume methods
+with a stub transport, checks provider rejection and runs the merged-tree
+`vally.mjs --version` launcher. These are credential-free compatibility checks,
+not model runs or a certification of native filesystem isolation. Native SDK
+persistence is upstream behavior; this change adds no host filesystem overlay
+and does not sandbox runtime, shell, log-export or custom tool I/O.
+
+The following describes historical Vally 0.14 evidence, not the current provider
+contract.
+
+With Vally 0.14 and Copilot runtime 1.0.80, native `view` can report
+`Path does not exist` for a file that a shell reader opens at the exact same
+absolute path. This is not necessarily a missing fixture/reference. Instrumented
+provider calls reproduce the cause: native `view` calls the session-fs provider's
+`stat` with the workspace path, but Vally's `LocalSessionFsHandler` confines paths
+to the separate session-log root and rejects the request as a root escape.
+
+The same mismatch affects native `apply_patch` writes. A read-only repair makes
+`view` work but leaves editing broken: SDK events can show repeated
+`Session filesystem path escapes root` failures before the model falls back to
+shell edits. Inspect `tool.execution_complete.data.error`, not just the shorter
+normalized tool result. This can affect one executor family more than another
+and inflate its turns/cost even when the final answer and comparison complete.
+
+The historical launcher installed a Vally-version-checked fail-closed guard for that local
+provider during both session creation and resumption. Absolute workspace requests
+outside the provider's existing log root
+are rejected with `ERR_EVALUATION_WORKSPACE_ISOLATION_REQUIRED` and an actionable
+message, without canonicalizing or opening workspace paths. Both endpoints of
+rename are checked, including mixed relative/absolute requests. Relative session
+paths and absolute log-root paths (including a log root nested in the workspace)
+retain the original provider's behavior. Paths outside the workspace likewise
+go to the original provider; other provider implementations are not wrapped.
+This guard does not make the original log provider a security sandbox.
+
+**Historical integration effect:** native workspace reads and patches remained unavailable.
+Provider-level `exists` rejects, but SDK 1.0.11's adapter catches all `exists`
+errors and returns `{ exists: false }` without an error field. That upstream
+protocol limitation is not corrected here. Read/stat/mutation failures retain
+the actionable message with SDK error code `UNKNOWN`; inspect tool events rather
+than relying on existence probes alone. Shell fallback may still complete a task, but that is not evidence
+of repaired native functionality or successful harness/default certification.
+Historical tests covered explicit rejection, intermediate-parent swaps, unchanged session-log
+operations, and the SDK's synchronous factory/session/configuration contract:
+
+```bash
+node --test eng/evaluation-tools/*.test.mjs
+```
+
+The previous host-filesystem workspace overlay has been removed. Its separate
+canonicalization and pathname-based operation permitted an intermediate-parent
+symlink swap to redirect reads and mutations outside the workspace. Rejecting
+workspace extensions eliminates that overlay's check/reopen window; it does not
+claim atomic confinement of the existing log provider or shell tools. Vally
+0.14's executor uses `approveAll`; tool permissions do not establish an
+independent adversarial boundary for this host-side provider.
+
+The existing Node filesystem APIs and SDK provider interface do not supply
+descriptor-relative traversal for the full read/create/mkdir/rename/remove
+contract. `O_NOFOLLOW` on a final file open does not protect intermediate
+parents. Rechecking paths or serializing provider calls cannot prevent another
+process from swapping them. If adversarial confinement is required, an
+upstream integration is needed before restoring native workspace I/O: use a
+provider with platform-native atomic traversal, or enforce and verify an
+equivalent OS isolation boundary around the Node provider and every workspace
+writer. A sandbox around only the CLI is not evidence that provider I/O is
+isolated. There is no trust flag, opt-in path, or environment override that
+re-enables the unsafe overlay. A verified alternative must be implemented and
+validated with swap-race coverage before such a provider can be reintroduced.
+
+Reassess this compatibility layer on a Vally/SDK upgrade. A local launcher fix
+does not retroactively repair earlier trajectories, and CI uses its trusted
+harness revision; verify that revision before attributing the fix to an official
+run. Read actual `session.start.data.copilotVersion`, not just the installed
+package manifest or a shell CLI's version, when comparing runtime provenance.
+
+The trusted CI install stages `vally.mjs` and `sdk-startup.mjs` together. It runs the staged launcher with
+`--version` before token selection; a missing module fails installation rather
+than starting paid trials. Staging tests execute the workflow's copy commands
+and verify local import closure. This deployment check does not certify native
+workspace I/O, confinement or a default-branch revision.
+
 ### Investigation steps
 
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`
 2. **Skim the run's step summary** (the "Full Results" link) for the complete metrics and scenario tables.
 3. **Read `adapter-summary.json` and each `results.json`** (`eval-results/vally-results-*/<plugin>/<skill>/results.json`). The summary proves expected-versus-produced accounting; each skill file gives the compare state and evidence.
 4. **Identify the result pattern** using the categories below and fix in priority order: invalid accounting or judge evidence → timeouts → activation contract → underpowered design → quality/preference.
-5. **Apply the fix**, push it, and evaluate that exact commit. Submit a PR review containing `/evaluate` (recommended), or comment `/evaluate <new-head-sha>` in the PR conversation.
+5. **Apply the fix**, push it, and evaluate that exact commit only when authorized. Submit a PR review containing `/evaluate` (recommended), or comment `/evaluate <new-head-sha>` in the PR conversation.
+
+### Job success is not a passing measurement
+
+Check retained results even when `evaluation-status` or a triage comment says
+"Evaluation passed". Run 38908547657 completed successfully, but its schema-5
+artifacts reported six `VALID_REGRESSION` results with
+`stateReason.code: native_completion_regression` and four underpowered
+`INVALID_INCONCLUSIVE` results. Successful execution and complete artifact
+accounting do not override those verdicts. Preserve them while investigating;
+do not infer quality approval from the workflow conclusion.
+
+For native workflow results, inspect `_agent-evaluation/**/verdict.json`,
+including each role's `metrics.assertionResults`, `taskCompleted`, and
+`agentOutput`. Replay saved proposals against the original fixture and exact
+deterministic grader arguments before changing workflow guidance. In that run,
+a correct stale-revision no-op failed a hidden lexical requirement for
+`changed|stale|moved|differ`, and an explicit denial of an "all tests passed"
+claim failed a forbidden-phrase check. Those are grader-contract problems,
+not evidence that the JSON action enum is wrong. Other losses were real:
+commenting on a stale head, inventing an MSBuild portability problem, or
+choosing `comment` where an advisory `review` was required. A missing explicit
+zero-execution explanation is distinct from those false negatives. Do not
+erase all recorded regressions because some assertions are defective.
+
+The corrected workflow checker accepts the reproduced revision-mismatch
+equivalents (`does not match`, `does not equal`, `matches neither`, and
+`no longer the current`) and empty-record descriptions without requiring the
+word "qualifying". The structured no-op, empty-findings, no-visible-body,
+fixture digest, citation, selection identity and publication guards remain.
+Test-success checking distinguishes directly negated or explicitly denied
+quoted phrases from affirmative claims, checking each prose field separately;
+a denial in one field does not excuse a success claim in another. This is a
+bounded phrase check, not a general natural-language entailment classifier.
+Typographic quotes and inline Markdown formatting are normalized before
+checking, and explicit absence-of-evidence denials are accepted. Empty-bundle
+checks require aggregate record absence or an absence statement enumerating
+all five collector categories, not an incidental `no failure`/`no crash`
+substring. Both branches require an existence/collection predicate or an explicit
+`no records to report/cite/analyze` explanation; "no records were omitted"
+establishes completeness, not absence. Scoped `test`/`collector`
+qualifiers do not change aggregate scope. Explicit positive-record assertions
+in the reason or limitations cannot be excused by a separate absence statement.
+Direct negations and explicit evidence denials apply only to the immediately
+following assertion, with a bounded collector subject where applicable; a later
+affirmative or a claim in another field is still rejected.
+Negated collector/file subjects are scoped to their own collection assertion,
+not later clauses or independent statements. A denial of a subject-level denial
+does not excuse the resulting positive-record claim.
+Absence statements must themselves be asserted: a local denial or an inability
+to conclude absence cannot establish an empty bundle. A negated absence
+contradicts the empty fixture even if another field asserts absence. Test-success
+phrases account for both prefix and suffix denials, so denying an explicit
+denial does not make an unsupported success claim acceptable.
+Every accepted finding string is checked recursively, including additional
+fields, nested arrays/objects and object keys. Denial scope never crosses
+between strings, so a valid denial cannot excuse an affirmative in a sibling.
+These checks use decoded, whitespace-normalized prose rather than JSON
+escapes, so a newline between `No` and `qualifying` is not a failure. The actual
+fixture must also be complete with an empty file inventory. The `No-op` action
+label cannot bridge to an invented positive failure record later in the reason.
+The checker remains hash-pinned in all four workflow specs.
+
+These changes are prospective. Replaying the 258 retained native proposals
+from run 38908547657 with the corrected checker accepts seven previously
+rejected equivalent no-ops, preserves 137 prior passes, and still rejects 114
+proposals. It does not rewrite the six recorded result-level regressions,
+the four underpowered results, or the original assertions and judge output.
+Actual stale-head, technical, action-selection and citation failures remain.
+Only a separately authorized new measurement could establish new aggregate
+results; do not derive a new quality pass from this offline diagnostic replay.
+
+Separate executor lanes and trusted tooling from evaluated content. The same
+run retained native workflow sessions on runtime 1.0.79 and Vally skill
+sessions on 1.0.80. Original root-escape errors occurred in the Vally lane;
+the current workspace guard's rejection signature was absent. Evaluation of
+a PR content SHA therefore does not prove adoption of its launcher/provider
+changes. A repair or offline replay does not retroactively certify these
+recordings, and additional repetitions do not repair underpowered suites.
 
 > The `--pattern "vally-results-*"` flag matters — without it, `gh` also tries to download non-zip artifacts and exits non-zero.
 
@@ -170,8 +357,9 @@ session ordering and verify that the guard leaves the methods unchanged.
 - the exact evaluated commit and judge model;
 - expected / observed / written result accounting, with missing, unexpected,
   invalid, recovered, and unresolved counts; and
-- an explicit notice that the objective completion regression gate is not
-  enabled.
+- whether the objective completion regression gate is enabled. Native workflow
+  results can report objective completion regressions; inspect the actual
+  result state and lane rather than assuming all lanes share the same policy.
 
 Its compact table has these columns:
 
@@ -179,7 +367,7 @@ Its compact table has these columns:
 |--------|---------|
 | `Skill` | Skill under test |
 | `Model` | Model used for the baseline and skilled agent runs. This prevents duplicate skill rows from being ambiguous |
-| `Verdict` | ✅ Improved / a cause-specific ➖ no-clear-winner label / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that future gate is enabled |
+| `Verdict` | ✅ Improved / a cause-specific ➖ no-clear-winner label / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that gate is enabled |
 | `Gate evidence` | `n` preference-eligible distinct-stimulus votes, stimulus W/T/L, `d` discordant votes, exact one-sided `p`, net win, and the separately retained dormancy count. A pass needs `p ≤ 0.05`, net win ≥20%, and a passing dormancy activation contract |
 | `Overfit` | Overfitting-judge severity — ✅ Low, 🟡 Moderate, 🔴 High, — none — with its score |
 | `Warnings` | Activation gaps, timeouts, recovered judge slots, and unresolved comparison errors |

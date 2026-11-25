@@ -146,6 +146,72 @@ class WorkflowTargetsTests(unittest.TestCase):
         self.assertEqual({entry["target_kind"] for entry in entries}, {"workflow"})
         self.assertTrue(all(entry.get("model") and entry.get("judge") for entry in entries))
 
+    def test_repository_snapshot_contains_specs_for_every_discoverable_workflow(self):
+        script = (
+            ". ./eng/evaluation/path-safety.ps1; "
+            ". ./eng/evaluation/workflow-targets.ps1; "
+            "@(Get-WorkflowEntries) | ConvertTo-Json -Depth 5 -Compress"
+        )
+        result = subprocess.run(
+            ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+            cwd=REPO_ROOT, text=True, capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = json.loads(result.stdout)
+        expected = {
+            f"agentic-workflows/{manifest.parent.name}/aw.yml"
+            for manifest in (REPO_ROOT / "agentic-workflows").glob("*/aw.yml")
+        }
+        self.assertTrue(expected)
+        self.assertEqual({entry["package_path"] for entry in entries}, expected)
+        for entry in entries:
+            self.assertTrue((REPO_ROOT / entry["eval_path"]).is_file(), entry["eval_path"])
+
+    def test_infrastructure_discovery_fails_for_old_content_until_specs_are_present(self):
+        self.create_infrastructure_canary_fixtures()
+        self.git("init", "--quiet")
+        missing = (
+            self.root / "tests" / "agentic-workflows"
+            / "build-failure-analysis" / "eval.yaml"
+        )
+        spec = missing.read_text(encoding="utf-8")
+        missing.unlink()
+        base = self.commit_fixture("Legacy content without workflow eval")
+        infrastructure = self.root / "eng" / "vally-adapter" / "fixture.mjs"
+        infrastructure.parent.mkdir()
+        infrastructure.write_text("export {};\n", encoding="utf-8")
+        head = self.commit_fixture("Change infrastructure")
+        self.assertIn("eng/vally-adapter/fixture.mjs", self.git("diff", "--name-only", base, head))
+        environment = dict(
+            GATE_PR_NUMBER="1", GATE_BASE_SHA=base, GATE_HEAD_SHA=head,
+            EVAL_EVENT_NAME="workflow_dispatch", INPUT_PLUGIN="")
+        result = self.run_script("& ./eng/evaluation/find-targets.ps1", **environment)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "Workflow package 'build-failure-analysis' has no eval.yaml",
+            normalized_output(result),
+        )
+        self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
+        missing.write_text(spec, encoding="utf-8")
+        environment["GATE_BASE_SHA"] = self.commit_fixture("Bring in workflow eval prerequisite")
+        infrastructure.write_text("export const updated = true;\n", encoding="utf-8")
+        environment["GATE_HEAD_SHA"] = self.commit_fixture("Change infrastructure with complete content")
+        result = self.run_script("& ./eng/evaluation/find-targets.ps1", **environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        entries = self.entries()
+        self.assertEqual(len(entries), 10)
+        self.assertEqual(
+            {(entry["plugin"], entry["target_kind"]) for entry in entries},
+            {("dotnet", "skill"), ("dotnet-msbuild", "skill"),
+             ("dotnet-test", "skill"), ("dotnet-msbuild", "agent"),
+             ("agentic-workflows", "workflow")},
+        )
+        self.assertEqual(
+            {entry["package_path"] for entry in entries
+             if entry["target_kind"] == "workflow"},
+            {"agentic-workflows/build-failure-analysis/aw.yml"},
+        )
+        self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
+
     def test_manual_top_level_discovery_accepts_workflow_collection(self):
         result = self.run_script(
             "& .\\eng\\evaluation\\find-targets.ps1",

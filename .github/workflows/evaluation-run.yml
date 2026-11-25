@@ -674,6 +674,7 @@ jobs:
           (
             cd "$RUNNER_TEMP/evaluation-tools"
             node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+            node vally.mjs --version
           )
           echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin" >> "$GITHUB_PATH"
           mkdir -p "$RUNNER_TEMP/evaluation-tools/bin"
