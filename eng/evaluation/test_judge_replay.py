@@ -751,6 +751,11 @@ class JudgeReplayTests(unittest.TestCase):
             "skill", 1, "treatment", mutate_candidate_metrics=True,
             expected_error="native executor evidence changed")
 
+    def test_native_rejudge_rejects_multiple_saved_run_indices(self):
+        self.assert_native_rejudge(
+            "skill", 1, "treatment", extra_run_index=True,
+            expected_error="multiple saved run indices")
+
     def write_native_database(self, database):
         with closing(sqlite3.connect(database)) as connection:
             connection.executescript("""
@@ -758,6 +763,7 @@ class JudgeReplayTests(unittest.TestCase):
                     id TEXT PRIMARY KEY,
                     skill_name TEXT NOT NULL,
                     scenario_name TEXT NOT NULL,
+                    run_index INTEGER NOT NULL DEFAULT 0,
                     role TEXT NOT NULL,
                     model TEXT NOT NULL,
                     status TEXT NOT NULL
@@ -783,7 +789,8 @@ class JudgeReplayTests(unittest.TestCase):
     def assert_native_rejudge(self, winner, magnitude, expected_winner,
                               recovered_scenarios=None, candidate_activation=True,
                               candidate_treatment_passed=False,
-                              mutate_candidate_metrics=False, expected_error=None):
+                              mutate_candidate_metrics=False, extra_run_index=False,
+                              expected_error=None):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as temporary:
             root = Path(temporary)
             source, output = root / "source", root / "output"
@@ -796,6 +803,15 @@ class JudgeReplayTests(unittest.TestCase):
             native.mkdir(parents=True)
             database = native / "sessions.db"
             original_database = self.write_native_database(database)
+            if extra_run_index:
+                with closing(sqlite3.connect(database)) as connection:
+                    connection.execute(
+                        "INSERT INTO sessions "
+                        "(id, skill_name, scenario_name, run_index, role, model, status) "
+                        "VALUES ('baseline-2', 'agent.testability-migration', 'case', 1, "
+                        "'baseline', 'gpt-5.6-luna', 'completed')")
+                    connection.commit()
+                original_database = database.read_bytes()
             if recovered_scenarios is not None:
                 (source / "_agent-timeout-retry" / "attempt").mkdir(parents=True)
                 (source / "agent-timeout-retry-summary.json").write_text(json.dumps({
@@ -809,6 +825,7 @@ class JudgeReplayTests(unittest.TestCase):
                                    artifact_name="vally-results-dotnet")
 
             def fake_command(*argv, **kwargs):
+                self.assertFalse(extra_run_index, "multi-run scenarios must fail before judging")
                 self.assertEqual(argv[:3], ("skill-validator", "evaluate", "rejudge"))
                 self.assertEqual(kwargs["env"]["GH_TOKEN"], "copilot-pat")
                 self.assertEqual(kwargs["env"]["GITHUB_TOKEN"], "copilot-pat")

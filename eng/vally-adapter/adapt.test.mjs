@@ -336,6 +336,60 @@ test("adapted trial evidence retains stable comparison trialIndex", () => {
   assert.equal(verdict.scenarios[0].trials[0].trialIndex, 9);
 });
 
+test("replay preserves saved activation expectations and execution context together", () => {
+  withTempDir((root) => {
+    const contractPath = join(root, "activation-contract.json");
+    writeFileSync(contractPath, JSON.stringify({
+      [evalFile]: Object.fromEntries(
+        Array.from({ length: 5 }, (_, i) => [`Scenario ${i + 1}`, i !== 0]),
+      ),
+    }));
+    const manifestPath = join(root, "runtime-identity.json");
+    writeFileSync(manifestPath, JSON.stringify({
+      toolchain: { runtimeVersion: "1.0.103" },
+      toolSchemas: { "gpt-5.3-codex": { sha256: "abc", toolCount: 14 } },
+    }));
+    const experimentFactory = (directory) => {
+      const runDir = createExperimentWithNativeLogs(directory);
+      for (const variant of ["baseline", "skilled"]) {
+        const path = join(runDir, variant, "results.jsonl");
+        const record = JSON.parse(readFileSync(path, "utf8").trim());
+        writeJsonl(path, Array.from({ length: 5 }, (_, i) => ({
+          ...record, stimulus: `Scenario ${i + 1}`,
+        })));
+      }
+      return runDir;
+    };
+    const { result, verdict, compareCount } = runAdapter(
+      root, "clean", 5, [evalFile], experimentFactory,
+      join(root, "absent-repo"),
+      [
+        "--replay-activation-contract", contractPath,
+        "--execution-context", manifestPath,
+        "--model", "gpt-5.3-codex", "--judge-model", "claude-haiku-4.5",
+        "--reasoning-effort", "high", "--context-tier", "long_context",
+      ],
+    );
+    assert.equal(result.status, 0, processOutput(result));
+    assert.equal(compareCount, 1);
+    assert.equal(verdict.scenarios.length, 5);
+    assert.equal(verdict.scenarios.find((s) => s.scenarioName === "Scenario 1").expectActivation, false);
+    assert.equal(verdict.scenarios.find((s) => s.scenarioName === "Scenario 2").expectActivation, true);
+    assert.equal(verdict.executionContext.identityManifest.status, "loaded");
+    assert.equal(verdict.executionContext.toolchain.runtimeVersion, "1.0.103");
+    assert.equal(verdict.executionContext.toolSchemas["gpt-5.3-codex"].sha256, "abc");
+    assert.deepEqual(verdict.executionContext.requested, {
+      model: "gpt-5.3-codex",
+      judgeModel: "claude-haiku-4.5",
+      reasoningEffort: "high",
+      contextTier: "long_context",
+    });
+    assert.equal(verdict.executionContext.observed.trialsWithSessionLog, 10);
+    assert.deepEqual(verdict.executionContext.observed.runtimeVersions, { "1.0.103": 10 });
+    assert.deepEqual(verdict.executionContext.byVariant.skilled.terminalPhases, { final_answer: 5 });
+  });
+});
+
 test("Vally 0.13 all-errored exit still reaches slot-preserving retry", () => {
   withTempDir((root) => {
     const { result, compareCount, verdict } = runAdapter(root, "all-errored-exit-recover");
