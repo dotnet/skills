@@ -31,7 +31,9 @@ output location, and authorization. Do not require paths that can be discovered.
 | Physical Android, .NET 8–10, diagnostic component and port configured | Use [Android](references/android.md). The routing/capture commands there are the same whether the app runtime is Mono or CoreCLR; this skill's Mono-only scope (see frontmatter) still governs eligibility. |
 | Physical iOS, confirmed Mono, .NET 9–10 development build with diagnostic component | Use [iOS](references/ios.md) on a Mac. Mono AOT on iOS is **not** NativeAOT. |
 | Already running but no diagnostic port/component | Cannot retrofit this session. Offer an approved profiling rebuild/relaunch; capture only after the reproduction is running again. |
-| Store/production binary or denied restart/build changes | Stop; do not promise attach or bypass platform signing/security. |
+| Store/production binary | Stop; do not promise attach or bypass platform signing/security. |
+| Denied restart/build changes, but an already-prepared build has the diagnostic component and listener running | Restart/build changes aren't required here; capture against the existing process with approval, preserving its current heap. |
+| Denied restart/build changes and the diagnostic component/listener isn't already active | Stop; this denial blocks the rebuild/relaunch this capture needs. |
 | Older runtime, .NET 11+, unknown runtime/component, or unsupported host | Verify version-specific official SDK documentation first; these recipes are not a blanket support claim. Android main documentation now describes CoreCLR, not this Mono recipe. |
 | Existing artifact analysis, CPU/native heap, crash, CoreCLR/NativeAOT, simulator-only | Redirect to the appropriate workflow without applying this device capture procedure. |
 

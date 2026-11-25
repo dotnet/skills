@@ -421,17 +421,19 @@ def main():
                     # started. This full alternate plan shape must be accepted.
                     standalone_plan = copy.deepcopy(plan)
                     standalone_plan["commands"]["route"] = [
-                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android & ROUTER_PID=$!"
+                        'ANDROID_SERIAL=R58M123 dotnet-dsrouter android & '
+                        'echo $! > "$PWD/router.pid"'
                     ]
                     standalone_plan["commands"]["collect"] = [
-                        'PID=$(dotnet-gcdump ps | grep com.example.catalog | '
+                        'PID=$(dotnet-gcdump ps | grep dotnet-dsrouter | '
                         'awk \'{print $1}\'); '
                         'test ! -e "$PWD/after-navigation.gcdump" && '
                         'dotnet-gcdump collect -p "$PID" '
                         '--output "$PWD/after-navigation.gcdump" --timeout 60'
                     ]
                     standalone_plan["commands"]["cleanup"] = [
-                        "kill $ROUTER_PID 2>/dev/null; echo done"
+                        'kill "$(cat "$PWD/router.pid" 2>/dev/null)" 2>/dev/null; '
+                        'rm -f "$PWD/router.pid"; echo done'
                     ]
                     plan_path.write_text(json.dumps(standalone_plan))
                     assert all(run(c, workspace, shell=True).returncode == 0
@@ -444,7 +446,7 @@ def main():
                     # on equal footing with the short flag.
                     standalone_process_id_synonym = copy.deepcopy(standalone_plan)
                     standalone_process_id_synonym["commands"]["collect"] = [
-                        'PID=$(dotnet-gcdump ps | grep com.example.catalog | '
+                        'PID=$(dotnet-gcdump ps | grep dotnet-dsrouter | '
                         'awk \'{print $1}\'); '
                         'test ! -e "$PWD/after-navigation.gcdump" && '
                         'dotnet-gcdump collect --process-id "$PID" '
@@ -453,6 +455,22 @@ def main():
                     plan_path.write_text(json.dumps(standalone_process_id_synonym))
                     assert all(run(c, workspace, shell=True).returncode == 0
                                for c in commands), "--process-id synonym accepted plan"
+                    equivalent_count += 1
+                    plan_path.write_text(original)
+                    # A command-line pattern match ("pkill -f") recovers the
+                    # router's identity without needing ANY cross-entry
+                    # variable or file at all, and must be accepted on equal
+                    # footing with the persisted-PID-file form above.
+                    standalone_pkill_cleanup = copy.deepcopy(standalone_plan)
+                    standalone_pkill_cleanup["commands"]["route"] = [
+                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android &"
+                    ]
+                    standalone_pkill_cleanup["commands"]["cleanup"] = [
+                        'pkill -f "dotnet-dsrouter android"; echo done'
+                    ]
+                    plan_path.write_text(json.dumps(standalone_pkill_cleanup))
+                    assert all(run(c, workspace, shell=True).returncode == 0
+                               for c in commands), "pkill -f cleanup accepted plan"
                     equivalent_count += 1
                     plan_path.write_text(original)
                     # An attach PID variable left completely unset anywhere in
@@ -481,10 +499,10 @@ def main():
                     ]
                     mutations.append(standalone_whole_row_pid)
                     # A numeric-field-narrowed capture that is filtered to an
-                    # UNRELATED process (not the connected com.example.catalog
-                    # package this plan targets) is just as uncorrelated as the
-                    # whole-row case above, despite looking superficially
-                    # well-formed.
+                    # UNRELATED process name/package (neither the router
+                    # process itself nor the connected app package this plan
+                    # targets) is just as uncorrelated as the whole-row case
+                    # above, despite looking superficially well-formed.
                     standalone_unrelated_process_pid = copy.deepcopy(standalone_plan)
                     standalone_unrelated_process_pid["commands"]["collect"] = [
                         'PID=$(dotnet-gcdump ps | grep com.other.unrelated | '
@@ -494,17 +512,21 @@ def main():
                         '--output "$PWD/after-navigation.gcdump" --timeout 60'
                     ]
                     mutations.append(standalone_unrelated_process_pid)
-                    # Cleanup referencing a PID variable that is never actually
-                    # assigned anywhere in route/collect (a dangling reference)
-                    # must still be rejected even though the capture itself is
-                    # otherwise correlated and the cleanup command mentions
-                    # "kill" -- it is not provably stopping the router this
-                    # plan actually started.
-                    standalone_undefined_cleanup_identity = copy.deepcopy(standalone_plan)
-                    standalone_undefined_cleanup_identity["commands"]["route"] = [
-                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android"
+                    # The cross-entry pattern this fixture previously accepted
+                    # -- a plain "$ROUTER_PID" variable assigned only inside
+                    # route's own backgrounded shell and referenced from
+                    # cleanup's separate invocation -- is non-functional under
+                    # the documented independent-shell contract (each
+                    # commands-array entry runs in its own shell) and must now
+                    # be rejected, even though route DOES assign that name.
+                    standalone_cross_entry_variable_cleanup = copy.deepcopy(standalone_plan)
+                    standalone_cross_entry_variable_cleanup["commands"]["route"] = [
+                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android & ROUTER_PID=$!"
                     ]
-                    mutations.append(standalone_undefined_cleanup_identity)
+                    standalone_cross_entry_variable_cleanup["commands"]["cleanup"] = [
+                        "kill $ROUTER_PID 2>/dev/null; echo done"
+                    ]
+                    mutations.append(standalone_cross_entry_variable_cleanup)
                     # Reusing the self-managing --dsrouter route/collect PAIR
                     # once collect already attaches by PID (no --dsrouter at
                     # all expected in standalone mode) must still be rejected.
@@ -545,6 +567,16 @@ def main():
                         "echo done"
                     ]
                     mutations.append(standalone_no_cleanup)
+                    # An echo-only cleanup that merely prints a stop/kill word
+                    # (rather than actually invoking a stop) leaves the
+                    # standalone router running forever and must still be
+                    # rejected, even though the literal text contains "kill".
+                    standalone_echoed_cleanup = copy.deepcopy(standalone_plan)
+                    standalone_echoed_cleanup["commands"]["cleanup"] = [
+                        'echo "kill the standalone router once collection '
+                        'and validation finish"'
+                    ]
+                    mutations.append(standalone_echoed_cleanup)
                 if stimulus["tags"]["capability"] == "ios-live-usb-route":
                     # The self-managing --dsrouter ios route always targets the
                     # physical device's usbmux port 9000 with no offset; a plan
@@ -561,6 +593,29 @@ def main():
                         '--output "$PWD/after-navigation.gcdump" --timeout 60'
                     ]
                     mutations.append(wrong_default_route)
+                    # An echo-only cleanup that merely describes stopping the
+                    # backgrounded server-client router (rather than actually
+                    # invoking a stop) leaves it running forever and must be
+                    # rejected, even though the base plan is otherwise valid.
+                    echo_only_cleanup = copy.deepcopy(plan)
+                    echo_only_cleanup["commands"]["cleanup"] = [
+                        'echo "stop the backgrounded server-client router '
+                        'process once collection and validation finish"'
+                    ]
+                    mutations.append(echo_only_cleanup)
+                    # A bare "$ROUTER_PID" cleanup reference assigned only in
+                    # route's own backgrounded shell never reaches cleanup's
+                    # separate independent-shell invocation and must still be
+                    # rejected, even though route DOES assign that name.
+                    cross_entry_variable_cleanup = copy.deepcopy(plan)
+                    cross_entry_variable_cleanup["commands"]["route"] = [
+                        plan["commands"]["route"][0].split(" & echo", 1)[0]
+                        + " & ROUTER_PID=$!"
+                    ]
+                    cross_entry_variable_cleanup["commands"]["cleanup"] = [
+                        "kill $ROUTER_PID 2>/dev/null; echo done"
+                    ]
+                    mutations.append(cross_entry_variable_cleanup)
                 bad_route = copy.deepcopy(plan)
                 bad_route["commands"]["route"] = ["dotnet-dsrouter ios-sim"]
                 mutations.append(bad_route)
@@ -775,6 +830,32 @@ def main():
                     for cmd in plan["commands"]["validate"]
                 ]
                 mutations.append(masked_report_conditional_skip)
+                # "echo dotnet-gcdump report ..." never actually invokes report at
+                # all -- the text is merely a literal argument to echo, which
+                # always exits 0 regardless of whether a real parse would have
+                # succeeded, even though the report text is textually present.
+                masked_report_echoed = copy.deepcopy(plan)
+                masked_report_echoed["commands"]["validate"] = [
+                    'echo ' + cmd for cmd in plan["commands"]["validate"]
+                ]
+                mutations.append(masked_report_echoed)
+                # "! dotnet-gcdump report ..." really does invoke report, but the
+                # leading "!" inverts its exit status: a genuine parse failure
+                # (report exits nonzero) makes the clause succeed instead.
+                masked_report_negated = copy.deepcopy(plan)
+                masked_report_negated["commands"]["validate"] = [
+                    '! ' + cmd for cmd in plan["commands"]["validate"]
+                ]
+                mutations.append(masked_report_negated)
+                # "echo "$(dotnet-gcdump report ...)"" invokes report inside a
+                # command substitution, but the clause's own exit status is
+                # echo's (always 0), not the substituted report's -- a parse
+                # failure's nonzero exit never reaches the clause at all.
+                masked_report_substitution = copy.deepcopy(plan)
+                masked_report_substitution["commands"]["validate"] = [
+                    'echo "$(' + cmd + ')"' for cmd in plan["commands"]["validate"]
+                ]
+                mutations.append(masked_report_substitution)
                 for mutant in mutations:
                     plan_path.write_text(json.dumps(mutant))
                     assert any(run(c, workspace, shell=True).returncode != 0
