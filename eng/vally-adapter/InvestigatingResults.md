@@ -141,11 +141,16 @@ an SDK startup race, not a skill or judge failure. In SDK 1.0.11, 1.0.13, and 1.
 startup calls can create multiple transports. Supported versions through SDK 1.0.26 require
 session creation to wait until the filesystem provider is ready. The trusted
 `eng/evaluation-tools/vally.mjs` launcher loads a version-checked startup guard.
-It shares startup per client and waits for readiness before creating or resuming
-sessions. It does not reduce trial concurrency or suppress startup failures.
+For those older supported versions, it shares startup per client and waits for
+readiness before creating or resuming sessions. SDK 1.0.29 fixes both races, so
+the guard accepts that version without patching its native methods. Unknown
+versions still fail explicitly until their startup behavior has been reassessed.
+The guard does not reduce trial concurrency or suppress startup failures.
 Both evaluation and comparison commands use this launcher through `PATH`.
 When updating the SDK, reassess the guard and run
-`node --test eng/evaluation-tools/*.test.mjs` before removing it.
+`node --test eng/evaluation-tools/*.test.mjs` before changing the supported
+versions or removing it. On SDK 1.0.29, these tests exercise native startup and
+session ordering and verify that the guard leaves the methods unchanged.
 
 ### Investigation steps
 
