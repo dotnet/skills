@@ -221,6 +221,14 @@ metadata. The adapter keeps the raw report available for diagnosis. It does not
 replace Vally's evidence; it adds repository-specific validity and decision
 fields.
 
+Before the experiment, the workflow runs
+`eng/evaluation-tools/runtime-identity.mjs` to write `runtime-identity.json`:
+the Vally, SDK, CLI, and SDK-bundled runtime versions, plus a hash of the tool
+surface the runtime offers each executor and judge model. The adapter combines
+it with every trial's native session log into `executionContext`, so a result
+states which runtime, provider, reasoning effort, context tier, and tool schema
+produced it. Capture failure is a warning, not a measurement failure.
+
 ### 5. Retry recognized transient executor failures with a bounded second pass
 
 If a required baseline or isolated-skilled trial fails with
@@ -413,6 +421,7 @@ measurement-health layer is valid.
 | Retry recovery | Did the targeted retry repair failed slots? | `1 attempted / 1 recovered / 0 unresolved` | If unresolved is nonzero, inspect judge diagnostics; do not count it as a loss. |
 | Distinct stimulus names | Can one task identity be matched across arms? | Two stimuli both named `Generate tests` | Rename them uniquely. Duplicate names are an authoring error. |
 | Fixture integrity | Did both arms receive the same intended input? | Cobertura attributes say 50%, payload says 80% | Repair the fixture and any prompt/rubric claims that quote it. |
+| Execution identity | Did the compared runs use the same runtime, provider, reasoning effort, context tier, and tool schema? | GPT-5.3 Codex gets `apply_patch` and `rg`; Claude models get `create`, `edit`, and `view` | Read `executionContext` before attributing a cross-model or cross-run difference to the skill. |
 
 ### Improvement evidence
 
@@ -442,7 +451,8 @@ exactly five stimuli, one tie or one loss prevents a pass.
 | Vally pass@k | Is at least one of `k` attempts likely to pass? | Useful when retry is part of product behavior | Use only when "one success is enough" matches the user experience. |
 | Vally pass^k | Are all `k` attempts likely to pass? | Useful for strict repeatability | Prefer this view when every invocation must work. |
 | Activation | Did the skill load when it should and stay dormant when it should not? | `6 / 9` isolated activation | Fix routing text, prompt realism, or dormancy cases. |
-| Post-activation continuation | After loading a skill, did the model make any non-skill tool call before completing? | `2` failed activation-only completions | Inspect the raw trace and host transcript before rewriting prose. A completed run that only loaded skills and then failed its graders is a distinct execution failure; advice-only runs that pass are not warned. |
+| Post-activation continuation | After loading a skill, did the model make any non-skill tool call before completing? | `2` continuation failures | The PR summary warns about `continuation` failures, not runs already attributed to routing or tool errors. It reports implementation stops separately and uses raw failed activation-only counts for older results without failure classes. Inspect the trace before rewriting skill prose. |
+| Failure classes | Was each failed run a routing, tool, continuation, or content-quality failure? | `3 contentQuality / 1 continuation / 1 tool` | Fix the layer that failed: description, runtime or fixture, continuation, or skill content. |
 | Dormancy contract | Did the isolated target skill stay inactive on every explicit off-target case? | `2 satisfied / 1 violated` | A violation blocks a pass; the scenario's preference remains report-only. |
 | Timeouts | Did the skill complete within the configured limit? | Skilled arm times out while baseline completes | Inspect excessive tool calls or scope. Raise timeout only for legitimate work. |
 | Error count | Did the executor, tool, grader, or harness fail? | Missing dependency in one fixture | Classify the source before editing skill guidance. |
@@ -522,6 +532,28 @@ tested skills.
 **Fix:** produce or restore one validator archive in a trusted job, upload it
 as a same-run artifact, and require every matrix job to use that artifact.
 
+### A model looked like it stopped after loading a skill
+
+[Issue #1160](https://github.com/dotnet/skills/issues/1160) reported GPT-5.3
+Codex ending implementation prompts right after activating
+`code-testing-agent`. Evaluation results could not tell whether the model, the
+runtime's provider adapter, the skill-injection transcript, or the skill wording
+caused it: they recorded neither the runtime nor the tool surface, and counted
+advisory and implementation stops together.
+
+**Fix:** attribute every failed run to one failure class, report implementation
+stops after activation separately, and record `executionContext` with every
+result. In scheduled run
+[`44036624719`](https://github.com/dotnet/skills/actions/runs/44036624719),
+0 of 40 GPT-5.3 Codex skilled and plugin trajectories stopped after activation,
+and all 19 failed runs were content-quality failures. The skill, prompts, and
+runtime had all changed since the report, so attribution requires the
+controlled reproduction in
+[Investigating evaluation results](./InvestigatingResults.md#attributing-a-stop-to-the-model-runtime-transcript-or-skill).
+
+**Do not fix it by:** rewriting skill prose from a single run's stop rate, or
+comparing models without checking that their runtime and tool schema match.
+
 ## Troubleshooting from the PR report
 
 ```mermaid
@@ -550,6 +582,7 @@ flowchart TD
 | Many ties | Weak scenarios and evidence excerpts | Make tasks expose behavior the skill is meant to change |
 | Preference loss | Losing stimulus excerpts and trajectories | Fix the skill behavior; do not infer objective regression |
 | Low activation | Baseline/skilled/plugin activation table | Improve skill description and realistic trigger prompts |
+| Implementation stop after skill activation | `failureClassification`, the stopped trajectory, and `executionContext` | Attribute the stop to model, runtime, transcript, or wording before editing the skill |
 | High Overfit | Overfit column and grader evidence | Remove fixture-specific instructions and test unseen inputs |
 | Timeout or high cost | Trial diagnostics, turns, tools, and duration | Reduce unnecessary exploration or narrow the skill workflow |
 | Objective completion concern | Deterministic grader evidence in both raw arms | Investigate manually; the hard gate is intentionally reserved |
@@ -626,6 +659,19 @@ As of the eval-correctness rollout in August 2026:
   not expose trusted spec-to-result grader identity.
 - Coverage management still needs explicit suite or tag policy. Adding more
   trials does not by itself improve task coverage.
+- Work kind is inferred from baseline file-mutation tools. Writes made only
+  through shell commands are not detected, so implementation stops are
+  undercounted for such prompts.
+- Model finish reasons are unavailable: the runtime never persists
+  `assistant.usage`. `executionContext` records the last message phase instead.
+- Scheduled runs use each model's default reasoning effort and context tier.
+  Varying them is a local reproduction step, not a workflow input, so published
+  dashboard data stays comparable.
+- The PAT availability probe uses the pinned `@github/copilot` CLI, while trials
+  run the runtime bundled with the Copilot SDK; `executionContext.toolchain`
+  records both versions.
+- Agent and workflow targets carry activation evidence but no failure classes
+  or execution context.
 
 Keep debt repair separate from correctness-policy changes. First make the
 measurement honest; then improve the affected eval instruments in focused

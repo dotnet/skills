@@ -5,6 +5,80 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
+test('activation evidence separates implementation stops after activation', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'activation-stops-'));
+  const script = path.join(__dirname, 'generate-benchmark-data.ps1');
+  const results = {
+    model: 'executor',
+    verdicts: [{
+      skillName: 'demo-skill',
+      skillPath: 'plugins/demo/skills/demo-skill',
+      passed: false,
+      reason: 'test',
+      scenarios: [{
+        scenarioName: 'implement-feature',
+        expectActivation: true,
+        stimulusWork: { kind: 'implementation' },
+        skillActivationIsolated: {
+          activated: true,
+          detectedSkills: ['demo-skill'],
+          failedActivationOnlyCompletions: 3,
+          implementationActivationOnlyFailures: 2,
+        },
+        skillActivationPlugin: {
+          activated: true,
+          detectedSkills: ['demo-skill'],
+          failedActivationOnlyCompletions: 1,
+          implementationActivationOnlyFailures: 0,
+        },
+      }, {
+        scenarioName: 'legacy-scenario',
+        expectActivation: true,
+        skillActivationIsolated: {
+          activated: true,
+          detectedSkills: ['demo-skill'],
+          failedActivationOnlyCompletions: 1,
+        },
+      }],
+    }],
+  };
+
+  try {
+    const resultsFile = path.join(tempDir, 'results.json');
+    fs.writeFileSync(resultsFile, `${JSON.stringify(results, null, 2)}\n`);
+    const result = spawnSync('pwsh', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-File',
+      script,
+      '-ResultsFile',
+      resultsFile,
+      '-PluginName',
+      'demo',
+      '-OutputDir',
+      tempDir,
+      '-SkipTokenUsage',
+    ], {
+      encoding: 'utf8',
+    });
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const data = JSON.parse(fs.readFileSync(path.join(tempDir, 'demo.json'), 'utf8'));
+    const [scenario, legacy] = data.entries.Quality[0].verdictEvidence[0].activationScenarios;
+
+    assert.equal(scenario.workKind, 'implementation');
+    assert.equal(scenario.isolatedActivationOnlyFailedRuns, 3);
+    assert.equal(scenario.isolatedImplementationStopRuns, 2);
+    assert.equal(scenario.pluginActivationOnlyFailedRuns, 1);
+    assert.equal(scenario.pluginImplementationStopRuns, 0);
+    assert.equal(legacy.workKind, null);
+    assert.equal(legacy.isolatedActivationOnlyFailedRuns, 1);
+    assert.equal(legacy.isolatedImplementationStopRuns, 0);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('skill value index backfills retained native outcome evidence', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-value-index-'));
   const script = path.join(__dirname, 'generate-benchmark-data.ps1');
