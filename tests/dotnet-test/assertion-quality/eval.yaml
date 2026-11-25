@@ -405,3 +405,328 @@ stimuli:
       - Recognized the mock call argument check as meaningful side-effect or interaction verification
       - Recognized the inline snapshot as a structural assertion that pins the serialized response
       - Reported two weak tests and three meaningful tests without equating assertion variety with raw assertion count
+
+  - name: Review generated registry verification
+    prompt: |
+      Review RegistryTests.cs before we rely on it to protect our generator.
+      Which tests verify what their names promise, and what could still go
+      wrong unnoticed? Recommend focused improvements. Do not edit or run code.
+    tags:
+      capability: generated-source-completeness
+      risk: extra-registrations-and-broken-source
+      journey: review-generator-tests
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: registry-output-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Static review: Registry_RegistersTwoClasses is weak. An extra
+              Register(typeof(AlphaTests)); or missing closing brace preserves
+              all three Contains fragments. Compare the complete independently
+              expected generated source, not just counts or compilation.
+              Registry_EmptyInput already pins the full empty registry and is
+              meaningful; more assertion categories would not strengthen it.
+    environment:
+      files:
+        - src: fixtures/predictable-output/Output.Tests.csproj
+          dest: Output.Tests.csproj
+        - src: fixtures/predictable-output/RegistryTests.cs
+          dest: RegistryTests.cs
+    graders:
+      - type: tool-calls
+        config: &static_review
+          disallowed: [bash, edit, create]
+      - type: output-matches
+        config: {pattern: Registry_RegistersTwoClasses}
+      - type: output-matches
+        config: {pattern: '(?i)(exact|complete|full|snapshot)'}
+      - type: output-matches
+        config: {pattern: '(?i)(duplicate|extra|syntax|brace)'}
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified Registry_RegistersTwoClasses as incomplete despite checking three fragments; named an extra registration or malformed surrounding source that all its assertions accept.
+      - Recommended comparing the independently expected complete generated source, rather than only adding fragment counts or compiling it.
+      - Credited Registry_EmptyInput as pinning its complete claimed representation without demanding more assertion types.
+
+  - name: Review embedded result payload verification
+    prompt: |
+      Can we trust HtmlTests.cs to protect the results shown in our report?
+      Identify weak checks and useful existing checks, with concrete repairs.
+      This is a read-only review; do not run the project.
+    tags:
+      capability: embedded-json-result-association
+      risk: totals-with-wrong-test-outcomes
+      journey: review-html-report-tests
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: embedded-json-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Static review: Report_ContainsResults accepts Alpha failed and
+              Beta passed with unchanged totals and IDs. Fragments can also
+              occur outside the intended script payload. Reuse ReadResults to
+              extract and parse that JSON, asserting complete stable identities,
+              outcomes, totals and multiplicity. Report_ParsesResults already
+              binds each ID to its outcome and rejects extra result records;
+              its checks do not belong to the weaker test. JSON property order
+              is not contractual.
+    environment:
+      files:
+        - src: fixtures/predictable-output/Output.Tests.csproj
+          dest: Output.Tests.csproj
+        - src: fixtures/predictable-output/HtmlTests.cs
+          dest: HtmlTests.cs
+    graders:
+      - type: tool-calls
+        config: *static_review
+      - type: output-matches
+        config: {pattern: Report_ContainsResults}
+      - type: output-matches
+        config: {pattern: '(?i)(pars|JsonDocument|ReadResults)'}
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Explained that Report_ContainsResults accepts Alpha failed and Beta passed while retaining both totals and IDs; also recognized that matching text outside the intended payload is insufficient.
+      - Recommended extracting and parsing the actual results payload, checking complete stable result identities and outcomes and rejecting unexpected entries, not comparing JSON property order.
+      - Used Report_ParsesResults and ReadResults as available prior art without crediting their checks to Report_ContainsResults.
+
+  - name: Review provider information verification
+    prompt: |
+      Assess InfoTests.cs for useful regression protection of our public CLI.
+      Name weak tests, a wrong output they accept, and a suitable replacement
+      check. Keep sound tests credited. Do not edit or execute anything.
+    tags:
+      capability: provider-section-sequence
+      risk: misattributed-or-duplicated-cli-lines
+      journey: review-info-output-tests
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: provider-output-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Static review: Info_ListsProvidersAndExtensions accepts Alpha,
+              Html, Beta, Retry in that order, assigning extensions to the wrong
+              providers. Extra and duplicate lines also pass. Compare the whole
+              ordered sequence, including provider boundaries, with the existing
+              CollectionAssert.AreEqual pattern in Info_ExactSections. That
+              companion already pins the complete public output; do not sort
+              away the ordering contract or add diversity assertions.
+    environment:
+      files:
+        - src: fixtures/predictable-output/Output.Tests.csproj
+          dest: Output.Tests.csproj
+        - src: fixtures/predictable-output/InfoTests.cs
+          dest: InfoTests.cs
+    graders:
+      - type: tool-calls
+        config: *static_review
+      - type: output-matches
+        config: {pattern: Info_ListsProvidersAndExtensions}
+      - type: output-matches
+        config: {pattern: '(?i)(sequence|AreEqual|ordered|order)'}
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified that Info_ListsProvidersAndExtensions accepts extensions under the wrong provider, duplicate or extra lines, and violated public section ordering.
+      - Recommended checking the entire ordered line sequence, including provider boundaries, rather than independent membership or a sorted set.
+      - Credited Info_ExactSections and reused its existing CollectionAssert.AreEqual pattern instead of adding a dependency.
+
+  - name: Review summary and option diagnostic verification
+    prompt: |
+      Review the three tests in TextTests.cs. Which assertions protect the
+      documented output and which leave gaps? Give a concrete repair for each
+      weak test, without changing files or running commands.
+    tags:
+      capability: complete-text-oracles
+      risk: unchecked-summary-and-error-context
+      journey: review-report-and-diagnostic-tests
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: deterministic-text-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Static review: Summary_ShowsPassingTest accepts a missing heading,
+              Beta passed, or wrong totals while its Alpha row remains intact.
+              Compare the full independently expected markdown, preferably a raw
+              string. InvalidOption_ReportsValue accepts "Accepted option xml";
+              pin the exact error message including allowed options and context.
+              InvalidOption_ExactDiagnostic already does this with a single
+              meaningful equality assertion.
+    environment:
+      files:
+        - src: fixtures/predictable-output/Output.Tests.csproj
+          dest: Output.Tests.csproj
+        - src: fixtures/predictable-output/TextTests.cs
+          dest: TextTests.cs
+    graders:
+      - type: tool-calls
+        config: *static_review
+      - type: output-matches
+        config: {pattern: Summary_ShowsPassingTest}
+      - type: output-matches
+        config: {pattern: InvalidOption_ReportsValue}
+      - type: output-matches
+        config: {pattern: '(?i)(exact|complete|full|AreEqual)'}
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified that Summary_ShowsPassingTest accepts a wrong heading, Beta outcome, or summary totals while the Alpha row stays intact.
+      - Identified that InvalidOption_ReportsValue accepts an incorrect diagnostic that still contains xml; recommended pinning the full error text including valid options and context.
+      - Recommended independent full expected text for the markdown, not more row fragments.
+      - Credited InvalidOption_ExactDiagnostic as complete for its stated contract, despite using only one equality assertion.
+
+  - name: Review forwarded stream record verification
+    prompt: |
+      Do RecordTests.cs assertions protect the output delivered to each test?
+      Review the tests and recommend only necessary improvements. Do not edit
+      files, run tests, or execute mutations.
+    tags:
+      capability: record-identity-and-stream-binding
+      risk: correct-text-on-wrong-test-or-stream
+      journey: review-protocol-forwarding-tests
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: forwarding-record-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Static review: Run_ForwardsOutput accepts hello on Beta/stderr
+              and warning on Alpha/stdout, or reversed events, while keeping
+              its count of two and both payloads. Compare complete ordered
+              (TestId, Stream, Text) records for this sequential-run contract.
+              Run_ExactRecords already provides that meaningful verification.
+              No mutations were executed.
+    environment:
+      files:
+        - src: fixtures/predictable-output/Output.Tests.csproj
+          dest: Output.Tests.csproj
+        - src: fixtures/predictable-output/RecordTests.cs
+          dest: RecordTests.cs
+    graders:
+      - type: tool-calls
+        config: *static_review
+      - type: output-matches
+        config: {pattern: Run_ForwardsOutput}
+      - type: output-matches
+        config: {pattern: '(?i)(stream|stdout|stderr)'}
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Explained that Run_ForwardsOutput accepts swapped test IDs or streams and reversed records even with its exact count and both payload checks.
+      - Proposed comparing complete ordered records including TestId, Stream and Text, respecting the sequential producer contract rather than checking payload presence or totals alone.
+      - Credited Run_ExactRecords as meaningful full-record verification and distinguished static predictions from actually executed faults.
+
+  - name: Review filtered acceptance run verification
+    prompt: |
+      Review AcceptanceTests.cs before we trust it to detect regressions in test
+      selection. Tell me which checks are sufficient and how to repair weak
+      ones using our conventions. Read-only; do not execute the project.
+    tags:
+      capability: acceptance-selected-test-identity
+      risk: wrong-selection-with-matching-totals
+      journey: review-filter-acceptance-tests
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: acceptance-selection-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Static review: Filter_SelectsExpectedTests accepts three different
+              IDs with the same totals; " total: 30" also contains " total: 3".
+              Use AssertOutputMatchesLines to assert Alpha passed, Beta passed,
+              Gamma skipped and the complete summary line. Its implementation
+              compares the whole split line sequence, preserving extra lines,
+              duplicates and order. Filter_ExactOutput already does this;
+              do not credit its assertions to the weak test or replace the
+              repair with a totals-only word-boundary regex.
+    environment:
+      files:
+        - src: fixtures/predictable-output/Output.Tests.csproj
+          dest: Output.Tests.csproj
+        - src: fixtures/predictable-output/AcceptanceTests.cs
+          dest: AcceptanceTests.cs
+    graders:
+      - type: tool-calls
+        config: *static_review
+      - type: output-matches
+        config: {pattern: Filter_SelectsExpectedTests}
+      - type: output-matches
+        config: {pattern: AssertOutputMatchesLines}
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Explained that Filter_SelectsExpectedTests accepts different test IDs with the same totals and that total 30 still contains the checked total 3 fragment.
+      - Recommended checking the selected Alpha, Beta and Gamma identities, their individual outcomes, and complete summary lines with the available AssertOutputMatchesLines helper.
+      - Read the helper semantics and credited Filter_ExactOutput instead of borrowing its assertions or suggesting only a word-boundary totals regex.
+
+  - name: Preserve intentionally partial and variable output contracts
+    prompt: |
+      Evaluate the three tests in PartialContractTests.cs. We want regression
+      protection without brittle checks of unspecified output. Identify only
+      supported weaknesses; do not edit files or execute commands.
+    tags:
+      capability: partial-output-contract-calibration
+      risk: brittle-exactness-and-false-positives
+      journey: review-stable-output-boundaries
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: partial-output-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Static review: all three tests protect their stated contracts.
+              Log_IncludesRequiredWarning pins the required warning; other
+              events are explicitly unspecified. Results_HaveExpectedStableRecords
+              checks RenderResults' complete stable ID/outcome records in the
+              promised order and separately validates its variable timestamp.
+              Raw JSON equality would add brittleness without protection.
+              Results_CountIsTwo independently checks DiscoverTestIds' cardinality;
+              it does not claim identity or formatting coverage. Do not demand
+              extra assertion types, deduplicate records, or normalize stable fields.
+    environment:
+      files:
+        - src: fixtures/predictable-output/Output.Tests.csproj
+          dest: Output.Tests.csproj
+        - src: fixtures/predictable-output/PartialContractTests.cs
+          dest: PartialContractTests.cs
+    graders:
+      - type: tool-calls
+        config: *static_review
+      - type: output-matches
+        config: {pattern: Log_IncludesRequiredWarning}
+      - type: output-matches
+        config: {pattern: Results_HaveExpectedStableRecords}
+      - type: output-matches
+        config: {pattern: Results_CountIsTwo}
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Credited Log_IncludesRequiredWarning because only the warning is contractual, without demanding exact equality of variable or unspecified log events.
+      - Credited Results_HaveExpectedStableRecords for complete stable identity/outcome records and a separately validated variable timestamp, without recommending raw JSON equality or deduplication.
+      - Credited Results_CountIsTwo for its explicitly cardinality-only intent rather than claiming it promises record identities or manufacturing assertion-variety requirements.

@@ -495,3 +495,42 @@ stimuli:
       - Did not attempt to run a test quality audit
       - Recognized that generating new tests is outside the scope of quality auditing
       - Redirected to a test-generation workflow without writing tests or modifying the supplied project
+
+  - name: Focused review of report and stream assertions
+    prompt: |
+      Review TextTests.cs and RecordTests.cs for assertions that give false
+      confidence about our report and forwarded output. Give specific tests,
+      the wrong behavior they accept, and focused repairs. This is read-only;
+      do not execute commands or expand into a general suite health check.
+    tags:
+      capability: predictable-output-assertion-routing
+      risk: incomplete-report-and-record-verification
+      journey: focused-output-test-review
+    environment:
+      files:
+        - src: ../assertion-quality/fixtures/predictable-output/Output.Tests.csproj
+          dest: Output.Tests.csproj
+        - src: ../assertion-quality/fixtures/predictable-output/TextTests.cs
+          dest: TextTests.cs
+        - src: ../assertion-quality/fixtures/predictable-output/RecordTests.cs
+          dest: RecordTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-analysis-extensions
+    graders:
+      - type: tool-calls
+        config:
+          disallowed: [bash, edit, create]
+      - type: output-matches
+        config: {pattern: Summary_ShowsPassingTest}
+      - type: output-matches
+        config: {pattern: InvalidOption_ReportsValue}
+      - type: output-matches
+        config: {pattern: Run_ForwardsOutput}
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Found unchecked markdown content and diagnostic context despite the matching row and xml fragments; recommended independently expected full text.
+      - Found wrong test IDs or streams and record reordering that pass the count and payload checks; recommended complete ordered records.
+      - Credited InvalidOption_ExactDiagnostic and Run_ExactRecords as meaningful rather than demanding diversity.
+      - Kept the analysis focused and static without edits, execution claims, coverage collection, or a broad audit pipeline.

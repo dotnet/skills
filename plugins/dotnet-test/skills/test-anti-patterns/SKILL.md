@@ -134,6 +134,7 @@ either attached to a finding or explicitly judged sound. In particular:
 | **Assert in catch block only** | `try { Act(); } catch (Exception ex) { Assert.Fail(ex.Message); }` (and equivalents in other languages) -- use `Assert.ThrowsException` / `pytest.raises` / `expect(fn).toThrow` / `assertThrows` / `assert.Error(t, err)` / `#[should_panic]` / `Should -Throw` / `EXPECT_THROW` instead. The test passes when no exception is thrown even if the result is wrong. |
 | **Always-true assertions** | `Assert.IsTrue(true)`, `Assert.AreEqual(x, x)`, `assert True`, `expect(true).toBe(true)`, `assert.True(t, true)`, `assert!(true)`, or conditions that can never fail. |
 | **Commented-out assertions** | Assertions that were disabled but the test still runs, giving the illusion of coverage. |
+| **Incomplete predictable-output checks** | Generated source, JSON/HTML reports, CLI listings, summaries, error text, or protocol/acceptance records checked only via `Contains`, membership, or totals. Read the producer and helpers; report a concrete wrong output satisfying all current checks (extra/duplicate entries, wrong test/provider/stream, broken surrounding text, or reordered contractual lines). Recommend complete stable text, sequence, parsed JSON, or the existing acceptance line helper. Do not flag intentional partial contracts or focused count-only tests, demand diversity from exact comparisons, or normalize away stable differences. |
 
 #### High -- Tests likely to cause pain
 
