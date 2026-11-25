@@ -87,6 +87,10 @@ public sealed record SetupFile(
     string? Source = null,
     string? Content = null);
 
+public sealed record TrustedShellFile(
+    string Path,
+    string Sha256);
+
 public sealed record SetupConfig(
     bool CopyTestFiles = false,
     IReadOnlyList<SetupFile>? Files = null,
@@ -111,6 +115,8 @@ public sealed record EvalScenario(
     bool DenyShell = false,
     IReadOnlyList<string>? RejectAgents = null,
     bool RejectShellRetries = false,
+    IReadOnlyList<string>? AllowShellCommands = null,
+    IReadOnlyList<TrustedShellFile>? TrustedShellFiles = null,
     bool OfflineWorkflow = false);
 
 public sealed record EvalConfig(
