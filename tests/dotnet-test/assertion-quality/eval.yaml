@@ -522,8 +522,10 @@ stimuli:
               extract and parse that JSON, asserting complete stable identities,
               outcomes, totals and multiplicity. Report_ParsesResults already
               binds each ID to its outcome and rejects extra result records;
-              its checks do not belong to the weaker test. JSON property order
-              is not contractual.
+              its checks do not belong to the weaker test.
+              Report_RejectsMissingResultsScript meaningfully verifies that the
+              parser rejects a missing script marker. JSON property order is
+              not contractual.
     environment:
       files:
         - src: fixtures/predictable-output/Output.Tests.csproj
@@ -536,6 +538,8 @@ stimuli:
       - type: output-matches
         config: {pattern: Report_ContainsResults}
       - type: output-matches
+        config: {pattern: Report_RejectsMissingResultsScript}
+      - type: output-matches
         config: {pattern: '(?i)(pars|JsonDocument|ReadResults)'}
       - type: exit-success
       - type: prompt
@@ -543,6 +547,7 @@ stimuli:
       - Explained that Report_ContainsResults accepts Alpha failed and Beta passed while retaining both totals and IDs; also recognized that matching text outside the intended payload is insufficient.
       - Recommended extracting and parsing the actual results payload, checking complete stable result identities and outcomes and rejecting unexpected entries, not comparing JSON property order.
       - Used Report_ParsesResults and ReadResults as available prior art without crediting their checks to Report_ContainsResults.
+      - Credited Report_RejectsMissingResultsScript for checking that the parser rejects a missing results-script marker.
 
   - name: Review provider information verification
     prompt: |

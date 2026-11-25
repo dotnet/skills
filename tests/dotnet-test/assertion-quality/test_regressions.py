@@ -48,6 +48,14 @@ def grader_errors(item, response):
 
 
 class AssertionQualityRegressions(unittest.TestCase):
+    def test_html_review_requires_missing_script_test_disposition(self):
+        item = stimulus("Review embedded result payload verification")
+        response = golden_response(item)
+        self.assertEqual([], grader_errors(item, response))
+        self.assertTrue(grader_errors(
+            item, response.replace("Report_RejectsMissingResultsScript", "OmittedTest")
+        ))
+
     def test_selected_goldens_pass_all_deterministic_output_graders(self):
         names = (
             "Flag assertion-free tests and trivial-only assertions",
