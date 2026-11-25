@@ -1,6 +1,6 @@
 ---
 name: assertion-quality
-description: "Analyze weak, shallow, trivial, self-referential, assertion-free, or presence-only assertions; Contains fragments or totals replacing predictable generated code, JSON, CLI, report, or protocol output. Supports MSTest, Jest, pytest, and Go. DO NOT USE for direct fixes (writing-mstest-tests), new cases (code-testing), missing scenarios or identified production changes (test-gap-analysis), or general severity-ranked audits (test-anti-patterns)."
+description: "Analyze weak, shallow, trivial, self-referential, assertion-free, or presence-only assertions; Contains fragments or totals replacing predictable generated code, JSON, CLI, report, or protocol output. Supports MSTest, Jest, pytest, and Go. DO NOT USE for direct assertion fixes (writing-mstest-tests for MSTest, code-testing for other frameworks), new cases (code-testing), missing scenarios or identified production changes (test-gap-analysis), or general severity-ranked audits (test-anti-patterns)."
 license: MIT
 ---
 
@@ -41,7 +41,7 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 
 - User wants to write new tests (use `code-testing` for any language, or `writing-mstest-tests` for MSTest specifically)
 - User wants to detect anti-patterns beyond assertions (use `test-anti-patterns`)
-- User wants to fix or rewrite assertions (help them directly)
+- User wants to fix or rewrite assertions (use `writing-mstest-tests` for MSTest or `code-testing` for other frameworks)
 - User asks about code coverage percentages (out of scope — this analyzes assertion quality, not line coverage)
 
 ## Inputs

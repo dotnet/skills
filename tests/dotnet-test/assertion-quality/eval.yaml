@@ -591,7 +591,8 @@ stimuli:
 
   - name: Review summary and option diagnostic verification
     prompt: |
-      Review the three tests in TextTests.cs. Which assertions protect the
+      Review the three tests in TextTests.cs. The summary test is intended to
+      protect the complete markdown report. Which assertions protect the
       documented output and which leave gaps? Give a concrete repair for each
       weak test, without changing files or running commands.
     tags:
@@ -607,10 +608,9 @@ stimuli:
           - step_id: 1
             source: agent
             message: |
-              Static review: Summary_ShowsPassingTest accepts a missing heading,
-              Beta passed, or wrong totals while its Alpha row remains intact.
-              Compare the full independently expected markdown, preferably a raw
-              string. InvalidOption_ReportsValue accepts "Accepted option xml";
+              Static review: Summary_MatchesCompleteOutput pins the complete
+              markdown heading, table, outcomes, and totals. InvalidOption_ReportsValue
+              accepts "Accepted option xml";
               pin the exact error message including allowed options and context.
               InvalidOption_ExactDiagnostic already does this with a single
               meaningful equality assertion.
@@ -624,7 +624,7 @@ stimuli:
       - type: tool-calls
         config: *static_review
       - type: output-matches
-        config: {pattern: Summary_ShowsPassingTest}
+        config: {pattern: Summary_MatchesCompleteOutput}
       - type: output-matches
         config: {pattern: InvalidOption_ReportsValue}
       - type: output-matches
@@ -632,9 +632,8 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Identified that Summary_ShowsPassingTest accepts a wrong heading, Beta outcome, or summary totals while the Alpha row stays intact.
+      - Credited Summary_MatchesCompleteOutput as checking the complete markdown output, including its heading, table, outcomes, and totals.
       - Identified that InvalidOption_ReportsValue accepts an incorrect diagnostic that still contains xml; recommended pinning the full error text including valid options and context.
-      - Recommended independent full expected text for the markdown, not more row fragments.
       - Credited InvalidOption_ExactDiagnostic as complete for its stated contract, despite using only one equality assertion.
 
   - name: Review forwarded stream record verification

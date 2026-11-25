@@ -6,13 +6,16 @@ namespace Output.Tests;
 [TestClass]
 public class HtmlTests
 {
+    private const string ResultsScriptStart = """<script id="results" type="application/json">""";
+
     private static string Render() =>
         """<html><script id="results" type="application/json">{"passed":1,"failed":1,"tests":[{"id":"Alpha","outcome":"passed"},{"id":"Beta","outcome":"failed"}]}</script></html>""";
 
     private static JsonDocument ReadResults(string html)
     {
-        const string start = """<script id="results" type="application/json">""";
-        int offset = html.IndexOf(start, StringComparison.Ordinal) + start.Length;
+        int startIndex = html.IndexOf(ResultsScriptStart, StringComparison.Ordinal);
+        Assert.IsGreaterThanOrEqualTo(0, startIndex, "The results script element was not found.");
+        int offset = startIndex + ResultsScriptStart.Length;
         int end = html.IndexOf("</script>", offset, StringComparison.Ordinal);
         return JsonDocument.Parse(html[offset..end]);
     }
@@ -38,5 +41,15 @@ public class HtmlTests
             .Select(test => (test.GetProperty("id").GetString(), test.GetProperty("outcome").GetString()))
             .ToArray();
         CollectionAssert.AreEqual(new[] { ("Alpha", "passed"), ("Beta", "failed") }, results);
+    }
+
+    [TestMethod]
+    public void Report_RejectsMissingResultsScript()
+    {
+        string html = new string(' ', ResultsScriptStart.Length - 1)
+            + """{"passed":1,"failed":1,"tests":[]}"""
+            + "</script>";
+
+        Assert.ThrowsExactly<AssertFailedException>(() => ReadResults(html));
     }
 }

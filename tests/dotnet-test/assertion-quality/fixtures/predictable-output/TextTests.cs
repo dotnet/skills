@@ -18,9 +18,18 @@ public class TextTests
         $"Unknown option '{value}'. Expected one of: json, html.";
 
     [TestMethod]
-    public void Summary_ShowsPassingTest()
+    public void Summary_MatchesCompleteOutput()
     {
-        StringAssert.Contains(Summary(), "| Alpha | passed |");
+        Assert.AreEqual(
+            """
+            # Test results
+            | Test | Outcome |
+            | --- | --- |
+            | Alpha | passed |
+            | Beta | failed |
+            Total: 2; Passed: 1; Failed: 1
+            """,
+            Summary());
     }
 
     [TestMethod]

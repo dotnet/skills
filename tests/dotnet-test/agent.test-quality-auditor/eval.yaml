@@ -498,10 +498,11 @@ stimuli:
 
   - name: Focused review of report and stream assertions
     prompt: |
-      Review TextTests.cs and RecordTests.cs for assertions that give false
-      confidence about our report and forwarded output. Give specific tests,
-      the wrong behavior they accept, and focused repairs. This is read-only;
-      do not execute commands or expand into a general suite health check.
+      Review TextTests.cs and RecordTests.cs for assertions that leave gaps in
+      our report and forwarded output checks. Identify the wrong behavior weak
+      assertions accept, recommend focused repairs, and credit checks that fully
+      protect their stated contracts. This is read-only; do not execute
+      commands or expand into a general suite health check.
     tags:
       capability: predictable-output-assertion-routing
       risk: incomplete-report-and-record-verification
@@ -520,9 +521,9 @@ stimuli:
     graders:
       - type: tool-calls
         config:
-          disallowed: [bash, powershell, execute, shell, run_shell_command, local_shell, edit, create, delete, remove, apply_patch]
+          disallowed: [bash, powershell, execute, shell, run_shell_command, local_shell, edit, create, delete, remove, rename, move, write, write_file, append, append_file, apply_patch]
       - type: output-matches
-        config: {pattern: Summary_ShowsPassingTest}
+        config: {pattern: Summary_MatchesCompleteOutput}
       - type: output-matches
         config: {pattern: InvalidOption_ReportsValue}
       - type: output-matches
@@ -530,7 +531,7 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Found unchecked markdown content and diagnostic context despite the matching row and xml fragments; recommended independently expected full text.
+      - Credited Summary_MatchesCompleteOutput for checking the complete markdown report and identified InvalidOption_ReportsValue as accepting incorrect diagnostics that merely contain xml; recommended pinning the full expected error.
       - Found wrong test IDs or streams and record reordering that pass the count and payload checks; recommended complete ordered records.
       - Credited InvalidOption_ExactDiagnostic and Run_ExactRecords as meaningful rather than demanding diversity.
       - Kept the analysis focused and static without edits, execution claims, coverage collection, or a broad audit pipeline.
