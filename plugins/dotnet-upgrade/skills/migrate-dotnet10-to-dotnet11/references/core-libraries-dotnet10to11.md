@@ -56,7 +56,13 @@ When such a conversion is a compile-time constant, a compiler from the .NET 11 S
   static decimal ToDecimalLikeNet10(double value) =>
       decimal.Parse(value.ToString("G15", CultureInfo.InvariantCulture),
                     NumberStyles.Float, CultureInfo.InvariantCulture);
+
+  static decimal ToDecimalLikeNet10(float value) =>
+      decimal.Parse(value.ToString("G7", CultureInfo.InvariantCulture),
+                    NumberStyles.Float, CultureInfo.InvariantCulture);
   ```
+
+  Do not use `"G15"` for a `float` source: `14.1f` was `14.1` in .NET 10, but `14.1f.ToString("G15")` is `14.1000003814697`.
 - Update tests and serialized expected values that encoded the old result. There is no compatibility switch.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/decimal-biginteger-floating-point-conversions

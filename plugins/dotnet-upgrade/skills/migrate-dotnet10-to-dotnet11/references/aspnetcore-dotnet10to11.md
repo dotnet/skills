@@ -4,13 +4,13 @@ These breaking changes affect ASP.NET Core projects. Sources: https://learn.micr
 
 ## Source-Incompatible Changes
 
-### Microsoft.OpenApi updated to v3 with OpenAPI 3.2.0 support (Preview 2)
+### Microsoft.OpenApi updated to v3 with OpenAPI 3.2.0 support
 
 **Impact: Medium.** `Microsoft.AspNetCore.OpenApi` updated its dependency from `Microsoft.OpenApi` 2.x to 3.x, adding OpenAPI 3.2.0 document generation. The underlying `Microsoft.OpenApi` library has breaking API changes in the v2→v3 transition.
 
 Code that directly uses `Microsoft.OpenApi` types (`OpenApiDocument`, `OpenApiSchema`, `OpenApiOperation`, etc.) will have compile errors.
 
-**Fix:** Follow the [Microsoft.OpenApi v3 upgrade guide](https://github.com/microsoft/OpenAPI.NET/blob/main/docs/upgrade-guide-3.md). If you only use the ASP.NET Core OpenAPI integration (`.WithOpenApi()`, `MapOpenApi()`) without touching the object model directly, no changes are needed.
+**Fix:** Follow the [Microsoft.OpenApi v3 upgrade guide](https://github.com/microsoft/OpenAPI.NET/blob/main/docs/upgrade-guide-3.md). Apps that only use the ASP.NET Core OpenAPI integration (`AddOpenApi()`, `MapOpenApi()`) need no code changes for the object model, but the generated document now defaults to OpenAPI 3.2 (see the behavioral change below).
 
 Source: https://github.com/dotnet/aspnetcore/pull/65415
 
@@ -137,6 +137,41 @@ Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/blazor
 **Fix:** Scripts, CSS selectors, and UI tests that treat the presence of a `.validation-message` element as "the field is invalid" (for example, to set `aria-invalid` or to focus the first invalid field) must use `.validation-message:not([hidden])`. Custom CSS that sets `display` on `.validation-message` overrides `hidden`.
 
 Source: https://github.com/dotnet/aspnetcore/pull/67324
+
+### OpenAPI documents default to version 3.2
+
+**Impact: Medium (for OpenAPI consumers).** `OpenApiOptions.OpenApiVersion` now defaults to `OpenApiSpecVersion.OpenApi3_2` instead of `OpenApi3_1`, so `AddOpenApi()` without an explicit version produces OpenAPI 3.2 documents. The app builds and runs unchanged, but client generators, gateways, contract tests, and other tools that accept only 3.1 can reject the new document.
+
+**Fix:** If any consumer of the document requires 3.1, set the version explicitly:
+
+```csharp
+builder.Services.AddOpenApi(options =>
+{
+    options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_1;
+});
+```
+
+Also update OpenAPI snapshot tests that compare the `openapi` version field.
+
+Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/openapi-version-default-3-2
+
+### QuickGrid uses URL-based pagination and sorting
+
+**Impact: Medium (pages with several grids, custom CSS, UI tests).** `QuickGrid` now keeps its page and sort state in the query string (for example `?page=2&sort=Name&direction=asc`). Every grid on a page uses the same `page`, `sort`, and `direction` names by default, so paging or sorting one grid changes the others. Sortable column headers and paginator controls render as `<a>` elements instead of `<button>`, and disabled paginator links use `aria-disabled="true"` instead of `disabled`.
+
+**Fix:**
+- When a page renders more than one `QuickGrid`, give all but one grid distinct query parameter names, and give each grid its own `PaginationState`:
+
+  ```razor
+  <QuickGrid Items="@cities" Pagination="@citiesPagination"
+             QueryParameterNameOptions="@(new QueryParameterNameOptions("cities_"))">
+      ...
+  </QuickGrid>
+  ```
+- Update custom CSS and UI test selectors that target the old buttons, for example `button.col-title` becomes `button.col-title, a.col-title`, and `nav button:disabled` becomes `nav button:disabled, nav a[aria-disabled="true"]`.
+- To keep `<button>` markup in interactive render modes, set the `Microsoft.AspNetCore.Components.QuickGrid.EnableUrlBasedQuickGridNavigationAndSorting` AppContext switch to `false`. The state is still read from and written to the URL.
+
+Source: https://learn.microsoft.com/en-us/aspnet/core/migration/100-to-110#quickgrid-adopts-url-based-pagination-and-sorting
 
 ### OpenAPI document includes all ProducesResponseType entries per status code
 

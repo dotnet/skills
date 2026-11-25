@@ -146,6 +146,27 @@ items = [with(x, y), z];   // C# 14: call to with() method; C# 15: error
 items = [@with(x, y), z];  // fix: escape to call method named 'with'
 ```
 
+### `closed` and `union` are contextual keywords in type declarations (C# 15)
+
+**Impact: Low (build error in code that uses these names for types).** In C# 15, a type or alias named `closed` or `union` without an `@` escape is an error (CS9380 for `closed`). Inside a type, a member declaration that starts with `closed` is parsed as a modifier, so a field of type `closed` becomes an incomplete declaration (CS1519). A declaration that starts with `union` followed by a name is parsed as a union declaration (CS9370) instead of a field.
+
+```csharp
+class @closed { }
+class @union { }
+
+class C
+{
+    closed OldClosed;     // C# 14: field of type 'closed'; C# 15: CS1519
+    union OldUnion;       // C# 14: field of type 'union'; C# 15: CS9370
+    @closed NewClosed;    // fix: escape the type name
+    @union NewUnion;      // fix: escape the type name
+}
+```
+
+**Fix:** Escape the declarations and references with `@`, or rename the types.
+
+Source: https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/breaking-changes/compiler%20breaking%20changes%20-%20dotnet%2011
+
 ### Parsing of `when` in switch-expression-arm
 
 **Impact: Low.** In a switch expression, `(X.Y) when` is now parsed as a constant pattern `(X.Y)` followed by a `when` clause. Previously it was parsed as a cast expression casting `when` to `(X.Y)`.
