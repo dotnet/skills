@@ -100,7 +100,7 @@ Choose the smallest orchestration model that meets the actual concurrency and li
 - Never redirect output to pipes merely to suppress it; use `silent: true` or null handles instead. See [running without capture](references/running-without-capture.md).
 - Output EOF is not process termination, and termination is not EOF. Status waits do not drain pipes, and a descendant holding a pipe's write end prevents EOF.
 - Canceling a wait or disposing a `Process` or `SafeProcessHandle` does not terminate the child. Choose deliberately between wait-only and kill-and-wait behavior.
-- We recommend always restricting inheritance with `ProcessStartInfo.InheritedHandles`: use `[]` when the child needs no additional handles, or list only the handles it requires. Standard handles are still inherited and can reach grandchildren. See [handle inheritance](references/handle-inheritance.md) for details.
+- Always restrict inheritance with `ProcessStartInfo.InheritedHandles` on every platform: use `[]` when the child needs no additional handles, or list only the handles it requires. Standard handles are still inherited and can reach grandchildren. See [handle inheritance](references/handle-inheritance.md) for details.
 - Full capture buffers all output in memory. For untrusted or potentially unlimited output, use fixed-size reads with one shared retention budget across stdout and stderr, and keep draining after the budget is reached.
 
 ## Reference Guide
