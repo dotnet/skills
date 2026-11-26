@@ -74,4 +74,45 @@ Choose the smallest orchestration model that meets the actual concurrency and li
 | Start and wait without capturing output | `Run[Async]`; use `silent: true` to discard output |
 | Inspect or search output lines while the process runs | `ReadAllLines[Async]` on a started process |
 | Capture bounded output from an already-started process | `ReadAllText[Async]` for text or `ReadAllBytes[Async]` for binary data, followed by a status wait |
-| Forward output to a file or another process without inspecting it | Standard-handle redirection, without parent-side capture |
+| Discard output with a custom `ProcessStartInfo` | `File.OpenNullHandle()` assigned to `StandardInputHandle`, `StandardOutputHandle`, and `StandardErrorHandle` |
+| Forward output to a file without inspecting it | `File.OpenHandle` assigned to `StandardOutputHandle` or `StandardErrorHandle` |
+| Pipe one process's output into another process | `SafeFileHandle.CreateAnonymousPipe`, with the write end assigned to the producer's `StandardOutputHandle` and the read end to the consumer's `StandardInputHandle`; dispose the parent's copy of each end right after starting the child that uses it, or the consumer never reaches EOF |
+| Wait for termination and obtain the exit status | `WaitForExitStatus[Async]`, or `TryWaitForExitStatus` with a timeout; not `Process.ExitCode` |
+| Kill the process on timeout or cancellation, then wait | `process.SafeHandle.WaitForExitOrKillOnTimeout` or `WaitForExitOrKillOnCancellationAsync` |
+| Signal a process | `Process.Signal` or `SafeProcessHandle.Signal` with `PosixSignal`. On Windows only `SIGKILL` is supported |
+| Limit which handles the child inherits | `ProcessStartInfo.InheritedHandles = []`, listing only the extra handles it needs |
+| Create a process with custom P/Invokes | `WindowsProcessStartArguments.Start` or `UnixProcessStartArguments.Start` |
+| Start a process without retaining any resources | `Process.StartAndForget` |
+| Terminate the child when the parent exits | `ProcessStartInfo.KillOnParentExit` (Windows, Linux, Android) |
+| Detach the child from the parent's terminal | `ProcessStartInfo.StartDetached` |
+| Manage a process with a small, trimmer-friendly API surface | `SafeProcessHandle.Start` and its wait, kill, and signal methods |
+
+## Workflow
+
+1. Inspect the target frameworks and the existing synchronous or asynchronous calling model, as described above.
+2. Identify the behavioral contract: where output goes, what completion means, what happens on timeout or cancellation, and who owns the child's lifetime.
+3. Choose the API from [Choosing an API](#choosing-an-api) and read the matching references from the [Reference Guide](#reference-guide).
+4. Make the smallest change that preserves existing output, logging, environment, cleanup, and error behavior, then validate every affected target framework.
+
+## Key Rules
+
+- When redirecting standard output and standard error, drain both concurrently while the process runs. Never wait for exit before reading, and never read them sequentially; a full pipe blocks the child. See [output capture](references/output-capture.md).
+- Never redirect output to pipes merely to suppress it; use `silent: true` or null handles instead. See [running without capture](references/running-without-capture.md).
+- Output EOF is not process termination, and termination is not EOF. Status waits do not drain pipes, and a descendant holding a pipe's write end prevents EOF.
+- Canceling a wait or disposing a `Process` or `SafeProcessHandle` does not terminate the child. Choose deliberately between wait-only and kill-and-wait behavior.
+- We recommend always setting `ProcessStartInfo.InheritedHandles = []` so the child inherits only its standard handles. Standard handles are still inherited and can reach grandchildren. See [handle inheritance](references/handle-inheritance.md) for details.
+- Full capture buffers all output in memory. For untrusted or potentially unlimited output, use fixed-size reads with one shared retention budget across stdout and stderr, and keep draining after the budget is reached.
+
+## Reference Guide
+
+Read the references that match the task before applying their guidance; read several when a task spans them. Resolve paths relative to this file. If a required reference cannot be read, report the reduced coverage instead of claiming a complete solution.
+
+| Task | Reference |
+|------|-----------|
+| Capturing, inspecting, or searching output; avoiding pipe deadlocks; bounding memory | [output capture](references/output-capture.md) |
+| Starting and waiting without capturing output, `silent: true`, or discarding output with null handles | [running without capture](references/running-without-capture.md) |
+| Redirecting standard handles to files, other processes, or the null device | [standard-handle redirection](references/redirecting-standard-handles.md) |
+| Waiting for exit, timeouts, cancellation, exit status, signals, or termination | [waiting and termination](references/waiting-and-termination.md) |
+| Restricting inherited handles, inherited pipe writers, or custom native process creation | [handle inheritance](references/handle-inheritance.md) |
+| Fire-and-forget starts, disposal, parent-exit termination, or terminal detachment | [lifetime and detachment](references/lifetime-and-detachment.md) |
+| Using `SafeProcessHandle` directly, including for NativeAOT | [SafeProcessHandle](references/safe-process-handle.md) |
