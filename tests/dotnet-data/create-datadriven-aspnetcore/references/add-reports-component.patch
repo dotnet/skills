@@ -1,0 +1,28 @@
+diff --git a/fixtures/blazor-crud/Components/Pages/Reports.razor b/fixtures/blazor-crud/Components/Pages/Reports.razor
+new file mode 100644
+--- /dev/null
++++ b/fixtures/blazor-crud/Components/Pages/Reports.razor
+@@ -0,0 +1,7 @@
++@page "/reports"
++
++<PageTitle>Reports</PageTitle>
++
++<h1>Reports</h1>
++
++<p>Select a report to continue.</p>
+diff --git a/fixtures/blazor-crud/Components/Layout/NavMenu.razor b/fixtures/blazor-crud/Components/Layout/NavMenu.razor
+--- a/fixtures/blazor-crud/Components/Layout/NavMenu.razor
++++ b/fixtures/blazor-crud/Components/Layout/NavMenu.razor
+@@ -22,6 +22,12 @@
+         <div class="nav-item px-3">
+             <NavLink class="nav-link" href="weather">
+                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+             </NavLink>
+         </div>
++
++        <div class="nav-item px-3">
++            <NavLink class="nav-link" href="reports">
++                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Reports
++            </NavLink>
++        </div>
+     </nav>
