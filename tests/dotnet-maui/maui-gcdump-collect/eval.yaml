@@ -149,8 +149,30 @@ stimuli:
                 # variable supplies it -- so a quoted reference is just as
                 # unset-by-the-time-cleanup-runs as a bare one and must be
                 # rejected the same way.
-                bare_var_ref = re.search(r"\b(?:stop|kill|terminate)\s+" + dq + r"?" + sq + r"?\$\{?(\w+)\}?" + sq + r"?" + dq + r"?\b", x, re.IGNORECASE)
-                assert not bare_var_ref, "cleanup stops the router via a $VAR reference (quoted or bare), but each commands-array entry is an independent shell invocation -- a value assigned only in route/collect own shell-local state never reaches cleanup separate invocation; recover the router identity in a way that actually crosses shell boundaries instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists it with " + dq + "> FILE" + dq
+                # But a value does cross shell-process boundaries when it is
+                # recovered via "$(cat FILE)" from a file route itself wrote
+                # -- and that recovery can legitimately happen either
+                # directly as the stop operand, or via a plain $VAR FIRST
+                # assigned from "$(cat FILE)" earlier in cleanup OWN entry
+                # (a within-entry assignment, not a cross-entry reference).
+                # Either way, route must actually have persisted its real
+                # PID to a file at all, and the file cleanup reads back must
+                # be the EXACT one route wrote -- a route that never writes
+                # one, or a cleanup that reads a different/unrelated file,
+                # never recovers the real owned router identity either.
+                route_pid_write = re.search(r"echo\s+" + dq + r"?\$\{?(?:!|\w+)\}?" + dq + r"?\s*>\s*" + dq + r"?([^" + dq + r"\s;]+)" + dq + r"?", r)
+                assert route_pid_write, "route starts the standalone router but never persists its PID to a file (e.g. " + dq + "echo $! > FILE" + dq + ") -- without a real recorded identity, cleanup (a separate shell invocation) has nothing legitimate to recover and stop"
+                route_pid_file = route_pid_write.group(1)
+                cleanup_stop_entry = next((e for e in c["cleanup"] if real_stop_text(e)), "")
+                inline_cat = re.search(r"\b(?:stop|kill|terminate)\s+" + dq + r"?\$\(\s*cat\s+" + dq + r"?([^" + dq + r"\s;)]+)" + dq + r"?", cleanup_stop_entry, re.IGNORECASE)
+                bare_var_ref = re.search(r"\b(?:stop|kill|terminate)\s+" + dq + r"?" + sq + r"?\$\{?(\w+)\}?" + sq + r"?" + dq + r"?\b", cleanup_stop_entry, re.IGNORECASE)
+                if inline_cat:
+                    assert inline_cat.group(1) == route_pid_file, "cleanup recovers the router PID from " + dq + inline_cat.group(1) + dq + ", but route itself persisted its PID to " + dq + route_pid_file + dq + " -- reading a different/mismatched file never actually recovers the real owned router identity"
+                elif bare_var_ref:
+                    var_name = bare_var_ref.group(1)
+                    local_assign = re.search(re.escape(var_name) + r"\s*=\s*\$\(\s*cat\s+" + dq + r"?([^" + dq + r"\s;)]+)" + dq + r"?", cleanup_stop_entry[:bare_var_ref.start()])
+                    assert local_assign, "cleanup stops the router via a $VAR reference (quoted or bare), but each commands-array entry is an independent shell invocation -- a value assigned only in route/collect own shell-local state never reaches cleanup separate invocation; recover the router identity in a way that actually crosses shell boundaries instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists it with " + dq + "> FILE" + dq
+                    assert local_assign.group(1) == route_pid_file, "cleanup recovers the router PID from " + dq + local_assign.group(1) + dq + ", but route itself persisted its PID to " + dq + route_pid_file + dq + " -- reading a different/mismatched file never actually recovers the real owned router identity"
                 # A bare command-line pattern match ("pkill -f PATTERN") was
                 # previously accepted as an equal-footing alternative, but
                 # "dotnet-dsrouter android" (and its ANDROID_SERIAL binding)
@@ -1224,8 +1246,29 @@ stimuli:
             # quoting only disables word-splitting/globbing on the result,
             # never which variable supplies it -- so a quoted reference is
             # rejected the same way as a bare one.
-            bare_var_ref = re.search(r"\b(?:stop|kill|terminate)\s+" + dq + r"?" + sq + r"?\$\{?(\w+)\}?" + sq + r"?" + dq + r"?\b", x, re.IGNORECASE)
-            assert not bare_var_ref, "cleanup stops the router via a $VAR reference (quoted or bare), but each commands-array entry is an independent shell invocation -- a value assigned only in route own shell-local state never reaches cleanup separate invocation; recover the router identity in a way that actually crosses shell boundaries instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists it with " + dq + "> FILE" + dq
+            # But a value does cross shell-process boundaries when it is
+            # recovered via "$(cat FILE)" from a file route itself wrote --
+            # either directly as the stop operand, or via a plain $VAR FIRST
+            # assigned from "$(cat FILE)" earlier in cleanup OWN entry (a
+            # within-entry assignment, not a cross-entry reference). Either
+            # way, route must actually have persisted its real PID to a file
+            # at all, and the file cleanup reads back must be the EXACT one
+            # route wrote -- a route that never writes one, or a cleanup
+            # that reads a different/unrelated file, never recovers the
+            # real owned router identity either.
+            route_pid_write = re.search(r"echo\s+" + dq + r"?\$\{?(?:!|\w+)\}?" + dq + r"?\s*>\s*" + dq + r"?([^" + dq + r"\s;]+)" + dq + r"?", r)
+            assert route_pid_write, "route starts the standalone router but never persists its PID to a file (e.g. " + dq + "echo $! > FILE" + dq + ") -- without a real recorded identity, cleanup (a separate shell invocation) has nothing legitimate to recover and stop"
+            route_pid_file = route_pid_write.group(1)
+            cleanup_stop_entry = next((e for e in c["cleanup"] if real_stop_text(e)), "")
+            inline_cat = re.search(r"\b(?:stop|kill|terminate)\s+" + dq + r"?\$\(\s*cat\s+" + dq + r"?([^" + dq + r"\s;)]+)" + dq + r"?", cleanup_stop_entry, re.IGNORECASE)
+            bare_var_ref = re.search(r"\b(?:stop|kill|terminate)\s+" + dq + r"?" + sq + r"?\$\{?(\w+)\}?" + sq + r"?" + dq + r"?\b", cleanup_stop_entry, re.IGNORECASE)
+            if inline_cat:
+                assert inline_cat.group(1) == route_pid_file, "cleanup recovers the router PID from " + dq + inline_cat.group(1) + dq + ", but route itself persisted its PID to " + dq + route_pid_file + dq + " -- reading a different/mismatched file never actually recovers the real owned router identity"
+            elif bare_var_ref:
+                var_name = bare_var_ref.group(1)
+                local_assign = re.search(re.escape(var_name) + r"\s*=\s*\$\(\s*cat\s+" + dq + r"?([^" + dq + r"\s;)]+)" + dq + r"?", cleanup_stop_entry[:bare_var_ref.start()])
+                assert local_assign, "cleanup stops the router via a $VAR reference (quoted or bare), but each commands-array entry is an independent shell invocation -- a value assigned only in route own shell-local state never reaches cleanup separate invocation; recover the router identity in a way that actually crosses shell boundaries instead, e.g. " + dq + "kill " + chr(92) + dq + "$(cat FILE)" + chr(92) + dq + dq + " after route persists it with " + dq + "> FILE" + dq
+                assert local_assign.group(1) == route_pid_file, "cleanup recovers the router PID from " + dq + local_assign.group(1) + dq + ", but route itself persisted its PID to " + dq + route_pid_file + dq + " -- reading a different/mismatched file never actually recovers the real owned router identity"
             # A bare "pkill -f PATTERN" match carries the same flaw as on
             # Android: this routers command line (server-client mode,
             # forwarding a fixed local port) is identical to any other

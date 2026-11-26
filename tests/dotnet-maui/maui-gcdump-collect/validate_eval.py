@@ -457,7 +457,41 @@ def main():
                                for c in commands), "--process-id synonym accepted plan"
                     equivalent_count += 1
                     plan_path.write_text(original)
+                    # A $VAR cleanup reference IS legitimate when that same
+                    # variable is first assigned from "$(cat FILE)" earlier
+                    # in cleanup's OWN entry (a within-entry recovery, not a
+                    # cross-entry reference) -- this crosses the real shell-
+                    # process boundary just as directly as inlining the
+                    # "$(cat FILE)" substitution would, and must be accepted.
+                    standalone_local_recovery_cleanup = copy.deepcopy(standalone_plan)
+                    standalone_local_recovery_cleanup["commands"]["cleanup"] = [
+                        'ROUTER_PID=$(cat "$PWD/router.pid"); kill "$ROUTER_PID"; '
+                        'rm -f "$PWD/router.pid"; echo done'
+                    ]
+                    plan_path.write_text(json.dumps(standalone_local_recovery_cleanup))
+                    assert all(run(c, workspace, shell=True).returncode == 0
+                               for c in commands), "within-entry $(cat FILE)-recovered $VAR cleanup accepted plan"
+                    equivalent_count += 1
                     plan_path.write_text(original)
+                    # route must actually persist the PID it started to a
+                    # file -- a route that backgrounds the router but never
+                    # writes its PID anywhere leaves cleanup (a separate,
+                    # independent shell invocation) nothing real to recover,
+                    # no matter what cleanup itself claims to do.
+                    standalone_missing_pid_write = copy.deepcopy(standalone_plan)
+                    standalone_missing_pid_write["commands"]["route"] = [
+                        "ANDROID_SERIAL=R58M123 dotnet-dsrouter android &"
+                    ]
+                    mutations.append(standalone_missing_pid_write)
+                    # Reading back a DIFFERENT/unrelated file than the one
+                    # route actually wrote never recovers the real owned
+                    # router identity either, even though cleanup uses the
+                    # otherwise-legitimate "$(cat FILE)" recovery mechanism.
+                    standalone_mismatched_pid_file = copy.deepcopy(standalone_plan)
+                    standalone_mismatched_pid_file["commands"]["cleanup"] = [
+                        'kill "$(cat "$PWD/unrelated.pid" 2>/dev/null)" 2>/dev/null; echo done'
+                    ]
+                    mutations.append(standalone_mismatched_pid_file)
                     # An attach PID variable left completely unset anywhere in
                     # route/collect (no "dotnet-gcdump ps"-based assignment at
                     # all) must still be rejected -- a bare "$UNSET_PID"
@@ -655,6 +689,41 @@ def main():
                         "kill $ROUTER_PID 2>/dev/null; echo done"
                     ]
                     mutations.append(cross_entry_variable_cleanup)
+                    # A $VAR cleanup reference IS legitimate when that same
+                    # variable is first assigned from "$(cat FILE)" earlier
+                    # in cleanup's OWN entry (a within-entry recovery, not a
+                    # cross-entry reference) -- this crosses the real shell-
+                    # process boundary just as directly as inlining the
+                    # "$(cat FILE)" substitution would, and must be accepted.
+                    local_recovery_cleanup = copy.deepcopy(plan)
+                    local_recovery_cleanup["commands"]["cleanup"] = [
+                        'ROUTER_PID=$(cat "$PWD/router.pid"); kill "$ROUTER_PID"; '
+                        'rm -f "$PWD/router.pid"; echo done'
+                    ]
+                    plan_path.write_text(json.dumps(local_recovery_cleanup))
+                    assert all(run(c, workspace, shell=True).returncode == 0
+                               for c in commands), "within-entry $(cat FILE)-recovered $VAR cleanup accepted plan"
+                    equivalent_count += 1
+                    plan_path.write_text(original)
+                    # route must actually persist the PID it started to a
+                    # file -- a route that backgrounds the router but never
+                    # writes its PID anywhere leaves cleanup (a separate,
+                    # independent shell invocation) nothing real to recover,
+                    # no matter what cleanup itself claims to do.
+                    missing_pid_write = copy.deepcopy(plan)
+                    missing_pid_write["commands"]["route"] = [
+                        plan["commands"]["route"][0].split(" & echo", 1)[0] + " &"
+                    ]
+                    mutations.append(missing_pid_write)
+                    # Reading back a DIFFERENT/unrelated file than the one
+                    # route actually wrote never recovers the real owned
+                    # router identity either, even though cleanup uses the
+                    # otherwise-legitimate "$(cat FILE)" recovery mechanism.
+                    mismatched_pid_file = copy.deepcopy(plan)
+                    mismatched_pid_file["commands"]["cleanup"] = [
+                        'kill "$(cat "$PWD/unrelated.pid" 2>/dev/null)" 2>/dev/null; echo done'
+                    ]
+                    mutations.append(mismatched_pid_file)
                 bad_route = copy.deepcopy(plan)
                 bad_route["commands"]["route"] = ["dotnet-dsrouter ios-sim"]
                 mutations.append(bad_route)

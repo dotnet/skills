@@ -5,9 +5,10 @@ description: >
   Capture a .gcdump from a confirmed Mono-runtime MAUI app on a physical Android or
   iOS device. USE FOR: physical-device Mono heap captures — device memory
   snapshots, growing managed heap, profiling-build prep, or diagnostic-port/dsrouter
-  connectivity failures. DO NOT USE FOR (decline without opening): CoreCLR or
-  NativeAOT apps (gcdump collection is unsupported there regardless of framing;
-  explain the Mono-only boundary instead); production/store-distributed (App Store,
+  connectivity failures. DO NOT USE FOR (decline without opening): CoreCLR apps
+  (gcdump collection works there too, but it is out of this skill's Mono-only
+  scope — explain the boundary instead); NativeAOT apps (gcdump collection is
+  unsupported there regardless of framing); production/store-distributed (App Store,
   TestFlight, Play Store, enterprise-signed) binaries needing a diagnostic-port
   attach or signing/security bypass; existing dump/crash analysis, CPU traces,
   native Java/Objective-C heaps, Windows/Mac Catalyst apps, emulator/simulator-only
