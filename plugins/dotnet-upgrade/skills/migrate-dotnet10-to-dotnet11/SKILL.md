@@ -79,15 +79,7 @@ Migrate a .NET 10 project or solution to .NET 11, systematically resolving all b
 
 ### Step 2: Update the Target Framework
 
-1. In each `.csproj` (or `Directory.Build.props` if centralized), change:
-   ```xml
-   <TargetFramework>net10.0</TargetFramework>
-   ```
-   to:
-   ```xml
-   <TargetFramework>net11.0</TargetFramework>
-   ```
-   For multi-targeted projects, add `net11.0` to `<TargetFrameworks>` or replace `net10.0`.
+1. In each `.csproj` (or `Directory.Build.props` if centralized), change `<TargetFramework>net10.0</TargetFramework>` to `<TargetFramework>net11.0</TargetFramework>`. For multi-targeted projects, add `net11.0` to `<TargetFrameworks>` or replace `net10.0`.
 
 2. Update all `Microsoft.Extensions.*`, `Microsoft.AspNetCore.*`, `Microsoft.EntityFrameworkCore.*`, and other Microsoft package references to their 11.0.x versions. If using Central Package Management (`Directory.Packages.props`), update versions there.
 
@@ -132,15 +124,13 @@ Then work through the remaining build errors systematically. Common patterns:
 
 5. **Dynamic `&&`/`||` with interface operand** — Interface types as left operand of `&&`/`||` with `dynamic` right operand now errors at compile time. Cast to concrete type or `dynamic`.
 
-6. **EF Core Cosmos sync I/O removal** — `ToList()`, `SaveChanges()`, etc. on Cosmos provider always throw. Convert to async equivalents.
+6. **SYSLIB0063: `NamedPipeClientStream` `isConnected` parameter obsoleted** — The constructor overload taking `bool isConnected` is obsoleted. Remove the `isConnected` argument and use the new 3-parameter constructor. Projects with `TreatWarningsAsErrors` will fail to build.
 
-7. **SYSLIB0063: `NamedPipeClientStream` `isConnected` parameter obsoleted** — The constructor overload taking `bool isConnected` is obsoleted. Remove the `isConnected` argument and use the new 3-parameter constructor. Projects with `TreatWarningsAsErrors` will fail to build.
+7. **`when` switch-expression-arm parsing** — `(X.Y) when` is now parsed as a constant pattern with a `when` clause instead of a cast expression, which can cause existing code to fail to compile or change meaning. Review switch expressions using `when` and adjust syntax as needed.
 
-8. **`when` switch-expression-arm parsing** — `(X.Y) when` is now parsed as a constant pattern with a `when` clause instead of a cast expression, which can cause existing code to fail to compile or change meaning. Review switch expressions using `when` and adjust syntax as needed.
+8. **Microsoft.OpenApi v3 breaking changes** — `Microsoft.AspNetCore.OpenApi` now depends on `Microsoft.OpenApi` 3.x. Code using `Microsoft.OpenApi` types directly (`OpenApiDocument`, `OpenApiSchema`, etc.) will have compile errors. Follow the v3 upgrade guide.
 
-9. **Microsoft.OpenApi v3 breaking changes** — `Microsoft.AspNetCore.OpenApi` now depends on `Microsoft.OpenApi` 3.x. Code using `Microsoft.OpenApi` types directly (`OpenApiDocument`, `OpenApiSchema`, etc.) will have compile errors. Follow the v3 upgrade guide.
-
-10. **EF Core build changes:** add `Microsoft.EntityFrameworkCore.Design` explicitly if the build relied on the Tools package, and replace `EFOptimizeContext` with `<EFScaffoldModelStage>` and `<EFPrecompileQueriesStage>`.
+9. **EF Core build changes:** add `Microsoft.EntityFrameworkCore.Design` explicitly if the build relied on the Tools package, and replace `EFOptimizeContext` with `<EFScaffoldModelStage>` and `<EFPrecompileQueriesStage>`.
 
 ### Step 4: Address behavioral changes
 
@@ -150,7 +140,7 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 - **Decimal and BigInteger floating-point conversions are correctly rounded:** `(decimal)1.23` (a `double`) was `1.23` in .NET 10 and is `1.229999999999999982236431606` in .NET 11. Search for `(decimal)` casts, `Convert.ToDecimal(`, and `new decimal(` on `double`/`float` inputs, especially in money code and decimal-place validation. Use `m` literals in code and test data, or, where the old result is required, round through `"G15"` for a `double` source and `"G7"` for a `float` source. Review `Math.Round(value, digits)` in the same pass: it now returns correctly rounded results. See `references/core-libraries-dotnet10to11.md`.
 - **Third-party Blazor component libraries:** libraries compiled against an earlier ASP.NET Core that still call removed obsolete Blazor APIs throw `TypeLoadException` or `MissingMethodException` when they render. Upgrade them to .NET 11 versions and run UI or render tests.
-- **EF Core against existing data:** Cosmos no longer preserves unmapped JSON properties (a load and save deletes them) or escapes `/ \ ? #` in ids. SQL Server defaults to compatibility level 160 (`LEAST`/`GREATEST` fail on SQL Server 2019; use `UseCompatibilityLevel(150)`).
+- **EF Core against existing data:** Cosmos synchronous calls (`ToList()`, `SaveChanges()`) always throw, so convert them to async. Cosmos also no longer preserves unmapped JSON properties (a load and save deletes them) or escapes `/ \ ? #` in ids. SQL Server defaults to compatibility level 160 (`LEAST`/`GREATEST` fail on SQL Server 2019; use `UseCompatibilityLevel(150)`).
 - **OpenAPI documents default to 3.2:** set `OpenApiVersion` to `OpenApi3_1` if consumers require 3.1.
 - **Hidden `.validation-message` placeholders (Blazor static SSR):** a valid field now renders an empty `.validation-message` element with the `hidden` attribute. Scripts, CSS, and UI tests that treat its presence as "invalid" must use `.validation-message:not([hidden])`.
 
@@ -192,30 +182,13 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 ### Step 5: Update infrastructure
 
-1. **Dockerfiles**: Update base images from 10.0 to 11.0:
+1. **Dockerfiles**: Update base image tags from 10.0 to 11.0:
    ```dockerfile
-   # Before
-   FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-   FROM mcr.microsoft.com/dotnet/aspnet:10.0
-   # After
    FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
    FROM mcr.microsoft.com/dotnet/aspnet:11.0
    ```
 
-2. **CI/CD pipelines**: Update SDK version references. If using `global.json`, update the `sdk.version` in your existing file while preserving other keys (such as `rollForward` and test configuration):
-   ```diff
-    {
-      "sdk": {
-   -    "version": "10.0.100",
-   -    "rollForward": "latestFeature"
-   +    "version": "11.0.100",
-   +    "rollForward": "latestFeature"
-      },
-      "otherSettings": {
-        "...": "..."
-      }
-    }
-   ```
+2. **CI/CD pipelines**: Update SDK version references. If using `global.json`, change `sdk.version` to `11.0.100` and preserve the other keys (such as `rollForward` and test configuration).
 
 3. **Hardware deployment targets**: Verify all deployment targets meet the updated minimum hardware requirements (x86-64-v2 for x86/x64, LSE for Windows Arm64).
 
@@ -226,33 +199,9 @@ These changes compile successfully but alter runtime behavior. Review each one a
 1. Run a full clean build: `dotnet build --no-incremental`
 2. Run all tests: `dotnet test`
 3. If the application is containerized, build and test the container image
-4. Smoke-test the application, paying special attention to:
-   - Compression behavior with empty streams
-   - TAR file reading (checksum validation and HardLink entries)
-   - EF Core Cosmos DB operations (must be async)
-   - DSA usage on macOS
-   - Memory-intensive MemoryStream usage
-   - Span collection expression assignments
-   - BackgroundService exception handling
-   - mTLS / client certificate chain validation
-   - EF Core SQL Server with Entra ID authentication
-   - NativeAOT output filenames on Unix
-   - Money and quantity calculations that convert `double` to `decimal` or use `Math.Round(value, digits)`
-   - Form POSTs (cross-origin posts, and requests through a reverse proxy) if token-based antiforgery is not used
-   - Blazor forms validation (`ValidateAsync`), validation message styling and scripts, and third-party component libraries
+4. Smoke-test the application, paying special attention to the technology areas identified in Step 1 and every Step 4 change that applied
 5. Review the diff and ensure no unintended behavioral changes were introduced
 
 ## Reference Documents
 
-The `references/` folder contains detailed breaking change information organized by technology area. Load only the references relevant to the project being migrated:
-
-| Reference file | When to load |
-|----------------|-------------|
-| `references/csharp-compiler-dotnet10to11.md` | Always (C# 15 compiler breaking changes) |
-| `references/core-libraries-dotnet10to11.md` | Always (applies to all .NET 11 projects) |
-| `references/sdk-msbuild-dotnet10to11.md` | Always (SDK and build tooling changes) |
-| `references/aspnetcore-dotnet10to11.md` | Project uses ASP.NET Core (Blazor, forms and antiforgery, OpenAPI, Kestrel) |
-| `references/efcore-dotnet10to11.md` | Project uses Entity Framework Core |
-| `references/cryptography-dotnet10to11.md` | Project uses cryptography APIs, mTLS or X.509 chain building, HttpClient metrics, or targets macOS |
-| `references/mobile-dotnet10to11.md` | Project targets Android, iOS, tvOS, or Mac Catalyst (including .NET MAUI) |
-| `references/runtime-jit-dotnet10to11.md` | Deploying to older hardware, embedded devices, using NativeAOT, or casting floating-point values to small integer types |
+The `references/` folder contains detailed breaking change information organized by technology area. Load only the references relevant to the project, using the table in Step 3.
