@@ -26,7 +26,7 @@ Standard handles are inherited by default, so this example leaves output visible
 | Wait with a timeout without killing | `TryWaitForExit(timeout, out ProcessExitStatus? exitStatus)` |
 | Kill on timeout or cancellation, then wait | `WaitForExitOrKillOnTimeout(timeout)` or `WaitForExitOrKillOnCancellationAsync(cancellationToken)` |
 | Request forceful termination | `Kill()`; follow with a wait when termination must be confirmed |
-| Send a Unix signal | `Signal(PosixSignal)`; on Windows only `SIGKILL` is supported |
+| Send a Unix signal | `Signal(PosixSignal)`; on Windows only `SIGKILL` is supported. See [graceful shutdown](waiting-and-termination.md#request-graceful-shutdown-with-a-signal) |
 
 Unlike the legacy `Process.WaitForExit[Async]` methods, the handle's waits observe termination only; they do not wait for output EOF. Canceling `handle.WaitForExitAsync` stops the wait without killing the child. For the kill-on-timeout or cancellation alternatives and their returned `Canceled` status, see [Choose Whether Cancellation or Timeout Kills the Process](waiting-and-termination.md#choose-whether-cancellation-or-timeout-kills-the-process).
 

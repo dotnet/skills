@@ -68,4 +68,8 @@ Both return the exit status after termination, with `Canceled` set when the proc
 
 If also capturing redirected output, start the kill-on-cancellation wait before awaiting output capture so cancellation can kill a child even while a read is pending. Manage output-read cancellation separately: process termination still does not guarantee EOF if another process retains a pipe writer.
 
-On Unix, `Signal(PosixSignal.SIGTERM)` can request graceful shutdown; the child may handle or ignore it. Follow it with `TryWaitForExit` for a bounded grace period, then `Kill` and a wait if forceful termination is required. `PosixSignal` is in `System.Runtime.InteropServices`. `Signal` returns `false` if the process has already exited or does not exist.
+### Request Graceful Shutdown With a Signal
+
+Send a signal with `Process.Signal(PosixSignal)` or `SafeProcessHandle.Signal(PosixSignal)`; on Windows only `SIGKILL` is supported.
+
+On Unix, `Signal(PosixSignal.SIGTERM)` can request graceful shutdown; the child may handle or ignore it. Follow it with `TryWaitForExit` (`TryWaitForExitStatus` on `Process`) for a bounded grace period, then `Kill` and a wait if forceful termination is required. `PosixSignal` is in `System.Runtime.InteropServices`. `Signal` returns `false` if the process has already exited or does not exist.
