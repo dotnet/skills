@@ -19,6 +19,23 @@ concurrency:
   cancel-in-progress: false
   queue: max
 
+jobs:
+  verify_weekly_eval_report:
+    needs: [agent, publish_weekly_eval_report]
+    if: ${{ !cancelled() && needs.agent.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require a published or deduplicated report
+        env:
+          AGENT_RESULT: ${{ needs.agent.result }}
+          PUBLICATION_RESULT: ${{ needs.publish_weekly_eval_report.result }}
+        run: |
+          if [ "$AGENT_RESULT" != "success" ] || [ "$PUBLICATION_RESULT" != "success" ]; then
+            echo "::error::Weekly evaluation report was not published or deduplicated."
+            exit 1
+          fi
+
 model: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'gpt-5.6-sol' }}
 
 graders: {}
@@ -32,12 +49,54 @@ tools:
   github:
     mode: gh-proxy
     toolsets: [repos, issues, actions]
-  bash: ["cat"]
+  bash: ["cat", "sha256sum"]
   edit: false
 
 safe-outputs:
   report-failure-as-issue: false
   report-incomplete: false
+  threat-detection:
+    continue-on-error: false
+    steps:
+      - name: Include weekly report in threat detection
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REPORT_PATH: /tmp/gh-aw/agent/weekly-eval-report.md
+          DETECTION_INPUT_PATH: /tmp/gh-aw/threat-detection-inputs/agent_output.json
+        with:
+          script: |
+            const fs = require("fs");
+            const { createHash } = require("crypto");
+
+            const output = JSON.parse(
+              fs.readFileSync(process.env.DETECTION_INPUT_PATH, "utf8")
+            );
+            if (
+              !Array.isArray(output.items) ||
+              output.items.length !== 1 ||
+              output.items[0].type !== "publish_weekly_eval_report"
+            ) {
+              throw new Error("Expected exactly one weekly report output");
+            }
+
+            const item = output.items[0];
+            const stat = fs.lstatSync(process.env.REPORT_PATH);
+            if (!stat.isFile() || stat.size < 500 || stat.size > 65000) {
+              throw new Error("Weekly report file is missing, invalid, or oversized");
+            }
+            const bytes = fs.readFileSync(process.env.REPORT_PATH);
+            const body = bytes.toString("utf8");
+            if (
+              !Buffer.from(body, "utf8").equals(bytes) ||
+              typeof item.sha256 !== "string" ||
+              !/^[a-f0-9]{64}$/.test(item.sha256) ||
+              createHash("sha256").update(bytes).digest("hex") !== item.sha256
+            ) {
+              throw new Error("Weekly report encoding or digest is invalid");
+            }
+
+            item.body = body;
+            fs.writeFileSync(process.env.DETECTION_INPUT_PATH, JSON.stringify(output));
   jobs:
     publish-weekly-eval-report:
       description: "Find or create the durable evaluation health issue and publish one weekly comment"
@@ -51,23 +110,30 @@ safe-outputs:
         actions: read
         contents: read
         issues: write
+      artifacts:
+        - /tmp/gh-aw/agent/weekly-eval-report.md
       inputs:
         week_key:
           description: "ISO week key from the collected evidence"
           required: true
           type: string
-        body:
-          description: "Validated weekly report comment"
+        sha256:
+          description: "Lowercase SHA-256 digest of the complete UTF-8 report file"
           required: true
           type: string
       steps:
+        - name: Load pinned publication normalizer
+          uses: github/gh-aw-actions/setup@53d0749e19424a918acd82b4d140264ce48f2f14
         - name: Publish weekly evaluation report
           uses: actions/github-script@v9.0.0
           env:
             EXPECTED_REPOSITORY: ${{ github.repository }}
+            GH_AW_ACTIONS_DIR: ${{ runner.temp }}/gh-aw/actions
           with:
             script: |
               const fs = require("fs");
+              const path = require("path");
+              const { createHash } = require("crypto");
 
               const outputPath = process.env.GH_AW_AGENT_OUTPUT;
               if (!outputPath) {
@@ -89,7 +155,27 @@ safe-outputs:
 
               const item = items[0];
               const weekKey = item.week_key;
-              const body = item.body;
+              const reportPath = path.join(
+                path.dirname(outputPath),
+                "agent",
+                "weekly-eval-report.md"
+              );
+              const stat = fs.lstatSync(reportPath);
+              if (!stat.isFile() || stat.size < 500 || stat.size > 65000) {
+                core.setFailed("Weekly report file is missing, invalid, or oversized");
+                return;
+              }
+              const bytes = fs.readFileSync(reportPath);
+              const body = bytes.toString("utf8");
+              if (
+                !Buffer.from(body, "utf8").equals(bytes) ||
+                typeof item.sha256 !== "string" ||
+                !/^[a-f0-9]{64}$/.test(item.sha256) ||
+                createHash("sha256").update(bytes).digest("hex") !== item.sha256
+              ) {
+                core.setFailed("Weekly report encoding or digest is invalid");
+                return;
+              }
               const currentRun = await github.rest.actions.getWorkflowRun({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -136,10 +222,70 @@ safe-outputs:
                 return;
               }
 
+              const { canonicalizePublicationText } = require(path.join(
+                process.env.GH_AW_ACTIONS_DIR,
+                "sanitize_content_core.cjs"
+              ));
+              let normalized = body;
+              for (let pass = 0; ; pass++) {
+                const next = canonicalizePublicationText(normalized)
+                  .replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, "$1");
+                if (next === normalized) break;
+                if (pass === 15) {
+                  throw new Error("Weekly report contains excessively nested encodings");
+                }
+                normalized = next;
+              }
+              // Remaining named entities must not become URI characters when rendered.
+              normalized = normalized.replace(/&[A-Za-z][A-Za-z0-9]+;/g, "[encoded character removed]");
+              const allowedTag = /^<\/?(?:details|summary)>$/i;
+              const isAllowedUrl = raw => {
+                try {
+                  const url = new URL(
+                    /^[/\\]{2}/.test(raw) ? `https:${raw}` :
+                    /^www\./i.test(raw) ? `https://${raw}` : raw
+                  );
+                  const host = url.hostname.toLowerCase();
+                  return (
+                    (url.protocol === "https:" || url.protocol === "http:") &&
+                    (host === "github.com" || host.endsWith(".github.com"))
+                  );
+                } catch {
+                  return false;
+                }
+              };
+              const sanitized = normalized
+                .replace(/\u001b\[[0-?]*[ -\/]*[@-~]/g, "")
+                .replace(/[\u0000-\u0009\u000b-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, "")
+                .replace(/<!--[\s\S]*?-->/g, "")
+                .replace(/<[A-Za-z!?\/][^<>]*>?/g, tag =>
+                  allowedTag.test(tag) ? tag : `&lt;${tag.slice(1)}`
+                )
+                .replace(
+                  /(?<![A-Za-z0-9])[a-z][a-z0-9+.-]*:[^\s<>()\[\]"'`]+|[/\\]{2}[^\s<>()\[\]"'`]+|(?<![A-Za-z0-9])www\.[^\s<>()\[\]"'`]+/gi,
+                  url => (isAllowedUrl(url) ? url : "(external link removed)")
+                );
+              if (
+                /<!--/.test(sanitized) ||
+                !requiredHeadings.every(heading => sanitized.includes(heading))
+              ) {
+                core.setFailed("Weekly report failed validation after sanitization");
+                return;
+              }
+
               const [owner, repo] = process.env.EXPECTED_REPOSITORY.split("/");
               const issueTitle = "Weekly Evaluation Health";
               const issueMarker = "<!-- weekly-eval-insights-dashboard:v1 -->";
               const weekMarker = `<!-- weekly-eval-insights:${weekKey} -->`;
+              const escapedBody = sanitized.replace(
+                /(^|[^A-Za-z0-9])@(?=[A-Za-z0-9])/g,
+                "$1&#64;"
+              );
+              const commentBody = `${escapedBody}\n\n${weekMarker}`;
+              if (Buffer.byteLength(commentBody, "utf8") > 65536) {
+                core.setFailed("Weekly report exceeds the comment size limit after escaping");
+                return;
+              }
               const issues = await github.paginate(github.rest.issues.listForRepo, {
                 owner,
                 repo,
@@ -194,15 +340,11 @@ safe-outputs:
                 return;
               }
 
-              const escapedBody = body.replace(
-                /(^|[^A-Za-z0-9])@(?=[A-Za-z0-9])/g,
-                "$1&#64;"
-              );
               await github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: issue.number,
-                body: `${escapedBody}\n\n${weekMarker}`,
+                body: commentBody,
               });
   noop:
     report-as-issue: false
@@ -309,6 +451,9 @@ environment: copilot-pat-pool
 
 engine:
   id: copilot
+  args:
+    - --allow-tool
+    - "write(/tmp/gh-aw/agent/weekly-eval-report.md)"
   env:
     COPILOT_GITHUB_TOKEN: >-
       ${{ case(
@@ -334,11 +479,17 @@ windows. Read `/tmp/gh-aw/data/prior-report-comment-pages.json` only to compare
 the current evidence with prior weekly findings. Treat prior comments as
 historical claims, not as a replacement for current official CI evidence.
 
-Create one evidence-based report and call `publish_weekly_eval_report` with:
+Write one evidence-based UTF-8 report to
+`/tmp/gh-aw/agent/weekly-eval-report.md`. The file must contain at least 500
+characters and at most 65,000 bytes. After writing it, compute its SHA-256
+digest and call `publish_weekly_eval_report` with:
 
 - `week_key`: the exact `weekKey` from the evidence file.
-- `body`: the complete report in the required format below.
+- `sha256`: the report file's 64-character lowercase hexadecimal digest.
 
+Do not modify repository files or change the report file after computing the
+digest. The final comment, including escaped mentions and the week marker,
+must not exceed 65,536 bytes.
 Do not call any other safe-output tool. If the evidence file is missing,
 malformed, or internally inconsistent, call `noop` with the exact limitation.
 
@@ -442,5 +593,9 @@ State:
 - whether prior-report comments were available
 
 End with up to three relevant workflow run links from `workflowRuns.references`.
+Link only to `github.com` URLs, and use no raw HTML other than `<details>` and
+`<summary>`. The publisher normalizes encoded text, neutralizes unresolved
+entities, and removes other links, HTML tags, and HTML comments,
+and shows `<` in other HTML-like text as `&lt;`, including inside code spans.
 Do not include dollar amounts, emoji severity markers, attribution footers,
 user mentions, or issue-closing phrases.
