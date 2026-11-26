@@ -50,7 +50,7 @@ For ReadyToRun-capable assemblies, there may be additional startup overhead on s
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/jit/11/minimum-hardware-requirements
 
-### NativeAOT native-library outputs use `lib` prefix on Unix (Preview 3)
+### NativeAOT native-library outputs use `lib` prefix on Unix
 
 **Impact: Low.** NativeAOT shared/native library outputs on Linux and macOS now follow Unix conventions and include the `lib` prefix (e.g., `libMyLib.so` instead of `MyLib.so`).
 
@@ -58,7 +58,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/jit/11/minim
 
 Source: https://github.com/dotnet/runtime/pull/124611
 
-### Floating-point conversions to small integral types are saturating (Preview 7)
+### Floating-point conversions to small integral types are saturating
 
 **Impact: Low–Medium.** On CoreCLR and Native AOT, unchecked conversions from `float`, `double`, or `Half` to `sbyte`, `byte`, `short`, `ushort`, and `char` now saturate at the bounds of the target type, and `NaN` converts to `0`. Previously the value was typically converted to `int` first and the low bits kept. Checked conversions are unchanged.
 

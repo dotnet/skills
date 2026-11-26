@@ -10,7 +10,7 @@ These changes affect the .NET SDK, CLI tooling, NuGet, and MSBuild behavior. Sou
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/sdk/11/mono-launch-target-removed
 
-### NETSDK1235 warning for PackAsTool with custom .nuspec (Preview 2)
+### NETSDK1235 warning for PackAsTool with custom .nuspec
 
 **Impact: Low.** A new build warning `NETSDK1235` is emitted when a project has both `PackAsTool=true` and a custom `NuspecFile` property, which violates .NET Tool packaging requirements. Projects with `TreatWarningsAsErrors=true` will fail.
 
@@ -18,7 +18,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/sdk/11/mono-
 
 Source: https://github.com/dotnet/sdk/pull/52810
 
-### `dotnet publish --self-contained` now parses the passed value (Preview 3)
+### `dotnet publish --self-contained` now parses the passed value
 
 **Impact: Low.** `dotnet publish --self-contained` previously always interpreted the flag as `true` regardless of the passed value. It now correctly parses the value (e.g., `--self-contained false` actually produces a framework-dependent publish).
 
@@ -34,7 +34,7 @@ Source: https://github.com/dotnet/sdk/pull/52333
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/sdk/11/restore-global-packages-folder-version-search
 
-### VSTest removes its dependency on Newtonsoft.Json (Preview 4)
+### VSTest removes its dependency on Newtonsoft.Json
 
 **Impact: Medium (for test projects).** `Microsoft.NET.Test.Sdk` no longer brings in `Newtonsoft.Json` transitively. Test code that uses it without a direct reference fails to compile, and tests or test extensions that relied on VSTest's copy can fail at run time with `FileNotFoundException`.
 
@@ -42,7 +42,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/sdk/11/resto
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/sdk/11/vstest-removes-newtonsoft-json
 
-### dnx scripts bypass global.json SDK selection (Preview 6)
+### dnx scripts bypass global.json SDK selection
 
 **Impact: Low.** The `dnx` script now selects the newest installed SDK directly instead of going through the `dotnet` muxer, so a `global.json` SDK pin no longer applies to it. This also ships in .NET 10 SDK 10.0.302 and 10.0.400.
 

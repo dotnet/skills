@@ -14,7 +14,7 @@ Code that directly uses `Microsoft.OpenApi` types (`OpenApiDocument`, `OpenApiSc
 
 Source: https://github.com/dotnet/aspnetcore/pull/65415
 
-### EditContext.Validate() is obsolete; use ValidateAsync() (Preview 7)
+### EditContext.Validate() is obsolete; use ValidateAsync()
 
 **Impact: High (for Blazor forms in projects using `TreatWarningsAsErrors`).** `EditContext.Validate()` is marked `[Obsolete("Validate is obsolete. Use ValidateAsync instead.")]`. There is no custom diagnostic ID, so the warning is CS0618. `Validate()` runs synchronous validators only, and throws `InvalidOperationException` if a validation handler registers asynchronous work. `EditForm` itself now calls `ValidateAsync()` before `OnValidSubmit` or `OnInvalidSubmit`.
 
@@ -61,7 +61,7 @@ Learn lists this as source incompatible, but it is also a binary break for third
 
 Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/blazor-obsolete-apis-removed
 
-### MVC compatibility options removed (Preview 7)
+### MVC compatibility options removed
 
 **Impact: Low.** `SetCompatibilityVersion`, `CompatibilityVersion`, `MvcCompatibilityOptions`, and `ConfigureCompatibilityOptions<TOptions>` have been removed. They were no-ops since ASP.NET Core 3.0. Code fails to compile, and binaries compiled against them fail with `MissingMethodException` or `TypeLoadException`.
 
@@ -69,7 +69,7 @@ Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/blazor
 
 Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/mvc-compatibility-options-removed
 
-### ConcurrencyLimiter middleware removed (Preview 1)
+### ConcurrencyLimiter middleware removed
 
 **Impact: Low.** The `Microsoft.AspNetCore.ConcurrencyLimiter` package (obsolete since ASP.NET Core 8, ASP0025) has no 11.x version. `UseConcurrencyLimiter`, `AddQueuePolicy`, and `AddStackPolicy` are gone, and restoring the package at version 11 fails.
 
@@ -130,7 +130,7 @@ Sources: https://learn.microsoft.com/en-us/aspnet/core/migration/100-to-110, htt
 
 Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/blazor-server-side-rendering-deferred-cross-site-request-forgery-protection
 
-### Empty validation message placeholders are rendered with `hidden` in static SSR (Preview 7)
+### Empty validation message placeholders are rendered with `hidden` in static SSR
 
 **Impact: Low–Medium (for scripts, CSS, and UI tests).** With the new client-side validation for static SSR forms, `<ValidationMessage>` renders an empty placeholder for a valid field: `<div class="validation-message" data-valmsg-for="..." data-valmsg-replace="true" hidden>`. Previously a valid field rendered no element. Interactive render modes are unchanged.
 
@@ -237,7 +237,7 @@ Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/blazor
 
 Source: https://learn.microsoft.com/en-us/aspnet/core/breaking-changes/11/blazor-custom-event-name-collision
 
-### Blazor Virtualize&lt;T&gt; default OverscanCount changed from 3 to 15 (Preview 3)
+### Blazor Virtualize&lt;T&gt; default OverscanCount changed from 3 to 15
 
 **Impact: Low.** The default `OverscanCount` on the `Virtualize<TItem>` component changed from `3` to `15` to support variable-height item measurement. `QuickGrid` retains its own default of `3`.
 

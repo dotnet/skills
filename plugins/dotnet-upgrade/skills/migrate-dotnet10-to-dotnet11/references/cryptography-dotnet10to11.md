@@ -4,7 +4,7 @@ These breaking changes affect projects using cryptography APIs. Source: https://
 
 ## Obsoleted APIs
 
-### AsnEncodedData.RawData setter obsoleted (SYSLIB0065) (Preview 6)
+### AsnEncodedData.RawData setter obsoleted (SYSLIB0065)
 
 **Impact: Low (High for projects using `TreatWarningsAsErrors` that set `RawData`).** Setting `AsnEncodedData.RawData` now produces warning SYSLIB0065.
 
@@ -35,7 +35,7 @@ var signature = ecdsa.SignData(data, HashAlgorithmName.SHA256);
 
 This change only affects macOS. DSA continues to work on Windows and Linux (though it is generally considered a legacy algorithm).
 
-### AIA certificate downloads disabled by default during client-certificate validation (Preview 3)
+### AIA certificate downloads disabled by default during client-certificate validation
 
 **Impact: Medium.** AIA (Authority Information Access) certificate downloads are now disabled by default when performing server-side client-certificate chain validation. Previously the runtime would attempt to fetch intermediate CA certificates online.
 
@@ -46,7 +46,7 @@ This change only affects macOS. DSA continues to work on Windows and Linux (thou
 
 Source: https://github.com/dotnet/runtime/pull/125049
 
-### HKDF on Windows uses the CNG implementation (Preview 1)
+### HKDF on Windows uses the CNG implementation
 
 **Impact: Low (Windows only).** `HKDF.DeriveKey` and `HKDF.Expand` now throw `CryptographicException` on Windows when the input keying material or pseudorandom key is larger than 2,048 bytes.
 
@@ -54,7 +54,7 @@ Source: https://github.com/dotnet/runtime/pull/125049
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/cryptography/11/hkdf-windows-cng
 
-### Linux AIA certificate fetching limited to two fetches per chain build (Preview 7)
+### Linux AIA certificate fetching limited to two fetches per chain build
 
 **Impact: Low–Medium (Linux and other OpenSSL platforms).** `X509Chain.Build` now performs at most two AIA downloads per chain build, matching Windows. Chains that need more downloads to complete now fail.
 

@@ -32,7 +32,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 
 ## Behavioral Changes
 
-### Decimal and BigInteger floating-point conversions are correctly rounded (Preview 7)
+### Decimal and BigInteger floating-point conversions are correctly rounded
 
 **Impact: High (for financial or other decimal-sensitive code).** Conversions between `decimal` and `float`/`double`, and from `BigInteger` to binary floating-point types, now round the exact source value once. Previously, `float` and `double` to `decimal` kept only 7 and 15 significant digits, which hid the binary representation error. The change compiles without any warning and only shows at run time.
 
@@ -67,7 +67,7 @@ When such a conversion is a compile-time constant, a compiler from the .NET 11 S
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/decimal-biginteger-floating-point-conversions
 
-### Math.Round and MathF.Round return correctly rounded results (Preview 7)
+### Math.Round and MathF.Round return correctly rounded results
 
 **Impact: Low–Medium.** `Math.Round(value, digits)` and `MathF.Round(value, digits)` no longer compute `Round(value * 10^digits) / 10^digits`. They return the correctly rounded result of the exact value, and accept any non-negative `digits`. For example, `Math.Round(655.925, 2, MidpointRounding.AwayFromZero)` returned `655.93` and now returns `655.92`, because the `double` value is slightly below the midpoint. `Math.Round(1.5, 16)` used to throw and now returns `1.5`.
 
@@ -75,7 +75,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/math-round-digits
 
-### DateOnly and TimeOnly TryParse methods throw for invalid input (Preview 2)
+### DateOnly and TimeOnly TryParse methods throw for invalid input
 
 **Impact: Low.** `DateOnly.TryParse*` and `TimeOnly.TryParse*` now throw `ArgumentException` for invalid `DateTimeStyles` values or format specifiers instead of returning `false`.
 
@@ -83,7 +83,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/dateonly-timeonly-tryparse-argumentexception
 
-### Nullable.GetUnderlyingType throws for custom Type subclasses (Preview 4)
+### Nullable.GetUnderlyingType throws for custom Type subclasses
 
 **Impact: Low.** `Nullable.GetUnderlyingType` now forwards to the new virtual `Type.GetNullableUnderlyingType()`, whose base implementation throws `NotSupportedException`. Built-in `Type` implementations are not affected.
 
@@ -91,7 +91,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/nullable-getunderlyingtype-throws
 
-### Environment.GetCommandLineArgs()[0] preserves the apphost invocation name (Preview 7)
+### Environment.GetCommandLineArgs()[0] preserves the apphost invocation name
 
 **Impact: Low.** When an app is started through its apphost, `Environment.GetCommandLineArgs()[0]` now keeps the name it was invoked with (a relative path or a symlink name) instead of the resolved path. `dotnet app.dll` is unchanged.
 
@@ -99,7 +99,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/environment-getcommandlineargs-apphost-invocation-name
 
-### CborReader and CborWriter enforce a default maximum nesting depth (Preview 5)
+### CborReader and CborWriter enforce a default maximum nesting depth
 
 **Impact: Low.** `CborReader` throws `CborContentException` beyond a nesting depth of 64, and `CborWriter` throws `InvalidOperationException` beyond 1000. Previously there was no limit.
 
@@ -168,7 +168,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/globalization/11/japanese-calendar-min-date
 
-### ZipArchive now validates CRC32 when reading entries (Preview 3)
+### ZipArchive now validates CRC32 when reading entries
 
 **Impact: Low–Medium.** ZIP archive reads now validate the CRC32 checksum of each entry. Previously, corrupt or truncated archives were silently accepted; they now throw `InvalidDataException`.
 
@@ -176,7 +176,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/globalizatio
 
 Source: https://github.com/dotnet/runtime/pull/124766
 
-### TarWriter emits HardLink entries for hard-linked files (Preview 3)
+### TarWriter emits HardLink entries for hard-linked files
 
 **Impact: Low.** When `TarWriter` archives a directory containing hard links, the same inode encountered more than once is now written as a `HardLink` entry pointing back to the first occurrence, rather than duplicating the file data.
 
@@ -184,7 +184,7 @@ Source: https://github.com/dotnet/runtime/pull/124766
 
 Source: https://github.com/dotnet/runtime/pull/123874
 
-### Zstandard APIs moved from preview package to System.IO.Compression (Preview 3)
+### Zstandard APIs moved from preview package to System.IO.Compression
 
 **Impact: Low.** `ZstandardStream` and related APIs that were previously in the `System.IO.Compression.Zstandard` preview NuGet package are now in-box in `System.IO.Compression`.
 
@@ -194,7 +194,7 @@ Source: https://github.com/dotnet/runtime/pull/114545
 
 ## Microsoft.Extensions Changes
 
-### Some Microsoft.Extensions packages are included in the shared framework (NU1510) (Preview 4)
+### Some Microsoft.Extensions packages are included in the shared framework (NU1510)
 
 **Impact: Medium (for projects using `TreatWarningsAsErrors`).** Nine packages are now part of the base shared framework: `Microsoft.Extensions.Caching.Abstractions`, `Configuration.Abstractions`, `DependencyInjection.Abstractions`, `Diagnostics.Abstractions`, `FileProviders.Abstractions`, `Hosting.Abstractions`, `Logging.Abstractions`, `Microsoft.Extensions.Options`, and `Microsoft.Extensions.Primitives`. An explicit `PackageReference` to one of them in a project that targets only `net11.0` or later raises NU1510, and the assemblies are no longer copied to the output. Multi-targeted projects that still need the package for an older TFM don't get the warning.
 
@@ -202,7 +202,7 @@ Source: https://github.com/dotnet/runtime/pull/114545
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/11/extensions-in-shared-framework
 
-### IHost.RunAsync and IHost.StopAsync throw when a BackgroundService fails (Preview 3)
+### IHost.RunAsync and IHost.StopAsync throw when a BackgroundService fails
 
 **Impact: Medium.** With the default `BackgroundServiceExceptionBehavior.StopHost`, a failing `BackgroundService` used to stop the host while `RunAsync`, `StopAsync`, and `WaitForShutdownAsync` still completed successfully. These methods now fail with the exception (or an `AggregateException` for several failures), which typically gives a non-zero process exit code.
 
@@ -228,7 +228,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/1
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/11/chained-configuration-empty-string
 
-### Dependency injection scope disposal aggregates exceptions (Preview 2)
+### Dependency injection scope disposal aggregates exceptions
 
 **Impact: Low.** Disposing a scope or the root `ServiceProvider` now attempts to dispose every captured service. A single failure is rethrown unchanged; several failures are thrown as an `AggregateException`. Previously disposal stopped at the first exception.
 
@@ -236,7 +236,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/1
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/11/dependency-injection-disposal-exceptions
 
-### Configuration reload behavior changes (Preview 7)
+### Configuration reload behavior changes
 
 **Impact: Low.** Three related changes:
 
