@@ -18,33 +18,23 @@ license: MIT
 
 # .NET 10 → .NET 11 Migration
 
-Migrate a .NET 10 project or solution to .NET 11, systematically resolving all breaking changes. The outcome is a project targeting `net11.0` that builds cleanly, passes tests, and accounts for every behavioral, source-incompatible, and binary-incompatible change introduced in .NET 11.
+Migrate a .NET 10 project or solution to .NET 11. The outcome is a project targeting `net11.0` that builds cleanly, passes tests, and accounts for every breaking change that applies to it.
 
 > **Note:** This skill covers the common breaking changes documented for the .NET 11 GA release, not every Learn entry. For Android and Apple projects it covers platform and runtime changes, not .NET MAUI UI changes. Also review new build warnings and run the application's tests.
 
 ## When to Use
 
-- Upgrading `TargetFramework` from `net10.0` to `net11.0`
-- Resolving build errors or new warnings after updating the .NET 11 SDK
-- Adapting to behavioral changes in .NET 11 runtime, ASP.NET Core 11, or EF Core 11
-- Updating CI/CD pipelines, Dockerfiles, or deployment scripts for .NET 11
-- Fixing C# 15 compiler breaking changes after SDK upgrade
+Upgrading a `net10.0` project to `net11.0`, or fixing the build errors, new warnings, and run-time changes that appear after the upgrade.
 
 ## When Not to Use
 
-- The project already targets `net11.0` and builds cleanly — migration is done
-- Upgrading from .NET 9 or earlier — address the .NET 9→10 breaking changes first
-- Migrating from .NET Framework — that is a separate, larger effort
-- Greenfield projects that start on .NET 11 (no migration needed)
+- The project already targets `net11.0` and builds cleanly: the migration is done
+- The project targets .NET 9 or earlier: address the .NET 9→10 breaking changes first
+- .NET Framework migrations and projects that start on .NET 11
 
 ## Inputs
 
-| Input | Required | Description |
-|-------|----------|-------------|
-| Project or solution path | Yes | The `.csproj`, `.sln`, or `.slnx` entry point to migrate |
-| Build command | No | How to build (e.g., `dotnet build`, a repo build script). Auto-detect if not provided |
-| Test command | No | How to run tests (e.g., `dotnet test`). Auto-detect if not provided |
-| Project type hints | No | Whether the project uses ASP.NET Core, EF Core, Cosmos DB, etc. Auto-detect from PackageReferences and SDK attributes if not provided |
+Discover the solution or project files, the build and test commands, and the technology areas from the repository. Ask the user only for what the repository does not show.
 
 ## Workflow
 
@@ -56,25 +46,8 @@ Migrate a .NET 10 project or solution to .NET 11, systematically resolving all b
 
 1. Identify how the project is built and tested. Look for build scripts, `.sln`/`.slnx` files, or individual `.csproj` files.
 2. Run `dotnet --version` to confirm the .NET 11 SDK is installed. If it is not, stop and inform the user.
-3. Determine which technology areas the project uses by examining:
-   - **SDK attribute**: `Microsoft.NET.Sdk.Web` → ASP.NET Core; `Microsoft.NET.Sdk.WindowsDesktop` with `<UseWPF>` or `<UseWindowsForms>` → WPF/WinForms
-   - **PackageReferences**: `Microsoft.EntityFrameworkCore.*` → EF Core; `Microsoft.EntityFrameworkCore.Cosmos` → Cosmos DB provider
-   - **Android, iOS, tvOS, or Mac Catalyst target frameworks** → CoreCLR replaces Mono
-   - **Dockerfile presence** → Container changes relevant
-   - **Cryptography API usage** → DSA on macOS affected; AIA cert download changes relevant
-   - **Compression API usage** → DeflateStream/GZipStream/ZipArchive changes relevant
-   - **TAR API usage** → Header checksum validation and HardLink entry changes relevant
-   - **`NamedPipeClientStream` usage with `SafePipeHandle`** → SYSLIB0063 constructor obsoletion relevant
-   - **`BackgroundService` usage** → Unhandled exceptions now stop the host
-   - **`Microsoft.OpenApi` direct usage** → v3 API breaking changes in ASP.NET Core OpenAPI
-   - **EF Core SQL Server with Entra ID auth** → SqlClient 7.0 auth dependency changes
-   - **NativeAOT native libraries on Unix** → Output filename prefix changed
-   - **`double`/`float` to `decimal` conversions or `Math.Round(value, digits)`** (money, quantities, rates) → Conversion and rounding results changed at run time
-   - **Explicit `PackageReference` to one of the nine `Microsoft.Extensions` packages now in the shared framework** (listed in the core libraries reference) → NU1510
-   - **Blazor forms (`EditForm`, `EditContext`)** → `EditContext.Validate()` obsolete; hidden `.validation-message` placeholders in static SSR
-   - **Third-party Blazor component libraries** → Check for .NET 11 builds; removed obsolete Blazor APIs break older binaries at run time
-   - **Form POST endpoints** (Blazor SSR, Minimal APIs binding forms, MVC with antiforgery), especially when removing `app.UseAntiforgery()` or accepting cross-origin form posts → Automatic CSRF protection
-4. Record which reference documents are relevant (see the reference loading table in Step 3).
+3. Determine which references to load, using the table in Step 3. Check the SDK attribute (`Microsoft.NET.Sdk.Web`), `PackageReference` items (`Microsoft.EntityFrameworkCore.*` and its Cosmos, SQL Server, and SQLite providers), target frameworks (Android, iOS, tvOS, Mac Catalyst), Dockerfiles, NativeAOT, and the hardware the app is deployed to.
+4. Search the code for the usages behind the run-time changes in Step 4, which no build warning reveals: `double`/`float` to `decimal` conversions and `Math.Round(value, digits)`, Blazor forms and third-party Blazor component libraries, form POST endpoints, EF Core against existing Cosmos or SQL Server data, compression, ZIP, and TAR APIs, `BackgroundService`, and client-certificate validation.
 5. Do a **clean build** (`dotnet build --no-incremental` or delete `bin`/`obj`) on the current `net10.0` target to establish a clean baseline. Record any pre-existing warnings.
 
 ### Step 2: Update the Target Framework
@@ -152,33 +125,27 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 4. **ZipArchive.CreateAsync eager loading** — `ZipArchive.CreateAsync` eagerly loads entries. May affect memory usage for large archives.
 
-5. **Environment.TickCount consistency** — Made consistent with Windows timeout behavior. Code relying on specific tick count behavior may need adjustment.
+5. **DSA removed from macOS** — DSA cryptographic operations throw on macOS. Use a different algorithm (RSA, ECDSA).
 
-6. **DSA removed from macOS** — DSA cryptographic operations throw on macOS. Use a different algorithm (RSA, ECDSA).
+6. **Minimum hardware requirements** — x86/x64 baseline moved to `x86-64-v2`; Windows Arm64 requires `LSE`. Verify deployment targets meet requirements.
 
-7. **Japanese Calendar minimum date** — Minimum supported date corrected. Very early Japanese Calendar dates may be affected.
+7. **Unhandled BackgroundService exceptions stop the host** — Exceptions from `ExecuteAsync()` now stop the host; catch them where the app should keep running.
 
-8. **Minimum hardware requirements** — x86/x64 baseline moved to `x86-64-v2`; Windows Arm64 requires `LSE`. Verify deployment targets meet requirements.
+8. **ZipArchive CRC32 validation** — ZIP reads validate CRC32 checksums; corrupt or truncated archives throw `InvalidDataException`.
 
-9. **Mono launch target for .NET Framework** — No longer set automatically. If using Mono for .NET Framework apps on Linux, specify explicitly.
+9. **TarWriter emits HardLink entries** — Hard-linked files are written as `HardLink` entries instead of duplicated data; consumers must handle them.
 
-10. **Unhandled BackgroundService exceptions stop the host** — Exceptions from `ExecuteAsync()` now stop the host; catch them where the app should keep running.
+10. **AIA certificate downloads disabled** — Server-side client-certificate validation no longer downloads intermediate CAs via AIA by default. Pre-install the full chain or have clients send intermediates.
 
-11. **ZipArchive CRC32 validation** — ZIP reads validate CRC32 checksums; corrupt or truncated archives throw `InvalidDataException`.
+11. **Blazor Virtualize OverscanCount default changed** — Default `OverscanCount` changed from 3 to 15. Set explicitly if performance-sensitive. `QuickGrid` now keeps paging and sorting in the URL; several grids on one page need distinct `QueryParameterNameOptions`.
 
-12. **TarWriter emits HardLink entries** — Hard-linked files are written as `HardLink` entries instead of duplicated data; consumers must handle them.
+12. **EF Core provider packages:** Entra ID auth needs `Microsoft.Data.SqlClient.Extensions.Azure`, `SqlVector<T>` is no longer loaded by default, and SQLitePCLRaw bundles such as `bundle_e_sqlcipher` are unmaintained.
 
-13. **AIA certificate downloads disabled** — Server-side client-certificate validation no longer downloads intermediate CAs via AIA by default. Pre-install the full chain or have clients send intermediates.
+13. **NativeAOT Unix native library `lib` prefix** — Output filenames now include `lib` prefix on Linux/macOS (e.g., `libMyLib.so`).
 
-14. **Blazor Virtualize OverscanCount default changed** — Default `OverscanCount` changed from 3 to 15. Set explicitly if performance-sensitive. `QuickGrid` now keeps paging and sorting in the URL; several grids on one page need distinct `QueryParameterNameOptions`.
+14. **Automatic cross-origin CSRF protection (ASP.NET Core):** `WebApplication.CreateBuilder` adds middleware that checks `Sec-Fetch-Site` and `Origin` on form-handling endpoints. Apps that run `app.UseAntiforgery()` keep their .NET 10 behavior. Without token validation (for example after removing `UseAntiforgery()`), cross-origin form posts return `400 Bad Request`; allow legitimate callers with a CORS policy that calls `.AllowCredentials()`.
 
-15. **EF Core provider packages:** Entra ID auth needs `Microsoft.Data.SqlClient.Extensions.Azure`, `SqlVector<T>` is no longer loaded by default, and SQLitePCLRaw bundles such as `bundle_e_sqlcipher` are unmaintained.
-
-16. **NativeAOT Unix native library `lib` prefix** — Output filenames now include `lib` prefix on Linux/macOS (e.g., `libMyLib.so`).
-
-17. **Automatic cross-origin CSRF protection (ASP.NET Core):** `WebApplication.CreateBuilder` adds middleware that checks `Sec-Fetch-Site` and `Origin` on form-handling endpoints. Apps that run `app.UseAntiforgery()` keep their .NET 10 behavior. Without token validation (for example after removing `UseAntiforgery()`), cross-origin form posts return `400 Bad Request`; allow legitimate callers with a CORS policy that calls `.AllowCredentials()`.
-
-18. **Also review** (details in the references): saturating floating-point to small integer casts, `IHost.RunAsync` failing when a `BackgroundService` fails, empty strings in chained configuration, DI disposal `AggregateException`, Unix named mutex scope, OpenAPI multiple response types per status code, stricter Kestrel HTTP/2 and HTTP/3 header rules, OpenTelemetry HTTP tags, the Linux AIA fetch limit, and NuGet restore no longer using higher versions from the global packages folder.
+15. **Also review** (details in the references): saturating floating-point to small integer casts, `IHost.RunAsync` failing when a `BackgroundService` fails, empty strings in chained configuration, DI disposal `AggregateException`, Unix named mutex scope, OpenAPI multiple response types per status code, stricter Kestrel HTTP/2 and HTTP/3 header rules, OpenTelemetry HTTP tags, the Linux AIA fetch limit, NuGet restore no longer using higher versions from the global packages folder, `Environment.TickCount` timing, the Japanese Calendar minimum date, and the Mono launch target for .NET Framework apps.
 
 ### Step 5: Update infrastructure
 
@@ -190,9 +157,7 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 2. **CI/CD pipelines**: Update SDK version references. If using `global.json`, change `sdk.version` to `11.0.100` and preserve the other keys (such as `rollForward` and test configuration).
 
-3. **Hardware deployment targets**: Verify all deployment targets meet the updated minimum hardware requirements (x86-64-v2 for x86/x64, LSE for Windows Arm64).
-
-4. **Shared libraries also used by .NET Framework apps**: When multi-targeted libraries move their `Microsoft.Extensions.*` or `System.*` package references to 11.0.x, .NET Framework apps that maintain `bindingRedirect` entries by hand must redirect to the new assembly versions. Prefer automatic binding redirects; a build with no MSB3276 or MSB3277 warnings is a useful check. See https://learn.microsoft.com/en-us/dotnet/framework/configure-apps/redirect-assembly-versions
+3. **Shared libraries also used by .NET Framework apps**: When multi-targeted libraries move their `Microsoft.Extensions.*` or `System.*` package references to 11.0.x, .NET Framework apps that maintain `bindingRedirect` entries by hand must redirect to the new assembly versions. Prefer automatic binding redirects; a build with no MSB3276 or MSB3277 warnings is a useful check. See https://learn.microsoft.com/en-us/dotnet/framework/configure-apps/redirect-assembly-versions
 
 ### Step 6: Verify
 
