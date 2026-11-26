@@ -106,7 +106,7 @@ Source: https://github.com/dotnet/efcore/pull/37829
 **Impact: Medium.** `Microsoft.Data.Sqlite` 11 uses SQLitePCLRaw 3.x. `SQLitePCLRaw.bundle_e_sqlcipher`, `bundle_sqlite3`, `bundle_winsqlite3`, `bundle_green`, and `bundle_e_sqlite3mc` are no longer updated and conflict with SQLitePCLRaw.Core 3.x.
 
 **Fix:**
-- Encrypted databases (SQLCipher): use SQLite3 Multiple Ciphers (`SQLite3MC.PCLRaw.bundle`), SQLite Encryption Extension, or SQLCipher from Zetetic. SQLite3 Multiple Ciphers uses a different cipher by default, so replacing the bundle alone leaves an existing SQLCipher database unreadable. Select the SQLCipher scheme with URI parameters, using the `legacy` value that matches the SQLCipher version that created the database: `Data Source=file:example.db?cipher=sqlcipher&legacy=4`.
+- Encrypted databases (SQLCipher): use SQLite3 Multiple Ciphers (`SQLite3MC.PCLRaw.bundle`), SQLite Encryption Extension, or SQLCipher from Zetetic. With `SQLite3MC.PCLRaw.bundle`, reference `Microsoft.EntityFrameworkCore.Sqlite.Core` (or `Microsoft.Data.Sqlite.Core` without EF Core) instead of the main package, so the default bundle is not loaded alongside it. SQLite3 Multiple Ciphers uses a different cipher by default, so replacing the bundle alone leaves an existing SQLCipher database unreadable. Select the SQLCipher scheme with URI parameters, using the `legacy` value that matches the SQLCipher version that created the database: `Data Source=file:example.db?cipher=sqlcipher&legacy=4`.
 - `bundle_sqlite3` or `bundle_winsqlite3`: use `SQLitePCLRaw.provider.sqlite3` or `SQLitePCLRaw.provider.winsqlite3` and call `SQLitePCL.raw.SetProvider(...)` at startup.
 - `bundle_green`: use `SQLitePCLRaw.bundle_e_sqlite3`.
 

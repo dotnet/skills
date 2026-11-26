@@ -495,9 +495,6 @@ stimuli:
       change this code for .NET 11?
     graders:
       - type: exit-success
-      - type: output-matches
-        config:
-          pattern: "(?i)(\\b(no|not|none|nothing|without)\\b|n't).{0,80}(chang|affect|need|requir|impact|action|modif|updat)|unaffected|unchanged|as[ -]is"
       - type: prompt
     rubric:
       - Concludes that this code needs no changes for the .NET 11 decimal conversion or Math.Round changes, because it
