@@ -93,7 +93,7 @@ The asynchronous equivalent is:
 ProcessExitStatus status = await process.WaitForExitStatusAsync();
 ```
 
-These instance methods read to EOF; they do not replace waiting for process exit. A child can close its standard streams and keep running. After reading, use `WaitForExitStatus` or await `WaitForExitStatusAsync` to wait for termination and obtain the exit status. See [Waiting for Process Exit](#waiting-for-process-exit) for cancellation and timeout policies.
+These instance methods read to EOF; they do not replace waiting for process exit. A child can close its standard streams and keep running. After reading, use `WaitForExitStatus` or await `WaitForExitStatusAsync` to wait for termination and obtain the exit status. See [Waiting for Process Exit](waiting-and-termination.md#waiting-for-process-exit) for cancellation and timeout policies.
 
 ### Process Output Line by Line With ReadAllLines[Async]
 

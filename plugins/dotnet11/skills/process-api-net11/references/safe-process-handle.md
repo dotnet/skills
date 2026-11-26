@@ -17,7 +17,7 @@ using SafeProcessHandle handle = SafeProcessHandle.Start(startInfo);
 ProcessExitStatus status = handle.WaitForExit();
 ```
 
-Standard handles are inherited by default, so this example leaves output visible. Keep `UseShellExecute` unset, as described above, to allow unused shell-execution code to be trimmed as well.
+Standard handles are inherited by default, so this example leaves output visible. Keep `UseShellExecute` unset, as described in [Target Framework](../SKILL.md#target-framework), to allow unused shell-execution code to be trimmed as well.
 
 | Need | SafeProcessHandle API |
 |------|-----------------------|
@@ -28,8 +28,8 @@ Standard handles are inherited by default, so this example leaves output visible
 | Request forceful termination | `Kill()`; follow with a wait when termination must be confirmed |
 | Send a Unix signal | `Signal(PosixSignal)`; on Windows only `SIGKILL` is supported |
 
-Unlike the legacy `Process.WaitForExit[Async]` methods, the handle's waits observe termination only; they do not wait for output EOF. Canceling `handle.WaitForExitAsync` stops the wait without killing the child. For the kill-on-timeout or cancellation alternatives and their returned `Canceled` status, see [Choose Whether Cancellation or Timeout Kills the Process](#choose-whether-cancellation-or-timeout-kills-the-process).
+Unlike the legacy `Process.WaitForExit[Async]` methods, the handle's waits observe termination only; they do not wait for output EOF. Canceling `handle.WaitForExitAsync` stops the wait without killing the child. For the kill-on-timeout or cancellation alternatives and their returned `Canceled` status, see [Choose Whether Cancellation or Timeout Kills the Process](waiting-and-termination.md#choose-whether-cancellation-or-timeout-kills-the-process).
 
 `SafeProcessHandle.Start` does not expose managed standard streams and throws if any `RedirectStandardInput`, `RedirectStandardOutput`, or `RedirectStandardError` flag is enabled. Use the `StandardInputHandle`, `StandardOutputHandle`, and `StandardErrorHandle` properties for direct handle redirection, or keep using `Process` when its capture or line-reading APIs are needed. Do not replace those APIs with manual pipe plumbing merely to avoid the wrapper.
 
-Dispose handles returned by `Start`, normally with `using`; disposal releases parent-side resources, not the child process. If you already have a `Process`, its `SafeHandle` property exposes these operations without starting another process. That handle belongs to the `Process`; do not dispose it independently while continuing to use the wrapper. For custom native process creation, use the coordinated entry points described in [Custom P/Invoke Process Creation](#custom-pinvoke-process-creation).
+Dispose handles returned by `Start`, normally with `using`; disposal releases parent-side resources, not the child process. If you already have a `Process`, its `SafeHandle` property exposes these operations without starting another process. That handle belongs to the `Process`; do not dispose it independently while continuing to use the wrapper. For custom native process creation, use the coordinated entry points described in [Custom P/Invoke Process Creation](handle-inheritance.md#custom-pinvoke-process-creation).
