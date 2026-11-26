@@ -95,7 +95,7 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-librari
 
 **Impact: Low.** When an app is started through its apphost, `Environment.GetCommandLineArgs()[0]` now keeps the name it was invoked with (a relative path or a symlink name) instead of the resolved path. `dotnet app.dll` is unchanged.
 
-**Fix:** Use `Environment.ProcessPath` or `Assembly.GetEntryAssembly()?.Location` when you need the executable path.
+**Fix:** Use `Environment.ProcessPath` when you need the path of the executable. `Assembly.GetEntryAssembly()?.Location` is not a substitute: it returns the location of the managed entry assembly, and is an empty string for bundled assemblies in single-file apps. Keep `Environment.GetCommandLineArgs()[0]` when you need the invocation name.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/environment-getcommandlineargs-apphost-invocation-name
 
@@ -135,14 +135,6 @@ using (var gz = new GZipStream(ms, CompressionMode.Compress, leaveOpen: true))
 **Fix:** If your code checks for empty output to detect "no data was compressed," check the uncompressed byte count instead, or adjust the length check to account for headers/footers.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/deflatestream-gzipstream-empty-payload
-
-### MemoryStream maximum capacity updated and exception behavior changed
-
-**Impact: Medium.** The maximum capacity of `MemoryStream` has been updated and the exception behavior for exceeding capacity has changed.
-
-**Fix:** Review code that creates very large `MemoryStream` instances or catches specific exception types related to capacity limits.
-
-Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/11/memorystream-max-capacity
 
 ### TAR-reading APIs verify header checksums when reading
 
@@ -184,36 +176,6 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/globalizatio
 
 Source: https://github.com/dotnet/runtime/pull/124766
 
-### Unhandled BackgroundService exceptions now stop the host (Preview 3)
-
-**Impact: Medium.** Unhandled exceptions thrown from `BackgroundService.ExecuteAsync()` now propagate and stop the host application. Previously they were silently swallowed.
-
-```csharp
-// .NET 10: exception silently swallowed, host continues
-// .NET 11: exception propagates, host stops
-protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-{
-    throw new InvalidOperationException("oops"); // now kills the host
-}
-
-// FIX: Add proper exception handling
-protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-{
-    try
-    {
-        // ... work ...
-    }
-    catch (Exception ex) when (ex is not OperationCanceledException)
-    {
-        _logger.LogError(ex, "Background service failed");
-    }
-}
-```
-
-**Fix:** Add try/catch in `ExecuteAsync()` for any `BackgroundService` that should not crash the host on failure.
-
-Source: https://github.com/dotnet/runtime/pull/124863
-
 ### TarWriter emits HardLink entries for hard-linked files (Preview 3)
 
 **Impact: Low.** When `TarWriter` archives a directory containing hard links, the same inode encountered more than once is now written as a `HardLink` entry pointing back to the first occurrence, rather than duplicating the file data.
@@ -244,7 +206,9 @@ Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/1
 
 **Impact: Medium.** With the default `BackgroundServiceExceptionBehavior.StopHost`, a failing `BackgroundService` used to stop the host while `RunAsync`, `StopAsync`, and `WaitForShutdownAsync` still completed successfully. These methods now fail with the exception (or an `AggregateException` for several failures), which typically gives a non-zero process exit code.
 
-**Fix:** If the process must still exit with code 0, wrap `await host.RunAsync()` in try/catch. See also the BackgroundService entry above.
+Stopping the host when `ExecuteAsync()` throws is not new: `StopHost` has been the default since .NET 6. Only the result of `RunAsync` and the exit code changed.
+
+**Fix:** Usually none, because a failed application should exit with a failure code. Update scripts, health checks, and orchestrator restart policies that treated exit code 0 as the outcome of a failed service. If the process must still exit with code 0, wrap `await host.RunAsync()` in try/catch. Don't add a catch-all in `ExecuteAsync()` only to keep the host alive: it hides a background service that has stopped working.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/extensions/11/ihost-runasync-stopasync-throw-backgroundservice-failure
 

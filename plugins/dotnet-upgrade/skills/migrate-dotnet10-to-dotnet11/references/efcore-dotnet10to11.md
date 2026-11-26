@@ -60,7 +60,7 @@ Tracking issue: https://github.com/dotnet/efcore/issues/37059
 **Impact: Low.**
 - The `__jObject` shadow property is removed; accessing it throws `InvalidOperationException`. Read raw documents with `context.Database.GetCosmosClient()` and `ReadItemAsync<JsonElement>`.
 - An owned collection with no items now returns an empty collection instead of `null`. Replace `is null` checks with `is { Count: 0 }`.
-- The default discriminator property is named `Discriminator` in the model (the JSON name stays `$type`). Code that reads `FindDiscriminatorProperty().Name` sees the new name.
+- The default discriminator property is named `Discriminator` in the model (the JSON name stays `$type`). Code that refers to the model property name `$type` must switch to `Discriminator`: queries and query filters such as `EF.Property<string>(e, "$type")`, and metadata lookups (`FindDiscriminatorProperty().Name` now returns `Discriminator`).
 - Floating-point values materialized into fixed-point types are truncated instead of rounded (`0.75` becomes `0`).
 
 ## SQL Server Provider
@@ -106,7 +106,7 @@ Source: https://github.com/dotnet/efcore/pull/37829
 **Impact: Medium.** `Microsoft.Data.Sqlite` 11 uses SQLitePCLRaw 3.x. `SQLitePCLRaw.bundle_e_sqlcipher`, `bundle_sqlite3`, `bundle_winsqlite3`, `bundle_green`, and `bundle_e_sqlite3mc` are no longer updated and conflict with SQLitePCLRaw.Core 3.x.
 
 **Fix:**
-- Encrypted databases (SQLCipher): use SQLite3 Multiple Ciphers (`SQLite3MC.PCLRaw.bundle`), SQLite Encryption Extension, or SQLCipher from Zetetic.
+- Encrypted databases (SQLCipher): use SQLite3 Multiple Ciphers (`SQLite3MC.PCLRaw.bundle`), SQLite Encryption Extension, or SQLCipher from Zetetic. SQLite3 Multiple Ciphers uses a different cipher by default, so replacing the bundle alone leaves an existing SQLCipher database unreadable. Select the SQLCipher scheme with URI parameters, using the `legacy` value that matches the SQLCipher version that created the database: `Data Source=file:example.db?cipher=sqlcipher&legacy=4`.
 - `bundle_sqlite3` or `bundle_winsqlite3`: use `SQLitePCLRaw.provider.sqlite3` or `SQLitePCLRaw.provider.winsqlite3` and call `SQLitePCL.raw.SetProvider(...)` at startup.
 - `bundle_green`: use `SQLitePCLRaw.bundle_e_sqlite3`.
 

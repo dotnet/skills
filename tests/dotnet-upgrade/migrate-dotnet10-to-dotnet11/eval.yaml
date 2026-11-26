@@ -16,8 +16,6 @@ stimuli:
 
       - Uses ZipArchive.CreateAsync for large ZIP files and relies on lazy loading behavior
 
-      - Uses MemoryStream with very large allocations close to the maximum capacity
-
       What breaks when migrating to .NET 11?
     graders:
       - type: exit-success
@@ -36,7 +34,6 @@ stimuli:
         needs updating
       - Warns TAR-reading APIs now verify header checksums; corrupted or hand-crafted TAR files may fail
       - Notes ZipArchive.CreateAsync now eagerly loads entries, potentially affecting memory usage
-      - Mentions MemoryStream maximum capacity update and changed exception behavior
   - name: C# 15 compiler breaking changes — Span safe-context, nameof, with()
     tags: {capability: csharp15-span-nameof-with, risk: new-compile-error, journey: fix-compiler-errors}
     prompt: |
@@ -162,7 +159,8 @@ stimuli:
       - Explains .NET 11 raised the x86/x64 minimum from x86-64-v1 to x86-64-v2, requiring SSE4.1, SSE4.2, POPCNT, etc.
       - Notes hardware from 2012 may lack x86-64-v2 support — need to upgrade or keep on .NET 10
       - Confirms Raspberry Pi 4 (Arm64 Linux) is still supported — no change to Linux Arm64 minimum
-      - Notes Surface Pro X (SQ1) supports LSE so Windows Arm64 requirement is met
+      - Confirms the Surface Pro X is still supported because the Windows Arm64 minimum is unchanged; does not claim
+        .NET 11 requires LSE to run
   - name: Cryptography app using DSA on macOS
     tags: {capability: dsa-macos-removal, risk: platform-exception, journey: migrate-crypto-code}
     prompt: |
@@ -262,26 +260,29 @@ stimuli:
       - Recommends casting to concrete type or to dynamic
       - Explains ref readonly delegate synthesis requires InAttribute; recommends ensuring proper assembly references
   - name: BackgroundService exceptions and ZipArchive CRC32 validation
-    tags: {capability: backgroundservice-zip-crc, risk: host-crash, journey: migrate-worker-service}
+    tags: {capability: backgroundservice-zip-crc, risk: exit-code-change, journey: migrate-worker-service}
     prompt: >
       I'm migrating a .NET 10 worker service to .NET 11. The app has several
       BackgroundService implementations. One of them occasionally throws exceptions
-      in ExecuteAsync() — we were relying on the host silently ignoring those
-      failures and continuing to run. It also reads ZIP archives uploaded by users,
-      and some of those archives are truncated or partially corrupt — that worked
-      fine before. What breaks in .NET 11?
+      in ExecuteAsync(), which stops the host. Our deployment scripts treat the
+      process exit code 0 as a clean shutdown, and that is what we always got. It also
+      reads ZIP archives uploaded by users, and some of those archives are truncated
+      or partially corrupt, which worked fine before. What breaks in .NET 11?
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (BackgroundService|ExecuteAsync|exception|host|stop|crash)
+          pattern: (RunAsync|StopAsync|exit code|non-zero|nonzero|failure code)
       - type: output-matches
         config:
           pattern: (ZipArchive|CRC32|InvalidDataException|checksum)
       - type: prompt
     rubric:
-      - Explains that unhandled BackgroundService exceptions now propagate and stop the host; recommends adding
-        try/catch in ExecuteAsync()
+      - Explains that in .NET 11 RunAsync/StopAsync throw when a BackgroundService fails, so the process exits with a
+        non-zero code instead of 0
+      - Does not present the host stopping on an unhandled ExecuteAsync exception as new in .NET 11
+      - Recommends updating the deployment scripts for the failure exit code, or wrapping RunAsync in try/catch if exit
+        code 0 is required, rather than a catch-all in ExecuteAsync that hides the dead service
       - Explains ZipArchive now validates CRC32 checksums; corrupt or truncated archives throw InvalidDataException
   - name: EF Core SQL Server with Entra ID auth and Design package dependency
     tags: {capability: efcore-sqlclient-design-package, risk: tooling-and-auth-failure, journey: migrate-data-access}
@@ -496,7 +497,7 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (no|not|don't|doesn't).{0,60}(change|changes|affected|needed|required)
+          pattern: "(?i)(\\b(no|not|none|nothing|without)\\b|n't).{0,80}(chang|affect|need|requir|impact|action|modif|updat)|unaffected|unchanged|as[ -]is"
       - type: prompt
     rubric:
       - Concludes that this code needs no changes for the .NET 11 decimal conversion or Math.Round changes, because it

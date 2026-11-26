@@ -36,7 +36,7 @@ if (await editContext.ValidateAsync())
 
 - **Null-conditional checks:** `editContext?.Validate() is false` cannot simply become `editContext?.ValidateAsync() is false`, because a `Task<bool>` is never `false`. Rewrite it as `editContext is not null && !await editContext.ValidateAsync()`.
 - **Event handlers:** a synchronous `EditContext.OnFieldChanged` handler that calls `Validate()` would have to become `async void`. Validate the whole form from the submit path instead. Where per-field validation is needed while the user types, call `ValidateAsync()` from the input's own async event handler (for example `@onchange` or `@bind:after`), which the component awaits.
-- **Custom validators:** subscribe to `OnValidationRequested` and register async work with `ValidationRequestedEventArgs.AddAsyncValidator(...)`. `ValidationRequestedEventArgs.IsAsync` is `false` when the caller used `Validate()`.
+- **Custom validators:** subscribe to `OnValidationRequested` and register async work with `ValidationRequestedEventArgs.AddAsyncValidator(...)`. `AddAsyncValidator` throws `InvalidOperationException` when validation was started by the synchronous `Validate()`, so every caller must use `ValidateAsync()` once a validator registers async work.
 
 Sources: https://github.com/dotnet/aspnetcore/pull/67662, https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.components.forms.editcontext.validate?view=aspnetcore-11.0
 
@@ -117,7 +117,7 @@ If the pipeline runs `app.UseAntiforgery()`, the token-based result takes preced
 - **Legitimate cross-origin form posts:** add a CORS policy for the caller's origin with `.AllowCredentials()`, and apply it to the endpoint (`[EnableCors("policy")]`, `.RequireCors("policy")`, or the default policy).
 - **Endpoints that are not CSRF-vulnerable** (non-browser clients, bearer-token authentication): opt out per endpoint with `.DisableAntiforgery()` (Minimal APIs), `[IgnoreAntiforgeryToken]` (MVC), or `@attribute [RequireAntiforgeryToken(false)]` (Blazor SSR page).
 - **Custom allow lists:** register your own `ICsrfProtection` implementation.
-- **Global opt-out (escape hatch):** set the configuration key `DisableCsrfProtection` to `true` (for example `ASPNETCORE_DisableCsrfProtection=true`). Prefer per-endpoint opt-outs.
+- **Global opt-out (escape hatch):** set the configuration key `DisableCsrfProtection` to `true` (for example `ASPNETCORE_DisableCsrfProtection=true`). Prefer per-endpoint opt-outs. The automatic middleware also satisfies the antiforgery requirement of form-bound endpoints, so with the global opt-out the app must call `app.UseAntiforgery()`; without either middleware, requests to those endpoints throw at run time.
 - **Reverse proxies:** when a request has no `Sec-Fetch-Site` header, the `Origin` fallback compares against the scheme and host the app sees. If a proxy terminates TLS or rewrites the host, process forwarded headers (`UseForwardedHeaders`) so they match the public URL. Smoke-test form POSTs through the real proxy.
 
 Sources: https://learn.microsoft.com/en-us/aspnet/core/migration/100-to-110, https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery

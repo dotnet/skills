@@ -7,7 +7,7 @@ description: >
   USE FOR: upgrading TargetFramework from net10.0 to net11.0, fixing build errors
   after updating the .NET 11 SDK, resolving source-breaking and behavioral changes
   in .NET 11 runtime, C# 15 compiler, ASP.NET Core 11, and EF Core 11, adapting to
-  updated minimum hardware requirements (x86-64-v2, Arm64 LSE), and updating CI/CD
+  the x86-64-v2 minimum hardware requirement, and updating CI/CD
   pipelines and Dockerfiles for .NET 11.
   DO NOT USE FOR: .NET Framework migrations, upgrading from .NET 9 or earlier,
   greenfield .NET 11 projects, or cosmetic modernization unrelated to the upgrade.
@@ -119,33 +119,31 @@ These changes compile successfully but alter runtime behavior. Review each one a
 
 1. **DeflateStream/GZipStream empty payload** — Now writes headers and footers even for empty payloads. Update checks for zero-length output.
 
-2. **MemoryStream maximum capacity** — Maximum capacity updated and exception behavior changed. Review code that creates large MemoryStreams or relies on specific exception types.
+2. **TAR header checksum validation** — TAR-reading APIs now verify checksums. Corrupted or hand-crafted TAR files may now fail to read.
 
-3. **TAR header checksum validation** — TAR-reading APIs now verify checksums. Corrupted or hand-crafted TAR files may now fail to read.
+3. **ZipArchive.CreateAsync eager loading** — `ZipArchive.CreateAsync` eagerly loads entries. May affect memory usage for large archives.
 
-4. **ZipArchive.CreateAsync eager loading** — `ZipArchive.CreateAsync` eagerly loads entries. May affect memory usage for large archives.
+4. **DSA removed from macOS** — DSA cryptographic operations throw on macOS. Use a different algorithm (RSA, ECDSA).
 
-5. **DSA removed from macOS** — DSA cryptographic operations throw on macOS. Use a different algorithm (RSA, ECDSA).
+5. **Minimum hardware requirements:** the x86/x64 baseline moved to `x86-64-v2`, and older CPUs fail at startup. The Arm64 minimum is unchanged. Verify x86/x64 deployment targets.
 
-6. **Minimum hardware requirements** — x86/x64 baseline moved to `x86-64-v2`; Windows Arm64 requires `LSE`. Verify deployment targets meet requirements.
+6. **A failing `BackgroundService` fails `RunAsync`:** stopping the host on an unhandled `ExecuteAsync()` exception is not new. In .NET 11, `RunAsync`, `StopAsync`, and `WaitForShutdownAsync` then throw, so the process exits with a non-zero code instead of 0. Usually no code change is needed; update scripts and orchestrators that relied on exit code 0.
 
-7. **Unhandled BackgroundService exceptions stop the host** — Exceptions from `ExecuteAsync()` now stop the host; catch them where the app should keep running.
+7. **ZipArchive CRC32 validation** — ZIP reads validate CRC32 checksums; corrupt or truncated archives throw `InvalidDataException`.
 
-8. **ZipArchive CRC32 validation** — ZIP reads validate CRC32 checksums; corrupt or truncated archives throw `InvalidDataException`.
+8. **TarWriter emits HardLink entries** — Hard-linked files are written as `HardLink` entries instead of duplicated data; consumers must handle them.
 
-9. **TarWriter emits HardLink entries** — Hard-linked files are written as `HardLink` entries instead of duplicated data; consumers must handle them.
+9. **AIA certificate downloads disabled** — Server-side client-certificate validation no longer downloads intermediate CAs via AIA by default. Pre-install the full chain or have clients send intermediates.
 
-10. **AIA certificate downloads disabled** — Server-side client-certificate validation no longer downloads intermediate CAs via AIA by default. Pre-install the full chain or have clients send intermediates.
+10. **Blazor Virtualize OverscanCount default changed** — Default `OverscanCount` changed from 3 to 15. Set explicitly if performance-sensitive. `QuickGrid` now keeps paging and sorting in the URL; several grids on one page need distinct `QueryParameterNameOptions`.
 
-11. **Blazor Virtualize OverscanCount default changed** — Default `OverscanCount` changed from 3 to 15. Set explicitly if performance-sensitive. `QuickGrid` now keeps paging and sorting in the URL; several grids on one page need distinct `QueryParameterNameOptions`.
+11. **EF Core provider packages:** Entra ID auth needs `Microsoft.Data.SqlClient.Extensions.Azure`, `SqlVector<T>` is no longer loaded by default, and SQLitePCLRaw bundles such as `bundle_e_sqlcipher` are unmaintained.
 
-12. **EF Core provider packages:** Entra ID auth needs `Microsoft.Data.SqlClient.Extensions.Azure`, `SqlVector<T>` is no longer loaded by default, and SQLitePCLRaw bundles such as `bundle_e_sqlcipher` are unmaintained.
+12. **NativeAOT Unix native library `lib` prefix** — Output filenames now include `lib` prefix on Linux/macOS (e.g., `libMyLib.so`).
 
-13. **NativeAOT Unix native library `lib` prefix** — Output filenames now include `lib` prefix on Linux/macOS (e.g., `libMyLib.so`).
+13. **Automatic cross-origin CSRF protection (ASP.NET Core):** `WebApplication.CreateBuilder` adds middleware that checks `Sec-Fetch-Site` and `Origin` on form-handling endpoints. Apps that run `app.UseAntiforgery()` keep their .NET 10 behavior. Without token validation (for example after removing `UseAntiforgery()`), cross-origin form posts return `400 Bad Request`; allow legitimate callers with a CORS policy that calls `.AllowCredentials()`.
 
-14. **Automatic cross-origin CSRF protection (ASP.NET Core):** `WebApplication.CreateBuilder` adds middleware that checks `Sec-Fetch-Site` and `Origin` on form-handling endpoints. Apps that run `app.UseAntiforgery()` keep their .NET 10 behavior. Without token validation (for example after removing `UseAntiforgery()`), cross-origin form posts return `400 Bad Request`; allow legitimate callers with a CORS policy that calls `.AllowCredentials()`.
-
-15. **Also review** (details in the references): saturating floating-point to small integer casts, `IHost.RunAsync` failing when a `BackgroundService` fails, empty strings in chained configuration, DI disposal `AggregateException`, Unix named mutex scope, OpenAPI multiple response types per status code, stricter Kestrel HTTP/2 and HTTP/3 header rules, OpenTelemetry HTTP tags, the Linux AIA fetch limit, NuGet restore no longer using higher versions from the global packages folder, `Environment.TickCount` timing, the Japanese Calendar minimum date, and the Mono launch target for .NET Framework apps.
+14. **Also review** (details in the references): saturating floating-point to small integer casts, empty strings in chained configuration, DI disposal `AggregateException`, Unix named mutex scope, OpenAPI multiple response types per status code, stricter Kestrel HTTP/2 and HTTP/3 header rules, OpenTelemetry HTTP tags, the Linux AIA fetch limit, NuGet restore no longer using higher versions from the global packages folder, `Environment.TickCount` timing, the Japanese Calendar minimum date, and the Mono launch target for .NET Framework apps.
 
 ### Step 5: Update infrastructure
 

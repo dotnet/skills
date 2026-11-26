@@ -6,7 +6,7 @@ These breaking changes affect the .NET runtime and JIT compiler. Source: https:/
 
 ### Minimum hardware requirements updated
 
-**Impact: High for deployments on older hardware.** .NET 11 updates the minimum hardware requirements for both x86/x64 and Arm64 architectures.
+**Impact: High for deployments on older hardware.** .NET 11 raises the minimum hardware requirement for x86/x64. The Arm64 minimum is unchanged; only its ReadyToRun (R2R) targets changed.
 
 #### x86/x64 changes
 
@@ -28,23 +28,25 @@ The ReadyToRun (R2R) target is updated to `x86-64-v3` for Windows and Linux, add
 
 - **Apple**: No change to minimum hardware or R2R target.
 - **Linux**: No change to minimum hardware (still supports Raspberry Pi). R2R target updated to include `LSE`.
-- **Windows**: Baseline updated to require `LSE` (Load-Store Exclusive), required by Windows 11 and all Arm64 CPUs officially supported by Windows 10. R2R target updated to `armv8.2-a + RCPC`.
+- **Windows**: No change to minimum hardware. `armv8.0-a` devices without `LSE` (Load-Store Exclusive), including Windows 10 IoT devices, are still supported. R2R target updated to `armv8.2-a + RCPC`.
+
+Arm64 devices that don't meet the new R2R target still run .NET 11; affected ReadyToRun images fall back to JIT compilation, which adds startup overhead.
 
 | OS | Previous JIT/AOT min | New JIT/AOT min | Previous R2R target | New R2R target |
 |----|---------------------|-----------------|--------------------|--------------------|
 | Apple | Apple M1 | (No change) | Apple M1 | (No change) |
 | Linux | armv8.0-a | (No change) | armv8.0-a | armv8.0-a + LSE |
-| Windows | armv8.0-a | armv8.0-a + LSE | armv8.0-a | armv8.2-a + RCPC |
+| Windows | armv8.0-a | (No change) | armv8.0-a | armv8.2-a + RCPC |
 
 #### Impact
 
-Starting with .NET 11, .NET fails to run on older hardware and prints:
+Starting with .NET 11, .NET fails to run on x86/x64 hardware that doesn't support `x86-64-v2` and prints:
 
 > The current CPU is missing one or more of the baseline instruction sets.
 
 For ReadyToRun-capable assemblies, there may be additional startup overhead on supported hardware that doesn't meet the R2R target.
 
-**Fix:** Verify all deployment targets meet the new minimum requirements. For x86/x64, any CPU from ~2013 or later should be fine. For Windows Arm64, ensure `LSE` support (all Windows 11 compatible Arm64 devices).
+**Fix:** Verify x86/x64 deployment targets support `x86-64-v2`; any CPU from ~2013 or later should be fine. No action is required for Arm64.
 
 Source: https://learn.microsoft.com/en-us/dotnet/core/compatibility/jit/11/minimum-hardware-requirements
 
