@@ -1,0 +1,22 @@
+# Designer repair decisions
+
+Use the symptom to choose one WinForms-specific repair. Do not list several plausible patterns
+when the project and failure identify one. The root skill's designer and execution contracts
+always apply; these are concrete repair decisions, not a separate invocable skill.
+
+| Symptom or request | Do | Never | Verify |
+|---|---|---|---|
+| A Form/UserControl builds but the Designer cannot instantiate it | Preserve the runtime constructor, add a designer-usable parameterless path, and defer dependency use until runtime load with an explicit design/null guard | Construct production services, open files, or query data from the designer path | The runtime composition root still supplies the real dependency; the design path reaches InitializeComponent without invoking it |
+| Controls/components disappear, duplicate, or fail after Designer save/reopen | Restore the generated field/collection shape and balance every BeginInit/EndInit and SuspendLayout/ResumeLayout pair | Patch the symptom in OnLoad or move serialized controls into local variables | Save, close, reopen, and inspect the regenerated diff |
+| A designer-created Timer, BindingSource, image list, or similar component outlives the Form | Create the components container and pass it to the component constructor | Add ad hoc disposal while leaving designer ownership inconsistent | Closing the Form disposes the container-owned component and the component remains designer-managed |
+| Adding/removing list items does not refresh a bound WinForms list control | Use BindingList or the repository's adapter that raises WinForms list-change notifications | Treat ObservableCollection as a drop-in WinForms DataSource | Mutate the list after binding and observe the control update |
+| Nested content clips at DPI, font, or localization changes | Inspect AutoSize, AutoSizeMode, Dock, MinimumSize, MaximumSize, and row/column styles from the leaf through every parent; remove the actual growth cap while preserving intentional minimums; also inspect siblings positioned against the growing chain | Assume AutoSize alone is sufficient, increase one fixed Size, bypass a parent container, or leave a sibling where expanded content can overlap it | Exercise resize plus the relevant DPI/font/text expansion |
+| UI work is posted but completion/errors are lost | Put the operation in a Task-returning method; let the required async void event handler await it; use the captured WinForms context or awaited target-supported dispatch; restore state in finally | Keep the whole operation in async void, use fire-and-forget work, a dead cancellation catch, or an application-wide exception hook as the normal path | Await success and failure and verify that the UI entry point delegates to the operation |
+| Text must be localizable | Use the existing .resx and ComponentResourceManager.ApplyResources serialization pattern | Leave fallback UI text hard-coded in InitializeComponent | Build, switch culture when possible, and perform a Designer save/reopen |
+| A VB app needs startup, single-instance, or unhandled-UI hooks | Extend ApplicationEvents.vb; qualify event arguments when ambiguous; restore, activate, and bring MainForm forward; log e.Exception and explicitly set e.ExitApplication = True | Invent Program.vb, add Sub Main, replace generated startup, or leave post-error continuation implicit | StartupObject and generated application files remain unchanged; the report states the exit choice |
+| Review finds no actual designer defect | Leave tracked project/source files byte-for-byte unchanged and report why the suspicious construct is harmless | Clean up warnings, reformat generated code, or modernize unrelated syntax | Run the narrow available check and focused build; confirm the source diff is empty |
+| The workspace contains a task-specific validator/test script | Run the narrow repository-provided check after editing and before the generic build | Skip it because the project compiles or claim a Designer roundtrip from static checks | Report exact validator/build commands separately from runtime and Designer checks |
+
+Keep generated fields in the established generator location, resources/nullable conventions
+unchanged, and every referenced field/handler in the correct partial. Read the other bundled
+references for detailed layout, binding, startup, or threading implementations selected here.
