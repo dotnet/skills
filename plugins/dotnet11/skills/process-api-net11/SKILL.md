@@ -8,7 +8,8 @@ description: >
   USE FOR: launching executables; preventing redirected stdout/stderr pipe deadlocks; capturing text, bytes, or interleaved lines;
   waiting for exit status; cancellation and timeouts; redirecting standard handles to files, pipes, or the null device;
   restricting handle inheritance; custom native process creation; fire-and-forget starts; parent-exit termination; terminal detachment;
-  SafeProcessHandle and trimmer-friendly process management for NativeAOT applications.
+  SafeProcessHandle and trimmer-friendly process management for NativeAOT applications;
+  reviewing, modernizing, or fixing bugs in existing process code.
 license: MIT
 ---
 
@@ -89,10 +90,16 @@ Choose the smallest orchestration model that meets the actual concurrency and li
 
 ## Workflow
 
+| Task | Steps |
+|------|-------|
+| Writing new process code, such as running a tool and capturing its output | 1, 2, 4, 5 |
+| Modifying, modernizing, or reviewing existing process code, including searching it for bugs | 1-5 |
+
 1. Inspect the target frameworks and the existing synchronous or asynchronous calling model, as described above.
 2. Identify the behavioral contract: where output goes, what completion means, what happens on timeout or cancellation, and who owns the child's lifetime.
-3. Choose the API from [Choosing an API](#choosing-an-api) and read the matching references from the [Reference Guide](#reference-guide).
-4. Make the smallest change that preserves existing output, logging, environment, cleanup, and error behavior, then validate every affected target framework.
+3. For existing code only: read [anti-patterns](references/anti-patterns.md), then search all process-management code for every listed pattern, not only the call sites you already found. Search for `Process.Start`, `new Process`, `ProcessStartInfo`, `RedirectStandard`, `WaitForExit`, `ReadToEnd`, `BeginOutputReadLine`, `DataReceived`, `Exited`, `HasExited`, `ExitCode`, `Kill(`, and `Environment.SetEnvironmentVariable`.
+4. Choose the API from [Choosing an API](#choosing-an-api) and read the matching references from the [Reference Guide](#reference-guide).
+5. Make the smallest change that preserves existing output, logging, environment, cleanup, and error behavior, then validate every affected target framework.
 
 ## Key Rules
 
@@ -116,3 +123,4 @@ Read the references that match the task before applying their guidance; read sev
 | Restricting inherited handles, inherited pipe writers, or custom native process creation | [handle inheritance](references/handle-inheritance.md) |
 | Fire-and-forget starts, disposal, parent-exit termination, or terminal detachment | [lifetime and detachment](references/lifetime-and-detachment.md) |
 | Using `SafeProcessHandle` directly, including for NativeAOT | [SafeProcessHandle](references/safe-process-handle.md) |
+| Modifying, modernizing, or reviewing existing process code, including searching it for bugs | [anti-patterns](references/anti-patterns.md) |
