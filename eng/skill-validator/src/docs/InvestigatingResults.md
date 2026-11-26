@@ -59,8 +59,26 @@ behavior against the corrected executor.
 
 > The workflow token preflight tries another pool candidate for HTTP 429 or 402
 > quota exhaustion and for the paired heading and token-environment lines in
-> the Copilot CLI's no-authentication setup block. Unrelated service and
-> configuration failures remain terminal.
+> the Copilot CLI's no-authentication setup block. Standalone unrelated service
+> and configuration failures remain terminal.
+> It also tries another candidate when the CLI emits the exact diagnostic
+> `Error: Model "<requested model>" from --model flag is not available.`
+> for either the executor or judge probe. This retry requires exactly one such
+> line and a probe log of at most 16 KiB. Other than blank lines, the log can
+> contain only the observed `github-mcp-server` pending or connected startup
+> events in their known JSON shape and field order. Unknown or duplicate
+> fields, other diagnostics, malformed UTF-8, and larger logs containing the
+> model-unavailable message fail the probe rather than hiding another error.
+> A changed CLI event format can therefore stop the retry until the known shape
+> is updated. If this check fails to run, token selection stops. Otherwise, logs
+> without the model-unavailable message retain the existing retry rules. Those
+> rules can retry a mixed service-error and rate-limit or unsupported-effort
+> log when the model-unavailable message is absent. The next candidate must
+> pass both probes with the same requested models; no model is substituted.
+> If the pool is exhausted after this diagnostic, the error lists the requested
+> models and reports that entries lacked model access or failed another
+> retryable check. This does not prove that the model is unavailable to every
+> account.
 
 > Before token selection or evaluation starts, the workflow serially warms up
 > first-use state for every .NET SDK installed on the runner. This prevents
@@ -93,6 +111,66 @@ behavior against the corrected executor.
 > Explicit profiles and the scheduled cadence can select other models.
 > These defaults do not change the model fields in historical results or the
 > legacy schema below. Health and issue-triage workflow models are separate.
+
+For judge-only CI validation, dispatch `evaluation` with `rejudge_run_ids`
+set to completed evaluation run IDs, and optionally set `rejudge_artifact`
+to an exact artifact-name **filter** for a small pilot. Retried runs may contain
+more than one artifact with that name; each matching artifact ID gets its own
+leg and is downloaded and reported by ID. The separate replay path runs
+no executors. It regenerates both the current-original and current-candidate
+judgments from separate copies of the same saved native sessions, using one
+current workflow toolchain and one credential that passed availability probes
+for both judges. It uploads both fresh verdict sets, paired trial evidence, and
+source and toolchain provenance in `judge-replay-*`. The recorded historical
+judgment is retained only as explicitly non-authoritative context. Leave the
+artifact name blank to cover
+all matching artifacts from the selected runs with the default `gpt-` executor
+suffix; set `rejudge_executor_prefix` to select a different family. `rejudge_original` and
+`rejudge_candidate` select the two current-toolchain judges. Missing or invalid judgments fail
+the comparison. An errored current-toolchain judgment is reported separately, not
+counted as a tie. Pass-check alignment is diagnostic, not accuracy ground
+truth; replay does not alter the authoritative evaluation gate or dashboard.
+
+The reported source SHA comes from `source-commit.json` in new evaluation
+artifacts, written at the evaluated content checkout. A PR-targeted run's
+`head_sha` may instead identify the workflow on the default branch. A legacy
+artifact without that manifest requires strict proof from its artifact ID,
+uploading job and raw job log (duplicate job IDs require identical logs): one
+content-checkout ref and matching HEAD, one
+matching artifact name and ID in that job's upload step, and a gate-bound
+commit/status linked to the run. The later trusted-tools checkout is not the
+source. If logs or identities are missing or ambiguous, replay stops; it never
+guesses from the artifact name or `head_sha`. See the
+[Vally replay provenance and slot-identity rules](../../../vally-adapter/InvestigatingResults.md#replay-provenance-and-slot-identity)
+for the exact checks. Vally replay takes the complete per-scenario
+`expectActivation` contract from saved original verdicts, not from the current
+eval spec. Future Vally trial rows carry stable `trialIndex`; legacy single
+trials can use unique matching raw executor slots, but ambiguous multi-trial
+arrays cannot be paired by position. Scenarios without trials remain in the
+activation contract and create no comparison key. Native rejudge still uses
+the copied saved sessions; do not substitute current source files for them.
+The CI replay keeps its GitHub Actions token for artifact and provenance
+queries. For native judging, it passes the selected Copilot-capable credential
+as both `GH_TOKEN` and `GITHUB_TOKEN` to the validator process, whose client
+otherwise prefers `GH_TOKEN`. A native validator exit without `results.json`
+is a replay failure, not a failed skill verdict. Saved agent reports can use
+the `agent.` skill prefix while native rejudge uses the bare name; the replay
+matches that alias only when the original artifact contains the exact prefixed
+skill name.
+Native replay accepts only custom-agent session roles. It rejects native skill
+sessions because the judge can select either the isolated or plugin run, so
+the judges might compare different executor outputs. It also rejects a
+scenario with multiple saved run indices because rejudge selects only one
+pairwise result per scenario. Both checks run before either judge starts.
+Native replay treats an `overallMagnitude` of `equal` (case-insensitive) or
+numeric `2` as a tie even when `overallWinner` names a side, matching the native
+results adapter.
+Native artifacts with recovered timeout scenarios are not replayable because
+their authoritative verdict can combine the original sessions with separately
+archived retry sessions. Replay also rejects a timeout-retry archive without
+its `agent-timeout-retry-summary.json`. Before each native rejudge starts, it
+removes any copied `results.json`, so neither current-toolchain leg can accept a
+stale historical judgment.
 
 > PR discovery ignores a root plugin manifest when its only semantic change is
 > the generated `version` value. Both manifests must be strict JSON objects with

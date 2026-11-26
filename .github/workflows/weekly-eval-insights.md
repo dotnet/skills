@@ -62,7 +62,7 @@ safe-outputs:
           type: string
       steps:
         - name: Publish weekly evaluation report
-          uses: actions/github-script@v9
+          uses: actions/github-script@v9.0.0
           env:
             EXPECTED_REPOSITORY: ${{ github.repository }}
           with:

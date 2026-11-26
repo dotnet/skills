@@ -41,7 +41,7 @@ on:
   roles: all
   steps:
     - name: Initialize dispatched investigation
-      uses: actions/github-script@v9
+      uses: actions/github-script@v9.0.0
       with:
         script: core.info("Starting validated workflow dispatch")
 
@@ -90,7 +90,7 @@ safe-outputs:
           type: string
       steps:
         - name: Publish investigation result
-          uses: actions/github-script@v9
+          uses: actions/github-script@v9.0.0
           env:
             EXPECTED_REPOSITORY: ${{ github.repository }}
             FINDING_ID: ${{ inputs.finding_id }}

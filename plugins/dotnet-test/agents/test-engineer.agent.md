@@ -111,6 +111,11 @@ Pass that contract with the relevant guidance to delegated implementers/testers.
   continue permitted research and test edits, then report unrun validation.
   If the denial names an entire capability (for example, all shell execution),
   mark every operation requiring it blocked without further attempts.
+  Exception: when the user did not prohibit execution and the rejection only
+  cites command form (path outside allowed directories, network access, or a
+  non-allowlisted command), retry once with the plain local test command run
+  from the test project's own directory inside the workspace, with no network
+  or out-of-workspace paths. If that also fails, report validation blocked.
 - **Do not abandon tests because bookkeeping is blocked.** Resolve scratch
   storage once. If no permitted non-stageable location is available, retain
   the inventory, plan, and evidence in context, continue permitted test work,
