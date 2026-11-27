@@ -12,8 +12,8 @@ def main():
     gate = runpy.run_path(str(root / "eng" / "eval-quality" / "check_eval_quality.py"))
     document = yaml.load(spec.read_text(encoding="utf-8"), gate["NoDuplicateKeys"])
     stimuli = document["stimuli"]
-    if len(stimuli) != 17:
-        raise AssertionError("Expected fourteen preference cases and three dormancy cases.")
+    if len(stimuli) != 18:
+        raise AssertionError("Expected fifteen preference cases and three dormancy cases.")
 
     outputs = []
     for stimulus in stimuli:
@@ -48,6 +48,11 @@ def main():
         (16, 3, 'new("packer", ["pack", inputDir]);', 'new("packer", ["pack", inputDir]) { RedirectStandardOutput = true };'),
         (16, 3, "ProcessExitStatus status = Process.Run(startInfo, TimeSpan.FromMinutes(10));", "ProcessTextOutput output = Process.RunAndCaptureText(startInfo, TimeSpan.FromMinutes(10)); ProcessExitStatus status = output.ExitStatus;"),
         (16, 4, 'startInfo.Environment["PACKER_NO_COLOR"] = "1";', 'Environment.SetEnvironmentVariable("PACKER_NO_COLOR", "1");'),
+        (17, 1, "if (!Process.TryGetProcessById(pid, out Process? process))", "Process process = Process.GetProcessById(pid);\nif (process is null)"),
+        (17, 2, "    using (process)\n    {\n        await process.WaitForExitAsync(cancellationToken);\n    }", "    try\n    {\n        await process.WaitForExitAsync(cancellationToken);\n    }\n    catch (InvalidOperationException)\n    {\n    }"),
+        (17, 3, "await process.WaitForExitAsync(cancellationToken);", "process.WaitForExit();"),
+        (17, 4, "await process.WaitForExitAsync(cancellationToken);", "await process.WaitForExitStatusAsync(cancellationToken);"),
+        (17, 5, "    using (process)\n    {\n        await process.WaitForExitAsync(cancellationToken);\n    }", "    await process.WaitForExitAsync(cancellationToken);"),
     )
     for stimulus_index, grader_index, original, replacement in mutations:
         output = outputs[stimulus_index]

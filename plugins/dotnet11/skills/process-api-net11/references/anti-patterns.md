@@ -39,6 +39,7 @@ Do not write these patterns in new code, and fix every occurrence in existing co
 
 - `Process` objects from `Process.Start`, `new Process`, or `Process.GetProcessById` that are never disposed: leaks handles. Use `using`; disposal does not kill the child.
 - Disposing a `Process` while `Begin*ReadLine` readers still run: output draining stops and output is lost.
+- `Process.GetProcessById` wrapped in a `catch` block to handle a process that no longer exists: uses exceptions for an expected outcome. Use `Process.TryGetProcessById` and handle `false`.
 - Calling instance `Start()` on the `Process` returned by static `Process.Start`: closes the first child's handle and starts a second process, orphaning the first. Remove the second call.
 - Hand-maintained lists of child processes to kill at shutdown: use `KillOnParentExit` where supported.
 - Long-lived background processes that inherit the parent's standard handles: they keep the parent's stdout and stderr pipes open, delaying EOF for `| tee` or CI log capture. Assign null handles or use `StartDetached`.

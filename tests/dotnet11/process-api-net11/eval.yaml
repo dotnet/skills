@@ -1143,3 +1143,82 @@ stimuli:
       - Handles the ten-minute timeout explicitly instead of reading the exit code from a process that may still be running
       - Sets the child's environment variable through the start configuration instead of mutating the tool's own environment
       - Keeps the method synchronous
+
+  - name: Find bugs in an async wait for a process by id
+    prompt: |
+      Our .NET 11 tool waits for another process to exit, given its pid. A process that is already
+      gone counts as exited. Please review this existing method for process-related bugs and fix
+      them:
+      ```csharp
+      static async Task WaitForProcessExitAsync(int pid, CancellationToken cancellationToken)
+      {
+          Process process;
+          try
+          {
+              process = Process.GetProcessById(pid);
+          }
+          catch (ArgumentException)
+          {
+              return;
+          }
+
+          await process.WaitForExitAsync(cancellationToken);
+      }
+      ```
+      Show only the full corrected method and briefly explain each bug you fixed. Respond inline
+      without files.
+    tags:
+      capability: review-existing-process-code
+      risk: exception-driven-process-lookup
+      journey: hunt-bugs-in-pid-wait-helper
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-review-pid-wait
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              ```csharp
+              static async Task WaitForProcessExitAsync(int pid, CancellationToken cancellationToken)
+              {
+                  if (!Process.TryGetProcessById(pid, out Process? process))
+                  {
+                      return;
+                  }
+
+                  using (process)
+                  {
+                      await process.WaitForExitAsync(cancellationToken);
+                  }
+              }
+              ```
+
+              - A missing process is an expected outcome, not an error. The lookup now uses
+                `Process.TryGetProcessById` and returns early instead of throwing and catching an
+                exception.
+              - The process object was never disposed. It is now disposed after the wait.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: '\bTryGetProcessById\s*\('
+      - type: output-not-matches
+        config:
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?(?:\bGetProcessById\s*\(|\bcatch\b)'
+      - type: output-matches
+        config:
+          pattern: 'await\s+\w+\.WaitForExitAsync\s*\(\s*cancellationToken\s*\)'
+      - type: output-not-matches
+        config:
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?(?:\bWaitForExitStatus(?:Async)?\s*\(|\.SafeHandle\.WaitForExit|\.WaitForExit\s*\()'
+      - type: output-matches
+        config:
+          pattern: '\busing\s*(?:\(\s*)?(?:Process\??|var)\s+\w+\s*=|\busing\s*\(\s*\w+\s*\)'
+      - type: prompt
+    rubric:
+      - Looks up the process without throwing and catching an exception when it no longer exists
+      - Still treats a process that is already gone as exited
+      - Keeps an asynchronous, cancelable wait that works for a process this code did not start
+      - Disposes the process object
