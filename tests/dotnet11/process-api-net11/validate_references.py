@@ -12,8 +12,8 @@ def main():
     gate = runpy.run_path(str(root / "eng" / "eval-quality" / "check_eval_quality.py"))
     document = yaml.load(spec.read_text(encoding="utf-8"), gate["NoDuplicateKeys"])
     stimuli = document["stimuli"]
-    if len(stimuli) != 19:
-        raise AssertionError("Expected sixteen preference cases and three dormancy cases.")
+    if len(stimuli) != 20:
+        raise AssertionError("Expected seventeen preference cases and three dormancy cases.")
 
     outputs = []
     for stimulus in stimuli:
@@ -57,6 +57,10 @@ def main():
         (18, 2, "hostProcess.Signal(PosixSignal.SIGTERM);", 'using Process kill = Process.Start("kill", [hostProcess.Id.ToString()]);'),
         (18, 3, "process.SafeHandle.WaitForExitOrKillOnTimeout(TimeSpan.FromSeconds(5));", "process.WaitForExit(5000);\nif (!process.HasExited)\n{\n    process.Kill();\n}\nprocess.WaitForExitStatus();"),
         (18, 4, "process.SafeHandle.WaitForExitOrKillOnTimeout(TimeSpan.FromSeconds(5))", "process.WaitForExitStatus()"),
+        (19, 1, "ProcessExitStatus status = signTool.WaitForExitStatus();", "while (!signTool.HasExited)\n{\n    Thread.Sleep(50);\n}\nProcessExitStatus status = signTool.WaitForExitStatus();"),
+        (19, 2, "using Process signTool = Process.Start(startInfo)!;", "Process signTool = Process.Start(startInfo)!;"),
+        (19, 3, "    string errors = signTool.StandardError.ReadToEnd();\n    ProcessExitStatus status = signTool.WaitForExitStatus();", "    ProcessExitStatus status = signTool.WaitForExitStatus();\n    string errors = signTool.StandardError.ReadToEnd();"),
+        (19, 4, "    using SafeFileHandle nullOutput = File.OpenNullHandle();\n    startInfo.StandardOutputHandle = nullOutput;", "    startInfo.RedirectStandardOutput = true;"),
     )
     for stimulus_index, grader_index, original, replacement in mutations:
         output = outputs[stimulus_index]

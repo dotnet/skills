@@ -1312,3 +1312,93 @@ stimuli:
       - Kills a process that does not exit within the grace period and waits for it to terminate
       - Removes the race between checking whether the process has exited and killing it
       - Keeps the helpers synchronous
+
+  - name: Find bugs in synchronous signing code
+    prompt: |
+      Our .NET 11 MSBuild task signs assemblies with signtool. Signing some large assemblies hangs the
+      build forever. Please review this existing method for process-related bugs and fix them:
+      ```csharp
+      private static void SignFile(ProcessStartInfo startInfo)
+      {
+          startInfo.RedirectStandardOutput = true;
+          startInfo.RedirectStandardError = true;
+          startInfo.UseShellExecute = false;
+          startInfo.CreateNoWindow = true;
+          Process signTool = null;
+          try
+          {
+              signTool = Process.Start(startInfo);
+              signTool.WaitForExit();
+              while (!signTool.HasExited)
+              {
+                  Thread.Sleep(50);
+              }
+              if (signTool.ExitCode != 0)
+              {
+                  throw new InvalidOperationException(signTool.StandardError.ReadToEnd());
+              }
+          }
+          finally
+          {
+              signTool?.Close();
+          }
+      }
+      ```
+      signtool's standard output is not needed. Show only the full corrected method and briefly
+      explain each bug you fixed. Respond inline without files.
+    tags:
+      capability: review-existing-process-code
+      risk: unread-pipe-hang
+      journey: hunt-bugs-in-signing-task
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-review-signtool
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              ```csharp
+              private static void SignFile(ProcessStartInfo startInfo)
+              {
+                  startInfo.RedirectStandardError = true;
+                  startInfo.CreateNoWindow = true;
+                  using SafeFileHandle nullOutput = File.OpenNullHandle();
+                  startInfo.StandardOutputHandle = nullOutput;
+                  using Process signTool = Process.Start(startInfo)!;
+                  string errors = signTool.StandardError.ReadToEnd();
+                  ProcessExitStatus status = signTool.WaitForExitStatus();
+                  if (status.ExitCode != 0)
+                  {
+                      throw new InvalidOperationException(errors);
+                  }
+              }
+              ```
+
+              - Standard output was redirected but never read, so signtool blocked once that pipe
+                filled and the build hung. It now goes to the null device.
+              - Waiting for exit before reading standard error could also hang on a full error pipe.
+                Standard error is now read to the end first, then the method waits for exit.
+              - The polling loop after the wait was redundant and only added latency.
+              - The process is now disposed, and the exit code comes from the returned status.
+    graders:
+      - type: exit-success
+      - type: output-not-matches
+        config:
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?(?:\bThread\.Sleep\b|while\s*\(\s*!\s*\w+\.HasExited)'
+      - type: output-matches
+        config:
+          pattern: '\busing\s*(?:\(\s*)?(?:Process\??|var)\s+\w+\s*=|\busing\s*\(\s*\w+\s*\)'
+      - type: output-matches
+        config:
+          pattern: '(?s)\bRunAndCaptureText\s*\(|(?:ReadToEnd|ReadAllText|ReadAllLines)\s*\([^;]*;(?:(?!WaitForExit).)*?WaitForExit'
+      - type: output-matches
+        config:
+          pattern: '\bFile\.OpenNullHandle\s*\(|\bsilent\s*:\s*true'
+      - type: prompt
+    rubric:
+      - Identifies that the unread standard output pipe can fill and hang signtool, and discards that output without leaving an unread pipe
+      - Reads standard error before waiting for signtool to exit so a full error pipe cannot hang the build
+      - Removes the redundant polling after the exit wait
+      - Disposes the process
