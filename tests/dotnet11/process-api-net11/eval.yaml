@@ -1051,7 +1051,13 @@ stimuli:
           pattern: '\.Kill\s*\(\s*entireProcessTree\s*:\s*true\s*\)\s*;\s*\w+\.(?:WaitForExitStatus|TryWaitForExitStatus|WaitForExit)\s*\('
       - type: output-matches
         config:
-          pattern: 'Process\.GetProcessById\s*\(\s*pid\s*\)\s*;\s*await\s+\w+\.WaitForExitAsync\s*\(\s*token\s*\)'
+          pattern: 'Process\.GetProcessById\s*\(\s*pid\s*\)\s*(?:;|\)\s*\{)\s*await\s+\w+\.WaitForExitAsync\s*\(\s*token\s*\)'
+      - type: output-matches
+        config:
+          pattern: 'logger\.Log\w*\s*\([^;]*,\s*(?:\w+\.)?(?:StandardOutput|stdout|output)\s*\)'
+      - type: output-matches
+        config:
+          pattern: 'logger\.Log\w*\s*\([^;]*,\s*(?:\w+\.)?(?:StandardError|stderr|errors?)\s*\)'
       - type: prompt
     rubric:
       - Identifies that waiting for exit before reading, and reading stdout to the end before stderr, can deadlock on a full pipe, and fixes it by draining both streams concurrently
@@ -1059,6 +1065,7 @@ stimuli:
       - Sets the child's environment variable through the start configuration instead of mutating the tool's own environment
       - Waits for termination after killing the server process tree, and keeps killing the whole tree
       - Leaves the already-correct wait on the non-child editor process unchanged and keeps the existing synchronous methods synchronous
+      - Still logs both packer's standard output and its standard error
   - name: Find bugs in an existing packaging helper that prints tool output
     prompt: |
       Our .NET 11 synchronous release tool occasionally hangs forever on CI. Please review this existing
@@ -1129,13 +1136,16 @@ stimuli:
           pattern: (?i)deadlock|hang
       - type: output-matches
         config:
-          pattern: \bProcess\.Run(Async)?\s*\(
+          pattern: '\bProcess\.Run(?:Async)?\s*\(\s*\w+\s*,\s*[^\s)]'
       - type: output-not-matches
         config:
-          pattern: \bRunAndCaptureText(Async)?\s*\(|\.ReadAll(Text|Lines|Bytes)(Async)?\s*\(|RedirectStandard(Output|Error)\s*=\s*true
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?(?:\bRunAndCaptureText(?:Async)?\s*\(|\.ReadAll(?:Text|Lines|Bytes)(?:Async)?\s*\(|RedirectStandard(?:Output|Error)\s*=\s*true)'
       - type: output-matches
         config:
           pattern: \.Environment\s*\[\s*"PACKER_NO_COLOR"\s*\]\s*=
+      - type: output-matches
+        config:
+          pattern: '\.Canceled\b'
       - type: prompt
     rubric:
       - Identifies that waiting for exit before reading, and reading stdout to the end before stderr, can deadlock on a full pipe
@@ -1318,12 +1328,15 @@ stimuli:
       Our .NET 11 MSBuild task signs assemblies with signtool. Signing some large assemblies hangs the
       build forever. Please review this existing method for process-related bugs and fix them:
       ```csharp
-      private static void SignFile(ProcessStartInfo startInfo)
+      private static void SignFile(string path)
       {
-          startInfo.RedirectStandardOutput = true;
-          startInfo.RedirectStandardError = true;
-          startInfo.UseShellExecute = false;
-          startInfo.CreateNoWindow = true;
+          ProcessStartInfo startInfo = new ProcessStartInfo("signtool", ["sign", "/fd", "SHA256", path])
+          {
+              RedirectStandardOutput = true,
+              RedirectStandardError = true,
+              UseShellExecute = false,
+              CreateNoWindow = true,
+          };
           Process signTool = null;
           try
           {
@@ -1360,14 +1373,18 @@ stimuli:
             source: agent
             message: |
               ```csharp
-              private static void SignFile(ProcessStartInfo startInfo)
+              private static void SignFile(string path)
               {
-                  startInfo.RedirectStandardError = true;
-                  startInfo.CreateNoWindow = true;
                   using SafeFileHandle nullOutput = File.OpenNullHandle();
-                  startInfo.StandardOutputHandle = nullOutput;
+                  ProcessStartInfo startInfo = new("signtool", ["sign", "/fd", "SHA256", path])
+                  {
+                      StandardOutputHandle = nullOutput,
+                      RedirectStandardError = true,
+                      CreateNoWindow = true,
+                  };
                   using Process signTool = Process.Start(startInfo)!;
-                  string errors = signTool.StandardError.ReadToEnd();
+                  using StreamReader errorReader = signTool.StandardError;
+                  string errors = errorReader.ReadToEnd();
                   ProcessExitStatus status = signTool.WaitForExitStatus();
                   if (status.ExitCode != 0)
                   {
@@ -1381,7 +1398,8 @@ stimuli:
               - Waiting for exit before reading standard error could also hang on a full error pipe.
                 Standard error is now read to the end first, then the method waits for exit.
               - The polling loop after the wait was redundant and only added latency.
-              - The process is now disposed, and the exit code comes from the returned status.
+              - The process and the standard error reader are now disposed, and the exit code comes
+                from the returned status.
     graders:
       - type: exit-success
       - type: output-not-matches
@@ -1395,10 +1413,17 @@ stimuli:
           pattern: '(?s)\bRunAndCaptureText\s*\(|(?:ReadToEnd|ReadAllText|ReadAllLines)\s*\([^;]*;(?:(?!WaitForExit).)*?WaitForExit'
       - type: output-matches
         config:
-          pattern: '\bFile\.OpenNullHandle\s*\(|\bsilent\s*:\s*true'
+          pattern: '\bStandardOutputHandle\s*=|\bsilent\s*:\s*true'
+      - type: output-not-matches
+        config:
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?RedirectStandardOutput\s*=\s*true'
+      - type: output-matches
+        config:
+          pattern: '(?i)ExitCode\s*(?:!=\s*0|is\s+not\s+0)\s*\)\s*\{?\s*throw\s+new\s+\w+\s*\([^;]*\b(?:errors?|stderr|standardError)\b'
       - type: prompt
     rubric:
       - Identifies that the unread standard output pipe can fill and hang signtool, and discards that output without leaving an unread pipe
       - Reads standard error before waiting for signtool to exit so a full error pipe cannot hang the build
       - Removes the redundant polling after the exit wait
       - Disposes the process
+      - Still reports a failed signing with signtool's error output
