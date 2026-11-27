@@ -929,3 +929,217 @@ stimuli:
     rubric:
       - Recognizes that the original code already discards all three standard streams without capture pipes or output buffering and needs no behavioral change
       - Preserves the synchronous silent execution and returned exit-code handling instead of introducing capture, output-draining work, async execution, or sync-over-async
+
+  - name: Find bugs in existing synchronous packaging helpers
+    prompt: |
+      Our .NET 11 synchronous release tool occasionally hangs forever on CI and sometimes leaves
+      files locked. Please review this existing code for process-related bugs and fix them:
+      ```csharp
+      static int Pack(string inputDir, ILogger logger)
+      {
+          Environment.SetEnvironmentVariable("PACKER_NO_COLOR", "1");
+          ProcessStartInfo startInfo = new("packer", ["pack", inputDir])
+          {
+              RedirectStandardOutput = true,
+              RedirectStandardError = true,
+          };
+          using Process process = Process.Start(startInfo)!;
+          process.WaitForExit(600_000);
+          string output = process.StandardOutput.ReadToEnd();
+          string errors = process.StandardError.ReadToEnd();
+          logger.LogInformation("packer output: {Output}", output);
+          logger.LogWarning("packer errors: {Errors}", errors);
+          return process.ExitCode;
+      }
+
+      static void StopServer(Process server)
+      {
+          server.Kill(entireProcessTree: true);
+      }
+
+      static async Task WaitForEditorAsync(int pid, CancellationToken token)
+      {
+          using Process editor = Process.GetProcessById(pid);
+          await editor.WaitForExitAsync(token);
+      }
+      ```
+      Keep the tool synchronous where it is synchronous today, and keep logging packer's output.
+      Show the full corrected code for all three methods and briefly explain each bug you fixed.
+      Respond inline without files.
+    tags:
+      capability: review-existing-process-code
+      risk: missed-latent-process-bugs
+      journey: hunt-bugs-in-release-tool
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-bug-review
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              ```csharp
+              static int Pack(string inputDir, ILogger logger)
+              {
+                  ProcessStartInfo startInfo = new("packer", ["pack", inputDir])
+                  {
+                      RedirectStandardOutput = true,
+                      RedirectStandardError = true,
+                  };
+                  startInfo.Environment["PACKER_NO_COLOR"] = "1";
+
+                  ProcessTextOutput result;
+                  try
+                  {
+                      result = Process.RunAndCaptureText(startInfo, TimeSpan.FromMinutes(10));
+                  }
+                  catch (TimeoutException)
+                  {
+                      logger.LogError("packer timed out after 10 minutes.");
+                      return -1;
+                  }
+
+                  logger.LogInformation("packer output: {Output}", result.StandardOutput);
+                  logger.LogWarning("packer errors: {Errors}", result.StandardError);
+                  if (result.ExitStatus.Canceled)
+                  {
+                      logger.LogError("packer timed out after 10 minutes.");
+                      return -1;
+                  }
+
+                  return result.ExitStatus.ExitCode;
+              }
+
+              static void StopServer(Process server)
+              {
+                  server.Kill(entireProcessTree: true);
+                  server.WaitForExitStatus();
+              }
+
+              static async Task WaitForEditorAsync(int pid, CancellationToken token)
+              {
+                  using Process editor = Process.GetProcessById(pid);
+                  await editor.WaitForExitAsync(token);
+              }
+              ```
+
+              - Waiting for exit before reading redirected output can deadlock once packer fills a
+                pipe, and reading stdout to the end before stderr can deadlock on a full stderr pipe.
+                `RunAndCaptureText` drains both streams together.
+              - The ignored `WaitForExit(600_000)` result let a still-running packer reach `ExitCode`,
+                which throws. The timeout is now handled explicitly, including a canceled status.
+              - `Environment.SetEnvironmentVariable` changed the tool's own environment; the variable
+                is now set only for the child through `ProcessStartInfo.Environment`.
+              - `Kill` returns before the process has terminated and released its files, so
+                `StopServer` now waits after the tree kill.
+              - `WaitForEditorAsync` is already correct: the editor is not our child, so it keeps
+                `WaitForExitAsync`.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)deadlock|hang
+      - type: output-matches
+        config:
+          pattern: \bRunAndCaptureText(Async)?\s*\(|\.ReadAllText(Async)?\s*\(|\.ReadAllLines(Async)?\s*\(
+      - type: output-matches
+        config:
+          pattern: \.Environment\s*\[\s*"PACKER_NO_COLOR"\s*\]\s*=
+      - type: output-matches
+        config:
+          pattern: '\.Kill\s*\(\s*entireProcessTree\s*:\s*true\s*\)\s*;\s*\w+\.(?:WaitForExitStatus|TryWaitForExitStatus|WaitForExit)\s*\('
+      - type: output-matches
+        config:
+          pattern: 'Process\.GetProcessById\s*\(\s*pid\s*\)\s*;\s*await\s+\w+\.WaitForExitAsync\s*\(\s*token\s*\)'
+      - type: prompt
+    rubric:
+      - Identifies that waiting for exit before reading, and reading stdout to the end before stderr, can deadlock on a full pipe, and fixes it by draining both streams concurrently
+      - Handles the ten-minute timeout explicitly instead of reading output or the exit code from a process that may still be running
+      - Sets the child's environment variable through the start configuration instead of mutating the tool's own environment
+      - Waits for termination after killing the server process tree, and keeps killing the whole tree
+      - Leaves the already-correct wait on the non-child editor process unchanged and keeps the existing synchronous methods synchronous
+  - name: Find bugs in an existing packaging helper that prints tool output
+    prompt: |
+      Our .NET 11 synchronous release tool occasionally hangs forever on CI. Please review this existing
+      method for process-related bugs and fix them:
+      ```csharp
+      static int Pack(string inputDir)
+      {
+          Environment.SetEnvironmentVariable("PACKER_NO_COLOR", "1");
+          ProcessStartInfo startInfo = new("packer", ["pack", inputDir])
+          {
+              RedirectStandardOutput = true,
+              RedirectStandardError = true,
+          };
+          using Process process = Process.Start(startInfo)!;
+          process.WaitForExit(600_000);
+          string output = process.StandardOutput.ReadToEnd();
+          string errors = process.StandardError.ReadToEnd();
+          Console.Out.Write(output);
+          Console.Error.Write(errors);
+          return process.ExitCode;
+      }
+      ```
+      Keep the method synchronous, and keep printing packer's output.
+      Show the full corrected method and briefly explain each bug you fixed.
+      Respond inline without files.
+    tags:
+      capability: review-existing-process-code
+      risk: capture-only-to-reprint
+      journey: hunt-bugs-in-console-release-tool
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-bug-review-console
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              ```csharp
+              static int Pack(string inputDir)
+              {
+                  ProcessStartInfo startInfo = new("packer", ["pack", inputDir]);
+                  startInfo.Environment["PACKER_NO_COLOR"] = "1";
+
+                  ProcessExitStatus status = Process.Run(startInfo, TimeSpan.FromMinutes(10));
+                  if (status.Canceled)
+                  {
+                      Console.Error.WriteLine("packer timed out after 10 minutes.");
+                      return -1;
+                  }
+
+                  return status.ExitCode;
+              }
+              ```
+
+              - Waiting for exit before reading redirected output can deadlock once packer fills a
+                pipe, and reading stdout to the end before stderr can deadlock on a full stderr pipe.
+                The output was only printed to our console, so packer now inherits our stdout and
+                stderr and writes to them directly: no pipes to drain, and output appears live.
+              - The ignored `WaitForExit(600_000)` result let a still-running packer reach `ExitCode`,
+                which throws. `Process.Run` kills packer on timeout and reports it as canceled.
+              - `Environment.SetEnvironmentVariable` changed the tool's own environment; the variable
+                is now set only for the child through `ProcessStartInfo.Environment`.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)deadlock|hang
+      - type: output-matches
+        config:
+          pattern: \bProcess\.Run(Async)?\s*\(
+      - type: output-not-matches
+        config:
+          pattern: \bRunAndCaptureText(Async)?\s*\(|\.ReadAll(Text|Lines|Bytes)(Async)?\s*\(|RedirectStandard(Output|Error)\s*=\s*true
+      - type: output-matches
+        config:
+          pattern: \.Environment\s*\[\s*"PACKER_NO_COLOR"\s*\]\s*=
+      - type: prompt
+    rubric:
+      - Identifies that waiting for exit before reading, and reading stdout to the end before stderr, can deadlock on a full pipe
+      - Lets packer write directly to the tool's console instead of capturing its output and printing it afterwards
+      - Handles the ten-minute timeout explicitly instead of reading the exit code from a process that may still be running
+      - Sets the child's environment variable through the start configuration instead of mutating the tool's own environment
+      - Keeps the method synchronous

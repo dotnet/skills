@@ -105,6 +105,7 @@ Choose the smallest orchestration model that meets the actual concurrency and li
 
 - When redirecting standard output and standard error, drain both concurrently while the process runs. Never wait for exit before reading, and never read them sequentially; a full pipe blocks the child. See [output capture](references/output-capture.md).
 - Never redirect output to pipes merely to suppress it; use `silent: true` or null handles instead. See [running without capture](references/running-without-capture.md).
+- Never capture output merely to write it unchanged to the parent's console; use `Run[Async]` without redirection so the child writes to the inherited streams directly.
 - Output EOF is not process termination, and termination is not EOF. Status waits do not drain pipes, and a descendant holding a pipe's write end prevents EOF.
 - Canceling a wait or disposing a `Process` or `SafeProcessHandle` does not terminate the child. Choose deliberately between wait-only and kill-and-wait behavior.
 - Always restrict inheritance with `ProcessStartInfo.InheritedHandles` on every platform: use `[]` when the child needs no additional handles, or list only the handles it requires. Standard handles are still inherited and can reach grandchildren. See [handle inheritance](references/handle-inheritance.md) for details.

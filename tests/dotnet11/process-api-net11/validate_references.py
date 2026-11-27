@@ -12,8 +12,8 @@ def main():
     gate = runpy.run_path(str(root / "eng" / "eval-quality" / "check_eval_quality.py"))
     document = yaml.load(spec.read_text(encoding="utf-8"), gate["NoDuplicateKeys"])
     stimuli = document["stimuli"]
-    if len(stimuli) != 15:
-        raise AssertionError("Expected twelve preference cases and three dormancy cases.")
+    if len(stimuli) != 17:
+        raise AssertionError("Expected fourteen preference cases and three dormancy cases.")
 
     outputs = []
     for stimulus in stimuli:
@@ -40,6 +40,14 @@ def main():
         (13, 1, "UseShellExecute = true", "UseShellExecute = false"),
         (13, 2, "})?.Dispose();", "})?.WaitForExit();"),
         (14, 1, "silent: true", "silent: false"),
+        (15, 2, "Process.RunAndCaptureText(startInfo", "Process.Start(startInfo"),
+        (15, 3, 'startInfo.Environment["PACKER_NO_COLOR"] = "1";', 'Environment.SetEnvironmentVariable("PACKER_NO_COLOR", "1");'),
+        (15, 4, "server.WaitForExitStatus();", ""),
+        (15, 5, "await editor.WaitForExitAsync(token);", "await editor.WaitForExitStatusAsync(token);"),
+        (16, 2, "Process.Run(startInfo, TimeSpan.FromMinutes(10))", "Process.Start(startInfo)"),
+        (16, 3, 'new("packer", ["pack", inputDir]);', 'new("packer", ["pack", inputDir]) { RedirectStandardOutput = true };'),
+        (16, 3, "ProcessExitStatus status = Process.Run(startInfo, TimeSpan.FromMinutes(10));", "ProcessTextOutput output = Process.RunAndCaptureText(startInfo, TimeSpan.FromMinutes(10)); ProcessExitStatus status = output.ExitStatus;"),
+        (16, 4, 'startInfo.Environment["PACKER_NO_COLOR"] = "1";', 'Environment.SetEnvironmentVariable("PACKER_NO_COLOR", "1");'),
     )
     for stimulus_index, grader_index, original, replacement in mutations:
         output = outputs[stimulus_index]

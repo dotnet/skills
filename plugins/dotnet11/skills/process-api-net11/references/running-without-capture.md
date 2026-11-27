@@ -1,6 +1,6 @@
 ## Run and Wait Without Capturing Output
 
-Use `Process.Run` or `Process.RunAsync` when you need to start a process and wait for its exit status without capturing its output. By default, the child inherits the parent's standard handles, so output remains visible. Pass `silent: true` to redirect all three standard handles (stdin, stdout, and stderr) to the null device (`NUL` on Windows, `/dev/null` on Unix). Writes are discarded and reads receive EOF, without creating pipes that the parent must drain.
+Use `Process.Run` or `Process.RunAsync` when you need to start a process and wait for its exit status without capturing its output. By default, the child inherits the parent's standard handles, so output remains visible. When the parent would only print the child's output to its own console, use this inherited output instead of capturing and re-printing it. Pass `silent: true` to redirect all three standard handles (stdin, stdout, and stderr) to the null device (`NUL` on Windows, `/dev/null` on Unix). Writes are discarded and reads receive EOF, without creating pipes that the parent must drain.
 
 Synchronous overloads accept a timeout; asynchronous overloads accept a cancellation token. When the process is killed due to timeout or cancellation, the helper waits for termination and returns a `ProcessExitStatus` with `Canceled` set to `true`, rather than throwing a timeout or cancellation exception.
 
