@@ -52,7 +52,7 @@ Discover the solution or project files, the build and test commands, and the tec
 
 ### Step 2: Update the Target Framework
 
-1. In each `.csproj` (or `Directory.Build.props` if centralized), change `<TargetFramework>net10.0</TargetFramework>` to `<TargetFramework>net11.0</TargetFramework>`. For multi-targeted projects, add `net11.0` to `<TargetFrameworks>` or replace `net10.0`. Keep any platform suffix: `net10.0-android`, `net10.0-ios`, `net10.0-tvos`, `net10.0-maccatalyst`, and `net10.0-windows...` become their `net11.0-*` counterparts, never bare `net11.0`.
+1. In each `.csproj` (or `Directory.Build.props` if centralized), change `<TargetFramework>net10.0</TargetFramework>` to `<TargetFramework>net11.0</TargetFramework>`. For multi-targeted projects, replace each `net10.0` entry in `<TargetFrameworks>` with its .NET 11 counterpart, or add the counterpart next to it to keep building for .NET 10. Keep any platform suffix: `net10.0-android;net10.0-ios` becomes `net11.0-android;net11.0-ios`, and the same applies to `-tvos`, `-maccatalyst`, and `-windows...`. Add bare `net11.0` only when the project intentionally targets the base framework.
 
 2. Update all `Microsoft.Extensions.*`, `Microsoft.AspNetCore.*`, `Microsoft.EntityFrameworkCore.*`, and other Microsoft package references to their 11.0.x versions. If using Central Package Management (`Directory.Packages.props`), update versions there.
 
