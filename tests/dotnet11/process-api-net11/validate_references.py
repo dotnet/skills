@@ -12,8 +12,8 @@ def main():
     gate = runpy.run_path(str(root / "eng" / "eval-quality" / "check_eval_quality.py"))
     document = yaml.load(spec.read_text(encoding="utf-8"), gate["NoDuplicateKeys"])
     stimuli = document["stimuli"]
-    if len(stimuli) != 18:
-        raise AssertionError("Expected fifteen preference cases and three dormancy cases.")
+    if len(stimuli) != 19:
+        raise AssertionError("Expected sixteen preference cases and three dormancy cases.")
 
     outputs = []
     for stimulus in stimuli:
@@ -53,6 +53,10 @@ def main():
         (17, 3, "await process.WaitForExitAsync(cancellationToken);", "process.WaitForExit();"),
         (17, 4, "await process.WaitForExitAsync(cancellationToken);", "await process.WaitForExitStatusAsync(cancellationToken);"),
         (17, 5, "    using (process)\n    {\n        await process.WaitForExitAsync(cancellationToken);\n    }", "    await process.WaitForExitAsync(cancellationToken);"),
+        (18, 1, "hostProcess.Signal(PosixSignal.SIGTERM);", 'using Process kill = Process.Start("kill", [hostProcess.Id.ToString()]);'),
+        (18, 2, "hostProcess.Signal(PosixSignal.SIGTERM);", 'using Process kill = Process.Start("kill", [hostProcess.Id.ToString()]);'),
+        (18, 3, "process.SafeHandle.WaitForExitOrKillOnTimeout(TimeSpan.FromSeconds(5));", "process.WaitForExit(5000);\nif (!process.HasExited)\n{\n    process.Kill();\n}\nprocess.WaitForExitStatus();"),
+        (18, 4, "process.SafeHandle.WaitForExitOrKillOnTimeout(TimeSpan.FromSeconds(5))", "process.WaitForExitStatus()"),
     )
     for stimulus_index, grader_index, original, replacement in mutations:
         output = outputs[stimulus_index]

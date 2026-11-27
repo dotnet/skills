@@ -1222,3 +1222,93 @@ stimuli:
       - Still treats a process that is already gone as exited
       - Keeps an asynchronous, cancelable wait that works for a process this code did not start
       - Disposes the process object
+
+  - name: Find bugs in synchronous graceful-shutdown test helpers
+    prompt: |
+      Our .NET 11 hosting functional tests on Linux check graceful shutdown. They are flaky, and
+      processes are left behind. Please review these existing helpers for process-related bugs and fix
+      them:
+      ```csharp
+      private static void SendSIGTERM(Process hostProcess)
+      {
+          ProcessStartInfo startInfo = new ProcessStartInfo
+          {
+              FileName = "kill",
+              Arguments = hostProcess.Id.ToString(),
+              RedirectStandardOutput = true,
+              UseShellExecute = false,
+          };
+          Process process = Process.Start(startInfo);
+          WaitForExitOrKill(process);
+      }
+
+      private static void WaitForExitOrKill(Process process)
+      {
+          process.WaitForExit(5000);
+          if (!process.HasExited)
+          {
+              process.Kill();
+          }
+      }
+
+      // Test body:
+      SendSIGTERM(deployer.HostProcess);
+      WaitForExitOrKill(deployer.HostProcess);
+      ```
+      Keep the helpers synchronous. Show only the full corrected code and briefly explain each bug you
+      fixed. Respond inline without files.
+    tags:
+      capability: review-existing-process-code
+      risk: shelling-out-for-signals
+      journey: hunt-bugs-in-shutdown-tests
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: process-api-net11-review-sigterm
+        agent: {name: reference, version: "1.0.0", model_name: curated}
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              ```csharp
+              private static void SendSIGTERM(Process hostProcess)
+              {
+                  hostProcess.Signal(PosixSignal.SIGTERM);
+              }
+
+              private static void WaitForExitOrKill(Process process)
+              {
+                  process.SafeHandle.WaitForExitOrKillOnTimeout(TimeSpan.FromSeconds(5));
+              }
+
+              // Test body (unchanged):
+              SendSIGTERM(deployer.HostProcess);
+              WaitForExitOrKill(deployer.HostProcess);
+              ```
+
+              - Starting a separate tool to deliver SIGTERM cost an extra process, redirected its
+                output without reading it, and never disposed it. The signal is now sent directly.
+                `PosixSignal` is in `System.Runtime.InteropServices`.
+              - Checking whether the process had exited before killing it races with exit, and after
+                the kill nothing waited for termination. The process is now killed on timeout and
+                waited for.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: '\.Signal\s*\(\s*PosixSignal\.SIGTERM\s*\)'
+      - type: output-not-matches
+        config:
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?"kill"'
+      - type: output-not-matches
+        config:
+          pattern: '(?s)```(?:csharp|cs|c#)[ \t]*\r?\n(?:(?!```).)*?\bHasExited\b'
+      - type: output-matches
+        config:
+          pattern: 'WaitForExitOrKillOnTimeout\s*\(|\.Kill\s*\([^)]*\)\s*;\s*(?:\}\s*)?(?:[\w?]+\s+)?(?:\w+\s*=\s*)?\w+\.(?:WaitForExit\w*|TryWaitForExit\w*)\s*\('
+      - type: prompt
+    rubric:
+      - Sends SIGTERM to the host without starting a separate process
+      - Kills a process that does not exit within the grace period and waits for it to terminate
+      - Removes the race between checking whether the process has exited and killing it
+      - Keeps the helpers synchronous
