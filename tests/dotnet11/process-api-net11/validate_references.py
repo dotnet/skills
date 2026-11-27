@@ -12,8 +12,8 @@ def main():
     gate = runpy.run_path(str(root / "eng" / "eval-quality" / "check_eval_quality.py"))
     document = yaml.load(spec.read_text(encoding="utf-8"), gate["NoDuplicateKeys"])
     stimuli = document["stimuli"]
-    if len(stimuli) != 15:
-        raise AssertionError("Expected twelve preference cases and three dormancy cases.")
+    if len(stimuli) != 20:
+        raise AssertionError("Expected seventeen preference cases and three dormancy cases.")
 
     outputs = []
     for stimulus in stimuli:
@@ -40,6 +40,33 @@ def main():
         (13, 1, "UseShellExecute = true", "UseShellExecute = false"),
         (13, 2, "})?.Dispose();", "})?.WaitForExit();"),
         (14, 1, "silent: true", "silent: false"),
+        (15, 2, "Process.RunAndCaptureText(startInfo", "Process.Start(startInfo"),
+        (15, 3, 'startInfo.Environment["PACKER_NO_COLOR"] = "1";', 'Environment.SetEnvironmentVariable("PACKER_NO_COLOR", "1");'),
+        (15, 4, "server.WaitForExitStatus();", ""),
+        (15, 5, "await editor.WaitForExitAsync(token);", "await editor.WaitForExitStatusAsync(token);"),
+        (15, 6, 'logger.LogInformation("packer output: {Output}", result.StandardOutput);', ""),
+        (15, 7, 'logger.LogWarning("packer errors: {Errors}", result.StandardError);', 'logger.LogWarning("packer errors: {Errors}", result.StandardOutput);'),
+        (16, 2, "Process.Run(startInfo, TimeSpan.FromMinutes(10))", "Process.Start(startInfo)"),
+        (16, 3, 'new("packer", ["pack", inputDir]);', 'new("packer", ["pack", inputDir]) { RedirectStandardOutput = true };'),
+        (16, 3, "ProcessExitStatus status = Process.Run(startInfo, TimeSpan.FromMinutes(10));", "ProcessTextOutput output = Process.RunAndCaptureText(startInfo, TimeSpan.FromMinutes(10)); ProcessExitStatus status = output.ExitStatus;"),
+        (16, 2, "Process.Run(startInfo, TimeSpan.FromMinutes(10))", "Process.Run(startInfo)"),
+        (16, 4, 'startInfo.Environment["PACKER_NO_COLOR"] = "1";', 'Environment.SetEnvironmentVariable("PACKER_NO_COLOR", "1");'),
+        (16, 5, '    if (status.Canceled)\n    {\n        Console.Error.WriteLine("packer timed out after 10 minutes.");\n        return -1;\n    }\n\n', ""),
+        (17, 1, "if (!Process.TryGetProcessById(pid, out Process? process))", "Process process = Process.GetProcessById(pid);\nif (process is null)"),
+        (17, 2, "    using (process)\n    {\n        await process.WaitForExitAsync(cancellationToken);\n    }", "    try\n    {\n        await process.WaitForExitAsync(cancellationToken);\n    }\n    catch (InvalidOperationException)\n    {\n    }"),
+        (17, 3, "await process.WaitForExitAsync(cancellationToken);", "process.WaitForExit();"),
+        (17, 4, "await process.WaitForExitAsync(cancellationToken);", "await process.WaitForExitStatusAsync(cancellationToken);"),
+        (17, 5, "    using (process)\n    {\n        await process.WaitForExitAsync(cancellationToken);\n    }", "    await process.WaitForExitAsync(cancellationToken);"),
+        (18, 1, "hostProcess.Signal(PosixSignal.SIGTERM);", 'using Process kill = Process.Start("kill", [hostProcess.Id.ToString()]);'),
+        (18, 2, "hostProcess.Signal(PosixSignal.SIGTERM);", 'using Process kill = Process.Start("kill", [hostProcess.Id.ToString()]);'),
+        (18, 3, "process.SafeHandle.WaitForExitOrKillOnTimeout(TimeSpan.FromSeconds(5));", "process.WaitForExit(5000);\nif (!process.HasExited)\n{\n    process.Kill();\n}\nprocess.WaitForExitStatus();"),
+        (18, 4, "process.SafeHandle.WaitForExitOrKillOnTimeout(TimeSpan.FromSeconds(5))", "process.WaitForExitStatus()"),
+        (19, 1, "ProcessExitStatus status = signTool.WaitForExitStatus();", "while (!signTool.HasExited)\n{\n    Thread.Sleep(50);\n}\nProcessExitStatus status = signTool.WaitForExitStatus();"),
+        (19, 2, "using Process signTool = Process.Start(startInfo)!;", "Process signTool = Process.Start(startInfo)!;"),
+        (19, 3, "    using StreamReader errorReader = signTool.StandardError;\n    string errors = errorReader.ReadToEnd();\n    ProcessExitStatus status = signTool.WaitForExitStatus();", "    ProcessExitStatus status = signTool.WaitForExitStatus();\n    using StreamReader errorReader = signTool.StandardError;\n    string errors = errorReader.ReadToEnd();"),
+        (19, 4, "        StandardOutputHandle = nullOutput,\n", ""),
+        (19, 5, "StandardOutputHandle = nullOutput,", "RedirectStandardOutput = true,"),
+        (19, 6, "    if (status.ExitCode != 0)\n    {\n        throw new InvalidOperationException(errors);\n    }\n", ""),
     )
     for stimulus_index, grader_index, original, replacement in mutations:
         output = outputs[stimulus_index]
@@ -91,6 +118,14 @@ def main():
             "termination-only inferred local handle wait",
         ),
         (0, deconstructed, "printed deconstructed capture"),
+        (
+            15,
+            outputs[15].replace(
+                "    using Process editor = Process.GetProcessById(pid);\n    await editor.WaitForExitAsync(token);",
+                "    using (Process editor = Process.GetProcessById(pid))\n    {\n        await editor.WaitForExitAsync(token);\n    }",
+            ),
+            "using-block editor wait",
+        ),
         (2, deconstructed, "printed deconstructed instance read"),
         (
             13,
@@ -137,6 +172,8 @@ def main():
         ),
     )
     for stimulus_index, output, label in alternatives:
+        if output == outputs[stimulus_index]:
+            raise AssertionError(f"Alternative did not change the reference: {label}")
         reference = copy.deepcopy(stimuli[stimulus_index]["golden_trajectory"]["inline"])
         reference["steps"][-1]["message"] = output
         gate["check_trajectory_output_graders"](str(spec), stimuli[stimulus_index], reference, label)
