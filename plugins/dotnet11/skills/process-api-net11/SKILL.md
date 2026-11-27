@@ -47,10 +47,22 @@ Inspect the project's actual `TargetFramework` or `TargetFrameworks` before intr
 - Never capture output merely to write it unchanged to the parent's console; use `Run[Async]` without redirection so the child writes to the inherited streams directly.
 - Output EOF is not process termination, and termination is not EOF. Status waits do not drain pipes, and a descendant holding a pipe's write end prevents EOF.
 - Canceling a wait or disposing a `Process` or `SafeProcessHandle` does not terminate the child. Choose deliberately between wait-only and kill-and-wait behavior.
+- Always dispose `Process` to prevent resource leaks.
+- Always dispose `StandardInput`, `StandardOutput`, and `StandardError` when you use them; disposing the `Process` does not dispose them.
+- Always wait for termination after `Kill`.
+- Use `Kill(entireProcessTree: true)` when the work runs in descendants.
+- Read the exit code from the status returned by `WaitForExitStatus[Async]` or `TryWaitForExitStatus`, not from `Process.ExitCode`, and never ignore the `bool` returned by a timed wait.
+- After `Run[Async]` or `RunAndCaptureText[Async]` with a timeout or token, check `ProcessExitStatus.Canceled` and report the timeout or cancellation explicitly. `RunAndCaptureText[Async]` can also throw `TimeoutException` or `OperationCanceledException` when capture is interrupted.
+- Never poll `HasExited` or hand-roll exit waits with `Exited` and a `TaskCompletionSource`; use status waits.
+- For a non-child process from `Process.GetProcessById`, use `WaitForExitAsync`: status waits cannot wait for a non-child process on Unix.
+- Give long-lived background children null standard handles or use `StartDetached`; inheriting the parent's standard handles may keep its output pipes open and delay EOF for callers capturing it.
 - Always restrict inheritance with `ProcessStartInfo.InheritedHandles` on every platform: use `[]` when the child needs no additional handles, or list only the handles it requires. Standard handles are still inherited and can reach grandchildren. See [handle inheritance](references/handle-inheritance.md) for details.
 - Full capture buffers all output in memory. For untrusted or potentially unlimited output, use fixed-size reads with one shared retention budget across stdout and stderr, and keep draining after the budget is reached.
 - Prefer argument collections over concatenating, interpolating, or joining arguments into `ProcessStartInfo.Arguments`.
 - Do not manually copy the parent's environment variables: `ProcessStartInfo.Environment` and `EnvironmentVariables` already initialize from them automatically. Apply only the child-specific changes.
+- Configure a child's environment through `ProcessStartInfo.Environment`, never `Environment.SetEnvironmentVariable`, which changes the parent and races with other children.
+- Always prefer `ProcessStartInfo.Environment` over `ProcessStartInfo.EnvironmentVariables`, which allocates on every access.
+- Prefer managed APIs over starting tools: `File.SetUnixFileMode` instead of `chmod`, `Environment.UserName` instead of `whoami`, and `Environment.ProcessPath` instead of `Process.GetCurrentProcess().MainModule.FileName`.
 - Keep `ProcessStartInfo.UseShellExecute` at its default value of `false`. Leave the property unset rather than explicitly assigning `false`: when the application never sets it, the AOT compiler can eliminate the unused shell-execution code.
 - When `ProcessStartInfo.UseShellExecute` is `false` (or unset), `Process.Start` can never return `null` (it throws on error). Use `Process.Start(startInfo)!`; no redundant null check or `?? throw` is needed.
 - When `ProcessStartInfo.UseShellExecute` is `true`, `Process.Start` can return `null` even after successfully opening a URL or document. That `null` should not be treated as a failure.
