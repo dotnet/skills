@@ -1,0 +1,27 @@
+diff --git a/src/Contacts/ContactDirectory.cs b/src/Contacts/ContactDirectory.cs
+--- a/src/Contacts/ContactDirectory.cs
++++ b/src/Contacts/ContactDirectory.cs
+@@ -10,5 +10,5 @@
+ public sealed class ContactDirectory(IContactStore store)
+ {
+     public Contact? FindByEmail(string? email) =>
+-        store.FindByNormalizedEmail(email!.Trim().ToUpperInvariant());
++        email is null ? null : store.FindByNormalizedEmail(email.Trim().ToUpperInvariant());
+ }
+diff --git a/tests/Contacts.Tests/FindByEmailTests.cs b/tests/Contacts.Tests/FindByEmailTests.cs
+--- a/tests/Contacts.Tests/FindByEmailTests.cs
++++ b/tests/Contacts.Tests/FindByEmailTests.cs
+@@ -12,4 +12,13 @@
+ 
+         Assert.Equal(contact, directory.FindByEmail(" JUN@example.test "));
+     }
++
++    [Fact]
++    public void Null_address_returns_no_match()
++    {
++        var contact = new Contact("Jun", "jun@example.test");
++        var directory = new ContactDirectory(new InMemoryContactStore(contact));
++
++        Assert.Null(directory.FindByEmail(null));
++    }
+ }

@@ -1,0 +1,55 @@
+diff --git a/src/Stays/DateRange.cs b/src/Stays/DateRange.cs
+index 9dd5994..a84b82d 100644
+--- a/src/Stays/DateRange.cs
++++ b/src/Stays/DateRange.cs
+@@ -21,5 +21,5 @@ public readonly record struct DateRange
+ 
+     public bool Contains(DateOnly day) => day >= Start && day < End;
+ 
+-    public bool Overlaps(DateRange other) => Start <= other.End && other.Start <= End;
++    public bool Overlaps(DateRange other) => Start < other.End && other.Start < End;
+ }
+diff --git a/tests/Stays.Tests/BookingCalendarTests.cs b/tests/Stays.Tests/BookingCalendarTests.cs
+index 649c7f0..7633ebe 100644
+--- a/tests/Stays.Tests/BookingCalendarTests.cs
++++ b/tests/Stays.Tests/BookingCalendarTests.cs
+@@ -26,6 +26,16 @@ public class BookingCalendarTests
+         Assert.Single(calendar.Stays);
+     }
+ 
++    [Fact]
++    public void TryBook_BackToBackStay_IsAccepted()
++    {
++        var calendar = new BookingCalendar();
++        calendar.TryBook(March(1, 5));
++
++        Assert.True(calendar.TryBook(March(5, 8)));
++        Assert.Equal([March(1, 5), March(5, 8)], calendar.Stays);
++    }
++
+     [Fact]
+     public void IsOccupied_NightInsideStay_IsTrue()
+     {
+diff --git a/tests/Stays.Tests/DateRangeTests.cs b/tests/Stays.Tests/DateRangeTests.cs
+index 602fa3c..655f7f9 100644
+--- a/tests/Stays.Tests/DateRangeTests.cs
++++ b/tests/Stays.Tests/DateRangeTests.cs
+@@ -44,4 +44,18 @@ public class DateRangeTests
+     {
+         Assert.False(March(1, 5).Overlaps(March(10, 12)));
+     }
++
++    [Fact]
++    public void Overlaps_StayEndingOnNextCheckIn_IsFalse()
++    {
++        Assert.False(March(1, 5).Overlaps(March(5, 8)));
++        Assert.False(March(5, 8).Overlaps(March(1, 5)));
++    }
++
++    [Fact]
++    public void Overlaps_OneSharedNight_IsTrue()
++    {
++        Assert.True(March(1, 5).Overlaps(March(4, 8)));
++        Assert.True(March(4, 8).Overlaps(March(1, 5)));
++    }
+ }

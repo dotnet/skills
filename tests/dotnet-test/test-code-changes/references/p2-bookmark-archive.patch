@@ -1,0 +1,57 @@
+diff --git a/src/Bookmarks/Program.cs b/src/Bookmarks/Program.cs
+--- a/src/Bookmarks/Program.cs
++++ b/src/Bookmarks/Program.cs
+@@ -9,6 +9,18 @@
+ app.MapGet("/bookmarks/{id:int}", (int id) =>
+     bookmarks.TryGetValue(id, out var bookmark) ? Results.Ok(bookmark) : Results.NotFound());
+ 
++app.MapPatch("/bookmarks/{id:int}/archive", (int id) =>
++{
++    while (bookmarks.TryGetValue(id, out var bookmark))
++    {
++        var updated = bookmark with { Archived = !bookmark.Archived };
++        if (bookmarks.TryUpdate(id, updated, bookmark))
++            return Results.Ok(updated);
++    }
++
++    return Results.NotFound();
++});
++
+ app.Run();
+ 
+ public sealed record Bookmark(int Id, string Title, bool Archived);
+diff --git a/tests/Bookmarks.Tests/BookmarkEndpointsTests.cs b/tests/Bookmarks.Tests/BookmarkEndpointsTests.cs
+--- a/tests/Bookmarks.Tests/BookmarkEndpointsTests.cs
++++ b/tests/Bookmarks.Tests/BookmarkEndpointsTests.cs
+@@ -15,4 +15,31 @@
+         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+         Assert.Equal(1, (await response.Content.ReadFromJsonAsync<Bookmark>())!.Id);
+     }
++
++    [Fact]
++    public async Task Patch_toggles_the_archive_flag_and_updates_the_bookmark()
++    {
++        using var client = factory.CreateClient();
++
++        using var archive = await client.PatchAsync("/bookmarks/1/archive", null);
++        Assert.Equal(HttpStatusCode.OK, archive.StatusCode);
++        Assert.Equal(new Bookmark(1, "Field guide", true),
++            await archive.Content.ReadFromJsonAsync<Bookmark>());
++        Assert.Equal(new Bookmark(1, "Field guide", true),
++            await client.GetFromJsonAsync<Bookmark>("/bookmarks/1"));
++
++        using var unarchive = await client.PatchAsync("/bookmarks/1/archive", null);
++        Assert.Equal(HttpStatusCode.OK, unarchive.StatusCode);
++        Assert.Equal(new Bookmark(1, "Field guide", false),
++            await unarchive.Content.ReadFromJsonAsync<Bookmark>());
++    }
++
++    [Fact]
++    public async Task Patch_returns_not_found_for_an_unknown_bookmark()
++    {
++        using var client = factory.CreateClient();
++        using var response = await client.PatchAsync("/bookmarks/404/archive", null);
++
++        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
++    }
+ }

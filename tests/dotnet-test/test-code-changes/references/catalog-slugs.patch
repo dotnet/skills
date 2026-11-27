@@ -1,0 +1,73 @@
+diff --git a/src/Catalog/SlugHelper.cs b/src/Catalog/SlugHelper.cs
+index 0e0e58b..1e68dda 100644
+--- a/src/Catalog/SlugHelper.cs
++++ b/src/Catalog/SlugHelper.cs
+@@ -9,7 +9,14 @@ public static class SlugHelper
+         var slug = new StringBuilder(text.Length);
+         foreach (var c in text.Trim().ToLowerInvariant())
+         {
+-            slug.Append(char.IsAsciiLetterOrDigit(c) ? c : '-');
++            if (char.IsAsciiLetterOrDigit(c))
++            {
++                slug.Append(c);
++            }
++            else if (slug.Length > 0 && slug[^1] != '-')
++            {
++                slug.Append('-');
++            }
+         }
+ 
+         return slug.ToString().Trim('-');
+diff --git a/tests/Catalog.Tests/ProductUrlBuilderTests.cs b/tests/Catalog.Tests/ProductUrlBuilderTests.cs
+index 6886c9c..f977333 100644
+--- a/tests/Catalog.Tests/ProductUrlBuilderTests.cs
++++ b/tests/Catalog.Tests/ProductUrlBuilderTests.cs
+@@ -17,8 +17,8 @@ public class ProductUrlBuilderTests
+     }
+ 
+     [Fact]
+-    public void For_CategoryWithSymbols_ReplacesEachSymbol()
++    public void For_CategoryWithSymbols_UsesSingleDash()
+     {
+-        Assert.Equal("/products/tools---hardware/claw-hammer-42", ProductUrlBuilder.For("Tools & Hardware", "Claw Hammer", 42));
++        Assert.Equal("/products/tools-hardware/claw-hammer-42", ProductUrlBuilder.For("Tools & Hardware", "Claw Hammer", 42));
+     }
+ }
+diff --git a/tests/Catalog.Tests/SlugHelperTests.cs b/tests/Catalog.Tests/SlugHelperTests.cs
+new file mode 100644
+index 0000000..58cff53
+--- /dev/null
++++ b/tests/Catalog.Tests/SlugHelperTests.cs
+@@ -0,0 +1,32 @@
++using Catalog;
++
++namespace Catalog.Tests;
++
++public class SlugHelperTests
++{
++    [Theory]
++    [InlineData("Tools & Hardware", "tools-hardware")]
++    [InlineData("Soap -- Bars", "soap-bars")]
++    public void ToSlug_RunOfSeparators_CollapsesToOneDash(string text, string expected)
++    {
++        Assert.Equal(expected, SlugHelper.ToSlug(text));
++    }
++
++    [Fact]
++    public void ToSlug_SeparatorsAtTheEnds_AreTrimmed()
++    {
++        Assert.Equal("sale", SlugHelper.ToSlug("--Sale!!--"));
++    }
++
++    [Fact]
++    public void ToSlug_SingleSeparator_IsUnchanged()
++    {
++        Assert.Equal("garden-tools", SlugHelper.ToSlug("Garden Tools"));
++    }
++
++    [Fact]
++    public void ToSlug_OnlySeparators_IsEmpty()
++    {
++        Assert.Equal("", SlugHelper.ToSlug("!!!"));
++    }
++}

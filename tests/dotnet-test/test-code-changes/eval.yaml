@@ -1,0 +1,1249 @@
+name: test-code-changes
+description: Evaluates the dotnet-test/test-code-changes skill
+type: capability
+# Preference stimuli (first 11) ask for a production behavior change without mentioning tests;
+# the duration-parser case is deliberately cued. Dormancy stimuli (last 7) carry
+# tags.expect_activation: "false". Graders must accept any file layout the agent picks:
+# - .grading/checks is a hidden console project staged after the agent finishes; it proves the
+#   production change itself, independent of the agent's tests.
+# - assert-tests-detect-change.js rebuilds the agent's test project against the original src/
+#   tree; at least one test must fail (or stop compiling), so a fix without a test that proves it,
+#   a script-only check, or a test outside the test project does not pass.
+# - check-workspace.js proves original tests are still declared and no scratch projects, probe
+#   scripts or stray sources are left behind.
+# - .tcc-grade/check.py holds the checks for the API, CLI, component, SQL-fake, page and
+#   new-project stimuli and for the docs and Dockerfile dormancy cases.
+# Whether the last test run after the last edit covered the whole test project is graded from the
+# transcript. The library stimuli add a tool-calls grader that requires an unfiltered
+# `dotnet test`; in every preference stimulus the rubric judges that the run followed the last edit.
+# The budget is above the proposal's ~6m because each preference task restores, edits, and runs
+# the test project more than once.
+defaults:
+  timeout: 8m
+  runs: 1
+grading_environment:
+  files:
+    - src: graders/shared/assert-tests-detect-change.js
+      dest: .grading/assert-tests-detect-change.js
+    - src: graders/shared/check-workspace.js
+      dest: .grading/check-workspace.js
+stimuli:
+  - name: Fix touching stays reported as overlapping
+    prompt: |
+      Back-to-back stays are being rejected. `DateRange.Overlaps` says a stay from
+      March 1 to March 5 overlaps the next guest's stay from March 5 to March 8.
+      Our ranges are half-open: the end date is the checkout day and is not
+      occupied, so ranges that only touch must not overlap, while ranges that
+      share at least one night still must. Please fix it.
+    tags:
+      capability: regression-test-for-bug-fix
+      risk: bug-fix-without-repository-test
+      journey: fix-library-bug
+    environment:
+      files:
+        - src: fixtures/stay-calendar
+          dest: .
+      commands:
+        - dotnet restore Stays.slnx --nologo
+    grading_environment:
+      files:
+        - src: graders/stay-calendar
+          dest: .grading/checks
+        - src: fixtures/stay-calendar/src
+          dest: .grading/original/src
+        - src: fixtures/stay-calendar/tests
+          dest: .grading/original/tests
+    golden_patch:
+      path: references/stay-calendar.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: test-code-changes-stay-calendar
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        notes: Curated expected steps; golden_patch and run-command graders replay the edit and verification.
+        steps:
+          - step_id: 1
+            source: agent
+            message: Run the whole Stays.Tests project after the last edit.
+            tool_calls:
+              - tool_call_id: final-run
+                function_name: bash
+                arguments: { command: dotnet test tests/Stays.Tests/Stays.Tests.csproj }
+            observation:
+              results:
+                - source_call_id: final-run
+                  content: "Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12"
+          - step_id: 2
+            source: agent
+            message: |-
+              `DateRange.Overlaps` compared with `<=`, so a stay ending on another stay's check-in day counted as an overlap. It now uses strict comparisons, which matches half-open ranges.
+
+              Tests in tests/Stays.Tests:
+              - `DateRangeTests.Overlaps_StayEndingOnNextCheckIn_IsFalse`: March 1-5 vs March 5-8, both orders
+              - `DateRangeTests.Overlaps_OneSharedNight_IsTrue`: ranges sharing a night still overlap
+              - `BookingCalendarTests.TryBook_BackToBackStay_IsAccepted`
+
+              Existing expectations are unchanged.
+              Final run: `dotnet test tests/Stays.Tests/Stays.Tests.csproj` -> Passed: 12, Failed: 0, Skipped: 0
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run --project .grading/checks/FixChecks.csproj
+          expected_exit_code: 0
+          stdout_contains: fix checks passed
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet test tests/Stays.Tests/Stays.Tests.csproj --nologo
+          expected_exit_code: 0
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Stays.Tests/Stays.Tests.csproj --restore src=.grading/original/src
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js retained --dir tests --original .grading/original/tests --names Constructor_EndNotAfterStart_Throws,Nights_CountsCheckInToCheckOut,Contains_CheckInNight_IsTrue,Contains_CheckOutDay_IsFalse,Overlaps_SharedNights_IsTrue,Overlaps_SeparatedByAGap_IsFalse,TryBook_EmptyCalendar_AcceptsStay,TryBook_ConflictingStay_IsRejected,IsOccupied_NightInsideStay_IsTrue
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js no-scratch --projects src/Stays/Stays.csproj,tests/Stays.Tests/Stays.Tests.csproj
+          expected_exit_code: 0
+          timeout: 1m
+      - type: tool-calls
+        config:
+          required:
+            - name: '^(bash|powershell|shell|execute|run_shell_command|local_shell)$'
+              args:
+                command: '(?i)(?:^|[\n;&|(]\s*)(?:\w+=\S*\s+)*dotnet\s+(?:test|vstest)\b(?![^\n;&|]*(?:--(?:filter|treenode-filter|list-tests|help)\b|\s[-/]{1,2}(?:testcasefilter|tests)\s*[:=]|\s[-/]{1,2}listtests\b|\s-h\b|\s\/\?))'
+      - type: prompt
+    rubric:
+      - Stays that only touch, one ending on the other's check-in day, no longer overlap in either order, and stays that share at least one night still do
+      - The Stays.Tests project gained tests that fail against the original comparison, covering the March 1-5 and March 5-8 example and a pair of stays that share a night
+      - Every pre-existing test is still present with its original assertions
+      - The fix was checked through the repository's test project rather than throwaway scripts, console apps or manual runs, and no such scratch files remain
+      - After the last source or test edit, the complete Stays.Tests project ran with no test filter, and the final reply reports that run's real pass and fail counts
+
+  - name: Toggle the archive flag on a bookmark
+    prompt: |
+      Add `PATCH /bookmarks/{id}/archive` so a client can toggle whether a bookmark
+      is archived. Return the updated bookmark, or a 404 if the ID doesn't exist.
+    tags:
+      capability: cover-an-api-change
+      risk: endpoint-verified-only-by-hand
+      journey: add-bookmark-archive-endpoint
+    environment:
+      files:
+        - src: fixtures/bookmark-api
+          dest: .
+    grading_environment:
+      files:
+        - src: fixtures/bookmark-api/src
+          dest: .grading/original/src
+    golden_patch:
+      path: references/p2-bookmark-archive.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: test-code-changes-bookmark-archive
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I'll run the bookmark API test project.
+            tool_calls:
+              - tool_call_id: tests
+                function_name: bash
+                arguments: { command: dotnet test tests/Bookmarks.Tests }
+            observation:
+              results:
+                - source_call_id: tests
+                  content: "Passed: 3, Failed: 0, Skipped: 0"
+          - step_id: 2
+            source: agent
+            message: |
+              PATCH now toggles and returns the bookmark; unknown IDs return 404.
+              Added the toggle-and-read-back and unknown-ID cases in `BookmarkEndpointsTests.cs`.
+              Existing expectations were unchanged.
+              Final run: `dotnet test tests/Bookmarks.Tests` — 3 passed, 0 failed, 0 skipped.
+    graders:
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Bookmarks.Tests/Bookmarks.Tests.csproj --restore src=.grading/original/src
+          timeout: 10m
+      - type: run-command
+        config:
+          command: dotnet test tests/Bookmarks.Tests
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - The PATCH endpoint toggles the stored archive flag in both directions, returns the updated bookmark, and responds with 404 for an unknown ID.
+      - The existing API test project exercises successful toggling and an unknown ID, with assertions on observable status and bookmark state; a temporary script or manual call does not substitute.
+      - The transcript shows the whole API test project finished running after the last edit, and the final reply accurately reports that run.
+
+  - name: Preview the receipt renames without changing files
+    prompt: |
+      Add a `--dry-run` flag to ReceiptRenamer. It should print the same renames
+      the command would normally make, but leave the files where they are.
+    tags:
+      capability: create-the-first-test-project
+      risk: cli-side-effects-unverified
+      journey: add-a-dry-run-option
+    environment:
+      files:
+        - src: fixtures/rename-console
+          dest: .
+    grading_environment:
+      files:
+        - src: graders/check-b.py
+          dest: .tcc-grade/check.py
+        - src: fixtures/rename-console/src
+          dest: .grading/original/src
+        - src: fixtures/rename-console/ReceiptRenamer.slnx
+          dest: .grading/original/ReceiptRenamer.slnx
+    golden_patch:
+      path: references/p3-rename-dry-run.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: test-code-changes-receipt-dry-run
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I'll verify the new project from the solution.
+            tool_calls:
+              - tool_call_id: tests
+                function_name: bash
+                arguments: { command: dotnet test ReceiptRenamer.slnx }
+            observation:
+              results:
+                - source_call_id: tests
+                  content: "Passed: 2, Failed: 0, Skipped: 0"
+          - step_id: 2
+            source: agent
+            message: |
+              `--dry-run` prints the planned rename and skips the file move.
+              The new `ReceiptRenamer.Tests` project is in the solution; `RenameCommandTests.cs`
+              covers preview mode and regular mode. No previous expectations changed.
+              Final run: `dotnet test ReceiptRenamer.slnx` — 2 passed, 0 failed, 0 skipped.
+    graders:
+      - type: run-command
+        config:
+          command: python3 .tcc-grade/check.py registered ReceiptRenamer.slnx .grading/original/ReceiptRenamer.slnx
+          timeout: 10m
+      - type: run-command
+        config:
+          command: dotnet test ReceiptRenamer.slnx
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - With the flag the command prints the planned rename without moving the file; without the flag it still performs the rename.
+      - The new solution-registered test project proves the flag's output and lack of filesystem changes, as well as a normal rename.
+      - The transcript shows a completed test run after the last edit, covering the whole new test project, and the final reply names the project and reports the result.
+
+  - name: Collapse repeated dashes in catalog slugs
+    prompt: |
+      Product URLs in the catalog look sloppy: the category "Tools & Hardware"
+      comes out as `/products/tools---hardware/...`. Make slug generation
+      collapse any run of dashes into a single dash. Leading and trailing dashes
+      should still be trimmed.
+    tags:
+      capability: whole-project-run-after-shared-helper-change
+      risk: sibling-test-broken-by-narrow-final-run
+      journey: change-shared-helper
+    environment:
+      files:
+        - src: fixtures/catalog-slugs
+          dest: .
+      commands:
+        - dotnet restore Catalog.slnx --nologo
+    grading_environment:
+      files:
+        - src: graders/catalog-slugs
+          dest: .grading/checks
+        - src: fixtures/catalog-slugs/src
+          dest: .grading/original/src
+        - src: fixtures/catalog-slugs/tests
+          dest: .grading/original/tests
+    golden_patch:
+      path: references/catalog-slugs.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: test-code-changes-catalog-slugs
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        notes: Curated expected steps; golden_patch and run-command graders replay the edit and verification.
+        steps:
+          - step_id: 1
+            source: agent
+            message: Run the whole Catalog.Tests project after the last edit.
+            tool_calls:
+              - tool_call_id: final-run
+                function_name: bash
+                arguments: { command: dotnet test tests/Catalog.Tests/Catalog.Tests.csproj }
+            observation:
+              results:
+                - source_call_id: final-run
+                  content: "Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11"
+          - step_id: 2
+            source: agent
+            message: |-
+              `SlugHelper.ToSlug` now appends a dash only when the previous character is not already one, so "Tools & Hardware" becomes `tools-hardware`; leading and trailing dashes are still trimmed.
+
+              Tests:
+              - New `SlugHelperTests`: runs of separators collapse, outer dashes are trimmed, a single separator is unchanged, symbol-only text is empty
+              - Intended behavior change: `ProductUrlBuilderTests.For_CategoryWithSymbols_ReplacesEachSymbol` expected `tools---hardware`; it is now `For_CategoryWithSymbols_UsesSingleDash` expecting `tools-hardware`
+
+              Final run: `dotnet test tests/Catalog.Tests/Catalog.Tests.csproj` -> Passed: 11, Failed: 0, Skipped: 0
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run --project .grading/checks/FixChecks.csproj
+          expected_exit_code: 0
+          stdout_contains: fix checks passed
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet test tests/Catalog.Tests/Catalog.Tests.csproj --nologo
+          expected_exit_code: 0
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Catalog.Tests/Catalog.Tests.csproj --restore src=.grading/original/src
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js retained --dir tests --original .grading/original/tests --names For_SingleWordNames_UsesLowercaseSegments,For_MultiWordNames_JoinsWordsWithDashes,For_SimpleNames_BuildsTwoSegments,For_PaddedName_TrimsOuterDashes,For_DigitsInName_AreKept
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js no-scratch --projects src/Catalog/Catalog.csproj,tests/Catalog.Tests/Catalog.Tests.csproj
+          expected_exit_code: 0
+          timeout: 1m
+      - type: tool-calls
+        config:
+          required:
+            - name: '^(bash|powershell|shell|execute|run_shell_command|local_shell)$'
+              args:
+                command: '(?i)(?:^|[\n;&|(]\s*)(?:\w+=\S*\s+)*dotnet\s+(?:test|vstest)\b(?![^\n;&|]*(?:--(?:filter|treenode-filter|list-tests|help)\b|\s[-/]{1,2}(?:testcasefilter|tests)\s*[:=]|\s[-/]{1,2}listtests\b|\s-h\b|\s\/\?))'
+      - type: prompt
+    rubric:
+      - Slugs collapse every run of separators into one dash, so "Tools & Hardware" becomes tools-hardware, while outer dashes are still trimmed and single separators are unchanged
+      - The ProductUrlBuilderTests expectation that encoded the triple-dash URL was updated to the new URL rather than deleted or weakened, and the reply tells the user that this existing expectation changed
+      - Tests that exercise the collapsing rule directly or through the URL builders fail against the original slug code
+      - After the last edit the complete Catalog.Tests project passed, not only the tests written for this change, and the reply reports those counts
+      - No scratch project or script was left behind to check slugs
+
+  - name: Switch score rounding to banker's rounding
+    prompt: |
+      The reporting team wants `ScoreFormatter` to use banker's rounding: a score
+      exactly halfway between two whole numbers should round to the even one, so
+      2.5 shows as "2 points" and 3.5 as "4 points". Everything else should round
+      the way it does today. Please make the switch.
+    tags:
+      capability: tests-for-intended-behavior-change
+      risk: old-expectation-deleted-or-loosened
+      journey: change-library-behavior
+    environment:
+      files:
+        - src: fixtures/score-formatter
+          dest: .
+      commands:
+        - dotnet restore Scoring.slnx --nologo
+    grading_environment:
+      files:
+        - src: graders/score-formatter
+          dest: .grading/checks
+        - src: fixtures/score-formatter/src
+          dest: .grading/original/src
+        - src: fixtures/score-formatter/tests
+          dest: .grading/original/tests
+        - src: graders/score-formatter-mutant
+          dest: .grading/mutants/half-toward-zero
+    golden_patch:
+      path: references/score-formatter.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: test-code-changes-score-formatter
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        notes: Curated expected steps; golden_patch and run-command graders replay the edit and verification.
+        steps:
+          - step_id: 1
+            source: agent
+            message: Run the whole Scoring.Tests project after the last edit.
+            tool_calls:
+              - tool_call_id: final-run
+                function_name: bash
+                arguments: { command: dotnet test tests/Scoring.Tests/Scoring.Tests.csproj }
+            observation:
+              results:
+                - source_call_id: final-run
+                  content: "Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11"
+          - step_id: 2
+            source: agent
+            message: |-
+              `ScoreFormatter.Format` now rounds with `MidpointRounding.ToEven`, so exact halves go to the even whole number; other values round as before.
+
+              Tests:
+              - Intended behavior change: `Format_ExactlyHalf_RoundsUp` asserted 2.5 -> "3 points"; it is now `Format_ExactlyHalf_RoundsToEven` with 2.5 -> "2 points", 3.5 -> "4 points", 0.5 -> "0 points" and -2.5 -> "-2 points"
+              - New `FormatRange_HalfwayEnds_RoundToEven`
+              - The below-half, above-half, singular and range-validation tests are untouched
+
+              Final run: `dotnet test tests/Scoring.Tests/Scoring.Tests.csproj` -> Passed: 11, Failed: 0, Skipped: 0
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run --project .grading/checks/FixChecks.csproj
+          expected_exit_code: 0
+          stdout_contains: fix checks passed
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet test tests/Scoring.Tests/Scoring.Tests.csproj --nologo
+          expected_exit_code: 0
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Scoring.Tests/Scoring.Tests.csproj --restore src=.grading/original/src
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js retained --dir tests --original .grading/original/tests --names Format_WholeNumber_IsUnchanged,Format_BelowHalf_RoundsDown,Format_AboveHalf_RoundsUp,Format_One_IsSingular,FormatRange_JoinsBothEnds,FormatRange_HighBelowLow_Throws
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js no-scratch --projects src/Scoring/Scoring.csproj,tests/Scoring.Tests/Scoring.Tests.csproj
+          expected_exit_code: 0
+          timeout: 1m
+      # A mutant that rounds every exact half toward zero still gives 2.5 -> 2; only a test that pins an
+      # odd midpoint rounding up to even (3.5 -> 4, written any way) kills it.
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Scoring.Tests/Scoring.Tests.csproj --restore src=.grading/mutants/half-toward-zero
+          expected_exit_code: 0
+          timeout: 10m
+      - type: tool-calls
+        config:
+          required:
+            - name: '^(bash|powershell|shell|execute|run_shell_command|local_shell)$'
+              args:
+                command: '(?i)(?:^|[\n;&|(]\s*)(?:\w+=\S*\s+)*dotnet\s+(?:test|vstest)\b(?![^\n;&|]*(?:--(?:filter|treenode-filter|list-tests|help)\b|\s[-/]{1,2}(?:testcasefilter|tests)\s*[:=]|\s[-/]{1,2}listtests\b|\s-h\b|\s\/\?))'
+      - type: prompt
+    rubric:
+      - Exact halves round to the even whole number (2.5 gives "2 points", 3.5 gives "4 points") while other values and the singular "1 point" text are unchanged
+      - The test that asserted 2.5 rounds up to 3 now asserts the new result instead of being deleted, skipped or weakened, and the reply tells the user that this existing expectation changed
+      - The tests cover both requested examples, 2.5 and 3.5, and at least one value whose rounding must stay the same
+      - Tests for non-halfway values, the singular text and range validation remain as they were
+      - After the last edit the complete Scoring.Tests project ran with no test filter, and the reply reports its real counts
+
+  - name: Show the character count in the note editor
+    prompt: |
+      Show a live character count below the draft textarea in the note editor.
+      Make the count red only when the text is longer than 280 characters.
+    tags:
+      capability: cover-an-interactive-component
+      risk: visual-behavior-verified-only-in-browser
+      journey: add-live-character-feedback
+    environment:
+      files:
+        - src: fixtures/note-component
+          dest: .
+    grading_environment:
+      files:
+        - src: fixtures/note-component/src
+          dest: .grading/original/src
+    golden_patch:
+      path: references/p6-note-counter.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: test-code-changes-note-counter
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I'll run the component test project.
+            tool_calls:
+              - tool_call_id: tests
+                function_name: bash
+                arguments: { command: dotnet test tests/Notebook.Tests }
+            observation:
+              results:
+                - source_call_id: tests
+                  content: "Passed: 2, Failed: 0, Skipped: 0"
+          - step_id: 2
+            source: agent
+            message: |
+              The note count updates as you type. It turns red at 281 and clears the
+              red styling when the text comes back under the limit.
+              `NoteBoxTests.cs` covers the input and styling changes. The existing label test is unchanged.
+              Final run: `dotnet test tests/Notebook.Tests` — 2 passed, 0 failed, 0 skipped.
+    graders:
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Notebook.Tests/Notebook.Tests.csproj --restore src=.grading/original/src
+          timeout: 10m
+      - type: run-command
+        config:
+          command: dotnet test tests/Notebook.Tests
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - The count updates as the textarea changes and becomes red at 281 but not at 280.
+      - A test in the component suite drives textarea input and checks the rendered count and its boundary styling, rather than relying on a browser script or inspection alone.
+      - The transcript shows the whole component test project finished running after the last edit, and the final reply accurately reports that run.
+
+  - name: Treat a null email as no matching contact
+    prompt: |
+      `FindByEmail` throws when it's called with null. Make that return no match
+      instead, and keep the case-insensitive lookup for addresses that are present.
+    tags:
+      capability: verify-without-an-external-database
+      risk: false-green-when-sql-is-unavailable
+      journey: fix-a-null-contact-lookup
+    environment:
+      files:
+        - src: fixtures/contact-directory
+          dest: .
+    grading_environment:
+      files:
+        - src: fixtures/contact-directory/src
+          dest: .grading/original/src
+    golden_patch:
+      path: references/p7-null-email.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: test-code-changes-null-email
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I'll run the in-memory tests without the SQL project.
+            tool_calls:
+              - tool_call_id: tests
+                function_name: bash
+                arguments: { command: dotnet test tests/Contacts.Tests }
+            observation:
+              results:
+                - source_call_id: tests
+                  content: "Passed: 2, Failed: 0, Skipped: 0"
+          - step_id: 2
+            source: agent
+            message: |
+              A null email now returns no match. The existing case-insensitive lookup still works.
+              Added the null case to `FindByEmailTests.cs` using the in-memory store.
+              Final run: `dotnet test tests/Contacts.Tests` — 2 passed, 0 failed, 0 skipped.
+              SQL integration tests could not run because the database was unreachable.
+    graders:
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Contacts.Tests/Contacts.Tests.csproj --restore src=.grading/original/src
+          timeout: 10m
+      - type: run-command
+        config:
+          command: dotnet test tests/Contacts.Tests
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Null returns no match and the existing case-insensitive lookup still works.
+      - A repository test that can run without SQL exercises null against the contact lookup and asserts no match.
+      - The transcript shows the whole runnable unit project finished after the last edit, and the reply reports that result.
+      - The reply distinguishes the SQL integration coverage from the unit result and correctly identifies the unavailable database, whether the SQL suite was omitted or attempted and failed to connect.
+
+  - name: Export report JSON in camelCase
+    prompt: |
+      The front-end team is moving to camelCase JSON. Change the sales report
+      export so property names come out as `region`, `periodStart`, `lines`,
+      `unitPrice` and so on instead of PascalCase. Values and layout should stay
+      the same.
+    tags:
+      capability: reviewed-snapshot-update
+      risk: leftover-received-or-blanket-accept
+      journey: change-serialization-contract
+    environment:
+      files:
+        - src: fixtures/sales-report-export
+          dest: .
+      commands:
+        - dotnet restore Reports.slnx --nologo
+    grading_environment:
+      files:
+        - src: graders/sales-report-export
+          dest: .grading/checks
+        - src: fixtures/sales-report-export/src
+          dest: .grading/original/src
+        - src: fixtures/sales-report-export/tests
+          dest: .grading/original/tests
+    golden_patch:
+      path: references/sales-report-export.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: test-code-changes-sales-report-export
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        notes: Curated expected steps; golden_patch and run-command graders replay the edit and verification.
+        steps:
+          - step_id: 1
+            source: agent
+            message: Run the whole Reports.Tests project after accepting the reviewed snapshots.
+            tool_calls:
+              - tool_call_id: final-run
+                function_name: bash
+                arguments: { command: dotnet test tests/Reports.Tests/Reports.Tests.csproj }
+            observation:
+              results:
+                - source_call_id: final-run
+                  content: "Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3"
+          - step_id: 2
+            source: agent
+            message: |-
+              `ReportExporter` now serializes with `JsonNamingPolicy.CamelCase`; indentation and values are unchanged.
+
+              Snapshots: both `.verified.txt` files for `ToJson_QuarterlyReport_MatchesSnapshot` and `ToJson_EmptyReport_MatchesSnapshot` were accepted after checking that the only difference was property-name casing. No `.received` files remain.
+
+              Final run: `dotnet test tests/Reports.Tests/Reports.Tests.csproj` -> Passed: 3, Failed: 0, Skipped: 0
+    graders:
+      # Runs before any grader executes the tests, because a failing Verify run writes new
+      # .received files that would otherwise be blamed on the agent.
+      - type: file-not-exists
+        config:
+          path: "**/*.received.*"
+      - type: file-contains
+        config:
+          path: tests/**/*.verified.*
+          value: '"periodStart"'
+      - type: file-not-contains
+        config:
+          path: tests/**/*.verified.*
+          value: '"PeriodStart"'
+      - type: file-not-contains
+        config:
+          path: tests/**/*.cs
+          value: AutoVerify
+      - type: run-command
+        config:
+          command: dotnet run --project .grading/checks/FixChecks.csproj
+          expected_exit_code: 0
+          stdout_contains: fix checks passed
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet test tests/Reports.Tests/Reports.Tests.csproj --nologo
+          expected_exit_code: 0
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Reports.Tests/Reports.Tests.csproj --restore src=.grading/original/src
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js retained --dir tests --original .grading/original/tests --names ToJson_QuarterlyReport_MatchesSnapshot,ToJson_EmptyReport_MatchesSnapshot,ToJson_WritesOneLinePerProperty
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js no-scratch --projects src/Reports/Reports.csproj,tests/Reports.Tests/Reports.Tests.csproj
+          expected_exit_code: 0
+          timeout: 1m
+      - type: tool-calls
+        config:
+          required:
+            - name: '^(bash|powershell|shell|execute|run_shell_command|local_shell)$'
+              args:
+                command: '(?i)(?:^|[\n;&|(]\s*)(?:\w+=\S*\s+)*dotnet\s+(?:test|vstest)\b(?![^\n;&|]*(?:--(?:filter|treenode-filter|list-tests|help)\b|\s[-/]{1,2}(?:testcasefilter|tests)\s*[:=]|\s[-/]{1,2}listtests\b|\s-h\b|\s\/\?))'
+      - type: prompt
+    rubric:
+      - Every report and line property is camelCase in the exported JSON, with values, date format and indentation unchanged
+      - Both stored snapshots were updated to the new property names after confirming that casing was the only difference
+      - No .received files, automatic snapshot acceptance or deleted snapshot tests remain
+      - After the last edit the complete Reports.Tests project ran with no test filter, and the reply reports its real counts
+
+  - name: Reject a non-positive price on the Create page
+    prompt: |
+      The catalog's Create Product page currently accepts zero and negative
+      prices. Require a price greater than zero and show a validation error
+      next to the Price field when the submitted value isn't positive.
+    tags:
+      capability: verify-a-page-without-browser-binaries
+      risk: browser-dependency-prevents-regression-evidence
+      journey: add-product-price-validation
+    environment:
+      files:
+        - src: fixtures/catalog-create
+          dest: .
+    grading_environment:
+      files:
+        - src: graders/check-b.py
+          dest: .tcc-grade/check.py
+        - src: fixtures/catalog-create/src
+          dest: .grading/original/src
+    golden_patch:
+      path: references/p9-positive-price.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: test-code-changes-positive-price
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I'll run the tests that do not need the browser.
+            tool_calls:
+              - tool_call_id: tests
+                function_name: bash
+                arguments: { command: 'dotnet test Catalog.slnx --filter "Category!=Browser"' }
+            observation:
+              results:
+                - source_call_id: tests
+                  content: "Passed: 3, Failed: 0, Skipped: 0"
+          - step_id: 2
+            source: agent
+            message: |
+              The Create form now rejects zero and negative prices with a Price error.
+              `CreatePageHttpTests.cs` posts the form for zero, a negative price, and a valid price,
+              checking that invalid prices show an error on the Price field itself.
+              Final run: `dotnet test Catalog.slnx --filter "Category!=Browser"` —
+              3 passed, 0 failed, 0 skipped. The existing browser test was not run:
+              the Playwright browser executable is missing.
+    graders:
+      - type: run-command
+        config:
+          command: python3 .tcc-grade/check.py catalog-tests Catalog.slnx
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Submitting zero or a negative price keeps the user on the form with an error at Price; a positive price still succeeds.
+      - A runnable repository test proves the page's price validation and a positive submission; accept a valid test at any layer, including a working Playwright test or an in-process form post, but not a manual call or standalone script.
+      - After the last edit, the transcript shows a successful run of the whole affected test project or all tests that can run without unavailable browser binaries.
+      - Existing browser coverage is retained, and the final reply distinguishes tests that ran from those blocked by missing browsers without turning a blocked run into a pass.
+
+  - name: Export a field containing a comma as one CSV column
+    prompt: |
+      Add a `CsvExporter` to Reporting that writes rows of text as CSV. In
+      particular, a field such as `North, Central` should come out as one quoted
+      field, while plain fields should stay unquoted.
+    tags:
+      capability: extend-existing-test-project-layout
+      risk: test-project-outside-the-solution
+      journey: add-a-report-csv-export
+    environment:
+      files:
+        - src: fixtures/reporting-csv
+          dest: .
+    grading_environment:
+      files:
+        - src: graders/check-b.py
+          dest: .tcc-grade/check.py
+        - src: fixtures/reporting-csv/src
+          dest: .grading/original/src
+        - src: fixtures/reporting-csv/Operations.slnx
+          dest: .grading/original/Operations.slnx
+    golden_patch:
+      path: references/p10-csv-exporter.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: test-code-changes-csv-exporter
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: I'll run the new Reporting test project.
+            tool_calls:
+              - tool_call_id: tests
+                function_name: bash
+                arguments: { command: dotnet test tests/Reporting.Tests }
+            observation:
+              results:
+                - source_call_id: tests
+                  content: "Passed: 1, Failed: 0, Skipped: 0"
+          - step_id: 2
+            source: agent
+            message: |
+              `CsvExporter` now quotes fields that contain commas and leaves plain fields as-is.
+              The new solution-registered `tests/Reporting.Tests` project checks the full exported
+              row in `CsvExporterTests.cs`. The sibling projects and their expectations are unchanged.
+              Final run: `dotnet test tests/Reporting.Tests` — 1 passed, 0 failed, 0 skipped.
+    graders:
+      - type: run-command
+        config:
+          command: python3 .tcc-grade/check.py registered Operations.slnx .grading/original/Operations.slnx tests/Reporting.Tests
+          timeout: 10m
+      - type: run-command
+        config:
+          command: dotnet test tests/Reporting.Tests
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Reporting emits the comma-containing field as one quoted CSV field and leaves plain fields unquoted.
+      - A test checks the actual CSV output from Reporting in a new project that follows the sibling test-project layout and is in the solution.
+      - The transcript shows the whole Reporting test project finished running after the last edit, and the final reply names the new project and reports the result.
+
+  - name: Fix combined-unit duration parsing with a regression test
+    prompt: |
+      Durations with more than one unit are cut short. `DurationParser.Parse("1h30m")`
+      returns one hour instead of ninety minutes, and a reminder created with the
+      rule `every 1h30m` fires every hour. Fix it and add regression tests.
+    tags:
+      capability: focused-regression-tests-across-modules
+      risk: broad-test-pipeline-on-multi-module-fix
+      journey: fix-bug-with-regression-test
+    environment:
+      files:
+        - src: fixtures/duration-parser
+          dest: .
+      commands:
+        - git init -q
+        - dotnet restore Scheduling.slnx --nologo
+    grading_environment:
+      files:
+        - src: graders/duration-parser
+          dest: .grading/checks
+        - src: fixtures/duration-parser/src
+          dest: .grading/original/src
+        - src: fixtures/duration-parser/tests
+          dest: .grading/original/tests
+    golden_patch:
+      path: references/duration-parser.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: test-code-changes-duration-parser
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        notes: Curated expected steps; golden_patch and run-command graders replay the edit and verification.
+        steps:
+          - step_id: 1
+            source: agent
+            message: Run both test projects that reference the changed Timing and Reminders projects after the last edit.
+            tool_calls:
+              - tool_call_id: final-run
+                function_name: bash
+                arguments: { command: dotnet test Scheduling.slnx }
+            observation:
+              results:
+                - source_call_id: final-run
+                  content: |-
+                    Passed!  - Failed:     0, Passed:     6, Skipped:     0, Total:     6 - Reminders.Tests.dll (net10.0)
+                    Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11 - Timing.Tests.dll (net10.0)
+          - step_id: 2
+            source: agent
+            message: |-
+              Two defects caused this. `DurationParser.TryParse`, which `Parse` calls, matched only the first number and unit; it now adds optional hour, minute and second parts across the whole input. `ReminderSchedule.Parse` captured only `\d+[hms]` after `every`; it now passes the whole interval token to the parser.
+
+              Regression tests:
+              - `DurationParserTests.Parse_CombinedUnits_AddsEveryUnit` for "1h30m", "2h5s" and "1h30m15s", plus `TryParse_CombinedUnits_AddsEveryUnit`
+              - `ReminderScheduleTests.Parse_CombinedUnits_SetsWholeInterval` for "every 1h30m" and "every 2h5s"
+              - The single-unit, unknown-rule and invalid-input tests are unchanged and still pass
+
+              Final run: `dotnet test Scheduling.slnx` -> Reminders.Tests Passed: 6, Timing.Tests Passed: 11, Failed: 0, Skipped: 0
+    graders:
+      - type: file-not-exists
+        config:
+          path: "**/research.md"
+      - type: file-not-exists
+        config:
+          path: "**/plan.md"
+      - type: tool-calls
+        config:
+          disallowed:
+            - '^(task|agent)$'
+      - type: run-command
+        config:
+          command: dotnet run --project .grading/checks/FixChecks.csproj
+          expected_exit_code: 0
+          stdout_contains: fix checks passed
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet test Scheduling.slnx --nologo
+          expected_exit_code: 0
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      # The parser change must be proven by either test project; the reminder-rule change by Reminders.Tests.
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Timing.Tests/Timing.Tests.csproj --tests tests/Reminders.Tests/Reminders.Tests.csproj --restore src/Timing=.grading/original/src/Timing
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: node .grading/assert-tests-detect-change.js --tests tests/Reminders.Tests/Reminders.Tests.csproj --restore src/Reminders=.grading/original/src/Reminders
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js retained --dir tests --original .grading/original/tests --names Parse_Seconds_ReturnsSeconds,Parse_Minutes_ReturnsMinutes,Parse_Hours_ReturnsHours,Parse_SurroundingWhitespace_IsIgnored,Parse_UnknownUnit_Throws,Parse_Empty_Throws,TryParse_Text_ReturnsFalse,Parse_EveryMinutes_SetsInterval,Parse_RuleKeyword_IgnoresCase,Parse_UnknownRule_Throws,NextAfter_AddsInterval
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js no-scratch --projects src/Timing/Timing.csproj,src/Reminders/Reminders.csproj,tests/Timing.Tests/Timing.Tests.csproj,tests/Reminders.Tests/Reminders.Tests.csproj
+          expected_exit_code: 0
+          timeout: 1m
+      - type: tool-calls
+        config:
+          required:
+            - name: '^(bash|powershell|shell|execute|run_shell_command|local_shell)$'
+              args:
+                command: '(?i)(?:^|[\n;&|(]\s*)(?:\w+=\S*\s+)*dotnet\s+(?:test|vstest)\b(?![^\n;&|]*(?:--(?:filter|treenode-filter|list-tests|help)\b|\s[-/]{1,2}(?:testcasefilter|tests)\s*[:=]|\s[-/]{1,2}listtests\b|\s-h\b|\s\/\?))'
+      - type: prompt
+    rubric:
+      - Parse and TryParse add every unit of a combined duration, and the reminder rule "every 1h30m" yields a 90-minute interval, while single-unit inputs, unknown rules and invalid durations behave as before
+      - Regression tests fail against the original code for both the parser and the reminder rule, and cases show that single-unit input is unchanged
+      - The work stayed proportional to one bug fix, with no broad new suite for unrelated behavior and no planning or status documents; raw test count is not an advantage
+      - After the last edit both Timing.Tests and Reminders.Tests ran in full with no test filter, and the reply reports their real counts
+
+  - name: Document the existing verbose flag
+    prompt: Can you document WordCount's existing `--verbose` flag in the README? Keep this docs-only.
+    tags:
+      capability: leave-documentation-edits-alone
+      risk: unrelated-test-work-on-docs
+      journey: document-a-cli-flag
+      expect_activation: "false"
+    environment:
+      files:
+        - src: fixtures/word-count-docs
+          dest: app
+    grading_environment:
+      files:
+        - src: graders/check-b.py
+          dest: .tcc-grade/check.py
+        - src: fixtures/word-count-docs
+          dest: .tcc-grade/original
+    golden_patch:
+      path: references/d1-verbose-docs.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: test-code-changes-verbose-docs
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              The README now shows how to use `--verbose` and explains that it
+              sends the full file path to stderr. Only the documentation changed.
+    graders:
+      - type: run-command
+        config:
+          command: python3 .tcc-grade/check.py documents-verbose app
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - The README correctly documents how to pass the flag and what it prints without implying the word count changes.
+      - Changed only the README; production changes and new tests were out of scope.
+
+  - name: Stay dormant when writing tests for unchanged InvoiceCalculator
+    prompt: |
+      Write unit tests for `InvoiceCalculator`. Put them in the existing test
+      project.
+    tags:
+      expect_activation: "false"
+      capability: stay-dormant-for-tests-of-unchanged-code
+      risk: incorrect-skill-activation
+      journey: route-test-generation-request
+    environment:
+      files:
+        - src: fixtures/invoice-library
+          dest: .
+      commands:
+        - dotnet restore Billing.slnx --nologo
+    grading_environment:
+      files:
+        - src: fixtures/invoice-library/src
+          dest: .grading/original/src
+    golden_patch:
+      path: references/invoice-calculator-tests.patch
+    graders:
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js unchanged --original .grading/original/src --dir src
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: tests/**/*.cs
+          value: InvoiceCalculator
+      - type: run-command
+        config:
+          command: dotnet test tests/Billing.Tests/Billing.Tests.csproj --nologo
+          expected_exit_code: 0
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Added passing tests for InvoiceCalculator's subtotal, quantity validation, discount tiers at their thresholds and taxed total, with concrete expected values
+      - Left InvoiceCalculator and TaxTable unchanged, because changing production code was out of scope
+      - Did not derail into rewriting the existing TaxTable tests or adding projects
+      - Raw test count is not an advantage; judge the requested behaviors covered
+
+  - name: Stay dormant for an Integration-category test command question
+    prompt: |
+      What's the exact command to run only the Integration-category tests in
+      this repo? Just give me the command; I'll run it myself.
+    tags:
+      expect_activation: "false"
+      capability: stay-dormant-for-test-command-question
+      risk: incorrect-skill-activation
+      journey: route-test-command-question
+    environment:
+      files:
+        - src: fixtures/mtp-integration-category
+          dest: .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: test-code-changes-integration-command
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `global.json` selects Microsoft.Testing.Platform and the tests use MSTest categories, so:
+
+              ```
+              dotnet test --project tests/Shipping.Tests/Shipping.Tests.csproj --filter "TestCategory=Integration"
+              ```
+
+              That selects the two tests in `CarrierRatesIntegrationTests` and skips the `Unit` category.
+    graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - '^(edit|create|delete|remove|apply_patch|write)$'
+      - type: output-matches
+        config:
+          pattern: TestCategory\s*=\s*Integration
+      - type: output-matches
+        config:
+          pattern: '\bdotnet\s+(?:test|run)\b'
+      - type: prompt
+    rubric:
+      - Gave one runnable command that selects only the Integration category and fits the repository's Microsoft.Testing.Platform setup
+      - Did not edit files, add tests or run a code change; anything beyond the command was out of scope
+
+  - name: Stay dormant for a read-only test anti-pattern review
+    prompt: |
+      Review the tests in tests/Billing.Tests for anti-patterns and tell me what
+      you would change. Don't modify any files.
+    tags:
+      expect_activation: "false"
+      capability: stay-dormant-for-read-only-test-review
+      risk: incorrect-skill-activation
+      journey: route-test-review-request
+    environment:
+      files:
+        - src: fixtures/invoice-library
+          dest: .
+    grading_environment:
+      files:
+        - src: fixtures/invoice-library/src
+          dest: .grading/original/src
+        - src: fixtures/invoice-library/tests
+          dest: .grading/original/tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: test-code-changes-review-anti-patterns
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Findings in `TaxTableTests`, most serious first:
+
+              1. `RateFor_UnknownRegion` swallows the exception in an empty catch, so it passes whether or not `RateFor` throws. Use `Assert.Throws<KeyNotFoundException>`.
+              2. `Default_IsReady` sleeps for 250 ms and then asserts `Assert.True(true)`, so it can never fail. Delete it or assert a real rate.
+              3. `RateFor_KnownRegion` boxes a decimal and asserts it is not null, which is always true. Assert the expected 0.20 instead.
+              4. `RateFor_IgnoresCase` compares two production results, so a wrong rate for both casings would still pass. Assert 0.10 for each casing.
+
+              No files were modified.
+    graders:
+      - type: tool-calls
+        config:
+          disallowed:
+            - '^(edit|create|delete|remove|apply_patch|write)$'
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js unchanged --original .grading/original/tests --dir tests
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js unchanged --original .grading/original/src --dir src
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: RateFor_UnknownRegion
+      - type: output-matches
+        config:
+          pattern: '(?i)swallow|empty catch|catch(?:es)? (?:block|and ignores)|never fails?|always pass|can(?:not|''t) fail|pass(?:es)? (?:even|whether)'
+      - type: prompt
+    rubric:
+      - Flagged RateFor_UnknownRegion because its empty catch lets it pass whether or not RateFor throws
+      - Flagged Default_IsReady for its sleep and its Assert.True(true) that can never fail
+      - Flagged RateFor_KnownRegion's not-null check on a decimal as asserting nothing about the rate
+      - Left every file unchanged and did not attempt to rewrite the tests, which was out of scope
+      - Ranked the tests that can never fail above style issues
+
+  - name: Stay dormant for a whitespace-only formatting fix
+    prompt: |
+      CI is failing on `dotnet format whitespace --verify-no-changes` for the
+      Inventory solution. Please clean up the whitespace so it passes.
+    tags:
+      expect_activation: "false"
+      capability: stay-dormant-for-formatting-only-change
+      risk: tests-added-for-non-behavioral-edit
+      journey: fix-formatting-warnings
+    environment:
+      files:
+        - src: fixtures/whitespace-cleanup
+          dest: .
+      commands:
+        - dotnet restore Inventory.slnx --nologo
+    grading_environment:
+      files:
+        - src: fixtures/whitespace-cleanup/src
+          dest: .grading/original/src
+        - src: fixtures/whitespace-cleanup/tests
+          dest: .grading/original/tests
+    golden_patch:
+      path: references/whitespace-cleanup.patch
+    graders:
+      - type: run-command
+        config:
+          command: dotnet format whitespace Inventory.slnx --verify-no-changes
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js unchanged --original .grading/original/src --dir src --ignore-whitespace
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js unchanged --original .grading/original/tests --dir tests
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test tests/Inventory.Tests/Inventory.Tests.csproj --nologo
+          expected_exit_code: 0
+          stdout_matches: '(?i)\b(?:passed|succeeded):\s*[1-9]\d*\b'
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - The whitespace verification passes for the Inventory solution
+      - Only whitespace changed in the source files; code, behavior and tests are unchanged
+      - Did not add tests or test projects, which were not needed here for a formatting-only change
+
+  - name: Stay dormant for a Python bug fix
+    prompt: |
+      `count_words("hello  world")` returns 3: runs of spaces are counted as extra
+      words. Can you fix it?
+    tags:
+      expect_activation: "false"
+      capability: stay-dormant-for-non-dotnet-bug-fix
+      risk: dotnet-tests-added-to-python-project
+      journey: fix-python-bug
+    environment:
+      files:
+        - src: fixtures/python-wordstats
+          dest: .
+    grading_environment:
+      files:
+        - src: graders/python-wordstats/check_fix.py
+          dest: .grading/check_fix.py
+        - src: fixtures/python-wordstats
+          dest: .grading/original
+    golden_patch:
+      path: references/python-wordstats.patch
+    graders:
+      - type: run-command
+        config:
+          command: python3 .grading/check_fix.py
+          expected_exit_code: 0
+          stdout_contains: fix checks passed
+          timeout: 1m
+      - type: run-command
+        config:
+          command: python3 -m unittest discover -s tests 2>&1
+          expected_exit_code: 0
+          stdout_matches:
+            - 'Ran [1-9]\d* tests?'
+            - '(?m)^OK'
+          timeout: 2m
+      # Only files the agent added count: staged skills (for example a skill's .cs script) are skipped.
+      - type: run-command
+        config:
+          command: node .grading/check-workspace.js added --original .grading/original --ext .cs,.csproj,.sln,.slnx,.fs,.fsproj,.vb,.vbproj
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - count_words treats any run of whitespace as one separator and returns 0 for empty text, with other results unchanged
+      - Kept the fix and any tests in Python with the project's unittest suite, and did not attempt to add .NET projects or C# files
+      - Reported the unittest result after the change
+
+  - name: Pin the Docker runtime image to Noble
+    prompt: |
+      In ClockDisplay's Dockerfile, switch the runtime base image to
+      `mcr.microsoft.com/dotnet/runtime:10.0-noble` and leave the build stage as-is.
+    tags:
+      capability: leave-container-base-edits-alone
+      risk: scaffolding-tests-for-packaging
+      journey: update-a-runtime-base-image
+      expect_activation: "false"
+    environment:
+      files:
+        - src: fixtures/clock-container
+          dest: app
+    grading_environment:
+      files:
+        - src: graders/check-b.py
+          dest: .tcc-grade/check.py
+        - src: fixtures/clock-container
+          dest: .tcc-grade/original
+    golden_patch:
+      path: references/d7-runtime-image.patch
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: test-code-changes-runtime-image
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              The Dockerfile's runtime stage now uses
+              `mcr.microsoft.com/dotnet/runtime:10.0-noble`. The build stage and app are untouched.
+    graders:
+      - type: run-command
+        config:
+          command: python3 .tcc-grade/check.py updates-runtime app
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - The runtime stage uses the requested image and the build stage is unchanged.
+      - Kept the change in the Dockerfile and did not attempt to scaffold tests or rewrite the app.

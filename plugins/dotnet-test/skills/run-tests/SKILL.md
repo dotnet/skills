@@ -52,6 +52,7 @@ Choose the smallest path that satisfies the request:
 |---|---|
 | Exact command or explanation; user says not to run | Inspect only the files needed to resolve syntax. Do not restore, build, or run tests. |
 | Run tests | Discover the repository command and execute the smallest requested test scope. |
+| Verify a code change, yours in this task or one the user says they made (no user-named subset) | Iterate with the narrowest covering filter; after the final edit (if any), run unfiltered each test project that directly references a changed production project or holds tests added or changed in this task or in the user's reported change. For many projects or one very large or slow project, use Step 5's fallback and state the scope. Report the final run. |
 | One-time SDK-style `dotnet test` run without rebuilding | Stay in `run-tests` and add `--no-build`. |
 | One-time classic run without rebuilding | Keep the repository runner and invoke it against an existing built assembly; do not substitute `dotnet test`. |
 | Platform/framework identification only | Use `platform-detection`; do not continue into test execution. |
@@ -276,7 +277,9 @@ dotnet test --project Tests.csproj --report-trx --hangdump --hangdump-timeout 5m
 dotnet test --project Tests.csproj --diagnostic --diagnostic-output-directory artifacts/diagnostics
 ```
 
-5. **Execute only when requested.**
+5. **Execute only when requested.** Verifying a change counts as a request,
+   whether you made it in this task or the user says they made it ("I changed X,
+   make sure nothing broke"), unless the user says not to run tests.
 
 Run the narrowest command or sequence that answers the request. Capture each
 command, exit code, and test summary. A failed restore/build is not a test
@@ -287,17 +290,34 @@ For a filtered run, a successful exit is not enough: confirm the reported test
 names or count match the requested scope. If the filter was ignored, correct the
 platform-specific syntax and rerun before reporting success.
 
+When you are verifying a change (yours in this task, or one the user says they
+made) rather than a user-named subset, a filtered pass is an iteration step, not
+final evidence: after the last edit (if any, including test-only or formatting
+edits) run every test project that directly references a changed production
+project or holds tests added or changed in this task or in the user's reported
+change, unfiltered. If that is more than about three projects, or one is very
+large or slow, run the covering classes plus one broader scope (their namespace,
+or the most affected project unfiltered), and state the scope. A project with
+tens of thousands of tests counts as very large.
+
+If an external service (database, broker, browser) is unreachable before or
+during test execution, report the affected phase, then run the part within the
+requested scope that does not need it (repository fakes, in-memory providers, or
+the unit-test category). List tests affected only by the outage as blocked or,
+if they never executed, not run. Do not report them as passed or as code failures.
+
 ## Output contract
 
 - Command-only request: lead with the exact command or command sequence, then
   one short syntax explanation.
 - Execution request: report the exact command or command sequence and
   a literal `Passed: N, Failed: N, Skipped: N` summary from the completed run;
-  include the first actionable failure.
+  include the first actionable failure and distinguish blocked tests from code failures.
 - Detection needed only to choose syntax: state the selected mode/platform
   briefly, not a separate detection report.
-- Missing prerequisite or incompatible configuration: name it explicitly and
-  stop rather than returning a success-shaped fallback.
+- Missing prerequisite or incompatible configuration: name it explicitly.
+  Stop only if no in-scope tests can run; otherwise report what ran and what
+  remains blocked.
 
 ## Validation
 

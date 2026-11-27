@@ -1,0 +1,48 @@
+diff --git a/src/Scoring/ScoreFormatter.cs b/src/Scoring/ScoreFormatter.cs
+index 70aeaaf..58aae51 100644
+--- a/src/Scoring/ScoreFormatter.cs
++++ b/src/Scoring/ScoreFormatter.cs
+@@ -6,7 +6,7 @@ public static class ScoreFormatter
+ {
+     public static string Format(decimal score)
+     {
+-        var points = Math.Round(score, MidpointRounding.AwayFromZero);
++        var points = Math.Round(score, MidpointRounding.ToEven);
+         return points == 1 ? "1 point" : $"{points.ToString(CultureInfo.InvariantCulture)} points";
+     }
+ 
+diff --git a/tests/Scoring.Tests/ScoreFormatterTests.cs b/tests/Scoring.Tests/ScoreFormatterTests.cs
+index a4b9901..90ca10e 100644
+--- a/tests/Scoring.Tests/ScoreFormatterTests.cs
++++ b/tests/Scoring.Tests/ScoreFormatterTests.cs
+@@ -22,10 +22,14 @@ public class ScoreFormatterTests
+         Assert.Equal("3 points", ScoreFormatter.Format(2.6m));
+     }
+ 
+-    [Fact]
+-    public void Format_ExactlyHalf_RoundsUp()
++    [Theory]
++    [InlineData("2.5", "2 points")]
++    [InlineData("3.5", "4 points")]
++    [InlineData("0.5", "0 points")]
++    [InlineData("-2.5", "-2 points")]
++    public void Format_ExactlyHalf_RoundsToEven(string score, string expected)
+     {
+-        Assert.Equal("3 points", ScoreFormatter.Format(2.5m));
++        Assert.Equal(expected, ScoreFormatter.Format(decimal.Parse(score, System.Globalization.CultureInfo.InvariantCulture)));
+     }
+ 
+     [Fact]
+@@ -40,6 +44,12 @@ public class ScoreFormatterTests
+         Assert.Equal("1 point to 5 points", ScoreFormatter.FormatRange(1.2m, 4.7m));
+     }
+ 
++    [Fact]
++    public void FormatRange_HalfwayEnds_RoundToEven()
++    {
++        Assert.Equal("2 points to 4 points", ScoreFormatter.FormatRange(2.5m, 3.5m));
++    }
++
+     [Fact]
+     public void FormatRange_HighBelowLow_Throws()
+     {

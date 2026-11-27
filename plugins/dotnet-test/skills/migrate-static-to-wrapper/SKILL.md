@@ -1,17 +1,13 @@
 ---
 name: migrate-static-to-wrapper
 description: >
-  ALWAYS USE when asked to migrate, replace, or make testable existing C# static
-  calls with a named wrapper or built-in abstraction: DateTime.UtcNow/Now or
-  DateTimeOffset.UtcNow to TimeProvider/IClock, File.* to IFileSystem or an
-  existing store such as ITextFileStore, and Environment.* to an existing reader
-  such as IEnvironmentReader. Covers scoped files/projects, constructor
-  injection, replacing temp-file or process-environment tests with fakes,
-  "already registered" abstractions, and static classes whose callers/signatures
-  must stay unchanged. Preserves DateTimeKind and call count. DO NOT USE for finding
-  statics (detect-static-dependencies), choosing/designing a new wrapper
-  (generate-testability-wrappers), behavior tests with no chosen seam
-  (testability-obstacle), or test-framework migration.
+  ALWAYS USE to migrate/replace or make C# static calls testable via a named wrapper/built-in.
+  Examples: DateTime.UtcNow/Now or DateTimeOffset.UtcNow to TimeProvider/IClock;
+  File.* to IFileSystem/ITextFileStore; Environment.* to IEnvironmentReader. File/project scope,
+  ctor DI, registered seams, temp-file/env tests using fakes. Keep DateTimeKind/call count.
+  Keep static callers/signatures if required. DO NOT USE for static discovery
+  (detect-static-dependencies), new wrapper choice/design (generate-testability-wrappers),
+  behavior tests with no chosen seam (testability-obstacle), test-framework migration.
 license: MIT
 ---
 

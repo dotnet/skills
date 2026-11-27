@@ -1,0 +1,62 @@
+diff --git a/Operations.slnx b/Operations.slnx
+--- a/Operations.slnx
++++ b/Operations.slnx
+@@ -3,5 +3,6 @@
+   <Project Path="src/Reporting/Reporting.csproj" />
+   <Project Path="src/Scheduling/Scheduling.csproj" />
+   <Project Path="tests/Inventory.Tests/Inventory.Tests.csproj" />
++  <Project Path="tests/Reporting.Tests/Reporting.Tests.csproj" />
+   <Project Path="tests/Scheduling.Tests/Scheduling.Tests.csproj" />
+ </Solution>
+diff --git a/src/Reporting/CsvExporter.cs b/src/Reporting/CsvExporter.cs
+new file mode 100644
+--- /dev/null
++++ b/src/Reporting/CsvExporter.cs
+@@ -0,0 +1,12 @@
++namespace Reporting;
++
++public static class CsvExporter
++{
++    public static string Export(IEnumerable<IEnumerable<string>> rows) =>
++        string.Join("\r\n", rows.Select(row => string.Join(',', row.Select(EscapeField))));
++
++    private static string EscapeField(string field) =>
++        field.IndexOfAny([',', '"', '\r', '\n']) >= 0
++            ? "\"" + field.Replace("\"", "\"\"") + "\""
++            : field;
++}
+diff --git a/tests/Reporting.Tests/CsvExporterTests.cs b/tests/Reporting.Tests/CsvExporterTests.cs
+new file mode 100644
+--- /dev/null
++++ b/tests/Reporting.Tests/CsvExporterTests.cs
+@@ -0,0 +1,14 @@
++using Xunit;
++
++namespace Reporting.Tests;
++
++public sealed class CsvExporterTests
++{
++    [Fact]
++    public void Quotes_a_comma_field_but_leaves_plain_fields_unquoted()
++    {
++        var output = CsvExporter.Export([["Region", "North, Central", "8"]]);
++
++        Assert.Equal("Region,\"North, Central\",8", output);
++    }
++}
+diff --git a/tests/Reporting.Tests/Reporting.Tests.csproj b/tests/Reporting.Tests/Reporting.Tests.csproj
+new file mode 100644
+--- /dev/null
++++ b/tests/Reporting.Tests/Reporting.Tests.csproj
+@@ -0,0 +1,11 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net10.0</TargetFramework>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
++    <PackageReference Include="xunit" Version="2.9.3" />
++    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2" PrivateAssets="all" />
++    <ProjectReference Include="../../src/Reporting/Reporting.csproj" />
++  </ItemGroup>
++</Project>

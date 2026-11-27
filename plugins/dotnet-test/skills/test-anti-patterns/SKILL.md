@@ -1,18 +1,14 @@
 ---
 name: test-anti-patterns
 description: >
-  Audit a test file or suite; produce a severity-ranked diagnostic report.
-  ALWAYS USE for tests that verify nothing, missing/tautological
-  assertions, swallowed/broad exceptions, flaky/order-dependent tests,
-  duplication, or magic values. Polyglot. DO NOT USE for direct edits:
-  writing-mstest-tests owns supplied MSTest assertions/attributes/lifecycle;
-  code-testing owns new tests. Exclude running tests, migration, assertion
-  metrics (assertion-quality), raw .NET coverage collection (run-tests),
-  non-.NET coverage collection/analysis (native tooling), project-wide .NET coverage/CRAP
-  (coverage-analysis), named-target .NET CRAP
-  (crap-score), behavioral/pseudo-mutation gaps (test-gap-analysis), test-mix/
-  happy-vs-error classification and trait distributions (test-tagging), or the
-  testsmells.org catalog (test-smell-detection).
+  Audit test files/suites; report findings by severity. ALWAYS USE for tests verifying nothing,
+  missing/tautological assertions, swallowed/broad exceptions, flaky/order-dependent tests,
+  duplicates, magic values. Polyglot. DO NOT USE for edits (MSTest assertions/attributes/lifecycle:
+  writing-mstest-tests; new tests: code-testing), test runs, migration, assertion metrics
+  (assertion-quality), raw .NET coverage collection (run-tests), non-.NET coverage (native tools),
+  project-wide .NET coverage/CRAP (coverage-analysis), named .NET CRAP (crap-score),
+  behavioral/pseudo-mutation gaps (test-gap-analysis), traits/happy-vs-error mix (test-tagging),
+  testsmells.org (test-smell-detection).
 license: MIT
 ---
 

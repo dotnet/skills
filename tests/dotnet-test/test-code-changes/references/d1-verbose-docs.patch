@@ -1,0 +1,14 @@
+diff --git a/app/README.md b/app/README.md
+--- a/app/README.md
++++ b/app/README.md
+@@ -5,3 +5,10 @@
+ ```shell
+ dotnet run --project WordCount.csproj -- notes.txt
+ ```
++
++Pass `--verbose` to print the full file path to standard error. The word count
++still goes to standard output.
++
++```shell
++dotnet run --project WordCount.csproj -- --verbose notes.txt
++```

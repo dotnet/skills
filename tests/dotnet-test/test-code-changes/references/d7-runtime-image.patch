@@ -1,0 +1,12 @@
+diff --git a/app/Dockerfile b/app/Dockerfile
+--- a/app/Dockerfile
++++ b/app/Dockerfile
+@@ -3,7 +3,7 @@
+ COPY . .
+ RUN dotnet publish ClockDisplay.csproj -o /out
+ 
+-FROM mcr.microsoft.com/dotnet/runtime:10.0
++FROM mcr.microsoft.com/dotnet/runtime:10.0-noble
+ WORKDIR /app
+ COPY --from=build /out .
+ ENTRYPOINT ["dotnet", "ClockDisplay.dll"]

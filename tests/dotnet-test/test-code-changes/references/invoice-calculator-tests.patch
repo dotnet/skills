@@ -1,0 +1,53 @@
+diff --git a/tests/Billing.Tests/InvoiceCalculatorTests.cs b/tests/Billing.Tests/InvoiceCalculatorTests.cs
+new file mode 100644
+index 0000000..54f0e3a
+--- /dev/null
++++ b/tests/Billing.Tests/InvoiceCalculatorTests.cs
+@@ -0,0 +1,47 @@
++using System.Globalization;
++using Billing;
++
++namespace Billing.Tests;
++
++public class InvoiceCalculatorTests
++{
++    private static readonly InvoiceCalculator Calculator = new(TaxTable.Default);
++
++    [Fact]
++    public void Subtotal_MultipliesQuantityByUnitPrice()
++    {
++        InvoiceLine[] lines = [new("Notebook", 3, 4.50m), new("Pen", 10, 1.20m)];
++
++        Assert.Equal(25.50m, Calculator.Subtotal(lines));
++    }
++
++    [Fact]
++    public void Subtotal_NonPositiveQuantity_Throws()
++    {
++        Assert.Throws<ArgumentOutOfRangeException>(() => Calculator.Subtotal([new InvoiceLine("Pen", 0, 1.20m)]));
++    }
++
++    [Theory]
++    [InlineData("499.99", "0")]
++    [InlineData("500", "25.00")]
++    [InlineData("999.99", "50.00")]
++    [InlineData("1000", "100.00")]
++    public void Discount_AppliesTierAtEachThreshold(string subtotal, string expected)
++    {
++        Assert.Equal(decimal.Parse(expected, CultureInfo.InvariantCulture), InvoiceCalculator.Discount(decimal.Parse(subtotal, CultureInfo.InvariantCulture)));
++    }
++
++    [Fact]
++    public void Total_AppliesDiscountThenRegionalTax()
++    {
++        InvoiceLine[] lines = [new("Desk", 2, 300m)];
++
++        Assert.Equal(684.00m, Calculator.Total(lines, "north"));
++    }
++
++    [Fact]
++    public void Total_UnknownRegion_Throws()
++    {
++        Assert.Throws<KeyNotFoundException>(() => Calculator.Total([new InvoiceLine("Desk", 1, 300m)], "mars"));
++    }
++}

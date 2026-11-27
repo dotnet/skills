@@ -1,0 +1,82 @@
+diff --git a/src/Catalog/Pages/Products/Create.cshtml.cs b/src/Catalog/Pages/Products/Create.cshtml.cs
+--- a/src/Catalog/Pages/Products/Create.cshtml.cs
++++ b/src/Catalog/Pages/Products/Create.cshtml.cs
+@@ -12,5 +12,11 @@
+     [BindProperty]
+     public decimal Price { get; set; }
+ 
+-    public IActionResult OnPost() => ModelState.IsValid ? Redirect("/") : Page();
++    public IActionResult OnPost()
++    {
++        if (Price <= 0m)
++            ModelState.AddModelError(nameof(Price), "Price must be greater than zero.");
++
++        return ModelState.IsValid ? Redirect("/") : Page();
++    }
+ }
+diff --git a/tests/Catalog.BrowserTests/Catalog.BrowserTests.csproj b/tests/Catalog.BrowserTests/Catalog.BrowserTests.csproj
+--- a/tests/Catalog.BrowserTests/Catalog.BrowserTests.csproj
++++ b/tests/Catalog.BrowserTests/Catalog.BrowserTests.csproj
+@@ -5,6 +5,7 @@
+     <Nullable>enable</Nullable>
+   </PropertyGroup>
+   <ItemGroup>
++    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+     <PackageReference Include="Microsoft.Playwright" Version="1.58.0" />
+     <PackageReference Include="xunit" Version="2.9.3" />
+diff --git a/tests/Catalog.BrowserTests/CreatePageHttpTests.cs b/tests/Catalog.BrowserTests/CreatePageHttpTests.cs
+new file mode 100644
+--- /dev/null
++++ b/tests/Catalog.BrowserTests/CreatePageHttpTests.cs
+@@ -0,0 +1,50 @@
++using System.Net;
++using System.Text.RegularExpressions;
++using Microsoft.AspNetCore.Mvc.Testing;
++using Xunit;
++
++namespace Catalog.BrowserTests;
++
++public sealed class CreatePageHttpTests(WebApplicationFactory<Program> factory)
++    : IClassFixture<WebApplicationFactory<Program>>
++{
++    [Theory]
++    [InlineData("0")]
++    [InlineData("-1")]
++    public async Task Rejects_a_non_positive_price(string price)
++    {
++        using var client = factory.CreateClient(new() { AllowAutoRedirect = false });
++        using var response = await PostProduct(client, price);
++
++        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
++        var markup = await response.Content.ReadAsStringAsync();
++        var priceError = Regex.Match(markup, """<span\b[^>]*\bdata-valmsg-for="Price"[^>]*>([^<]*)</span>""");
++        Assert.True(priceError.Success, "The form must render a validation message for Price.");
++        Assert.Equal("Price must be greater than zero.", WebUtility.HtmlDecode(priceError.Groups[1].Value));
++    }
++
++    [Fact]
++    public async Task Accepts_a_positive_price()
++    {
++        using var client = factory.CreateClient(new() { AllowAutoRedirect = false });
++        using var response = await PostProduct(client, "1");
++
++        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
++        Assert.Equal("/", response.Headers.Location?.OriginalString);
++    }
++
++    private static async Task<HttpResponseMessage> PostProduct(HttpClient client, string price)
++    {
++        const string url = "/Products/Create";
++        var markup = await client.GetStringAsync(url);
++        var token = Regex.Match(markup, """name="__RequestVerificationToken"[^>]*value="([^"]+)"(?=[\s>])""");
++        Assert.True(token.Success, "The form must issue an antiforgery token.");
++        using var form = new FormUrlEncodedContent(new Dictionary<string, string>
++        {
++            ["Name"] = "Desk tray",
++            ["Price"] = price,
++            ["__RequestVerificationToken"] = WebUtility.HtmlDecode(token.Groups[1].Value)
++        });
++        return await client.PostAsync(url, form);
++    }
++}

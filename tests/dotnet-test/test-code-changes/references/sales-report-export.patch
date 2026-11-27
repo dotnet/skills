@@ -1,0 +1,70 @@
+diff --git a/src/Reports/ReportExporter.cs b/src/Reports/ReportExporter.cs
+index 844ae66..2b455b8 100644
+--- a/src/Reports/ReportExporter.cs
++++ b/src/Reports/ReportExporter.cs
+@@ -4,7 +4,11 @@ namespace Reports;
+ 
+ public static class ReportExporter
+ {
+-    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
++    private static readonly JsonSerializerOptions Options = new()
++    {
++        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
++        WriteIndented = true,
++    };
+ 
+     public static string ToJson(SalesReport report) => JsonSerializer.Serialize(report, Options);
+ }
+diff --git a/tests/Reports.Tests/ReportExporterTests.ToJson_EmptyReport_MatchesSnapshot.verified.txt b/tests/Reports.Tests/ReportExporterTests.ToJson_EmptyReport_MatchesSnapshot.verified.txt
+index a44e124..389e92b 100644
+--- a/tests/Reports.Tests/ReportExporterTests.ToJson_EmptyReport_MatchesSnapshot.verified.txt
++++ b/tests/Reports.Tests/ReportExporterTests.ToJson_EmptyReport_MatchesSnapshot.verified.txt
+@@ -1,6 +1,6 @@
+ ﻿{
+-  "Region": "South",
+-  "PeriodStart": "2025-04-01",
+-  "Lines": [],
+-  "GrandTotal": 0
++  "region": "South",
++  "periodStart": "2025-04-01",
++  "lines": [],
++  "grandTotal": 0
+ }
+\ No newline at end of file
+diff --git a/tests/Reports.Tests/ReportExporterTests.ToJson_QuarterlyReport_MatchesSnapshot.verified.txt b/tests/Reports.Tests/ReportExporterTests.ToJson_QuarterlyReport_MatchesSnapshot.verified.txt
+index 45a035e..0fc41d6 100644
+--- a/tests/Reports.Tests/ReportExporterTests.ToJson_QuarterlyReport_MatchesSnapshot.verified.txt
++++ b/tests/Reports.Tests/ReportExporterTests.ToJson_QuarterlyReport_MatchesSnapshot.verified.txt
+@@ -1,19 +1,19 @@
+ ﻿{
+-  "Region": "North",
+-  "PeriodStart": "2025-01-01",
+-  "Lines": [
++  "region": "North",
++  "periodStart": "2025-01-01",
++  "lines": [
+     {
+-      "Sku": "KB-100",
+-      "Quantity": 3,
+-      "UnitPrice": 49.90,
+-      "LineTotal": 149.70
++      "sku": "KB-100",
++      "quantity": 3,
++      "unitPrice": 49.90,
++      "lineTotal": 149.70
+     },
+     {
+-      "Sku": "MS-200",
+-      "Quantity": 10,
+-      "UnitPrice": 19.50,
+-      "LineTotal": 195.00
++      "sku": "MS-200",
++      "quantity": 10,
++      "unitPrice": 19.50,
++      "lineTotal": 195.00
+     }
+   ],
+-  "GrandTotal": 344.70
++  "grandTotal": 344.70
+ }
+\ No newline at end of file

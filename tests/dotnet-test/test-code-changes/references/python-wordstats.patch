@@ -1,0 +1,29 @@
+diff --git a/tests/test_counting.py b/tests/test_counting.py
+index b8e70a0..b994907 100644
+--- a/tests/test_counting.py
++++ b/tests/test_counting.py
+@@ -13,6 +13,12 @@ class CountWordsTests(unittest.TestCase):
+     def test_punctuation_stays_with_its_word(self):
+         self.assertEqual(count_words("well, hello there!"), 3)
+ 
++    def test_runs_of_spaces_count_as_one_separator(self):
++        self.assertEqual(count_words("hello  world"), 2)
++
++    def test_empty_text_has_no_words(self):
++        self.assertEqual(count_words(""), 0)
++
+ 
+ class AverageWordLengthTests(unittest.TestCase):
+     def test_mean_length(self):
+diff --git a/wordstats/counting.py b/wordstats/counting.py
+index eca50af..3b2949f 100644
+--- a/wordstats/counting.py
++++ b/wordstats/counting.py
+@@ -1,6 +1,6 @@
+ def count_words(text: str) -> int:
+     """Return the number of words in ``text``."""
+-    return len(text.split(" "))
++    return len(text.split())
+ 
+ 
+ def average_word_length(text: str) -> float:

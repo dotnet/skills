@@ -953,3 +953,128 @@ stimuli:
       - Used the project path positionally instead of using the native-MTP --project selector
       - Kept dotnet test options such as --results-directory before the separator
       - Passed --coverage, --coverage-output-format cobertura, and --coverage-output after the separator
+  - name: Verify a pricing change across every test project that references it
+    tags:
+      capability: verify-a-change-across-referencing-test-projects
+      risk: narrow-run-hides-regression
+      journey: verify-a-code-change
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: run-tests-verify-change-across-referencing-test-projects
+        agent:
+          name: reference
+          version: 1.0.0
+          model_name: curated
+        steps:
+          - step_id: 1
+            source: agent
+            message: Find which test projects reference the changed project.
+            tool_calls:
+              - tool_call_id: references
+                function_name: bash
+                arguments: { command: 'grep -rn "ProjectReference" --include=*.csproj .' }
+            observation:
+              results:
+                - source_call_id: references
+                  content: |-
+                    ./tests/Store.Checkout.Tests/Store.Checkout.Tests.csproj:    <ProjectReference Include="..\..\src\Store.Pricing\Store.Pricing.csproj" />
+                    ./tests/Store.Checkout.Tests/Store.Checkout.Tests.csproj:    <ProjectReference Include="..\..\src\Store.Shipping\Store.Shipping.csproj" />
+                    ./tests/Store.Pricing.Tests/Store.Pricing.Tests.csproj:    <ProjectReference Include="..\..\src\Store.Pricing\Store.Pricing.csproj" />
+                    ./tests/Store.Shipping.Tests/Store.Shipping.Tests.csproj:    <ProjectReference Include="..\..\src\Store.Shipping\Store.Shipping.csproj" />
+          - step_id: 2
+            source: agent
+            message: Run the whole Store.Pricing.Tests project without a test filter.
+            tool_calls:
+              - tool_call_id: pricing-tests
+                function_name: bash
+                arguments: { command: dotnet test tests/Store.Pricing.Tests }
+            observation:
+              results:
+                - source_call_id: pricing-tests
+                  content: "Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8, Duration: 76 ms - Store.Pricing.Tests.dll (net8.0)"
+          - step_id: 3
+            source: agent
+            message: Run the whole Store.Checkout.Tests project without a test filter.
+            tool_calls:
+              - tool_call_id: checkout-tests
+                function_name: bash
+                arguments: { command: dotnet test tests/Store.Checkout.Tests }
+            observation:
+              results:
+                - source_call_id: checkout-tests
+                  content: |-
+                    Failed Total_for_a_bulk_order_includes_discount_and_shipping [55 ms]
+                    Error Message:
+                     Assert.AreEqual failed. Expected:<204.39>. Actual:<193.59>.
+                    Failed!  - Failed:     1, Passed:     3, Skipped:     0, Total:     4, Duration: 132 ms - Store.Checkout.Tests.dll (net8.0)
+          - step_id: 4
+            source: agent
+            message: |
+              The change is in Store.Pricing, and two test projects reference
+              it directly: Store.Pricing.Tests and Store.Checkout.Tests.
+              Store.Shipping.Tests only references Store.Shipping, so it is not
+              part of this check. Each project needs a full run with no test
+              filter, because the discount tests are not the only consumers of
+              DiscountCalculator.
+
+              ```bash
+              dotnet test tests/Store.Pricing.Tests
+              dotnet test tests/Store.Checkout.Tests
+              ```
+
+              - Store.Pricing.Tests: Passed: 8, Failed: 0, Skipped: 0.
+              - Store.Checkout.Tests: Passed: 3, Failed: 1, Skipped: 0.
+                `Total_for_a_bulk_order_includes_discount_and_shipping` fails
+                with expected 204.39 and actual 193.59. The 15% rate now gives
+                a 30.00 discount on a 200.00 order, and the test still assumes
+                the old 20.00.
+
+              The checkout test needs its expected total updated. This check
+              leaves every file as it is.
+    prompt: |
+      I just changed how bulk discounts work in `DiscountCalculator`
+      (src/Store.Pricing): the rate is now 15% instead of 10%, and I updated its
+      unit tests to match. Can you make sure nothing broke? Don't edit anything,
+      I'll deal with whatever turns up.
+    environment:
+      files:
+        - src: fixtures/changed-pricing-solution
+          dest: .
+    graders:
+      - type: tool-calls
+        config:
+          required:
+            - name: '^(bash|powershell|shell|execute|run_shell_command|local_shell)$'
+              args:
+                command: '(?i)(?:^|[\n;&|])\s*dotnet\s+(?:test|vstest)\b(?![^\n;&|]*(?:--(?:filter|treenode-filter|list-tests|listtests|help|testcasefilter|tests)\b|/(?:testcasefilter|tests|listtests):))'
+              result: '(?is)\btotal:\s*[1-9]\d*.{0,1500}?\bStore\.Pricing\.Tests\b|\bStore\.Pricing\.Tests\b.{0,1500}?\btotal:\s*[1-9]\d*'
+            - name: '^(bash|powershell|shell|execute|run_shell_command|local_shell)$'
+              args:
+                command: '(?i)(?:^|[\n;&|])\s*dotnet\s+(?:test|vstest)\b(?![^\n;&|]*(?:--(?:filter|treenode-filter|list-tests|listtests|help|testcasefilter|tests)\b|/(?:testcasefilter|tests|listtests):))'
+              result: '(?is)\btotal:\s*[1-9]\d*.{0,1500}?\bStore\.Checkout\.Tests\b|\bStore\.Checkout\.Tests\b.{0,1500}?\btotal:\s*[1-9]\d*'
+          disallowed:
+            - '^(edit|create|delete|remove|apply_patch|write)$'
+      - type: output-matches
+        config:
+          pattern: '(?i)(Pricing[. ]Tests|TaxCalculator|\b(?:Passed|succeeded):?\s*8\b|\b8\s+(?:tests?\s+)?(?:passed|succeeded))'
+      - type: output-matches
+        config:
+          pattern: '(?i)(Total_for_a_bulk_order_includes_discount_and_shipping|\b1\s+(?:test\s+)?fail|\bfailed:?\s*1\b)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*Shipping[. ]Tests'
+      - type: file-contains
+        config:
+          path: src/Store.Pricing/DiscountCalculator.cs
+          value: BulkRate = 0.15m
+      - type: file-contains
+        config:
+          path: tests/Store.Checkout.Tests/CheckoutTotalTests.cs
+          value: 204.39m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Ran every test project that references the changed pricing project in full, not only the discount calculator's own tests
+      - Did not run test projects that have no reference to the changed pricing project
+      - Reported that the bulk-order checkout total test now fails, with pass and fail counts from the completed runs

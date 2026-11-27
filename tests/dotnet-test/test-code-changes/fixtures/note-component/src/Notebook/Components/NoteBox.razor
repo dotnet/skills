@@ -1,0 +1,8 @@
+@using Microsoft.AspNetCore.Components.Web
+
+<label for="draft">Draft note</label>
+<textarea id="draft" @bind="text" @bind:event="oninput"></textarea>
+
+@code {
+    private string text = "";
+}

@@ -1,0 +1,93 @@
+diff --git a/src/Reminders/ReminderSchedule.cs b/src/Reminders/ReminderSchedule.cs
+index 535fa48..3145250 100644
+--- a/src/Reminders/ReminderSchedule.cs
++++ b/src/Reminders/ReminderSchedule.cs
+@@ -18,6 +18,6 @@ public sealed partial record ReminderSchedule(string Title, TimeSpan Interval)
+ 
+     public DateTimeOffset NextAfter(DateTimeOffset previous) => previous + Interval;
+ 
+-    [GeneratedRegex(@"^every\s+(?<interval>\d+[hms])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
++    [GeneratedRegex(@"^every\s+(?<interval>\S+)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+     private static partial Regex EveryRule();
+ }
+diff --git a/src/Timing/DurationParser.cs b/src/Timing/DurationParser.cs
+index c962514..0c7ec6e 100644
+--- a/src/Timing/DurationParser.cs
++++ b/src/Timing/DurationParser.cs
+@@ -13,22 +13,21 @@ public static partial class DurationParser
+     public static bool TryParse(string? text, out TimeSpan duration)
+     {
+         duration = TimeSpan.Zero;
+-        var match = Component().Match(text?.Trim() ?? "");
+-        if (!match.Success)
++        var match = Components().Match(text?.Trim() ?? "");
++        if (!match.Success || match.Length == 0)
+         {
+             return false;
+         }
+ 
+-        var value = int.Parse(match.Groups["value"].Value, CultureInfo.InvariantCulture);
+-        duration = match.Groups["unit"].Value switch
+-        {
+-            "h" => TimeSpan.FromHours(value),
+-            "m" => TimeSpan.FromMinutes(value),
+-            _ => TimeSpan.FromSeconds(value),
+-        };
++        duration = TimeSpan.FromHours(ValueOf(match, "hours"))
++            + TimeSpan.FromMinutes(ValueOf(match, "minutes"))
++            + TimeSpan.FromSeconds(ValueOf(match, "seconds"));
+         return true;
+     }
+ 
+-    [GeneratedRegex(@"^(?<value>\d+)(?<unit>[hms])", RegexOptions.CultureInvariant)]
+-    private static partial Regex Component();
++    private static int ValueOf(Match match, string group) =>
++        match.Groups[group].Success ? int.Parse(match.Groups[group].Value, CultureInfo.InvariantCulture) : 0;
++
++    [GeneratedRegex(@"^(?:(?<hours>\d+)h)?(?:(?<minutes>\d+)m)?(?:(?<seconds>\d+)s)?$", RegexOptions.CultureInvariant)]
++    private static partial Regex Components();
+ }
+diff --git a/tests/Reminders.Tests/ReminderScheduleTests.cs b/tests/Reminders.Tests/ReminderScheduleTests.cs
+index c106df3..525eea6 100644
+--- a/tests/Reminders.Tests/ReminderScheduleTests.cs
++++ b/tests/Reminders.Tests/ReminderScheduleTests.cs
+@@ -24,6 +24,14 @@ public class ReminderScheduleTests
+         Assert.Throws<FormatException>(() => ReminderSchedule.Parse("Standup", "daily"));
+     }
+ 
++    [Theory]
++    [InlineData("every 1h30m", 1, 30, 0)]
++    [InlineData("every 2h5s", 2, 0, 5)]
++    public void Parse_CombinedUnits_SetsWholeInterval(string rule, int hours, int minutes, int seconds)
++    {
++        Assert.Equal(new TimeSpan(hours, minutes, seconds), ReminderSchedule.Parse("Standup", rule).Interval);
++    }
++
+     [Fact]
+     public void NextAfter_AddsInterval()
+     {
+diff --git a/tests/Timing.Tests/DurationParserTests.cs b/tests/Timing.Tests/DurationParserTests.cs
+index 0f28056..d601e95 100644
+--- a/tests/Timing.Tests/DurationParserTests.cs
++++ b/tests/Timing.Tests/DurationParserTests.cs
+@@ -45,4 +45,20 @@ public class DurationParserTests
+     {
+         Assert.False(DurationParser.TryParse("soon", out _));
+     }
++
++    [Theory]
++    [InlineData("1h30m", 1, 30, 0)]
++    [InlineData("2h5s", 2, 0, 5)]
++    [InlineData("1h30m15s", 1, 30, 15)]
++    public void Parse_CombinedUnits_AddsEveryUnit(string text, int hours, int minutes, int seconds)
++    {
++        Assert.Equal(new TimeSpan(hours, minutes, seconds), DurationParser.Parse(text));
++    }
++
++    [Fact]
++    public void TryParse_CombinedUnits_AddsEveryUnit()
++    {
++        Assert.True(DurationParser.TryParse("1h30m", out var duration));
++        Assert.Equal(TimeSpan.FromMinutes(90), duration);
++    }
+ }

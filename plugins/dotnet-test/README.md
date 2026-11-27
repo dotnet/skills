@@ -35,6 +35,7 @@ PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 | Skill | Description |
 |---|---|
 | **code-testing** | Implicit entry skill for generating, repairing, and strengthening tests; broad work delegates to `test-engineer` |
+| **test-code-changes** *(.NET)* | Add durable tests for a bug fix or feature made in the same task, with contrast cases and a final run of the affected test projects |
 | **scaffold-dotnet-test-project** *(.NET)* | Create a missing test project or repair its project/solution/filter wiring |
 | **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects, including MSTest 3.x/4.x APIs |
 

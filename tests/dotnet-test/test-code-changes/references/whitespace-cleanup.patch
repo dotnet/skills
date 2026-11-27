@@ -1,0 +1,73 @@
+diff --git a/src/Inventory/ReorderPolicy.cs b/src/Inventory/ReorderPolicy.cs
+index 44639cc..d03a426 100644
+--- a/src/Inventory/ReorderPolicy.cs
++++ b/src/Inventory/ReorderPolicy.cs
+@@ -2,13 +2,13 @@ namespace Inventory;
+ 
+ public static class ReorderPolicy
+ {
+-  public static int SuggestedOrder(int onHand,int reorderPoint,int targetLevel)
+-  {
+-      if (onHand > reorderPoint)
+-      {
+-          return 0;
+-      }
++    public static int SuggestedOrder(int onHand, int reorderPoint, int targetLevel)
++    {
++        if (onHand > reorderPoint)
++        {
++            return 0;
++        }
+ 
+-      return Math.Max(0, targetLevel-onHand);
+-  }
+-}
+\ No newline at end of file
++        return Math.Max(0, targetLevel - onHand);
++    }
++}
+diff --git a/src/Inventory/StockLevel.cs b/src/Inventory/StockLevel.cs
+index 23a06a6..7570be4 100644
+--- a/src/Inventory/StockLevel.cs
++++ b/src/Inventory/StockLevel.cs
+@@ -2,24 +2,24 @@ namespace Inventory;
+ 
+ public sealed class StockLevel
+ {
+-	private readonly Dictionary<string, int> _onHand = new(StringComparer.OrdinalIgnoreCase);
++    private readonly Dictionary<string, int> _onHand = new(StringComparer.OrdinalIgnoreCase);
+ 
+-	public int OnHand(string sku) => _onHand.TryGetValue(sku, out var quantity) ? quantity : 0;   
++    public int OnHand(string sku) => _onHand.TryGetValue(sku, out var quantity) ? quantity : 0;
+ 
+-	public void Receive(string sku, int quantity)
+-	{
+-		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
+-		_onHand[sku] = OnHand(sku)+quantity;
+-	}
++    public void Receive(string sku, int quantity)
++    {
++        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
++        _onHand[sku] = OnHand(sku) + quantity;
++    }
+ 
+-	public bool TryShip(string sku, int quantity)
+-	{
+-		if(quantity<=0||OnHand(sku)<quantity)
+-		{
+-			return false;
+-		}
++    public bool TryShip(string sku, int quantity)
++    {
++        if (quantity <= 0 || OnHand(sku) < quantity)
++        {
++            return false;
++        }
+ 
+-		_onHand[sku] = OnHand(sku) - quantity;  
+-		return true;
+-	}
++        _onHand[sku] = OnHand(sku) - quantity;
++        return true;
++    }
+ }

@@ -1,0 +1,13 @@
+@page
+@model Catalog.Pages.Products.CreateModel
+
+<h1>Create product</h1>
+<form method="post">
+    <label asp-for="Name"></label>
+    <input asp-for="Name" />
+    <span asp-validation-for="Name"></span>
+    <label asp-for="Price"></label>
+    <input asp-for="Price" />
+    <span asp-validation-for="Price"></span>
+    <button type="submit">Create</button>
+</form>

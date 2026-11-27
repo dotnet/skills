@@ -1,0 +1,92 @@
+diff --git a/ReceiptRenamer.slnx b/ReceiptRenamer.slnx
+--- a/ReceiptRenamer.slnx
++++ b/ReceiptRenamer.slnx
+@@ -1,3 +1,4 @@
+ <Solution>
+   <Project Path="src/ReceiptRenamer/ReceiptRenamer.csproj" />
++  <Project Path="tests/ReceiptRenamer.Tests/ReceiptRenamer.Tests.csproj" />
+ </Solution>
+diff --git a/src/ReceiptRenamer/RenameCommand.cs b/src/ReceiptRenamer/RenameCommand.cs
+--- a/src/ReceiptRenamer/RenameCommand.cs
++++ b/src/ReceiptRenamer/RenameCommand.cs
+@@ -2,9 +2,11 @@
+ 
+ public static class RenameCommand
+ {
+-    public static int Run(IEnumerable<string> paths, TextWriter output)
++    public static int Run(IEnumerable<string> arguments, TextWriter output)
+     {
+-        foreach (var path in paths)
++        var args = arguments.ToArray();
++        var dryRun = args.Contains("--dry-run");
++        foreach (var path in args.Where(arg => arg != "--dry-run"))
+         {
+             var source = Path.GetFullPath(path);
+             var filename = Path.GetFileName(source).ToLowerInvariant().Replace(' ', '-');
+@@ -12,7 +14,9 @@
+             if (source == destination)
+                 continue;
+ 
+-            File.Move(source, destination);
++            if (!dryRun)
++                File.Move(source, destination);
++
+             output.WriteLine($"{Path.GetFileName(source)} -> {filename}");
+         }
+ 
+diff --git a/tests/ReceiptRenamer.Tests/ReceiptRenamer.Tests.csproj b/tests/ReceiptRenamer.Tests/ReceiptRenamer.Tests.csproj
+new file mode 100644
+--- /dev/null
++++ b/tests/ReceiptRenamer.Tests/ReceiptRenamer.Tests.csproj
+@@ -0,0 +1,13 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net10.0</TargetFramework>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <Nullable>enable</Nullable>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
++    <PackageReference Include="xunit" Version="2.9.3" />
++    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2" PrivateAssets="all" />
++    <ProjectReference Include="../../src/ReceiptRenamer/ReceiptRenamer.csproj" />
++  </ItemGroup>
++</Project>
+diff --git a/tests/ReceiptRenamer.Tests/RenameCommandTests.cs b/tests/ReceiptRenamer.Tests/RenameCommandTests.cs
+new file mode 100644
+--- /dev/null
++++ b/tests/ReceiptRenamer.Tests/RenameCommandTests.cs
+@@ -0,0 +1,33 @@
++using Xunit;
++
++namespace ReceiptRenamer.Tests;
++
++public sealed class RenameCommandTests
++{
++    [Theory]
++    [InlineData(true)]
++    [InlineData(false)]
++    public void Reports_the_rename_but_only_moves_a_file_without_dry_run(bool dryRun)
++    {
++        var folder = Directory.CreateTempSubdirectory("receipt-");
++        try
++        {
++            var source = Path.Combine(folder.FullName, "Receipt July.PDF");
++            var destination = Path.Combine(folder.FullName, "receipt-july.pdf");
++            File.WriteAllText(source, "receipt data");
++            using var output = new StringWriter();
++            string[] args = dryRun ? ["--dry-run", source] : [source];
++
++            Assert.Equal(0, RenameCommand.Run(args, output));
++
++            Assert.Equal($"Receipt July.PDF -> receipt-july.pdf{Environment.NewLine}", output.ToString());
++            Assert.Equal(dryRun, File.Exists(source));
++            Assert.Equal(!dryRun, File.Exists(destination));
++            Assert.Equal("receipt data", File.ReadAllText(dryRun ? source : destination));
++        }
++        finally
++        {
++            folder.Delete(recursive: true);
++        }
++    }
++}

@@ -43,8 +43,25 @@ Classify scope **before editing**:
   missing method): do not create intermediate state files or fan out to multiple
   agents. A sparse project-wide request remains broad even when only one source
   module is present.
+- **Own change** (tests for a production change this task requests or has made,
+  whatever the edit order): treat as focused regardless of how many production
+  files the change touched, unless the user asked for broad or comprehensive
+  tests. For a .NET production change, follow `test-code-changes` (when
+  available) for placement, contrast cases, and the final run.
 
-For either scope, run the narrowest relevant test command to a clean exit.
+For either scope, run the narrowest relevant test command to a clean exit
+unless the user says not to run tests. For own-change tests, that narrow run is
+an iteration step; after the final edit, run each affected suite unfiltered
+through its native runner. For a .NET production change, run each test project
+that directly references a changed production project or holds tests you
+added or changed, plus any established suite in another language holding those
+tests. For other production changes, run the suite covering the changed code.
+If there are more than about three suites or one is very large or slow, run the
+covering test classes (or the runner's equivalent) plus one broader scope
+(their namespace or package, or the most affected suite unfiltered), and state
+the scope. A suite with tens of thousands of tests counts as very large.
+A user-named subset or an instruction not to run tests overrides the own-change
+final run; follow it and report the omitted final run as not done.
 Always apply [Report-safe test names and result validation](unit-test-generation.prompt.md#report-safe-test-names-and-result-validation),
 including when the caller supplies conventions. Pass this contract to delegated
 implementers/testers; preserve edge-case data and validate configured reports,
@@ -186,11 +203,17 @@ request costs turns and tool calls without improving the tests.
 | **Focused** | One function, class, or file; "tests for X only"; extending an existing suite with the missing cases | Skip intermediate state files and the sub-agent fan-out. Keep the requirement checklist in your head (or in the final table), read only the target and one neighbouring test for conventions, write the tests, run the narrowest test command, review your own assertions inline. |
 | **Broad** | A project, package, or module set; "comprehensive suite"; a coverage threshold to clear across several files | Run the full Research → Plan → Implement pipeline in Step 3, with intermediate state files under `<TESTAGENT_DIR>` and the completion contract below. |
 
-When in doubt, start focused and escalate only if the request turns out to span
-several files. Escalating costs one extra pass; running the broad pipeline on a
-focused request costs several.
+Tests for a production change this task requests or has made, whatever the edit
+order, are focused however many files the change touched (unless the user asked
+for broad or comprehensive tests). Unless the user limits or disallows
+execution, finish with the own-change final run in the execution contract,
+including its fallback for many suites or one very large or slow suite.
 
-Before ending a focused request, check all three conditions together:
+For other requests, when in doubt, start focused and escalate only if the
+request turns out to span several files. Escalating costs one extra pass;
+running the broad pipeline on a focused request costs several.
+
+Before reporting a focused request as verified, check all three conditions together:
 
 1. every named behavior has a concrete assertion, including each requested
    boundary or error path;
@@ -242,7 +265,8 @@ workspace content, appear in `git status`, or be stageable.
 For multi-file requests:
 
 1. Turn every explicit user requirement into a checklist before implementation. Include requested layers, collaborators to mock, boundary cases, integrations, coverage thresholds, and report artifacts. Copy multi-condition requirements verbatim — they must each map to one test that exercises the whole combination.
-2. Research only the requested module or project and write the checklist plus a compact target inventory to `<TESTAGENT_DIR>/research.md`.
+2. Research only the requested module or project. For broad scope, write the
+   checklist plus a compact target inventory to `<TESTAGENT_DIR>/research.md`.
 3. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
 4. When an available `find-untested-sources` skill is useful for a substantial multi-file inventory, run it once and reuse its pairing and suggested-path output. Otherwise pair the bounded targets manually once; do not probe for an unavailable skill.
 5. Plan each target file once, then implement phases sequentially. Map every checklist item to at least one concrete test or explain why it is blocked.
@@ -366,7 +390,10 @@ Most failures in generated tests are caused by **wrong expected values in assert
 
 1. Read the actual test output
 2. Read the production code to understand correct behavior
-3. Fix the assertion, not the production code
+3. When the code under test is unchanged and believed correct, fix the assertion,
+   not the production code. When the tests cover a change made in this task, a
+   failing expectation may mean the change is wrong; investigate before editing
+   the expectation
 4. Never mark tests `[Ignore]` or `[Skip]` just to make them pass
 
 ### Wrong testing framework detected
@@ -375,11 +402,13 @@ Specify your preferred framework in the initial request: "Generate Jest tests fo
 
 ### Environment-dependent tests fail
 
-Tests that depend on external services, network endpoints, specific ports, or precise timing will fail in CI environments. Focus on unit tests with mocked dependencies instead.
+Tests that depend on external services, network endpoints, specific ports, or precise timing will fail in CI environments. Prefer in-process hosts and fakes (WebApplicationFactory/TestServer, in-memory providers, repository test doubles) over real network endpoints or services.
 
 ### Broader validation fails
 
-During implementation, build and test the narrow target. Run a solution or
-workspace-level command only for broad work, when the repository contract uses
-that entry point, or when the targeted change can affect other projects. Do not
-turn a focused test request into an unconditional full non-incremental build.
+During implementation, build and test the narrow target. For own-change tests,
+follow the final-run rule in the execution contract above.
+Run a solution or workspace-level command only for broad work, when the
+repository contract uses that entry point, or when the targeted change can
+affect other projects. Do not turn a focused test request into an unconditional
+full non-incremental build.

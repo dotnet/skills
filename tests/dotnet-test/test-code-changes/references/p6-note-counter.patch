@@ -1,0 +1,38 @@
+diff --git a/src/Notebook/Components/NoteBox.razor b/src/Notebook/Components/NoteBox.razor
+--- a/src/Notebook/Components/NoteBox.razor
++++ b/src/Notebook/Components/NoteBox.razor
+@@ -2,6 +2,7 @@
+ 
+ <label for="draft">Draft note</label>
+ <textarea id="draft" @bind="text" @bind:event="oninput"></textarea>
++<output for="draft" style="@(text.Length > 280 ? "color: red" : null)">@text.Length / 280</output>
+ 
+ @code {
+     private string text = "";
+diff --git a/tests/Notebook.Tests/NoteBoxTests.cs b/tests/Notebook.Tests/NoteBoxTests.cs
+--- a/tests/Notebook.Tests/NoteBoxTests.cs
++++ b/tests/Notebook.Tests/NoteBoxTests.cs
+@@ -12,4 +12,23 @@
+         Assert.Equal("Draft note", editor.Find("label[for=draft]").TextContent);
+         Assert.Equal("draft", editor.Find("textarea").Id);
+     }
++
++    [Fact]
++    public void Count_updates_on_input_and_turns_red_only_over_the_limit()
++    {
++        var editor = Render<NoteBox>();
++        Assert.Equal("0 / 280", editor.Find("output").TextContent);
++
++        editor.Find("textarea").Input(new string('a', 280));
++        Assert.Equal("280 / 280", editor.Find("output").TextContent);
++        Assert.Null(editor.Find("output").GetAttribute("style"));
++
++        editor.Find("textarea").Input(new string('a', 281));
++        Assert.Equal("281 / 280", editor.Find("output").TextContent);
++        Assert.Equal("color: red", editor.Find("output").GetAttribute("style"));
++
++        editor.Find("textarea").Input("short");
++        Assert.Equal("5 / 280", editor.Find("output").TextContent);
++        Assert.Null(editor.Find("output").GetAttribute("style"));
++    }
+ }
