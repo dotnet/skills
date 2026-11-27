@@ -1,12 +1,12 @@
 ---
 name: assertion-quality
-description: "Analyze assertion quality, depth, variety, and false confidence in existing tests. ALWAYS USE when asked about weak, shallow, trivial, always-true, self-referential, assertion-free, presence/truthiness-only, or insufficiently diverse assertions, including MSTest, Jest, pytest, and Go. DO NOT USE for direct fixes: writing-mstest-tests owns supplied MSTest assertions; code-testing owns new cases. Use test-gap-analysis when asked whether tests would catch a production change, and test-anti-patterns for general severity-ranked audits."
+description: "Analyze weak, shallow, trivial, self-referential, assertion-free, or presence-only assertions; Contains fragments or totals replacing predictable generated code, JSON, CLI, report, or protocol output. Supports MSTest, Jest, pytest, and Go. DO NOT USE for direct assertion fixes (writing-mstest-tests for MSTest, code-testing for other frameworks), new cases (code-testing), missing scenarios or identified production changes (test-gap-analysis), or general severity-ranked audits (test-anti-patterns)."
 license: MIT
 ---
 
-# Assertion Diversity Analysis
+# Assertion Quality Analysis
 
-Analyze test code in any supported language to measure how varied and meaningful the assertions are. Produce a metrics report that reveals whether tests verify different facets of correctness — not just "output equals X" but also structure, exceptions, state transitions, side effects, and invariants.
+Analyze whether assertions reject wrong observable outcomes, not merely whether they use varied APIs. Prioritize incomplete checks of predictable output, then assertion-free and vacuous tests. A single exact comparison can fully protect a contract; many fragment checks can leave most of it unprotected. Report diversity metrics only when they help explain a behavioral gap or the caller requests them.
 
 > **Language-specific guidance**: Read the caller-provided or runtime-listed
 > `test-analysis-extensions` catalog, then its matching language file
@@ -14,19 +14,6 @@ Analyze test code in any supported language to measure how varied and meaningful
 > `test-analysis-extensions` is reference-only; do not invoke it as a skill.
 > If the bundle is absent, use the pinned framework and this skill's rules,
 > report the missing reference, and do not search installation directories.
-
-## Why Assertion Diversity Matters
-
-Low assertion diversity signals shallow testing. Tests may pass while bugs hide in unasserted logic. Common symptoms:
-
-| Problem | Symptom | Consequence |
-|---------|---------|-------------|
-| Trivial assertions | Test contains only `Assert.IsNotNull(result)` / `assert result is not None` / `expect(x).toBeDefined()` | Test passes but doesn't verify correctness |
-| Single-value obsession | Always check one field or return value | Bugs in unasserted logic slip through |
-| No negative assertions | Never check what shouldn't happen | Regressions sneak in through false positives |
-| No state checks | Don't verify object state changes | Missed side-effects or lifecycle issues |
-| No structural checks | Only assert top-level value | Bugs in nested objects go unnoticed |
-| Assertion-free tests | Tests that call but don't verify | Code coverage lies; false security |
 
 ## When to Use
 
@@ -41,7 +28,7 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 
 - User wants to write new tests (use `code-testing` for any language, or `writing-mstest-tests` for MSTest specifically)
 - User wants to detect anti-patterns beyond assertions (use `test-anti-patterns`)
-- User wants to fix or rewrite assertions (help them directly)
+- User wants to fix or rewrite assertions (use `writing-mstest-tests` for MSTest or `code-testing` for other frameworks)
 - User asks about code coverage percentages (out of scope — this analyzes assertion quality, not line coverage)
 
 ## Inputs
@@ -49,7 +36,7 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 | Input | Required | Description |
 |-------|----------|-------------|
 | Test code | Yes | One or more test files or a test project directory to analyze |
-| Production code | No | The code under test, to evaluate whether assertions cover the important behaviors |
+| Production code | No | Discover the relevant producer, fixtures, and assertion helpers in the requested scope to establish what output is predictable |
 
 ## Workflow
 
@@ -65,7 +52,53 @@ not the workspace root or the requested review.
 
 Read all test files the user provides. If the user points to a directory or project, scan for all test files using the markers in the language extension file (e.g., `[TestMethod]` for MSTest, `def test_*` for pytest, `it()` / `test()` for Jest, `func TestXxx` for Go).
 
+Inventory every in-scope method before triage. For supplied files, account for
+each method as weak, meaningful, intentionally partial, or unassessed with a
+reason. Do not silently drop diagnostic or summary tests because the request's
+area label emphasizes another output. An exact check of a test-local literal
+or collection is not production verification; trace the asserted value to the
+producer before crediting it.
+
 ### Step 3: Classify every assertion
+
+#### First check predictable-output completeness
+
+For output-focused tests, read the full body, setup/input, producer, and assertion
+helpers before counting assertion categories. Inspect nearby tests for existing
+exact-output or parsing helpers, but never credit their assertions to the weak
+test. Treat searches for `Contains`, substring membership, regexes, `Any`, or
+totals as candidates, not findings.
+
+Establish the test's claimed contract and independently expected output. Ask
+whether a wrong output can preserve every checked fragment or aggregate while
+breaking that contract. Check content, cardinality, duplicates, ordering when
+promised, and association with the correct test/provider/stream. A count plus
+membership checks is not enough if duplicates or substituted records still pass.
+
+| Output under test | Defect fragment/aggregate checks can miss | Focused repair |
+|---|---|---|
+| Generated source or registry | Extra/duplicate registrations, missing surrounding syntax, wrong registration target | Compare the complete expected generated source, preferably a raw string or existing approved snapshot. Assert the full generated-file set when claimed; compilation/diagnostics complement but do not replace content checks. |
+| JSON embedded in HTML or a report | A matching fragment inside unrelated text; correct totals with results assigned to the wrong test | Extract the intended payload with the repository helper, parse JSON, and compare the complete stable structure: result identities, outcomes, counts, and unexpected entries. Do not substring-search JSON or depend on property order. |
+| CLI `--info` or provider listings | Correct lines under the wrong provider, extra lines, duplicates, reordered sections | Compare the complete expected line sequence, using the repository's sequence assertion. Include section/provider boundaries. |
+| Markdown summaries and deterministic error messages | One correct row/token while the heading, other rows, punctuation, parameter context, or totals are wrong | Compare the full predictable text with an independent raw-string expectation or existing exact-text helper. Exception type alone may suffice when message formatting is not the claimed contract. |
+| Terminal events and protocol records | Expected text occurs, but belongs to another test or stream; duplicate/missing/reordered records | Compare complete record tuples including test ID, stream, kind, and payload. Require sequence equality only for promised ordering; otherwise compare multisets that preserve multiplicity. |
+| Acceptance run output | Totals match while different tests ran; `" total: 3"` also matches `" total: 30"` | Pin selected test identities, outcomes, and complete stable summary lines. Prefer an existing `AssertOutputMatchesLines` helper after checking its semantics, rather than adding more fragments or a totals-only regex. |
+
+Reuse the framework version and repository conventions: for example,
+`Assert.AreEqual(expected, actual)` for exact MSTest text and an existing
+`Assert.AreSequenceEqual`/`CollectionAssert.AreEqual` for ordered lines.
+Do not prescribe an unavailable API or introduce a snapshot dependency solely
+for this review.
+
+Do not force byte equality on nondeterministic output. Normalize only documented
+variable fields (timestamps, absolute paths, durations, newline conventions),
+validate their required shape separately, and retain all stable fields and
+record associations. Never sort away contractual ordering, deduplicate actual
+records, or strip stable lines just to make an exact comparison pass.
+Legitimate substring contracts (e.g. a log must include a warning amid unrelated
+events), partial object contracts, and focused count-only tests are not defects
+merely because broader equality is possible. Exact output equality also does
+not need extra assertion types for diversity.
 
 For each test method, identify all assertions and classify them into these language-neutral categories:
 
@@ -88,25 +121,22 @@ A single assertion can belong to multiple categories (e.g., `Assert.AreNotEqual`
 
 Read the loaded language extension file for the exact framework-specific list of assertion APIs.
 
-### Step 4: Compute metrics
+### Step 4: Count only what supports a finding
 
-Calculate these metrics for the test suite:
+Count test methods exactly from the inventory, then count tests that are
+assertion-free, trivial-only, self-referential, or incomplete for predictable
+output. A lone null check is weak only when the contract promises a value; it
+can fully verify an expected absence. Self-referential means the expected value
+derives from the actual value or the input cannot distinguish the claimed
+transformation from a no-op; a round-trip check is valid when preservation is
+the contract and the input exercises a real transformation.
 
-#### Per-test metrics
-- **Assertion count**: Number of assertions in each test method
-- **Assertion categories**: Which categories each test uses
-
-#### Suite-wide metrics
-- **Average assertions per test**: Total assertions / total test methods
-- **Assertion type spread**: Number of distinct assertion categories used across the suite (out of 12)
-- **Tests with zero assertions**: Count and percentage of test methods with no assertions at all
-- **Tests with only trivial assertions**: Count and percentage of tests where every assertion is only a null check or `Assert.IsTrue(true)` — trivial means no meaningful value verification
-- **Tests with self-referential assertions**: Count and percentage of tests whose assertions compare an input to a round-tripped or identity-transformed version of itself (e.g., `Assert.AreEqual(input, Parse(input.ToString()))`) or assert a field against itself (`Assert.AreEqual(dto.Name, dto.Name)`). These are tautological — they verify the plumbing, not the behavior.
-- **Tests with negative assertions**: Count and percentage (target: at least 10% of tests should verify what should NOT happen)
-- **Tests with exception assertions**: Count and percentage
-- **Tests with state/side-effect assertions**: Count and percentage
-- **Tests with structural/deep assertions**: Count and percentage
-- **Single-category tests**: Count and percentage of tests that use only one assertion category
+Category counts describe syntax, not strength. Report them only when the caller
+asks for metrics, and define every number shown. Never present a category
+"spread" score or a target percentage, and never recommend negative, exception,
+or other assertion types to meet a quota. Every count must agree with the
+per-test findings (for example, do not claim "no state checks" after crediting
+an equality on a post-action count as a state check).
 
 ### Step 5: Apply calibration rules
 
@@ -118,7 +148,14 @@ Before reporting, calibrate findings:
   meaningful, name the behavior it pins. If you cannot give such a
   counterexample from the test and available production contract, do not
   speculate that the assertion is weak.
-- **Trivial means truly trivial.** A null/None/nil check alone is trivial (`Assert.IsNotNull(result)`, `assert result is not None`, `expect(x).toBeDefined()`). But a null check followed by a meaningful value assertion is not trivial — the null check is a guard before the real assertion. Only flag a test as "trivial" if it has no meaningful value assertions.
+- **State exception semantics precisely.** In every mainstream framework an
+  uncaught exception, rejected awaited promise, panic, or failed fixture fails
+  the test. An assertion-free test therefore still proves "does not throw";
+  its weakness is that a wrong result passes. Only swallowed exceptions
+  (empty `catch`, `except: pass`, catch-and-return) or un-awaited async work
+  let a throwing operation pass. Never claim a thrown error would pass a test
+  unless the code shows such a path.
+- **Judge null checks against the contract.** A lone `IsNotNull` is weak when the test promises a particular result but never verifies it. A lone `IsNull` can completely verify a promised absence, and `toBeDefined()` can verify a contract that excludes `undefined`. A null guard before further checks does not make the overall test trivial.
 - **Use exact Jest semantics.** `toBeDefined()` rejects only `undefined`;
   `null` does satisfy it, but mention that only when `null` is a realistic
   contract-breaking result. `toMatchObject(expected)` verifies the expected
@@ -135,7 +172,7 @@ Before reporting, calibrate findings:
 - **Snapshot assertions** (`.toMatchSnapshot()`, `syrupy`, `SnapshotTesting`) count as Structural/Deep assertions. Flag stale or never-updated snapshots separately.
 - **Property-based tests** (`@given` Hypothesis, `proptest!`, `forAll` Kotest) generate assertions implicitly through generated cases — count the inner assertion logic, not the outer scaffold.
 - **Don't conflate diversity with volume.** A test with 20 equality assertions has high volume but low diversity. A test with one equality, one null check, and one exception assertion has low volume but good diversity.
-- **Self-referential assertions are not meaningful equality checks.** Asserting that an output equals an input round-trip looks like a real equality assertion but is tautological when the operation under test is expected to be identity. Flag these separately from normal equality assertions. If the test's *purpose* is to verify a round-trip (serialize/deserialize, encode/decode), the assertion is valid — but it should be accompanied by assertions on non-trivial inputs that exercise the transformation.
+- **Distinguish identity from transformation.** Comparing an actual value with itself is tautological. Comparing an input with a round-trip result can be meaningful when preservation is the contract and the input exercises parsing, encoding, serialization, or another transformation. Flag it only when the production contract or test data shows the check cannot distinguish the intended behavior from a defect; do not require unrelated assertions just to increase variety.
 - **Match recommendations to the named behavior.** Formatting tests should pin the
   exact formatted representation, validation tests need rejected inputs, and round-trip
   tests need inputs that exercise escaping, null/empty handling, or another transformation
@@ -145,55 +182,58 @@ Before reporting, calibrate findings:
 
 ### Step 6: Report findings
 
-**Scale the report depth to the size and complexity of the suite.** The structure below is the full template for a substantial suite (roughly 15+ tests or a multi-file project). For a small or simple input (a single file with only a handful of tests), do not emit every section — a padded multi-section dashboard on a trivial input reads as noise and buries the answer. Instead, answer the user's question directly and concisely: which tests are assertion-free or trivial-only, the overall assertion-quality verdict, and concrete recommendations (still distinguishing intentional smoke tests from tests masquerading as real verification). Use only the sections that carry real signal for the input at hand; a short metric summary plus the assertion-free list and recommendations is often enough. Never omit the rubric-relevant substance (assertion-free/trivial identification, the quality verdict, and concrete recommendations) — only trim structural overhead that adds no information.
+**Scale the report to the request.** Lead with the behavioral verdict and
+concrete findings. Account for every in-scope test, distinguishing deliberate
+smoke checks from correctness tests. State only counterexamples supported by
+the assertion predicate and available production behavior.
 
-For a five-to-eight-test file, default to one verdict plus one compact per-test
-table. Omit category-spread dashboards and hypothetical failure modes unless the
-caller asks for metrics. State only counterexamples supported by the assertion
-predicate and available production behavior.
+For predictable-output findings use:
 
-Present the analysis in this structure:
+| Test / location | Claimed output and actual check | Wrong output that still passes (static unless executed) | Repair |
+|---|---|---|---|
 
-1. **Summary Dashboard** — A quick-reference table of key metrics:
-   ```
-   | Metric                        | Value  | Assessment |
-   |-------------------------------|--------|------------|
-   | Total tests                   | 25     | —          |
-   | Average assertions per test   | 2.4    | Moderate   |
-   | Assertion type spread         | 5/12   | Low        |
-   | Tests with zero assertions    | 3 (12%)| Concerning |
-   | Tests with only trivial asserts | 4 (16%)| Acceptable |
-   | Tests with negative assertions | 2 (8%) | Below target |
-   | Single-category tests         | 15 (60%)| High       |
-   ```
+Name each affected method and line range, the accepted defective output, and the
+exact comparison, sequence, or parsed fields that reject it. Rank by the size
+and consequence of the unchecked contract, not the number of `Contains` calls.
+Keep strong controls and legitimate partial contracts credited. Distinguish
+confirmed inspected tests from search-only candidates or unavailable producer
+context; do not report an exhaustive count from a grep scan. A static review
+does not require editing tests or running mutations.
 
-2. **Category Breakdown** — For each assertion category, show:
-   - How many tests use it
-   - Representative examples from the code
-   - Whether it's overused or underused relative to the code under test
+Otherwise use one compact table:
 
-3. **Gap Analysis** — Based on the production code (if available), identify:
-   - Behaviors that are tested but only with equality checks
-   - Error paths with no exception assertions
-   - State-changing methods with no state verification
-   - Collections returned but never checked for contents
+| Test | Verdict (weak / meaningful / intentional smoke / unassessed) | What it pins, or a wrong result it accepts | Concrete repair |
+|---|---|---|---|
 
-4. **Recommendations** — Prioritized list of improvements:
-   - Which tests would benefit most from additional assertion types
-   - Which assertion categories are missing and why they matter
-   - Concrete examples of assertions that could be added
+Then list repairs in priority order. Each repair names the test and the exact
+assertion to add or replace; do not recommend assertion types in the abstract.
+When the caller requests metrics, add a short table of the Step 4 counts with
+their definitions; omit category breakdowns otherwise.
 
-5. **Assertion-free tests** — If any exist, list each one with its method name and what it appears to be testing, so the user can decide whether to add assertions or mark them as intentional smoke tests.
+If the suite is sound, say so first, count its tests exactly, and do not invent
+findings to fill the report. A mention of an optional improvement must be
+labelled optional and must not be framed as a defect.
+
+When the user forbids running commands, use only file read/search tools: no
+shell, build, test, or script execution, even to list files. Report results as
+static analysis.
 
 ## Validation
 
-- [ ] Every assertion in the test suite was classified into at least one category
-- [ ] Metrics are computed correctly (counts add up)
+- [ ] Every in-scope test method is accounted for and the test count is exact
+- [ ] Every count shown is defined and agrees with the per-test findings
+- [ ] No claim that a thrown exception passes a test unless the code swallows it
 - [ ] Trivial-assertion tests are correctly identified (not over-flagged)
 - [ ] Exception tests are not penalized for low assertion count
 - [ ] Boolean assertions on meaningful properties are not classified as trivial
 - [ ] Every weak-assertion claim includes a realistic counterexample that the
       exact matcher would accept
+- [ ] Predictable-output checks cover stable content, identities, multiplicity,
+      associations, and contractual ordering, not just fragments or totals
+- [ ] Repairs reuse available exact-text, sequence, JSON, or acceptance helpers
+      without masking stable differences through over-normalization
+- [ ] Complete equality checks and legitimate partial contracts are credited
+      without demanding assertion diversity
 - [ ] Jest matcher semantics are precise (`toBeDefined` versus `undefined`;
       `toMatchObject` subset matching versus identity/full equality)
 - [ ] Recommendations are concrete (name specific test methods and suggest specific assertion types)
@@ -204,7 +244,7 @@ Present the analysis in this structure:
 | Pitfall | Solution |
 |---------|----------|
 | Penalizing exception tests for low assertion count | Exception assertions are complete on their own — skip count warnings for these |
-| Flagging null/None/nil checks before value checks as trivial | Only flag tests where the null/None/nil check is the ONLY assertion |
+| Calling every null/None/nil-only test trivial | Check whether presence or absence is itself the promised outcome |
 | Counting any Boolean assertion as trivial | Only always-true assertions (`Assert.IsTrue(true)`, `assert True`, `expect(true).toBe(true)`) are trivial |
 | Ignoring framework differences | Each framework has distinct assertion APIs — always read the matching language extension first. MSTest's `Assert.AreEqual`, xUnit's `Assert.Equal`, NUnit's `Is.EqualTo`, pytest's bare `assert ==`, Jest's `expect().toBe()`, Go's `if … { t.Error… }` all map to the **Equality** category |
 | Treating bare assertion forms as missing-framework | Bare `assert` (pytest), `if got != want { t.Error... }` (Go), and `assert!()` (Rust) are canonical — count them in the right category |

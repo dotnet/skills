@@ -14,7 +14,7 @@ from pathlib import Path
 import yaml
 
 
-GH_AW_ACTIONS_SHA = "2fbab69bfca02bebd76cd0fc43f2d12acfed994f"
+GH_AW_ACTIONS_SHA = "53d0749e19424a918acd82b4d140264ce48f2f14"
 GH_AW_VERSION = "v1.2.2"
 ALLOWED_WARNINGS = (
     re.compile(

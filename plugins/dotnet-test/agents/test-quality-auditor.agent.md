@@ -31,7 +31,7 @@ broad health check:
 
 | Focused request | Direct route |
 |---|---|
-| Assertions are weak, shallow, or meaningless | `assertion-quality` |
+| Assertions are weak, shallow, or meaningless; predictable output is checked only through fragments or totals | `assertion-quality` |
 | Common test anti-patterns | `test-anti-patterns` |
 | Formal smell catalogue | `test-smell-detection` |
 | Bugs or mutations the suite would miss | `test-gap-analysis` |
@@ -69,6 +69,9 @@ logic before classifying it. Keep one evidence ledger: test name/location,
 actual assertion predicate, behavior it protects, and a realistic defect it
 would miss. Include sound tests as well as weak ones. Derive any counts and
 opening verdict from that ledger, not independently from each skill's summary.
+Account for every method in supplied files, including diagnostic tests beside
+report tests; mark unassessed methods explicitly rather than silently narrowing
+the file to the area named in the request.
 
 Core analysis skills (`test-anti-patterns`, `assertion-quality`,
 `test-gap-analysis`, `test-smell-detection`) are polyglot. `coverage-analysis`,
@@ -79,9 +82,21 @@ and mention a native coverage tool only when coverage is relevant.
 For a polyglot workspace, audit only the languages inside the requested
 boundary. Do not broaden a project request into a monorepo scan.
 
+For output-heavy suites, inspect generators, reports, CLI/provider listings,
+error text, terminal/protocol records, and acceptance assertions in that same
+inventory. Read producers and assertion helpers to establish stable expected
+content. Search hits are candidates, not reviewed findings. Check complete
+content, duplicates, ordering when promised, and test/provider/stream identity;
+correct totals or several `Contains` fragments do not establish those facts.
+Reuse nearby exact-text, sequence, parsed-JSON, or `AssertOutputMatchesLines`
+helpers after checking their semantics. Do not borrow a neighboring test's
+assertions or penalize a complete exact comparison for low diversity.
+
 ### 2. Establish execution viability once
 
-Inspect the test project/configuration. Run one existing narrow build or test
+Inspect the test project/configuration. When the user forbids running commands
+or asks for a read-only review, use only file read/search tools: no shell,
+build, test, or script execution, even to list files. Otherwise, run one existing narrow build or test
 command only when the user requests execution verification or the files reveal
 a concrete discovery/configuration defect that needs a probe. A broad static
 health check does not itself authorize speculative execution. For assertion,
@@ -160,7 +175,18 @@ Use severity or P0/P1/P2 labels and explain the behavioral consequence. Keep a
 specific valid equality or state assertion credited even when neighboring
 tests are weak; do not demand assertion variety for its own sake.
 
+Prioritize incomplete predictable-output checks by the regressions they admit.
+For each, cite the named test/location, actual predicate, a concrete wrong
+output it accepts, and the full-text, sequence, parsed-structure, or identity
+check needed. Preserve legitimate partial contracts and normalize only genuinely
+variable fields. Label unexecuted survivors as static predictions and distinguish
+fully inspected methods from unverified search candidates.
+
 Before reporting, reconcile the opening verdict, per-test findings, and totals.
+Count test methods exactly. Do not claim that a thrown exception would pass a
+test: an uncaught exception, panic, or awaited rejection fails it; only
+swallowing code paths (empty catch, catch-and-return, un-awaited async) can
+hide one. For a sound suite, say so and do not manufacture findings.
 Separate assertion syntax from behavioral purpose: equality on a count after
 an action can protect a state change. Do not claim there are no state checks
 after crediting one. Do not infer measured coverage or a numeric quality score

@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
+  loadReplayActivationContracts,
+  replayNonActivationStimuli,
+  assertReplayStimulusCoverage,
   activationDiagnostics,
   buildExecutionContext,
   comparisonToVerdict,
@@ -299,6 +302,91 @@ test("retries a transient comparison error once", () => {
     assert.equal(verdict.skillKind, "skill");
     assert.equal(verdict.recoveredErrors.length, 5);
     assert.match(processOutput(result), /without replacing successful judgments/);
+  });
+});
+
+test("replay activation contract uses saved expectations with exact stimulus coverage", () => {
+  withTempDir((root) => {
+    const contracts = { [evalFile]: Object.fromEntries(
+      Array.from({ length: 5 }, (_, i) => [`Scenario ${i + 1}`, i !== 0]),
+    ) };
+    const contractPath = join(root, "activation-contract.json");
+    writeFileSync(contractPath, JSON.stringify(contracts));
+    const loaded = loadReplayActivationContracts(contractPath);
+    const dormant = replayNonActivationStimuli(loaded, evalFile);
+    assert.deepEqual([...dormant], ["Scenario 1"]);
+    const records = [2, 3, 4, 5].map((i) => ({ stimulus: `Scenario ${i}` }));
+    assert.doesNotThrow(() => assertReplayStimulusCoverage(
+      loaded, evalFile, records, records, { stimuli: [] }, dormant,
+    ));
+    assert.throws(() => assertReplayStimulusCoverage(
+      loaded, evalFile, records.slice(1), records.slice(1), { stimuli: [] }, dormant,
+    ), /Replay stimulus coverage differs/);
+    contracts[evalFile]["Scenario 1"] = "false";
+    writeFileSync(contractPath, JSON.stringify(contracts));
+    assert.throws(() => loadReplayActivationContracts(contractPath),
+      /Invalid replay activation contract/);
+  });
+});
+
+test("adapted trial evidence retains stable comparison trialIndex", () => {
+  const report = reportFromStimulusRuns([[1]]);
+  report.stimuli[0].trials[0].trialIndex = 9;
+  const verdict = comparisonToVerdict(report, IDENTITY, EMPTY_ROLES, new Set());
+  assert.equal(verdict.scenarios[0].trials[0].trialIndex, 9);
+});
+
+test("replay preserves saved activation expectations and execution context together", () => {
+  withTempDir((root) => {
+    const contractPath = join(root, "activation-contract.json");
+    writeFileSync(contractPath, JSON.stringify({
+      [evalFile]: Object.fromEntries(
+        Array.from({ length: 5 }, (_, i) => [`Scenario ${i + 1}`, i !== 0]),
+      ),
+    }));
+    const manifestPath = join(root, "runtime-identity.json");
+    writeFileSync(manifestPath, JSON.stringify({
+      toolchain: { runtimeVersion: "1.0.103" },
+      toolSchemas: { "gpt-5.3-codex": { sha256: "abc", toolCount: 14 } },
+    }));
+    const experimentFactory = (directory) => {
+      const runDir = createExperimentWithNativeLogs(directory);
+      for (const variant of ["baseline", "skilled"]) {
+        const path = join(runDir, variant, "results.jsonl");
+        const record = JSON.parse(readFileSync(path, "utf8").trim());
+        writeJsonl(path, Array.from({ length: 5 }, (_, i) => ({
+          ...record, stimulus: `Scenario ${i + 1}`,
+        })));
+      }
+      return runDir;
+    };
+    const { result, verdict, compareCount } = runAdapter(
+      root, "clean", 5, [evalFile], experimentFactory,
+      join(root, "absent-repo"),
+      [
+        "--replay-activation-contract", contractPath,
+        "--execution-context", manifestPath,
+        "--model", "gpt-5.3-codex", "--judge-model", "claude-haiku-4.5",
+        "--reasoning-effort", "high", "--context-tier", "long_context",
+      ],
+    );
+    assert.equal(result.status, 0, processOutput(result));
+    assert.equal(compareCount, 1);
+    assert.equal(verdict.scenarios.length, 5);
+    assert.equal(verdict.scenarios.find((s) => s.scenarioName === "Scenario 1").expectActivation, false);
+    assert.equal(verdict.scenarios.find((s) => s.scenarioName === "Scenario 2").expectActivation, true);
+    assert.equal(verdict.executionContext.identityManifest.status, "loaded");
+    assert.equal(verdict.executionContext.toolchain.runtimeVersion, "1.0.103");
+    assert.equal(verdict.executionContext.toolSchemas["gpt-5.3-codex"].sha256, "abc");
+    assert.deepEqual(verdict.executionContext.requested, {
+      model: "gpt-5.3-codex",
+      judgeModel: "claude-haiku-4.5",
+      reasoningEffort: "high",
+      contextTier: "long_context",
+    });
+    assert.equal(verdict.executionContext.observed.trialsWithSessionLog, 10);
+    assert.deepEqual(verdict.executionContext.observed.runtimeVersions, { "1.0.103": 10 });
+    assert.deepEqual(verdict.executionContext.byVariant.skilled.terminalPhases, { final_answer: 5 });
   });
 });
 
