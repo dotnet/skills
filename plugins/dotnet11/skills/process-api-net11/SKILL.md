@@ -40,6 +40,35 @@ Inspect the project's actual `TargetFramework` or `TargetFrameworks` before intr
 <TargetFramework>net11.0</TargetFramework>
 ```
 
+## Key Rules
+
+- When redirecting standard output and standard error, drain both concurrently while the process runs. Never wait for exit before reading, and never read them sequentially; a full pipe blocks the child. See [output capture](references/output-capture.md).
+- Never redirect output to pipes merely to suppress it; use `silent: true` or null handles instead. See [running without capture](references/running-without-capture.md).
+- Never capture output merely to write it unchanged to the parent's console; use `Run[Async]` without redirection so the child writes to the inherited streams directly.
+- Output EOF is not process termination, and termination is not EOF. Status waits do not drain pipes, and a descendant holding a pipe's write end prevents EOF.
+- Canceling a wait or disposing a `Process` or `SafeProcessHandle` does not terminate the child. Choose deliberately between wait-only and kill-and-wait behavior.
+- Always restrict inheritance with `ProcessStartInfo.InheritedHandles` on every platform: use `[]` when the child needs no additional handles, or list only the handles it requires. Standard handles are still inherited and can reach grandchildren. See [handle inheritance](references/handle-inheritance.md) for details.
+- Full capture buffers all output in memory. For untrusted or potentially unlimited output, use fixed-size reads with one shared retention budget across stdout and stderr, and keep draining after the budget is reached.
+- Prefer argument collections over concatenating, interpolating, or joining arguments into `ProcessStartInfo.Arguments`.
+- Do not manually copy the parent's environment variables: `ProcessStartInfo.Environment` and `EnvironmentVariables` already initialize from them automatically. Apply only the child-specific changes.
+- Keep `ProcessStartInfo.UseShellExecute` at its default value of `false`. Leave the property unset rather than explicitly assigning `false`: when the application never sets it, the AOT compiler can eliminate the unused shell-execution code.
+- When `ProcessStartInfo.UseShellExecute` is `false` (or unset), `Process.Start` can never return `null` (it throws on error). Use `Process.Start(startInfo)!`; no redundant null check or `?? throw` is needed.
+- When `ProcessStartInfo.UseShellExecute` is `true`, `Process.Start` can return `null` even after successfully opening a URL or document. That `null` should not be treated as a failure.
+- Never use `.Wait()`, `.Result`, or `.GetAwaiter().GetResult()` to synchronously block on an asynchronous process operation: sync-over-async can deadlock and blocks the calling thread. Do not call synchronous process-wait methods from asynchronous code either.
+
+## Workflow
+
+| Task | Steps |
+|------|-------|
+| Writing new process code, such as running a tool and capturing its output | 1, 2, 4, 5 |
+| Modifying, modernizing, or reviewing existing process code, including searching it for bugs | 1-5 |
+
+1. Inspect the target frameworks and the existing synchronous or asynchronous calling model, as described in [Target Framework](#target-framework) and [Choosing Synchronous or Asynchronous APIs](#choosing-synchronous-or-asynchronous-apis).
+2. Identify the behavioral contract: where output goes, what completion means, what happens on timeout or cancellation, and who owns the child's lifetime.
+3. For existing code only: read [anti-patterns](references/anti-patterns.md), then search all process-management code for every listed pattern, not only the call sites you already found. Search for `Process.Start`, `new Process`, `ProcessStartInfo`, `RedirectStandard`, `WaitForExit`, `ReadToEnd`, `BeginOutputReadLine`, `DataReceived`, `Exited`, `HasExited`, `ExitCode`, `Kill(`, and `Environment.SetEnvironmentVariable`.
+4. Choose the API from [Choosing an API](#choosing-an-api) and read the matching references from the [Reference Guide](#reference-guide).
+5. Make the smallest change that preserves existing output, logging, environment, cleanup, and error behavior, then validate every affected target framework.
+
 ## Choosing Synchronous or Asynchronous APIs
 
 When modernizing existing code, preserve its synchronous or asynchronous calling model unless a concrete requirement justifies changing it. Do not propagate `async` through callers merely to use a new Process API. For synchronous CLI operations, prefer synchronous overloads, including their timeout parameters. Use asynchronous overloads when responsiveness, scalability, or caller-provided cancellation requires avoiding a blocked calling thread; preserve asynchronous callers and await these overloads directly.
@@ -47,8 +76,6 @@ When modernizing existing code, preserve its synchronous or asynchronous calling
 **Concurrent pipe draining does not require asynchronous orchestration.** Synchronous `ReadAllLines`, `ReadAllText`, `ReadAllBytes`, and `RunAndCaptureText` service stdout and stderr together internally and support timeouts. Streaming output, enforcing a timeout, or managing multiple processes is not by itself a reason to introduce asynchronous reader tasks or change method signatures.
 
 Choose the smallest orchestration model that meets the actual concurrency and lifetime requirements. A synchronous loop drains only the process being enumerated: another process that can produce output while that loop runs still needs its own active reader. For example, keep a recorder's existing event-based readers running while synchronously consuming a tracee's output; do not replace the recorder's readers merely for API uniformity. If the calling thread must also service another handshake or feed stdin while draining output, preserve the necessary concurrency rather than serializing those operations.
-
-**Never use `.Wait()`, `.Result`, or `.GetAwaiter().GetResult()` to synchronously block on an asynchronous process operation: sync-over-async can deadlock and blocks the calling thread.** Do not call synchronous process-wait methods from asynchronous code either.
 
 ## Choosing an API
 
@@ -72,34 +99,6 @@ Choose the smallest orchestration model that meets the actual concurrency and li
 | Terminate the child when the parent exits | `ProcessStartInfo.KillOnParentExit` (Windows, Linux, Android) |
 | Detach the child from the parent's terminal | `ProcessStartInfo.StartDetached` |
 | Manage a process with a small, trimmer-friendly API surface | `SafeProcessHandle.Start` and its wait, kill, and signal methods |
-
-## Workflow
-
-| Task | Steps |
-|------|-------|
-| Writing new process code, such as running a tool and capturing its output | 1, 2, 4, 5 |
-| Modifying, modernizing, or reviewing existing process code, including searching it for bugs | 1-5 |
-
-1. Inspect the target frameworks and the existing synchronous or asynchronous calling model, as described above.
-2. Identify the behavioral contract: where output goes, what completion means, what happens on timeout or cancellation, and who owns the child's lifetime.
-3. For existing code only: read [anti-patterns](references/anti-patterns.md), then search all process-management code for every listed pattern, not only the call sites you already found. Search for `Process.Start`, `new Process`, `ProcessStartInfo`, `RedirectStandard`, `WaitForExit`, `ReadToEnd`, `BeginOutputReadLine`, `DataReceived`, `Exited`, `HasExited`, `ExitCode`, `Kill(`, and `Environment.SetEnvironmentVariable`.
-4. Choose the API from [Choosing an API](#choosing-an-api) and read the matching references from the [Reference Guide](#reference-guide).
-5. Make the smallest change that preserves existing output, logging, environment, cleanup, and error behavior, then validate every affected target framework.
-
-## Key Rules
-
-- When redirecting standard output and standard error, drain both concurrently while the process runs. Never wait for exit before reading, and never read them sequentially; a full pipe blocks the child. See [output capture](references/output-capture.md).
-- Never redirect output to pipes merely to suppress it; use `silent: true` or null handles instead. See [running without capture](references/running-without-capture.md).
-- Never capture output merely to write it unchanged to the parent's console; use `Run[Async]` without redirection so the child writes to the inherited streams directly.
-- Output EOF is not process termination, and termination is not EOF. Status waits do not drain pipes, and a descendant holding a pipe's write end prevents EOF.
-- Canceling a wait or disposing a `Process` or `SafeProcessHandle` does not terminate the child. Choose deliberately between wait-only and kill-and-wait behavior.
-- Always restrict inheritance with `ProcessStartInfo.InheritedHandles` on every platform: use `[]` when the child needs no additional handles, or list only the handles it requires. Standard handles are still inherited and can reach grandchildren. See [handle inheritance](references/handle-inheritance.md) for details.
-- Full capture buffers all output in memory. For untrusted or potentially unlimited output, use fixed-size reads with one shared retention budget across stdout and stderr, and keep draining after the budget is reached.
-- Prefer argument collections over concatenating, interpolating, or joining arguments into `ProcessStartInfo.Arguments`.
-- Do not manually copy the parent's environment variables: `ProcessStartInfo.Environment` and `EnvironmentVariables` already initialize from them automatically. Apply only the child-specific changes.
-- Keep `ProcessStartInfo.UseShellExecute` at its default value of `false`. Leave the property unset rather than explicitly assigning `false`: when the application never sets it, the AOT compiler can eliminate the unused shell-execution code.
-- When `ProcessStartInfo.UseShellExecute` is `false` (or unset), `Process.Start` can never return `null` (it throws on error). Use `Process.Start(startInfo)!`; no redundant null check or `?? throw` is needed.
-- When `ProcessStartInfo.UseShellExecute` is `true`, Process.Start can return `null` even after successfully opening a URL or document. That null should not be treated as a failure.
 
 ## Reference Guide
 
