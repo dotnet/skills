@@ -17,7 +17,7 @@ using SafeProcessHandle handle = SafeProcessHandle.Start(startInfo);
 ProcessExitStatus status = handle.WaitForExit();
 ```
 
-Standard handles are inherited by default, so this example leaves output visible. Keep `UseShellExecute` unset, as described in [Target Framework](../SKILL.md#target-framework), to allow unused shell-execution code to be trimmed as well.
+Standard handles are inherited by default, so this example leaves output visible. Keep `UseShellExecute` unset, as described in [Key Rules](../SKILL.md#key-rules), to allow unused shell-execution code to be trimmed as well.
 
 | Need | SafeProcessHandle API |
 |------|-----------------------|

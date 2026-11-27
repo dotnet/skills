@@ -40,21 +40,6 @@ Inspect the project's actual `TargetFramework` or `TargetFrameworks` before intr
 <TargetFramework>net11.0</TargetFramework>
 ```
 
-When starting a process with the APIs or `ProcessStartInfo` features described in this skill, keep `UseShellExecute` at its default value of `false`. Leave the property unset rather than explicitly assigning `false`: when the application never sets it, the AOT compiler can eliminate the unused shell-execution code.
-
-**Prefer argument collections over concatenating, interpolating, or joining arguments into `ProcessStartInfo.Arguments`.**
-
-Do not manually copy the parent's environment variables: `ProcessStartInfo.Environment` and `EnvironmentVariables` already initialize from them automatically. Apply only the child-specific changes.
-
-The nullability of static `Process.Start` depends on the launch mode:
-
-| Launch mode | Return value and handling |
-|-------------|---------------------------|
-| Direct executable launch: `UseShellExecute = false` (the default) | Returns a `Process` on success or throws. Use `Process.Start(startInfo)!`; no redundant null check or `?? throw` is needed. |
-| Shell association: `UseShellExecute = true` | May return `null` after successfully opening a URL or document without creating a new process. Preserve the nullable result; do not apply the direct-launch non-null guarantee or treat `null` alone as a launch failure. |
-
-The `!` assertions in the executable examples below apply only with shell execution disabled. If a shell-opening request brought you here, do not replace it with these executable-management APIs. Ordinary `Process.Start` with `UseShellExecute = true` returns without waiting; use `Process?` or null-conditional disposal for any returned wrapper, without waiting for or terminating the browser or document application.
-
 ## Choosing Synchronous or Asynchronous APIs
 
 When modernizing existing code, preserve its synchronous or asynchronous calling model unless a concrete requirement justifies changing it. Do not propagate `async` through callers merely to use a new Process API. For synchronous CLI operations, prefer synchronous overloads, including their timeout parameters. Use asynchronous overloads when responsiveness, scalability, or caller-provided cancellation requires avoiding a blocked calling thread; preserve asynchronous callers and await these overloads directly.
@@ -110,6 +95,11 @@ Choose the smallest orchestration model that meets the actual concurrency and li
 - Canceling a wait or disposing a `Process` or `SafeProcessHandle` does not terminate the child. Choose deliberately between wait-only and kill-and-wait behavior.
 - Always restrict inheritance with `ProcessStartInfo.InheritedHandles` on every platform: use `[]` when the child needs no additional handles, or list only the handles it requires. Standard handles are still inherited and can reach grandchildren. See [handle inheritance](references/handle-inheritance.md) for details.
 - Full capture buffers all output in memory. For untrusted or potentially unlimited output, use fixed-size reads with one shared retention budget across stdout and stderr, and keep draining after the budget is reached.
+- Prefer argument collections over concatenating, interpolating, or joining arguments into `ProcessStartInfo.Arguments`.
+- Do not manually copy the parent's environment variables: `ProcessStartInfo.Environment` and `EnvironmentVariables` already initialize from them automatically. Apply only the child-specific changes.
+- Keep `ProcessStartInfo.UseShellExecute` at its default value of `false`. Leave the property unset rather than explicitly assigning `false`: when the application never sets it, the AOT compiler can eliminate the unused shell-execution code.
+- When `ProcessStartInfo.UseShellExecute` is `false` (or unset), `Process.Start` can never return `null` (it throws on error). Use `Process.Start(startInfo)!`; no redundant null check or `?? throw` is needed.
+- When `ProcessStartInfo.UseShellExecute` is `true`, Process.Start can return `null` even after successfully opening a URL or document. That null should not be treated as a failure.
 
 ## Reference Guide
 
