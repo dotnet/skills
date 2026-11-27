@@ -2,103 +2,126 @@
 
 These breaking changes affect projects using Entity Framework Core 11. Source: https://learn.microsoft.com/en-us/ef/core/what-is-new/ef-core-11.0/breaking-changes
 
-> **Note:** .NET 11 is in preview. The changes below were introduced in **Preview 1 through Preview 3**. Additional EF Core breaking changes are expected in later previews.
+Several of the highest-impact changes compile cleanly and only show against existing data. Check the provider-specific sections for every provider the project uses.
 
-## Medium-Impact Changes
+## Azure Cosmos DB Provider
 
-### Sync I/O via the Azure Cosmos DB provider has been fully removed (Preview 1)
+### Unmapped properties are no longer preserved
 
-**Impact: Medium.** Synchronous I/O via the Azure Cosmos DB provider has been completely removed. In EF Core 10, sync I/O was unsupported by default but could be re-enabled with a special opt-in. In EF Core 11, calling any synchronous I/O API always throws — there is no opt-in to restore the old behavior.
+**Impact: High (data loss).** In EF Core 10, JSON properties of a Cosmos document that were not part of the EF model were kept in the `__jObject` shadow property and written back on `SaveChanges`. In EF Core 11 they are ignored when reading, so loading an entity and saving it again removes those properties from the stored document. Nothing fails at build or run time.
 
-**Affected APIs:**
-- `ToList()`, `First()`, `Single()`, `Count()`, and other synchronous LINQ operators
-- `SaveChanges()`
-- Any synchronous query execution against the Cosmos DB provider
+**Fix:**
+- Find documents that carry properties the model does not map (fields written by other services, older schema versions, or properties removed from the entity class).
+- Map every property that must survive in the EF model, or read and write those documents through `CosmosClient` directly (`context.Database.GetCosmosClient()`).
+- Test a load-modify-save round trip against a copy of real data before deploying.
+
+Source: https://learn.microsoft.com/en-us/ef/core/what-is-new/ef-core-11.0/breaking-changes
+
+### Illegal `id` characters are no longer escaped
+
+**Impact: Medium.** When EF Core builds a composite `id` from key values, it no longer escapes `/`, `\`, `?`, and `#` (previously `^2F`, `^5C`, `^3F`, and `^23`). The `|` separator and any `|` in key values are still escaped. Documents saved by EF Core 10 with escaped ids, such as `Post|1|^2F`, are not found by the new unescaped id `Post|1|/`.
+
+**Fix:** If existing documents may contain escaped ids, restore the old behavior:
 
 ```csharp
-// BREAKS in EF Core 11 — always throws
+AppContext.SetSwitch("Microsoft.EntityFrameworkCore.EscapeIllegalCosmosIdCharacters", true);
+```
+
+The old scheme never escaped `^`, so a key containing the literal text `^2F` collides with a key containing `/`; the switch keeps that collision. For new databases, avoid these characters in key values.
+
+Source: https://learn.microsoft.com/en-us/ef/core/what-is-new/ef-core-11.0/breaking-changes
+
+### Sync I/O has been fully removed
+
+**Impact: Medium.** In EF Core 10, synchronous I/O with the Cosmos provider was unsupported by default but could be re-enabled. In EF Core 11, every synchronous I/O API always throws, and there is no opt-in.
+
+```csharp
+// Throws in EF Core 11
 var items = context.Items.ToList();
 context.SaveChanges();
 
-// FIX: Use async equivalents
+// Fix: use the async equivalents
 var items = await context.Items.ToListAsync();
 await context.SaveChangesAsync();
 ```
 
-**Why:** Synchronous blocking on asynchronous methods ("sync-over-async") can lead to deadlocks and performance problems. Since the Azure Cosmos DB SDK only supports async methods, the EF Cosmos provider now requires async throughout.
-
-**Fix:** Convert all synchronous I/O calls to their async equivalents:
-- `ToList()` → `await ToListAsync()`
-- `First()` → `await FirstAsync()`
-- `Single()` → `await SingleAsync()`
-- `Count()` → `await CountAsync()`
-- `SaveChanges()` → `await SaveChangesAsync()`
-- `Any()` → `await AnyAsync()`
+**Fix:** Convert `ToList()`, `First()`, `Single()`, `Count()`, `Any()`, and `SaveChanges()` (and other synchronous query operators) to their async equivalents.
 
 Tracking issue: https://github.com/dotnet/efcore/issues/37059
 
-### Cosmos: empty owned collections return empty collection instead of null (Preview 1)
+### Exception when a projection evaluates to undefined
 
-**Impact: Low.** When a Cosmos-backed entity has an owned collection with no items, the property now returns an empty collection rather than `null`.
+**Impact: Medium.** A projection that evaluates to `undefined` in Cosmos now throws instead of returning a default value: "A part of the projection was undefined, use the coalesce operator to handle possible undefined values."
 
-**Fix:** Update null checks to empty-collection checks: `if (entity.Items is null)` → `if (entity.Items.Count == 0)`.
+**Fix:** Filter with `EF.Functions.IsDefined(...)` in a `Where`, or project with `EF.Functions.CoalesceUndefined(..., default)`.
 
-Tracking issue: https://github.com/dotnet/efcore/issues/36577
+### Other Cosmos changes
 
-## Preview 3 Changes
+**Impact: Low.**
+- The `__jObject` shadow property is removed; accessing it throws `InvalidOperationException`. Read raw documents with `context.Database.GetCosmosClient()` and `ReadItemAsync<JsonElement>`.
+- An owned collection with no items now returns an empty collection instead of `null`. Replace `is null` checks with `is { Count: 0 }`.
+- The default discriminator property is named `Discriminator` in the model (the JSON name stays `$type`). Code that refers to the model property name `$type` must switch to `Discriminator`: queries and query filters such as `EF.Property<string>(e, "$type")`, and metadata lookups (`FindDiscriminatorProperty().Name` now returns `Discriminator`).
+- Floating-point values materialized into fixed-point types are truncated instead of rounded (`0.75` becomes `0`).
 
-### RelationalEventId.MigrationsNotFound now throws by default (Preview 3)
+## SQL Server Provider
 
-**Impact: Low.** Calling `Migrate()` or `MigrateAsync()` when no migrations exist in the assembly now throws an exception rather than silently logging.
+### Compatibility level defaults to 160
 
-**Fix:** If intentional, suppress with: `options.ConfigureWarnings(w => w.Ignore(RelationalEventId.MigrationsNotFound))`.
+**Impact: Low–Medium (fails only against older servers).** `UseSqlServer` without an explicit compatibility level now targets 160 (SQL Server 2022) instead of 150 (SQL Server 2019). Queries using `Math.Min`, `Math.Max`, and some `Take`/`Skip` patterns can now translate to `LEAST` and `GREATEST`, which fail on SQL Server 2019 or older, and on databases set to a compatibility level below 160. The application still builds and the failure appears only when the query runs.
 
-Source: https://github.com/dotnet/efcore/pull/37839
+**Fix:** Match the compatibility level of the oldest database the application runs against:
 
-### EF Core Tools and Tasks no longer transitively depend on Design (Preview 3)
-
-**Impact: Low.** The `Microsoft.EntityFrameworkCore.Tools` and `Microsoft.EntityFrameworkCore.Tasks` NuGet packages no longer have a transitive dependency on `Microsoft.EntityFrameworkCore.Design`.
-
-**Fix:** If your project relied on this transitive reference, add it explicitly:
-
-```xml
-<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="11.0.0" PrivateAssets="all" />
+```csharp
+optionsBuilder.UseSqlServer(connectionString, o => o.UseCompatibilityLevel(150));
 ```
 
-Source: https://github.com/dotnet/efcore/pull/37837
+Source: https://learn.microsoft.com/en-us/ef/core/what-is-new/ef-core-11.0/breaking-changes#sql-server-compatibility-level-now-defaults-to-160
 
-### EFOptimizeContext MSBuild property removed (Preview 3)
+### Microsoft.Data.SqlClient updated to 7.0
 
-**Impact: Low.** The `<EFOptimizeContext>true</EFOptimizeContext>` MSBuild property no longer exists. Code generation is now controlled by `<EFScaffoldModelStage>` and `<EFPrecompileQueriesStage>`.
+**Impact: Medium.** The SQL Server provider depends on `Microsoft.Data.SqlClient` 7.0, which removes the Azure and Entra ID authentication dependencies (`Azure.Core`, `Azure.Identity`, `Microsoft.Identity.Client`) from the core package.
 
-**Fix:** Replace `<EFOptimizeContext>` with the two new properties. With `PublishAOT=true`, generation is automatic during publish.
-
-Source: https://github.com/dotnet/efcore/pull/37838
-
-### SqlVector&lt;T&gt; properties excluded from SELECT by default (Preview 3)
-
-**Impact: Low.** `SqlVector<T>` properties are now excluded from `SELECT` statements when materializing entities (they return `null`). They can still be used in `WHERE`/`ORDER BY` for vector search.
-
-**Fix:** Use explicit projections to include vector values: `.Select(b => new { b.Id, b.Embedding })`.
-
-Source: https://github.com/dotnet/efcore/pull/37829
-
-### Microsoft.Data.SqlClient updated to 7.0 (Preview 3)
-
-**Impact: Medium.** EF Core's SQL Server provider now depends on `Microsoft.Data.SqlClient` 7.0. In v7, Azure/Entra ID authentication dependencies (`Azure.Core`, `Azure.Identity`, `Microsoft.Identity.Client`) have been removed from the core package.
-
-**Fix:** If using Entra ID authentication (e.g., `ActiveDirectoryDefault`, `ActiveDirectoryManagedIdentity`), add:
+**Fix:** If the app uses `ActiveDirectoryDefault`, `ActiveDirectoryInteractive`, `ActiveDirectoryManagedIdentity`, or `ActiveDirectoryServicePrincipal`, add:
 
 ```xml
 <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.0.0" />
 ```
 
+`SqlAuthenticationMethod.ActiveDirectoryPassword` is obsolete; move to `ActiveDirectoryDefault` or `ActiveDirectoryInteractive`.
+
 Source: https://github.com/dotnet/efcore/pull/37949
 
-### Encryption-enabled SQLite packages removed (Preview 3)
+### `SqlVector<T>` properties are not loaded by default
 
-**Impact: Medium.** `SQLitePCLRaw 3.0` (used by `Microsoft.Data.Sqlite` 11) removed `bundle_e_sqlcipher` and several other bundle packages.
+**Impact: Low.** `SqlVector<T>` properties are excluded from `SELECT` and are `null` on materialized entities. They still work in `WHERE` and `ORDER BY`, including `VectorDistance()` and `VectorSearch()`.
 
-**Fix:** Switch to SQLite Encryption Extension (SEE), SQLCipher from Zetetic, or `SQLite3MultipleCiphers-NuGet`.
+**Fix:** Use an explicit projection to read vector values: `.Select(b => new { b.Id, b.Embedding })`.
 
-Source: https://github.com/dotnet/efcore/issues/37059
+Source: https://github.com/dotnet/efcore/pull/37829
+
+## SQLite Provider
+
+### Some SQLitePCLRaw bundle packages are no longer maintained
+
+**Impact: Medium.** `Microsoft.Data.Sqlite` 11 uses SQLitePCLRaw 3.x. `SQLitePCLRaw.bundle_e_sqlcipher`, `bundle_sqlite3`, `bundle_winsqlite3`, `bundle_green`, and `bundle_e_sqlite3mc` are no longer updated and conflict with SQLitePCLRaw.Core 3.x.
+
+**Fix:**
+- Encrypted databases (SQLCipher): use SQLite3 Multiple Ciphers (`SQLite3MC.PCLRaw.bundle`), SQLite Encryption Extension, or SQLCipher from Zetetic. With `SQLite3MC.PCLRaw.bundle`, reference `Microsoft.EntityFrameworkCore.Sqlite.Core` (or `Microsoft.Data.Sqlite.Core` without EF Core) instead of the main package, so the default bundle is not loaded alongside it. SQLite3 Multiple Ciphers uses a different cipher by default, so replacing the bundle alone leaves an existing SQLCipher database unreadable. Select the SQLCipher scheme with URI parameters, using the `legacy` value that matches the SQLCipher version that created the database: `Data Source=file:example.db?cipher=sqlcipher&legacy=4`.
+- `bundle_sqlite3` or `bundle_winsqlite3`: use `SQLitePCLRaw.provider.sqlite3` or `SQLitePCLRaw.provider.winsqlite3` and call `SQLitePCL.raw.SetProvider(...)` at startup.
+- `bundle_green`: use `SQLitePCLRaw.bundle_e_sqlite3`.
+
+### Microsoft.Data.Sqlite no longer supports .NET Framework
+
+**Impact: Medium.** The packages target `net10.0` and later only. Projects that multi-target .NET Framework must stay on the latest 10.0.x release of `Microsoft.Data.Sqlite` for that target. UWP and classic Xamarin are no longer supported either.
+
+## All Providers
+
+**Impact: Low.**
+- **Migrations not found throws:** `Migrate()` or `MigrateAsync()` with no migrations in the assembly now throws. If intentional, use `options.ConfigureWarnings(w => w.Ignore(RelationalEventId.MigrationsNotFound))`.
+- **Scaffolded migration class names include the migration ID** (for example `_20261118152232_AddBlog`). This can trigger CA1707; suppress it for `Migrations/*.cs` in `.editorconfig` if needed.
+- **EF tools packages no longer reference Design:** `Microsoft.EntityFrameworkCore.Tools` and `.Tasks` no longer depend on `Microsoft.EntityFrameworkCore.Design`. Add `<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="11.0.0" PrivateAssets="all" />` if the project relied on it.
+- **`EFOptimizeContext` removed:** replace it with `<EFScaffoldModelStage>` and `<EFPrecompileQueriesStage>` (`publish` or `build`). With `PublishAot=true`, generation runs on publish automatically.
+- **Owned JSON collections without an explicit key are obsolete** (`OwnedEntityMappedToJsonCollectionWarning`). Use `ComplexCollection(b => b.Posts, b => b.ToJson())` or add a key.
+- **`Property` no longer configures primitive collections:** use `PrimitiveCollection(b => b.Tags)`.
+- **Split queries throw on concurrent modification** (`DbQueryConcurrencyException`). Retry, use a serializable or snapshot transaction, or use `AsSingleQuery()`.
+- **Assigning the same owned instance to more than one navigation throws** `InvalidOperationException`. Give each navigation its own instance, or use a complex type.
